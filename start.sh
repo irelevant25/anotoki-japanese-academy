@@ -6,16 +6,19 @@ set -u
 # Japanese Academy - Launcher
 # Linux / macOS
 #
-# Finds PHP (8.1 or newer, with pdo_pgsql, mbstring and intl), runs
-# setup.php (database settings the first time; then the database, its
-# tables and the study content), starts the server and opens the browser.
+# Finds PHP (8.1 or newer, with pdo_pgsql, mbstring and intl) and Node.js,
+# builds the app when its sources changed (the first time this also installs
+# its packages), starts the server (backend/server.php, which applies new
+# migrations and takes the day's backup first) and opens the browser: the app,
+# or the setup page (/setup.php) while this copy is not set up yet.
 # Ctrl+C stops it.
 # ============================================================
 
 PROJECT_NAME="Japanese Academy"
 
-# The first start builds the study content in the database (a few seconds).
-SERVER_STARTUP_TIMEOUT=60
+# The first start after an update builds the study content in the database,
+# and a database update copies every table first: seconds, rarely a minute.
+SERVER_STARTUP_TIMEOUT=120
 
 # ------------------------------------------------------------
 # Colors
@@ -53,27 +56,6 @@ die() {
     error "ERROR: $1"
     echo ""
     exit 1
-}
-
-ask_yes_no() {
-    local question="$1"
-    local answer
-
-    while true; do
-        read -r -p "$question [Y/n]: " answer
-
-        case "$answer" in
-            [Yy]|[Yy][Ee][Ss]|"")
-                return 0
-                ;;
-            [Nn]|[Nn][Oo])
-                return 1
-                ;;
-            *)
-                echo "Please answer Y or N."
-                ;;
-        esac
-    done
 }
 
 # Prints nothing when this PHP can run the app, else the reason it can't.
@@ -127,12 +109,28 @@ open_browser() {
     fi
 }
 
-# 0 when the app answers at this address.
-app_answers() {
+# The HTTP status the server answers this address with (503: not set up yet), or 000.
+status_of() {
     if command -v curl >/dev/null 2>&1; then
-        curl -fsS -m 2 "$1/api/health" >/dev/null 2>&1
+        curl -s -o /dev/null -m 2 -w '%{http_code}' "$1" 2>/dev/null || true
     else
-        "$PHP" -r 'exit(@file_get_contents($argv[1] . "/api/health") === false ? 1 : 0);' "$1"
+        "$PHP" -r '$h = @get_headers($argv[1]); echo $h && preg_match("~ (\d{3})~", $h[0], $m) ? $m[1] : "000";' "$1"
+    fi
+}
+
+# 0 when the server answers at all.
+app_answers() {
+    local code
+    code="$(status_of "$1/api/health")"
+    [ -n "$code" ] && [ "$code" != "000" ]
+}
+
+# What to open: the app, or the setup page while this copy is not set up yet.
+open_url() {
+    if [ "$(status_of "$APP_URL/api/health")" = "503" ]; then
+        echo "$APP_URL/setup.php"
+    else
+        echo "$APP_URL"
     fi
 }
 
@@ -156,12 +154,12 @@ echo ""
 # The folder of this script, wherever it was started from.
 cd "$(dirname "$0")" || die "Cannot enter the folder of this script."
 
-if [ ! -f server.php ] || [ ! -f setup.php ]; then
-    die "server.php or setup.php is missing. This script belongs in the $PROJECT_NAME folder."
+if [ ! -f backend/server.php ] || [ ! -f frontend/package.json ]; then
+    die "backend/server.php or frontend/package.json is missing. This script belongs in the $PROJECT_NAME folder."
 fi
 
 # ------------------------------------------------------------
-# 2. PHP
+# 2. PHP and Node.js
 # ------------------------------------------------------------
 
 info "Looking for PHP 8.1+ with pdo_pgsql, mbstring and intl..."
@@ -170,6 +168,7 @@ PHP=""
 TRIED=""
 
 while read -r candidate; do
+    [ -z "$candidate" ] && continue
     problem="$(php_problem "$candidate")"
     if [ -z "$problem" ]; then
         PHP="$candidate"
@@ -196,34 +195,45 @@ Or set ACADEMY_PHP to the php to use. Then run this launcher again."
 fi
 
 success "PHP: $PHP"
-echo ""
 
-# ------------------------------------------------------------
-# 3. The database
-# ------------------------------------------------------------
+# The app is built with Node.js (Angular needs 20.19, 22.12, or 24 and newer).
+NODE_VERSION="$(node -v 2>/dev/null || true)"
+case "$NODE_VERSION" in
+    v2[0-9].*|v[3-9][0-9].*) ;;
+    *) die "Node.js 20.19 or newer was not found (${NODE_VERSION:-none}). It builds the app (once, and again after an update).
 
-info "Checking the database..."
-echo ""
-
-# The first time, setup.php asks for the database settings. After that it
-# only does what is still missing: the database, its tables, the study
-# content, and the one-time import of your old progress files.
-if ! "$PHP" setup.php; then
-    die "Setup did not finish: the message above says why.
-
-If it is about the database: PostgreSQL must be installed and running
-(https://www.postgresql.org/download/), and its settings are in
-src/config.local.php. To enter them again, delete that file and run this
-launcher again."
+Install the LTS version from https://nodejs.org, then run this launcher again." ;;
+esac
+NODE_MAJOR="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_MAJOR%%.*}"
+NODE_MINOR="${NODE_VERSION#v*.}"
+NODE_MINOR="${NODE_MINOR%%.*}"
+if { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 19 ]; } || [ "$NODE_MAJOR" -eq 21 ] \
+    || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 12 ]; } || [ "$NODE_MAJOR" -eq 23 ]; then
+    die "Node.js $NODE_VERSION is too old to build the app: install the LTS version from https://nodejs.org."
 fi
-
+success "Node.js: $NODE_VERSION"
 echo ""
 
-APP_URL="$("$PHP" server.php --url)"
+# ------------------------------------------------------------
+# 3. The app
+# ------------------------------------------------------------
+
+info "Checking the app (built again only when its sources changed)..."
+echo ""
+
+if ! node frontend/scripts/ensure-build.mjs; then
+    die "The app did not build: the lines above say why.
+
+The first build downloads its packages (npm), so it needs the internet."
+fi
+echo ""
+
+APP_URL="$("$PHP" backend/server.php --url)"
 APP_PORT="${APP_URL##*:}"
 
 case "$APP_PORT" in
-    ''|*[!0-9]*) die "Could not read the server's address from src/config.php." ;;
+    ''|*[!0-9]*) die "Could not read the server's address from backend/server.php." ;;
 esac
 
 # ------------------------------------------------------------
@@ -232,22 +242,7 @@ esac
 
 if app_answers "$APP_URL"; then
     success "$PROJECT_NAME is already running."
-    open_browser "$APP_URL"
-    exit 0
-fi
-
-echo -e "${BOLD}==============================================${NC}"
-echo -e "${BOLD}  Ready${NC}"
-echo -e "${BOLD}==============================================${NC}"
-echo ""
-echo "PHP: $PHP"
-echo "URL: $APP_URL"
-echo ""
-
-if ! ask_yes_no "Start $PROJECT_NAME now?"; then
-    echo ""
-    success "Setup complete."
-    echo ""
+    open_browser "$(open_url)"
     exit 0
 fi
 
@@ -258,7 +253,6 @@ $(lsof -nP -iTCP:"$APP_PORT" -sTCP:LISTEN)
 If that is an older copy of this app, stop it first."
 fi
 
-echo ""
 info "Starting $PROJECT_NAME..."
 
 TEMP_DIR="${TMPDIR:-/tmp}/JapaneseAcademy"
@@ -268,10 +262,10 @@ STDERR_FILE="$TEMP_DIR/server.stderr.log"
 mkdir -p "$TEMP_DIR"
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-"$PHP" server.php >"$STDOUT_FILE" 2>"$STDERR_FILE" &
+"$PHP" backend/server.php >"$STDOUT_FILE" 2>"$STDERR_FILE" &
 SERVER_PID=$!
 
-# Ctrl+C lands here too. server.php runs PHP's web server as a child
+# Ctrl+C lands here too. backend/server.php runs PHP's web server as a child
 # process: stop both.
 stop_server() {
     if kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -311,8 +305,9 @@ echo ""
 # what the server says about itself: items, questions, the day's backup
 cat "$STDOUT_FILE" 2>/dev/null
 
-info "Opening $APP_URL..."
-open_browser "$APP_URL"
+OPEN_URL="$(open_url)"
+info "Opening $OPEN_URL..."
+open_browser "$OPEN_URL"
 
 echo ""
 success "$PROJECT_NAME is running."

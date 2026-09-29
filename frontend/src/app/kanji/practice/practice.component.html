@@ -1,0 +1,61 @@
+<h1 class="page">Practice</h1>
+<p class="muted">
+  Drill what you have learned — any time, as many rounds as you like. Practice keeps its own statistics but never changes your SRS stages or
+  review times.
+</p>
+@if (!learned().length) {
+  <section class="panel empty">
+    <p>Nothing learned yet.</p>
+    <div class="actions"><a class="btn primary" routerLink="/kanji/lessons">Go to lessons</a></div>
+  </section>
+} @else {
+  <section class="panel">
+    <div class="field">
+      <span class="lbl">What</span>
+      <div class="chips">
+        @for (c of scopeChoices(); track c.id) {
+          <button type="button" class="chip" [class.is-on]="scope() === c.id" [disabled]="!c.n && scope() !== c.id" (click)="scope.set(c.id)">
+            {{ c.label }} ({{ c.n }})
+          </button>
+        }
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">Lessons</span>
+      <div class="chips">
+        <button type="button" class="chip" [class.is-on]="!lessons().size" (click)="allLessons()">All lessons</button>
+        @for (L of learnedLessons(); track L) {
+          <button type="button" class="chip" [class.is-on]="lessons().has(L)" (click)="toggleLesson(L)">L{{ L }}</button>
+        }
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">Type</span>
+      <div class="chips">
+        @for (k of kinds; track k[0]) {
+          <button type="button" class="chip" [class.is-on]="types() === k[0]" (click)="types.set(k[0])">{{ k[1] }}</button>
+        }
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">Ask</span>
+      <div class="chips">
+        @for (a of asks; track a[0]) {
+          <button type="button" class="chip" [class.is-on]="parts() === a[0]" (click)="parts.set(a[0])">{{ a[1] }}</button>
+        }
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">How many</span>
+      <div class="chips">
+        @for (n of counts; track n) {
+          <button type="button" class="chip" [class.is-on]="count() === n" (click)="count.set(n)">{{ n ? n : 'All' }}</button>
+        }
+      </div>
+    </div>
+    <p class="small muted">{{ info() }}</p>
+    <div class="actions">
+      <button class="primary" type="button" [disabled]="!take()" (click)="start()">{{ take() ? 'Practise ' + take() : 'Nothing to practise' }}</button>
+    </div>
+  </section>
+}

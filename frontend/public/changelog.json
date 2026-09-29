@@ -1,0 +1,25 @@
+[
+  {
+    "version": "3.0",
+    "date": "2026-09-29",
+    "changes": {
+      "added": [
+        "On the website, you sign in with your anotoki account, and your kanji progress and exam results are your own",
+        "A setup page (/setup.php) that sets the app up in the browser, with buttons that test the database and the sign-in before you save",
+        "This list of what is new: the version number at the bottom of every page opens it"
+      ],
+      "updated": [
+        "The whole app is rebuilt: moving between the dashboard, lessons, reviews and the exam no longer reloads the page",
+        "Everything else works as before: the same lessons, reviews, practice, exam and reports, and the same keys",
+        "On your computer the app now opens at http://127.0.0.1:8200 (the launcher opens it for you)"
+      ],
+      "fixed": [
+        "An item's page wrote \"irregularverb\" without its space",
+        "The stage of an item you have not learned yet is readable in dark mode",
+        "In dark mode, your answer in a review is easy to read when its bar turns green, red or yellow",
+        "Pressing Enter twice at the end of an exam no longer saves the exam twice",
+        "Counts read right: \"1 attempt\", \"1 item\", and no more \"attempt(s)\""
+      ]
+    }
+  }
+]

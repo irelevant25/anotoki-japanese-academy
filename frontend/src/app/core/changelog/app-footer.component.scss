@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+.appfoot .in {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 16px 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.version {
+  position: relative;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.version:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+// A finger needs more than the small pill a mouse is happy with.
+@media (pointer: coarse) {
+  .version {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+}
+.dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kanji);
+}

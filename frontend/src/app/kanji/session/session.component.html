@@ -1,0 +1,53 @@
+<section
+  #root
+  class="session mode-{{ mode() }}"
+  [class.is-correct]="verdict() === 'correct'"
+  [class.is-wrong]="verdict() === 'wrong'"
+  [class.is-close]="close()"
+>
+  <div class="s-top">
+    <span class="s-mode">{{ cfg().title }}</span>
+    <span class="s-count"><b>{{ counts().done }}</b> done · <b>{{ counts().left }}</b> left</span>
+    <span class="s-acc">{{ counts().acc }}</span>
+    <span class="spacer"></span>
+    @if (mode() === 'review') {
+      <button type="button" class="ghost sm" [disabled]="wrapping()" (click)="wrapUp()">{{ wrapping() ? 'Wrapping up…' : 'Wrap up' }}</button>
+    }
+    <button type="button" class="ghost sm" (click)="end()">End</button>
+  </div>
+  <div class="s-progress"><div class="fill" [style.width.%]="counts().fill"></div></div>
+  @if (cfg().note) {
+    <p class="s-note small muted">{{ cfg().note }}</p>
+  }
+  <div class="s-card t-{{ card()?.type }}">
+    <div class="s-chars" [class.long]="long()" lang="ja">{{ card()?.chars }}</div>
+  </div>
+  <div class="s-q {{ part() }}">
+    <span class="s-type">{{ card()?.type === 'kanji' ? 'Kanji' : 'Vocabulary' }}</span>&ngsp;<b class="s-ask">{{ part() === 'meaning' ? 'Meaning' : 'Reading' }}</b>
+  </div>
+  <div class="s-form">
+    <input
+      #answer
+      type="text"
+      class="s-input"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+      aria-label="Your answer"
+      (keydown)="onKey($event)"
+    />
+    <button type="button" class="s-go" aria-label="Submit" (click)="go()">→</button>
+  </div>
+  <div class="s-feedback" aria-live="polite">{{ feedback() }}</div>
+  <div class="s-actions" [hidden]="!actionsShown()">
+    <button type="button" class="ghost sm" (click)="toggleInfo()">Item info <kbd>F</kbd></button>
+    <button type="button" class="ghost sm" [hidden]="!acceptShown()" (click)="acceptMine()">My answer was right</button>
+    <button type="button" class="ghost sm" [hidden]="!card()?.audio" (click)="listen()">▶ Listen</button>
+  </div>
+  <div class="s-panel" [hidden]="!panelOpen()">
+    @if (panelOpen() && card(); as it) {
+      <app-item-details [item]="it" />
+    }
+  </div>
+</section>

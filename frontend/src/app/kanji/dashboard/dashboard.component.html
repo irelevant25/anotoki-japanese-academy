@@ -1,0 +1,114 @@
+@if (s(); as s) {
+  <div class="cards3">
+    <div class="bigcard c-lessons">
+      <div class="bc-head"><span class="bc-title">Lessons</span><span class="bc-num">{{ s.lessonsAvailable }}</span></div>
+      <div class="bc-body">
+        @if (next().length) {
+          <div class="preview">
+            @for (it of next(); track it.id) {
+              <app-tile [item]="it" />
+            }
+          </div>
+        } @else {
+          <p class="muted small">Everything available has been learned.</p>
+        }
+      </div>
+      <div class="bc-foot">
+        <button class="primary" type="button" [disabled]="!next().length" (click)="learn(next())">
+          {{ next().length ? 'Learn ' + next().length + ' item' + (next().length === 1 ? '' : 's') : 'Nothing to learn' }}
+        </button>
+        <a routerLink="/kanji/lessons" class="small">Choose lessons…</a>
+      </div>
+    </div>
+
+    <div class="bigcard c-reviews">
+      <div class="bc-head"><span class="bc-title">Reviews</span><span class="bc-num">{{ s.reviewsDue }}</span></div>
+      <div class="bc-body"><p class="muted small">{{ reviewsText() }}</p></div>
+      <div class="bc-foot">
+        <button class="primary" type="button" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">Start reviews</button>
+      </div>
+    </div>
+
+    <div class="bigcard c-practice">
+      <div class="bc-head"><span class="bc-title">Practice</span><span class="bc-num">{{ s.learned }}</span></div>
+      <div class="bc-body">
+        <p class="muted small">
+          {{
+            s.learned
+              ? 'Drill anything you have learned, as often as you like. It never changes the SRS schedule.'
+              : 'Once you have learned something you can drill it here any time.'
+          }}
+        </p>
+      </div>
+      <div class="bc-foot">
+        <button class="primary" type="button" [disabled]="!s.learned" (click)="go('/kanji/practice')">Practice</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="today">
+    <span><b>{{ s.today.lessons }}</b> learned today</span>
+    <span><b>{{ s.today.reviews }}</b> reviews{{ s.today.reviews ? ' (' + pct(s.today.reviewsCorrect, s.today.reviews) + '% right)' : '' }}</span>
+    <span><b>{{ s.today.practice }}</b> practised{{ s.today.practice ? ' (' + pct(s.today.practiceCorrect, s.today.practice) + '% right)' : '' }}</span>
+    <span class="muted">{{ s.learned }} of {{ s.total }} items learned</span>
+  </div>
+
+  <section class="panel">
+    <h2>SRS stages</h2>
+    <div class="groups">
+      @for (g of kanji.groups(); track g.id) {
+        <div class="grp g-{{ g.id }}">
+          <span class="gn">{{ g.name }}</span>
+          <span class="gc">{{ s.groups[g.id].total }}</span>
+          <span class="gs small">{{ s.groups[g.id].kanji }} kanji · {{ s.groups[g.id].vocab }} vocab</span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Upcoming reviews</h2>
+    @if (anyAhead()) {
+      <div class="fchart">
+        @for (b of bars(); track $index) {
+          <div class="fb" [title]="b.title">
+            <div class="fbar" [style.height.%]="b.height"></div>
+            @if (b.label !== null) {
+              <span class="fl">{{ b.label }}</span>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="muted small">Nothing scheduled in the next 24 hours.</p>
+    }
+    <div class="fdays">
+      @for (d of days(); track $index) {
+        <div class="fd"><span class="fdl">{{ d.label }}</span><b>{{ d.n }}</b></div>
+      }
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Progress by lesson</h2>
+    @for (row of lessonRows(); track row.L) {
+      <div class="lrow">
+        <a class="lname" routerLink="/kanji/browse" [queryParams]="{ lesson: row.L }">L{{ row.L }}</a>
+        <div class="tiles">
+          @for (it of row.kanji; track it.id) {
+            <app-tile [item]="it" />
+          }
+        </div>
+        <div class="lvocab small" title="vocabulary learned / total">
+          <span class="muted">vocab </span><b>{{ row.learned }}</b>/{{ row.total }}
+          <div class="mini"><div [style.width.%]="row.fill"></div></div>
+        </div>
+      </div>
+    }
+  </section>
+
+  <p class="small muted foot">
+    Your progress is saved in the database, with a daily copy in backups/.
+    <a href="/api/kanji/export" download (click)="privateLinks.click($event, '/api/kanji/export', true)">Download a copy</a>.
+  </p>
+}

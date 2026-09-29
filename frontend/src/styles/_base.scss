@@ -1,0 +1,419 @@
+// The pieces every page shares: the page itself, the top bar, panels, fields,
+// chips and buttons, the sign-in page and the account menu, the footer and
+// the dialog. Colours only from the tokens.
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, var(--jp-sans);
+}
+[hidden] {
+  display: none !important;
+}
+a {
+  color: var(--accent);
+}
+.wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+}
+.wrap.wide {
+  max-width: 1040px;
+}
+.jp {
+  font-family: var(--jp-sans);
+}
+
+/* ---------------------------------------------------------------- nav */
+.topnav {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.topnav .in {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.brand {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.brand b {
+  font-weight: 700;
+}
+.brand .mark {
+  font-family: var(--jp-serif);
+  font-weight: 700;
+  margin-right: 6px;
+  color: var(--kanji-text);
+}
+.topnav nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.topnav nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 7px;
+}
+.topnav nav a:hover {
+  color: var(--ink);
+  background: var(--soft);
+}
+.topnav nav a[aria-current='page'] {
+  color: var(--ink);
+  background: var(--soft);
+}
+.topnav .badge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  background: var(--kanji);
+  color: var(--item-ink);
+  font-weight: 700;
+}
+
+/* -------------------------------------------------------------- panels */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin: 22px 0;
+}
+.panel h2 {
+  font-size: 17px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--line);
+}
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 13px;
+}
+h1.page {
+  font-size: 26px;
+  margin: 4px 0 8px;
+}
+.lead {
+  font-size: 18px;
+  margin: 4px 0 18px;
+}
+.empty p {
+  margin: 0 0 10px;
+}
+
+/* -------------------------------------------------------------- fields */
+.field {
+  display: block;
+  margin-bottom: 18px;
+}
+.lbl {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.lbl em {
+  font-weight: 400;
+  color: var(--muted);
+  font-style: normal;
+}
+.lblrow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.lblrow .lbl {
+  margin: 0;
+}
+input[type='text'],
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+input[type='text']:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* --------------------------------------------------------------- chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------- buttons */
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+button,
+.btn {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  padding: 11px 22px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.primary:hover {
+  filter: brightness(1.07);
+}
+.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+}
+.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 11px 18px;
+}
+.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ghost.sm,
+.primary.sm {
+  padding: 5px 11px;
+  font-size: 13px;
+}
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+  padding: 11px 22px;
+}
+.err {
+  color: var(--bad);
+  font-size: 14px;
+  min-height: 1.2em;
+  margin: 12px 0 0;
+}
+kbd {
+  font: inherit;
+  font-size: 0.85em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  background: var(--card);
+}
+
+/* ------------------------------------------- the pages instead of the app */
+/* signed out, not set up yet, or the server could not say: one small panel */
+.signin .panel {
+  max-width: 480px;
+  margin: 36px auto;
+}
+.signin h1 {
+  font-size: 26px;
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+.signin h1 .mark {
+  font-family: var(--jp-serif);
+  color: var(--kanji-text);
+  margin-right: 10px;
+}
+.signin .actions {
+  margin-top: 18px;
+}
+.signin .err:empty {
+  display: none;
+}
+
+/* who is signed in, top right */
+.usermenu {
+  position: relative;
+  flex: 0 0 auto;
+}
+.usermenu summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.usermenu summary::-webkit-details-marker {
+  display: none;
+}
+.usermenu summary:hover,
+.usermenu[open] summary {
+  background: var(--soft);
+}
+.usermenu summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.uname {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.umenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 230px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.umenu .who {
+  margin: 0 0 6px;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.umenu .who b {
+  color: var(--ink);
+}
+.umenu .uid {
+  white-space: nowrap;
+}
+.umenu a,
+.umenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 8px;
+  border-radius: 7px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.umenu a:hover,
+.umenu button:hover {
+  background: var(--soft);
+}
+
+@media (max-width: 560px) {
+  .topnav .in {
+    gap: 10px;
+  }
+  .brand .full {
+    display: none;
+  }
+  .topnav nav a {
+    padding: 7px 9px;
+  }
+  .uname {
+    display: none;
+  }
+  .usermenu summary {
+    padding: 4px;
+  }
+}

@@ -5,7 +5,7 @@ or extend it.
 
 **Never name the course the data comes from**, anywhere in the repository: not
 in code, data, docs, file names or commit messages. The owner's requirement;
-`tests/unit/source-names.test.php` checks it. Say "the course", "Part 1 / 2",
+`backend/tests/unit/source-names.test.php` checks it. Say "the course", "Part 1 / 2",
 "textbook 1" and so on.
 
 ## Sources
@@ -17,7 +17,7 @@ page tool elsewhere). They are page **scans with no text layer** — nothing can
 be copied out as text. Everything in `data/source/*.tsv` was transcribed by
 reading page images (see *Reading the PDFs* below).
 
-| Book | File | `tools/pdf` key | Pages | Crop | PDF page = printed page + |
+| Book | File | page tool key | Pages | Crop | PDF page = printed page + |
 |---|---|---|---:|---|---:|
 | Textbook, part 1 | `textbook-1.pdf` | `textbook-1` | 391 | none | 7 |
 | Workbook, part 1 | `workbook-1.pdf` | `workbook-1` | 156 | none | 3 |
@@ -76,9 +76,10 @@ Google Cloud Text-to-Speech (see [kanji-srs.md](kanji-srs.md)).
 ## Reading the PDFs
 
 ```bash
-node tools/pdf/pages.js textbook-2 357-359          # full-size pages, by PDF page number
-node tools/pdf/pages.js textbook-1 364 --book-page  # by printed page number
-node tools/pdf/pages.js answer-key 1-40 --sheet     # contact sheet to find things
+npm run pdf:pages -- textbook-2 357-359            # full-size pages, by PDF page number
+npm run pdf:pages -- textbook-1 364 --book-page    # by printed page number
+npm run pdf:pages -- answer-key 1-40 --sheet       # contact sheet to find things
+node backend/tools/pdf/pages.js textbook-2 357     # the same, without npm
 ```
 
 The tool prints image paths; open them with the Read tool. The first call for
@@ -128,11 +129,11 @@ no ⇥ kanji ⇥ lesson ⇥ on ⇥ kun ⇥ meaning ⇥ compounds
 `-E` Expression Notes, `-U` Useful Expressions, `-C` Culture Notes — legend on
 textbook 1, PDF page 365).
 
-## Built data (`npm run build` = `php src/build-data.php`, `npm run build:audio` = `php src/build-audio.php`)
+## Built data (`npm run build:data` = `php backend/tools/build-data.php`, `npm run build:audio` = `php backend/tools/build-audio.php`)
 
 The builders write exactly what the first (JavaScript) builders wrote —
 `JSON.stringify(x, null, 1)`, no trailing newline — so a rebuild of unchanged
-sources changes nothing (`tests/unit/build-data.test.php`).
+sources changes nothing (`backend/tests/unit/build-data.test.php`).
 
 | File | Entries | Notes |
 |---|---:|---|
@@ -141,7 +142,7 @@ sources changes nothing (`tests/unit/build-data.test.php`).
 | `data/grammar-index.json` | 141 | |
 | `data/audio.json` + `data/audio/` | 2,041 words × 2 voices | made by Google Cloud Text-to-Speech, not from the books |
 
-The kanji totals per lesson are asserted in `tests/unit/catalog.test.php`:
+The kanji totals per lesson are asserted in `backend/tests/unit/catalog.test.php`:
 L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/15.
 
 ## Known quirks — deliberate, don't "fix"
@@ -154,7 +155,7 @@ L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/
   glosses ("honorific expression for くれる" also accepts "to give (me)").
 - `なにも + negative` style notes are stripped from readings (catalog build).
 - Suffixes and patterns (〜円, 〜か〜) and words whose reading has letters
-  (交通系ICカード) get no audio (`src/speech.php`). A word written with letters
+  (交通系ICカード) get no audio (`backend/src/speech.php`). A word written with letters
   keeps its reading in the kana column, as the index prints it in brackets:
   `ティーシャツ ⇥ Tシャツ`, `エルサイズ ⇥ Lサイズ`, `エスエヌエス ⇥ SNS`.
 - Minute words keep both forms the index gives, in its order: one row when it
@@ -164,9 +165,9 @@ L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/
 
 ## Fixing a typo or adding content
 
-1. Find the page (`tools/pdf/pages.js`, page maps above) and read it.
+1. Find the page (`npm run pdf:pages`, page maps above) and read it.
 2. Edit the TSV row. Keep the format exactly — tabs, not spaces.
-3. `npm run build`, then `npm test` (the counts and invariants will catch slips).
+3. `npm run build:data`, then `npm test` (the counts and invariants will catch slips).
 4. If a word was added or its spelling or reading changed, `npm run build:audio`
    voices it (it needs the API key) and drops the clips nothing uses any more.
 5. Restart the server (`academy-run` skill): at its start it sees that `data/`
@@ -175,6 +176,6 @@ L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/
 
 **Changing a spelling changes an SRS id.** Items are keyed `k:<kanji>` and
 `v:<word>`; if a fix renames one, the learner's progress stays under the old key
-and stops showing. After a backup (`php setup.php --backup`), rename the key in
+and stops showing. After a backup (`php backend/manage.php --backup`), rename the key in
 the database — `UPDATE srs_progress SET item_id = 'v:NEW' WHERE item_id = 'v:OLD'`
 (and the same in `srs_log`) — then restart. The `academy-data` skill has the steps.

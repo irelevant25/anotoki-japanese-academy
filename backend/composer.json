@@ -1,0 +1,15 @@
+{
+    "name": "anotoki/japanese-academy",
+    "description": "Japanese Academy's backend: the kanji SRS and the exam, on Slim 4 and PostgreSQL.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "slim/slim": "^4.15",
+        "slim/psr7": "^1.8"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

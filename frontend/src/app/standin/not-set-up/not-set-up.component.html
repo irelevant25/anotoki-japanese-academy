@@ -1,0 +1,13 @@
+<main class="wrap signin" id="not-set-up">
+  <section class="panel">
+    <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
+    <p><b>Japanese Academy is not set up yet.</b> Its settings or its database are missing, so there is nothing to study with.</p>
+    <p>The setup page asks for the database and how people sign in, then builds everything the app needs.</p>
+    <div class="actions">
+      <a class="btn primary" href="/setup.php">Open the setup page</a>
+    </div>
+    @if (auth.notSetUpReason(); as reason) {
+      <p class="small muted">Why: {{ reason }}.</p>
+    }
+  </section>
+</main>

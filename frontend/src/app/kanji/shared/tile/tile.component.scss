@@ -1,0 +1,5 @@
+// The tile's looks are the app's (styles/_items.scss): tiles sit in many rows
+// of other components. The host takes no room of its own.
+:host {
+  display: contents;
+}

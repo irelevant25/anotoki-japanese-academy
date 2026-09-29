@@ -1,0 +1,94 @@
+.changelog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  padding: 0;
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+}
+.changelog::backdrop {
+  background: var(--scrim);
+}
+.box {
+  padding: 0 22px 22px;
+}
+// The list outgrows a phone's screen, and the dialog scrolls as a whole: the
+// head, with its Close, stays in sight (its own padding and background, so
+// the list slides under it).
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card);
+  padding: 18px 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.head h2 {
+  font-size: 20px;
+  margin: 0;
+}
+// A finger needs more than the small button a mouse is happy with.
+@media (pointer: coarse) {
+  .head button {
+    min-height: 44px;
+    padding: 0 18px;
+  }
+}
+.release {
+  border-top: 1px solid var(--line);
+  padding: 14px 0 4px;
+}
+.vhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vnum {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.tag {
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 8px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  vertical-align: middle;
+}
+.vdate {
+  font-size: 13px;
+  color: var(--muted);
+}
+h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 12px 0 4px;
+}
+h3.added {
+  color: var(--good);
+}
+h3.updated {
+  color: var(--accent);
+}
+h3.fixed {
+  color: var(--ok-text);
+}
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+li {
+  margin: 4px 0;
+  font-size: 15px;
+}

@@ -1,0 +1,33 @@
+<div class="subnav">
+  <div class="in">
+    @for (tab of tabs; track tab[1]) {
+      <a [routerLink]="tab[0]" [attr.data-route]="tab[1]" [attr.aria-current]="screen.tab() === tab[1] ? 'page' : null">{{ tab[2] }}</a>
+    }
+  </div>
+</div>
+
+<main id="app" class="wrap wide" aria-live="polite">
+  @if (loadError()) {
+    <p class="err">Could not load the kanji data: {{ loadError() }}</p>
+  } @else if (!ready()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    @if (screen.overlay(); as o) {
+      @switch (o.kind) {
+        @case ('lessons') {
+          <app-lesson-batch [items]="$any(o).items" />
+        }
+        @case ('session') {
+          <app-session [mode]="$any(o).mode" [items]="$any(o).items" [parts]="$any(o).parts" (done)="finished($event, o)" />
+        }
+        @case ('summary') {
+          <app-summary [result]="$any(o).result" [ctx]="$any(o).ctx" />
+        }
+      }
+    } @else {
+      @for (n of [screen.redraws()]; track n) {
+        <router-outlet />
+      }
+    }
+  }
+</main>

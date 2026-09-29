@@ -1,0 +1,64 @@
+@if (it(); as it) {
+  <div class="ihead t-{{ it.type }}">
+    <div class="ichars" lang="ja">{{ it.chars }}</div>
+    <div class="imeta">
+      <div class="itype">{{ typeLabel() }}</div>
+      <div class="imean">{{ it.meanings.join('; ') }}</div>
+      <span class="stagepill g-{{ group() }}">{{ stageName() }}</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    @if (stage()) {
+      <button class="primary" type="button" (click)="practise()">Practise it now</button>
+      <button class="ghost" type="button" (click)="reset()">Reset progress</button>
+    } @else if (available()) {
+      <button class="primary" type="button" (click)="learn()">Learn it now</button>
+    } @else {
+      <p class="small muted">Learn its kanji first: {{ need() }}</p>
+    }
+  </div>
+
+  <section class="panel"><app-item-details [item]="it" [full]="true" /></section>
+
+  <section class="panel">
+    <h2>Progress</h2>
+    <dl class="stats">
+      <dt>Stage</dt>
+      <dd>{{ stageName() }}</dd>
+      <dt>Learned</dt>
+      <dd>{{ learnedAt() }}</dd>
+      <dt>Next review</dt>
+      <dd>{{ nextReview() }}</dd>
+      <dt>Meaning answers</dt>
+      <dd>{{ accuracy(st()?.reviews?.meaning) }}</dd>
+      <dt>Reading answers</dt>
+      <dd>{{ accuracy(st()?.reviews?.reading) }}</dd>
+      <dt>Practice</dt>
+      <dd>{{ accuracy(st()?.practice) }}</dd>
+    </dl>
+  </section>
+
+  <section class="panel">
+    <h2>Your accepted answers</h2>
+    <p class="small muted">Answers you added with “My answer was right”, or here. They count in reviews and practice.</p>
+    <div class="chips">
+      @if (!synonyms().length && !extra().length) {
+        <span class="small muted">None yet.</span>
+      }
+      @for (x of synonyms(); track x) {
+        <button type="button" class="chip" title="Remove" (click)="removeSynonym(x)">{{ x }} ✕</button>
+      }
+      @for (x of extra(); track x) {
+        <button type="button" class="chip" lang="ja" title="Remove" (click)="removeReading(x)">{{ x }} ✕</button>
+      }
+    </div>
+    <div class="addrow">
+      <input type="text" placeholder="Add your own meaning" [value]="added()" (input)="added.set($any($event.target).value)" (keydown.enter)="addSynonym()" />
+      <button class="ghost" type="button" (click)="addSynonym()">Add</button>
+    </div>
+  </section>
+} @else {
+  <h1 class="page">Not found</h1>
+  <p>No such item.</p>
+}

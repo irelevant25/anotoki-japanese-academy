@@ -1,0 +1,42 @@
+:host {
+  display: block;
+}
+.sumlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sumlist li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.sumlist li:last-child {
+  border-bottom: none;
+}
+.sm-m {
+  flex: 1;
+  min-width: 140px;
+}
+.sm-r {
+  color: var(--muted);
+}
+.sm-x {
+  color: var(--bad);
+  font-size: 13px;
+}
+.mv {
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--soft);
+}
+.mv.up {
+  color: var(--good);
+}
+.mv.down {
+  color: var(--bad);
+}

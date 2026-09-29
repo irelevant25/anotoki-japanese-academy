@@ -7,8 +7,8 @@ description: Write, fix or review the hand-written Japanese Academy exam questio
 
 Only four sections are hand-written: `particle`, `grammar`, `counter` and
 `translation`. The rest of the exam is generated from data, so fix that through
-`data/source` (`academy-data` skill) or the generators (`src/generate.php`,
-`src/conjugate.php`).
+`data/source` (`academy-data` skill) or the generators
+(`backend/src/generate.php`, `backend/src/conjugate.php`).
 
 | Lessons | File |
 |---|---|
@@ -67,7 +67,7 @@ $P(4, 'つくえの上に本＿あります。', 'が', ['を', 'は', 'に'],
    uniqueness and the answer index.
 2. Run the `academy-japanese-reviewer` agent on the new or changed items. Give it
    the file and the lessons.
-3. Restart the real server (`academy-run`): at its start it rebuilds the
+3. Restart the owner's server (`academy-run`): at its start it rebuilds the
    question bank in the database, because an item file changed. Question ids
    are sequential, so edits shift the ids of later authored items. That only
    matters for a paper already in progress.

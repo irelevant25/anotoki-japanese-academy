@@ -1,0 +1,11 @@
+@if (changelog.version()) {
+  <footer class="appfoot">
+    <div class="in">
+      <span>Japanese Academy</span>
+      <button type="button" class="version" id="version" title="What’s new" (click)="open()">
+        v{{ changelog.version() }}@if (changelog.unseen()) {<span class="dot" title="Something new"></span>}
+      </button>
+    </div>
+  </footer>
+}
+<app-changelog-dialog />

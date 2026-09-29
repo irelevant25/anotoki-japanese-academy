@@ -1,0 +1,80 @@
+:host {
+  display: block;
+}
+.ihead {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  color: var(--item-ink);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.ihead.t-kanji {
+  background: var(--kanji);
+}
+.ihead.t-vocab {
+  background: var(--vocab);
+}
+.ichars {
+  font-family: var(--jp-serif);
+  font-size: 86px;
+  line-height: 1.1;
+  font-weight: 600;
+}
+.imeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.itype {
+  font-size: 13px;
+  opacity: 0.9;
+}
+.imean {
+  font-size: 22px;
+  font-weight: 600;
+}
+.stagepill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--pill-ink);
+}
+.stagepill.g-apprentice {
+  color: var(--st-apprentice);
+}
+.stagepill.g-guru {
+  color: var(--st-guru);
+}
+.stagepill.g-master {
+  color: var(--st-master);
+}
+.stagepill.g-enlightened {
+  color: var(--st-enlightened);
+}
+.stagepill.g-burned {
+  color: var(--st-burned);
+}
+.stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 14px;
+}
+.stats dd {
+  margin: 0;
+}
+.addrow {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}

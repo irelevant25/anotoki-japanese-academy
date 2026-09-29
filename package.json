@@ -1,21 +1,26 @@
 {
   "name": "japanese-academy",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Japanese Academy — WaniKani-style kanji SRS and a full course exam, with spoken vocabulary in two voices. PHP + PostgreSQL; Node runs only the browser tests and the PDF page tool.",
+  "description": "Japanese Academy — WaniKani-style kanji SRS and a full course exam, with spoken vocabulary in two voices. Backend: PHP (Slim 4) + PostgreSQL in backend/; frontend: Angular in frontend/. These scripts run both.",
   "type": "commonjs",
   "scripts": {
-    "start": "node tools/php.js server.php",
-    "setup": "node tools/php.js setup.php",
-    "test": "node tools/php.js tests/run.php && node --test --test-reporter=spec \"tests/unit/*.test.js\"",
-    "test:browser": "node tests/browser/run.js",
-    "screens": "node tests/browser/screens.js",
-    "build": "node tools/php.js src/build-data.php",
-    "build:audio": "node tools/php.js src/build-audio.php",
-    "pdf:pages": "node tools/pdf/pages.js"
+    "start": "node backend/tools/php.js backend/server.php",
+    "frontend": "npm --prefix frontend start",
+    "manage": "node backend/tools/php.js backend/manage.php",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "node backend/tools/php.js backend/tests/run.php",
+    "test:frontend": "npm --prefix frontend test",
+    "test:browser": "node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js",
+    "test:setup": "node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js",
+    "screens": "node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js",
+    "build:frontend": "node frontend/scripts/ensure-build.mjs",
+    "build:data": "node backend/tools/php.js backend/tools/build-data.php",
+    "build:audio": "node backend/tools/php.js backend/tools/build-audio.php",
+    "build:dist": "node backend/tools/php.js backend/tools/build-dist.php",
+    "pdf:pages": "node backend/tools/pdf/pages.js"
   },
   "devDependencies": {
-    "playwright-core": "^1.63.0",
     "sharp": "^0.35.4"
   }
 }

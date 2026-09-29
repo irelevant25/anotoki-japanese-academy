@@ -2,9 +2,11 @@
 # Japanese Academy - Launcher
 # Windows / PowerShell
 #
-# Finds PHP (8.1 or newer, with pdo_pgsql, mbstring and intl), runs
-# setup.php (database settings the first time; then the database, its
-# tables and the study content), starts the server and opens the browser.
+# Finds PHP (8.1 or newer, with pdo_pgsql, mbstring and intl) and Node.js,
+# builds the app when its sources changed (the first time this also installs
+# its packages), starts the server (backend/server.php, which applies new
+# migrations and takes the day's backup first) and opens the browser: the app,
+# or the setup page (/setup.php) while this copy is not set up yet.
 # Ctrl+C stops it.
 # ============================================================
 
@@ -12,8 +14,9 @@ $ErrorActionPreference = "Stop"
 
 $ProjectName = "Japanese Academy"
 
-# The first start builds the study content in the database (a few seconds).
-$ServerStartupTimeoutSeconds = 60
+# The first start after an update builds the study content in the database,
+# and a database update copies every table first: seconds, rarely a minute.
+$ServerStartupTimeoutSeconds = 120
 
 # ------------------------------------------------------------
 # Helpers
@@ -27,11 +30,6 @@ function Write-Info {
 function Write-Success {
     param([string]$Message)
     Write-Host $Message -ForegroundColor Green
-}
-
-function Write-WarningMessage {
-    param([string]$Message)
-    Write-Host $Message -ForegroundColor Yellow
 }
 
 function Write-ErrorMessage {
@@ -49,28 +47,6 @@ function Stop-Script {
     # Started by a double-click, the window would close before this could be read.
     Read-Host "Press Enter to close" | Out-Null
     exit 1
-}
-
-function Ask-YesNo {
-    param([string]$Question)
-
-    while ($true) {
-        $answer = Read-Host "$Question [Y/n]"
-
-        if ([string]::IsNullOrWhiteSpace($answer)) {
-            return $true
-        }
-
-        switch ($answer.ToLowerInvariant()) {
-            "y"     { return $true }
-            "yes"   { return $true }
-            "n"     { return $false }
-            "no"    { return $false }
-            default {
-                Write-Host "Please answer Y or N."
-            }
-        }
-    }
 }
 
 # A native command's output, whatever it writes to stderr (PHP 7 warns there).
@@ -141,6 +117,25 @@ function Get-PhpCandidates {
     return $list | Select-Object -Unique
 }
 
+# The HTTP status the server answers this address with, or 0 when nothing answers.
+function Get-Status {
+    param([string]$Url)
+
+    try {
+        return [int](Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2).StatusCode
+    }
+    catch [System.Net.WebException] {
+        # 503 (not set up yet) is an answer too
+        if ($_.Exception.Response) {
+            return [int]$_.Exception.Response.StatusCode
+        }
+        return 0
+    }
+    catch {
+        return 0
+    }
+}
+
 # ------------------------------------------------------------
 # Header
 # ------------------------------------------------------------
@@ -161,12 +156,12 @@ Write-Host ""
 # The folder of this script, wherever it was started from.
 Set-Location -LiteralPath $PSScriptRoot
 
-if (-not (Test-Path "server.php" -PathType Leaf) -or -not (Test-Path "setup.php" -PathType Leaf)) {
-    Stop-Script "server.php or setup.php is missing. This script belongs in the $ProjectName folder."
+if (-not (Test-Path "backend\server.php" -PathType Leaf) -or -not (Test-Path "frontend\package.json" -PathType Leaf)) {
+    Stop-Script "backend\server.php or frontend\package.json is missing. This script belongs in the $ProjectName folder."
 }
 
 # ------------------------------------------------------------
-# 2. PHP
+# 2. PHP and Node.js
 # ------------------------------------------------------------
 
 Write-Info "Looking for PHP 8.1+ with pdo_pgsql, mbstring and intl..."
@@ -199,6 +194,7 @@ To install it:
          extension=curl
          extension=intl
          extension=mbstring
+         extension=openssl
          extension=pdo_pgsql
 
 Or set ACADEMY_PHP to the php.exe to use. Then run this launcher again.
@@ -206,37 +202,45 @@ Or set ACADEMY_PHP to the php.exe to use. Then run this launcher again.
 }
 
 Write-Success "PHP: $Php"
-Write-Host ""
 
-# ------------------------------------------------------------
-# 3. The database
-# ------------------------------------------------------------
-
-Write-Info "Checking the database..."
-Write-Host ""
-
-# The first time, setup.php asks for the database settings. After that it
-# only does what is still missing: the database, its tables, the study
-# content, and the one-time import of your old progress files.
-& $Php setup.php
-
-if ($LASTEXITCODE -ne 0) {
+# The app is built with Node.js (Angular needs 20.19, 22.12, or 24 and newer).
+$nodeVersion = (Get-Output "node" @("-v")).Trim()
+if ($nodeVersion -notmatch '^v(\d+)\.(\d+)') {
     Stop-Script @"
-Setup did not finish: the message above says why.
+Node.js was not found. It builds the app (once, and again after an update).
 
-If it is about the database: PostgreSQL must be installed and running
-(https://www.postgresql.org/download/windows/), and its settings are in
-src\config.local.php. To enter them again, delete that file and run this
-launcher again.
+Install the LTS version from https://nodejs.org, then run this launcher again.
 "@
 }
-
+$nodeMajor = [int]$Matches[1]
+$nodeMinor = [int]$Matches[2]
+if ($nodeMajor -lt 20 -or ($nodeMajor -eq 20 -and $nodeMinor -lt 19) -or $nodeMajor -eq 21 -or ($nodeMajor -eq 22 -and $nodeMinor -lt 12) -or $nodeMajor -eq 23) {
+    Stop-Script "Node.js $nodeVersion is too old to build the app: install the LTS version from https://nodejs.org."
+}
+Write-Success "Node.js: $nodeVersion"
 Write-Host ""
 
-$AppUrl = (Get-Output $Php @("server.php", "--url")).Trim()
+# ------------------------------------------------------------
+# 3. The app
+# ------------------------------------------------------------
+
+Write-Info "Checking the app (built again only when its sources changed)..."
+Write-Host ""
+
+& node "frontend\scripts\ensure-build.mjs"
+if ($LASTEXITCODE -ne 0) {
+    Stop-Script @"
+The app did not build: the lines above say why.
+
+The first build downloads its packages (npm), so it needs the internet.
+"@
+}
+Write-Host ""
+
+$AppUrl = (Get-Output $Php @("backend\server.php", "--url")).Trim()
 
 if ($AppUrl -notmatch '^http://([^:/]+):(\d+)$') {
-    Stop-Script "Could not read the server's address from src/config.php."
+    Stop-Script "Could not read the server's address from backend\server.php."
 }
 
 $AppPort = [int]$Matches[2]
@@ -245,30 +249,17 @@ $AppPort = [int]$Matches[2]
 # 4. Start
 # ------------------------------------------------------------
 
-try {
-    $health = Invoke-WebRequest -Uri "$AppUrl/api/health" -UseBasicParsing -TimeoutSec 2
-    if ($health.StatusCode -eq 200) {
-        Write-Success "$ProjectName is already running."
-        Start-Process $AppUrl
-        exit 0
+# What to open: the app, or the setup page while this copy is not set up yet.
+function Get-OpenUrl {
+    if ((Get-Status "$AppUrl/api/health") -eq 503) {
+        return "$AppUrl/setup.php"
     }
-}
-catch {
-    # not running yet
+    return $AppUrl
 }
 
-Write-Host "==============================================" -ForegroundColor White
-Write-Host "  Ready" -ForegroundColor White
-Write-Host "==============================================" -ForegroundColor White
-Write-Host ""
-Write-Host "PHP: $Php"
-Write-Host "URL: $AppUrl"
-Write-Host ""
-
-if (-not (Ask-YesNo "Start $ProjectName now?")) {
-    Write-Host ""
-    Write-Success "Setup complete."
-    Write-Host ""
+if ((Get-Status "$AppUrl/api/health") -ne 0) {
+    Write-Success "$ProjectName is already running."
+    Start-Process (Get-OpenUrl)
     exit 0
 }
 
@@ -285,7 +276,6 @@ If that is an older copy of this app, close its window, or stop it with:
 "@
 }
 
-Write-Host ""
 Write-Info "Starting $ProjectName..."
 
 # The server shares this window's console, so Ctrl+C or closing the window
@@ -302,7 +292,7 @@ Remove-Item $StdOutFile, $StdErrFile -Force -ErrorAction SilentlyContinue
 
 $serverProcess = Start-Process `
     -FilePath $Php `
-    -ArgumentList "server.php" `
+    -ArgumentList "backend\server.php" `
     -WorkingDirectory $PSScriptRoot `
     -NoNewWindow `
     -RedirectStandardOutput $StdOutFile `
@@ -323,15 +313,9 @@ try {
             break
         }
 
-        try {
-            $response = Invoke-WebRequest -Uri "$AppUrl/api/health" -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) {
-                $serverReady = $true
-                break
-            }
-        }
-        catch {
-            # not ready yet
+        if ((Get-Status "$AppUrl/api/health") -ne 0) {
+            $serverReady = $true
+            break
         }
     }
 
@@ -354,8 +338,9 @@ try {
         Get-Content $StdOutFile -Encoding UTF8
     }
 
-    Write-Info "Opening $AppUrl..."
-    Start-Process $AppUrl
+    $OpenUrl = Get-OpenUrl
+    Write-Info "Opening $OpenUrl..."
+    Start-Process $OpenUrl
 
     Write-Host ""
     Write-Success "$ProjectName is running."
@@ -368,8 +353,8 @@ try {
     }
 }
 finally {
-    # Ctrl+C lands here too. server.php runs PHP's web server as a child
-    # process: stop both.
+    # Ctrl+C lands here too. backend\server.php runs PHP's web server as a
+    # child process: stop both.
     if (-not $serverProcess.HasExited) {
         # It may exit in the meantime; taskkill's complaint must not stop the cleanup.
         try {

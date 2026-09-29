@@ -3,13 +3,44 @@ node_modules/
 # Claude Code's personal settings (the rest of .claude/ is shared)
 .claude/settings.local.json
 
-# Secrets: the text-to-speech API key (see README), and this computer's
-# database settings with their password (written by setup.php)
+# Secrets and this copy's own settings: the text-to-speech API key (see
+# README), and backend/config/*.local.php — the database with its password,
+# the sign-in mode, the IAM, the time zone — which the setup page writes, and
+# on a website its token file too. The app requires them; git never sees them.
 .env
+backend/config/*.local.php
+# ...and what config_put() writes before it renames it into place
+# (<name>.local.php.<hex>.tmp), should a crash leave one behind
+backend/config/*.tmp
+# The settings of the version before backend/ + frontend/: they stay where they
+# were on a computer that ran it (the setup page offers them), and must never
+# be committed either.
 src/config.local.php
+src/*.local.php
 
 # Copies of your study data from the database (see README)
 backups/
+
+# What the backend writes for itself: the IAM's keys, cached (auth mode iam),
+# and on a website the setup page's lock. (storage/ at the root is the same,
+# from before backend/.)
+backend/storage/*
+!backend/storage/.gitkeep
+/storage/
+
+# The upload for a hosted site (npm run build:dist)
+dist/
+
+# The frontend's build, its dependencies and caches (npm run build:frontend)
+frontend/dist/
+frontend/.angular/
+frontend/out-tsc/
+# The catalog the unit tests check the answer checking against, built by PHP
+# from data/ before every run (frontend/scripts/catalog-fixture.mjs)
+frontend/src/testing/catalog.fixture.json
+
+# Screenshots written by the browser tests
+frontend/e2e/shots/
 
 # The owner's scratch folder (voice samples and the like): never committed
 temp/
@@ -17,9 +48,6 @@ temp/
 # The scanned course books and other source material: big files, and not ours
 # to publish. They stay on this computer only; copy them by hand to a new one.
 books/
-
-# Screenshots written by the browser tests
-tests/browser/shots/
 
 # The app's own daily copies and half-written saves. Git already keeps the
 # history of progress/, results/ and reports/.

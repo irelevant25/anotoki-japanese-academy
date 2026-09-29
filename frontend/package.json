@@ -1,0 +1,40 @@
+{
+  "name": "japanese-academy-frontend",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Japanese Academy's frontend: the kanji SRS and the exam, in Angular 21 (standalone, zoneless, signals).",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "build:dev": "ng build --configuration development",
+    "watch": "ng build --watch --configuration development",
+    "test": "node scripts/catalog-fixture.mjs && ng test --watch=false",
+    "e2e": "node e2e/run.js",
+    "screens": "node e2e/screens.js",
+    "e2e:setup": "node e2e/setup.js"
+  },
+  "packageManager": "npm@10.9.2",
+  "dependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "wanakana": "^5.3.1"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.24",
+    "@angular/cli": "^21.2.24",
+    "@angular/compiler-cli": "^21.2.0",
+    "jsdom": "^28.0.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.8"
+  }
+}

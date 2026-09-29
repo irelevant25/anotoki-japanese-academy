@@ -1,0 +1,10 @@
+<details class="usermenu" id="usermenu" #menu>
+  <summary [title]="'Signed in as ' + name()">
+    <span class="avatar" aria-hidden="true">{{ initial() }}</span><span class="uname">{{ name() }}</span>
+  </summary>
+  <div class="umenu">
+    <p class="who">Signed in as <b>{{ name() }}</b><span class="uid"> · user {{ sub() }}</span></p>
+    <a [href]="auth.accountUrl()">Your account</a>
+    <button type="button" (click)="logout()">Sign out</button>
+  </div>
+</details>

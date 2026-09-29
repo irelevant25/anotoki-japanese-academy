@@ -1,0 +1,40 @@
+<dialog #dialog class="changelog" aria-labelledby="changelog-title" (click)="backdrop($event)">
+  <div class="box">
+    <div class="head">
+      <h2 id="changelog-title">What’s new</h2>
+      <button type="button" class="ghost sm" (click)="close()">Close</button>
+    </div>
+    @for (entry of changelog.entries(); track entry.version; let first = $first) {
+      <section class="release" [class.latest]="first">
+        <div class="vhead">
+          <span class="vnum">v{{ entry.version }}@if (first) {<span class="tag">latest</span>}</span>
+          <span class="vdate">{{ date(entry.date) }}</span>
+        </div>
+        @if (entry.changes.added?.length) {
+          <h3 class="added">Added</h3>
+          <ul>
+            @for (line of entry.changes.added; track line) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
+        @if (entry.changes.updated?.length) {
+          <h3 class="updated">Changed</h3>
+          <ul>
+            @for (line of entry.changes.updated; track line) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
+        @if (entry.changes.fixed?.length) {
+          <h3 class="fixed">Fixed</h3>
+          <ul>
+            @for (line of entry.changes.fixed; track line) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
+      </section>
+    }
+  </div>
+</dialog>

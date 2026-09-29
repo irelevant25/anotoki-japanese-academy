@@ -1,0 +1,74 @@
+<h1 class="page">{{ title() }}</h1>
+<p class="lead">{{ lead() }}</p>
+@if (result().mode !== 'lesson' && result().unfinished) {
+  <p class="small muted">{{ unsaved() }}</p>
+}
+
+<div class="actions">
+  @switch (result().mode) {
+    @case ('lesson') {
+      <button class="primary" type="button" [disabled]="!more().length" (click)="nextLessons()">
+        {{ moreLabel() }}
+      </button>
+      <button class="ghost" type="button" (click)="practiseLessons()">Practise these now</button>
+    }
+    @case ('practice') {
+      <button class="primary" type="button" (click)="sameAgain()">Same set again</button>
+      @if (missed().length) {
+        <button class="ghost" type="button" (click)="justMissed()">Just the {{ missed().length }} missed</button>
+      }
+      <a class="btn ghost" routerLink="/kanji/practice">New practice</a>
+    }
+    @default {
+      @if (summary()?.reviewsDue) {
+        <button class="primary" type="button" (click)="moreReviews()">{{ summary()?.reviewsDue }} more due</button>
+      }
+    }
+  }
+  <a class="btn ghost" routerLink="/kanji">Dashboard</a>
+</div>
+
+@if (missed().length) {
+  <section class="panel">
+    <h2>Missed ({{ missed().length }})</h2>
+    <ul class="sumlist">
+      @for (d of missed(); track d.it.id) {
+        <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
+      }
+    </ul>
+  </section>
+}
+@if (clean().length) {
+  <section class="panel">
+    <h2>Right first time ({{ clean().length }})</h2>
+    <ul class="sumlist">
+      @for (d of clean(); track d.it.id) {
+        <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
+      }
+    </ul>
+  </section>
+}
+@if (failed().length) {
+  <section class="panel">
+    <h2>Not saved</h2>
+    <ul class="sumlist">
+      @for (d of failed(); track d.it.id) {
+        <li><app-tile [item]="d.it" /><span class="sm-x">{{ d.error }}</span></li>
+      }
+    </ul>
+  </section>
+}
+
+<ng-template #row let-d>
+  <li>
+    <app-tile [item]="d.it" />
+    <span class="sm-m">{{ d.it.meanings[0] }}</span>
+    <span class="sm-r" lang="ja">{{ d.it.readings[0] }}</span>
+    @if (misses(d)) {
+      <span class="sm-x">{{ misses(d) }} miss{{ misses(d) === 1 ? '' : 'es' }}</span>
+    }
+    @if (moved(d); as mv) {
+      <span class="mv" [class.up]="mv.dir === 'up'" [class.down]="mv.dir === 'down'">{{ mv.text }}</span>
+    }
+  </li>
+</ng-template>

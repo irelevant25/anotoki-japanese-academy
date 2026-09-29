@@ -1,0 +1,6 @@
+// Japanese Academy — the styles every page shares. What only one screen uses
+// is in that component's own .scss.
+
+@use 'styles/tokens';
+@use 'styles/base';
+@use 'styles/items';

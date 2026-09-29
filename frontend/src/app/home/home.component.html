@@ -1,0 +1,65 @@
+<main class="wrap">
+  <section class="hero">
+    <h1><span class="mark">日本語</span>Japanese Academy</h1>
+    <p>
+      Learn the kanji of the course — and the vocabulary written with them — through spaced-repetition lessons, reviews and practice. Then test
+      yourself on the whole course with the exam.
+    </p>
+  </section>
+
+  <div class="homecards">
+    <a class="hc hc-kanji" routerLink="/kanji">
+      <div class="hc-band">
+        <span class="hc-glyph">漢</span>
+        <div>
+          <div class="hc-title">Kanji</div>
+          <div class="hc-sub">Lessons · reviews · practice</div>
+        </div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-stats">
+          <div class="hc-stat">
+            <b id="kDue">{{ summary()?.reviewsDue ?? '–' }}</b><span>{{ summary()?.reviewsDue === 1 ? 'review due' : 'reviews due' }}</span>
+          </div>
+          <div class="hc-stat">
+            <b id="kLessons">{{ summary()?.lessonsAvailable ?? '–' }}</b
+            ><span>{{ summary()?.lessonsAvailable === 1 ? 'lesson available' : 'lessons available' }}</span>
+          </div>
+          <div class="hc-stat">
+            <b id="kLearned">{{ summary() ? summary()!.learned + ' / ' + summary()!.total : '–' }}</b><span>learned</span>
+          </div>
+        </div>
+        <div class="stagebar" id="kBar" title="Apprentice · Guru · Master · Enlightened · Burned">
+          @for (b of bar(); track b.g) {
+            <i [style.width.%]="b.width" [style.background]="b.color" [title]="b.g + ': ' + b.n"></i>
+          }
+        </div>
+        <span class="small muted" id="kNext">{{ kanjiNote() }}</span>
+        <span class="hc-go">Open Kanji →</span>
+      </div>
+    </a>
+
+    <a class="hc hc-exam" routerLink="/exam">
+      <div class="hc-band">
+        <span class="hc-glyph">試</span>
+        <div>
+          <div class="hc-title">Exam</div>
+          <div class="hc-sub">Multiple choice with listening</div>
+        </div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-stats">
+          <div class="hc-stat">
+            <b id="eLast">{{ attempts() === null ? '–' : last() ? last()!.pct + '%' : '—' }}</b><span>last score</span>
+          </div>
+          <div class="hc-stat">
+            <b id="eCount">{{ attempts()?.length ?? '–' }}</b><span>{{ attempts()?.length === 1 ? 'attempt' : 'attempts' }}</span>
+          </div>
+          <div class="hc-stat"><b id="eBank">{{ bankSize() }}</b><span>questions in the bank</span></div>
+        </div>
+        <span class="small muted" id="eWhen">{{ examNote() }}</span>
+        <span class="hc-go">Open Exam →</span>
+      </div>
+    </a>
+  </div>
+</main>

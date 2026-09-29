@@ -1,19 +1,21 @@
 # Exam
 
-Multiple choice only (the user's choice). Code: `src/generate.php` (bank and
-papers), `src/conjugate.php`, `src/score.php`, `src/report.php`,
-`src/exam.php` (the API side), `public/exam.js`.
+Multiple choice only (the user's choice). Code: `backend/src/generate.php`
+(bank and papers), `backend/src/conjugate.php`, `backend/src/score.php`,
+`backend/src/report.php`, `backend/src/exam.php` (the API side, routed by
+`backend/api/routes/exam.php`), and in the browser
+`frontend/src/app/exam/` (one component: setup, the paper, the result).
 
 ## The bank — 11,523 questions, built when the content is synced
 
 `exam_build_bank()` runs when data/ or the generator changed (the server's
-start, `setup.php`; ~2 s) and the result is stored in the `exam_questions`
+start, the setup page; ~2 s) and the result is stored in the `exam_questions`
 table, in bank order (`seq`). Ids are `q1`, `q2` … in the order the builders
 make them.
 
 | Section | Part 1 | Part 2 | Built from |
 |---|---:|---:|---|
-| `listening-word` / `listening-meaning` | 729 / 729 | 662 / 662 | `vocab.json` words and their clips (`src/speech.php`); one of the two voices per question, fixed when the bank is built; distractors chosen by kana similarity (じぶん vs ずいぶん); a word that sounds the same (はし) or shares a meaning (さけ / おさけ) is never a distractor |
+| `listening-word` / `listening-meaning` | 729 / 729 | 662 / 662 | `vocab.json` words and their clips (`backend/src/speech.php`); one of the two voices per question, fixed when the bank is built; distractors chosen by kana similarity (じぶん vs ずいぶん); a word that sounds the same (はし) or shares a meaning (さけ / おさけ) is never a distractor |
 | `vocab-jp-en` / `vocab-en-jp` | 761 / 710 | 713 / 680 | `vocab.json`; same-lesson, same part-of-speech distractors, never one that shares a sense with the answer (`exam_same_meaning()`); a gloss shared by two words is never asked EN→JP |
 | `kanji-reading` | 460 | 500 | kanji-list compounds; distractors re-read the compound with its kanji's *other* readings; compounds with a kanji outside the course's list skipped |
 | `kanji-meaning` | 145 | 172 | `kanji.json` |
@@ -42,7 +44,7 @@ means the parts: 1 = Part 1, 2 = Part 2.)
 The RNG, the rounding and the string handling reproduce the first
 (JavaScript) version exactly — mulberry32 seeded from the seed's UTF-16 code
 units, `Math.round`, `toFixed` — so a seed still gives the paper it gave
-before the port; `tests/unit/exam-bank.test.php` pins the first numbers.
+before the port; `backend/tests/unit/exam-bank.test.php` pins the first numbers.
 
 ## The two rules that keep scoring honest
 
@@ -60,15 +62,38 @@ before the port; `tests/unit/exam-bank.test.php` pins the first numbers.
 
 Pass mark 70 %; grades A ≥90, B ≥80, C ≥70, D ≥60, F. Sections/lessons under
 60 % are flagged as weaknesses. Unanswered = wrong. Each attempt is stored in
-the `exam_attempts` table: the whole record (every answer and its timing, in
-the shape `results/<id>.json` had) and its report. The report is standalone
-HTML (inline CSS, no scripts; `GET /report/<id>`) with breakdowns by part (when
-both), skill and lesson, every missed question with explanation, and attempt
-history. Dates in it follow the computer's locale, through ICU, as the
-browser's `toLocaleString()` did.
+the `exam_attempts` table as the person's who sat it (`user_id`): the whole
+record (every answer and its timing, in the shape `results/<id>.json` had) and
+its report. An attempt's id is its finishing time and seed, so it is unique
+per person only: two people may have the same one, and `/report/<id>` finds
+the one of the person asking (somebody else's answers 404). The report is
+standalone HTML (inline CSS, no scripts; `GET /report/<id>`, sent with a
+Content-Security-Policy that allows no script) with breakdowns by part (when
+both), skill and lesson, every missed question with explanation, and the
+person's attempt history. Dates in it follow the computer's locale, through
+ICU, as the browser's `toLocaleString()` did.
+
+Signed in (auth mode iam), the browser can't just follow the report link: it
+carries no token. `PrivateLinksService` fetches the report with the token and
+opens it from memory in a new tab ([sign-in.md](sign-in.md)).
+
+## In the browser
+
+`frontend/src/app/exam/exam.component`: the setup screen (part, paper length,
+lessons and sections under "Narrow the scope", a paper id to sit the same
+paper again, past attempts with their reports), the paper, and the result
+(verdict, breakdowns by skill and lesson, the missed questions with their
+explanations, the full report). While sitting it: 1–4 or A–D choose — and move
+on by themselves, so a long paper stays a flow —, → or Enter the next question
+(on the last, Enter finishes), ← back, F flags, R or Space plays the recording
+again; a listening question plays its clip when it is shown, and the next
+question's clip is fetched meanwhile. "Finish now" asks first when questions
+are unanswered.
 
 The attempts from before the database (`results/`, `reports/`, from
-2026-09-22) were imported by `setup.php`, their reports unchanged.
+2026-09-22) were imported by the setup, their reports unchanged. Migration
+002 gave them, with everything else, the owner's user id (1), with the
+owner's approval on 2026-09-27; apart from that they are never rewritten.
 
 ## Adding hand-written questions
 

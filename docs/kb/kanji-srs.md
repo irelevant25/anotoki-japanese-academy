@@ -1,12 +1,12 @@
 # Kanji SRS
 
-A WaniKani-style trainer with the time locks removed. Code: `src/srs/` (server)
-and `public/kanji/` (browser).
+A WaniKani-style trainer with the time locks removed. Code:
+`backend/src/srs/` (server) and `frontend/src/app/kanji/` (browser).
 
-## Items — `src/srs/catalog.php`
+## Items — `backend/src/srs/catalog.php`
 
 Built from `data/kanji.json`, `data/vocab.json`, `data/audio.json` when the
-content is synced (the server's start, `setup.php`; only when `data/` or the
+content is synced (the server's start, the setup page; only when `data/` or the
 builder changed) and stored in the `srs_items` table, which
 `GET /api/kanji/catalog` sends as it is.
 
@@ -24,15 +24,16 @@ builder changed) and stored in the `srs_items` table, which
 - `order` = course order: lesson by lesson, kanji first (list number), then
   vocabulary. "Next lessons" walks this order.
 - **Availability**: kanji always; vocabulary once all its kanji are learned.
-  Enforced by the server (`POST /learn` → 409) and mirrored in `KA.isAvailable`.
+  Enforced by the server (`POST /learn` → 409) and mirrored in
+  `KanjiStateService.isAvailable()`.
 - **Audio**: every vocabulary item has `audio: [female, male]`, the clip names
-  of `src/speech.php`'s `speech_clips_for()`, spoken with the item's first reading.
+  of `backend/src/speech.php`'s `speech_clips_for()`, spoken with the item's first reading.
   Kanji items have none (a kanji has several readings).
 
 Changing catalog rules can rename or remove ids — see the warning in
 [data-provenance.md](data-provenance.md).
 
-## Schedule — `src/srs/srs.php` (WaniKani's, exactly)
+## Schedule — `backend/src/srs/srs.php` (WaniKani's, exactly)
 
 | Stage | Name | Next review |
 |---|---|---|
@@ -57,11 +58,15 @@ Clean review: +1 stage. With `w` wrong answers (meaning + reading):
 - **Reviews** are the only thing that moves stages, and only for due items
   (`POST /review` on a non-due item → 409, which also blocks double submits).
 
-## API — `src/srs/routes.php` (routed by `server.php` under `/api/kanji`)
+## API — `backend/api/routes/kanji.php` → `backend/src/srs/kanji.php`
+
+The routes (`/api/kanji/…`) hand each request to a `kanji_…` handler. Every
+address needs a signed-in person (in auth mode `none`, the owner) and works on
+that person's progress only ([sign-in.md](sign-in.md)).
 
 | | |
 |---|---|
-| `GET /catalog` | all items + stage and group definitions |
+| `GET /catalog` | all items + stage and group definitions (the same for everybody) |
 | `GET /progress` | `{settings, items, summary}` — `summary` = due, available, groups, forecast, per-lesson, today, 14-day history |
 | `GET /summary` | summary only (home page) |
 | `POST /learn {id}` | lesson quiz passed → Apprentice I |
@@ -72,40 +77,49 @@ Clean review: +1 stage. With `w` wrong answers (meaning + reading):
 | `POST /reset-item {id}` · `POST /reset {confirm:"RESET"}` | reset keeps notes; full reset is backed up first |
 | `GET /export` | download your progress, in the shape of the old `progress/kanji.json` (`{version, createdAt, updatedAt, settings, items, daily}`) |
 
-Each handler returns `[status, body]`; the item records have the shape of
-`srs_blank()` in `src/srs/srs.php`, with times in milliseconds.
+Each handler takes the user id of the person asking and returns
+`[status, body]`; the item records have the shape of `srs_blank()` in
+`backend/src/srs/srs.php`, with times in milliseconds.
 
-## Storage — `src/srs/store.php` (PostgreSQL)
+## Storage — `backend/src/srs/store.php` (PostgreSQL)
+
+Every row is one person's (`user_id`), and every `store_…` function takes the
+user id first.
 
 | Table | |
 |---|---|
-| `srs_progress` | one row per item touched (learned, reviewed, practised, or given a note); an id the catalog no longer has keeps its row |
-| `srs_settings` | the settings (one row), `created_at` (a full reset starts it again) and `updated_at` |
-| `srs_daily` | the dashboard's counts per local day |
-| `srs_log` | every lesson, review, practice answer and reset (`kind`, `item_id`, `details`) — only ever added to |
+| `srs_progress` | one row per person and item touched (learned, reviewed, practised, or given a note); an id the catalog no longer has keeps its row |
+| `srs_settings` | each person's settings (made at their first change), `created_at` (a full reset starts it again) and `updated_at` |
+| `srs_daily` | the dashboard's counts per person and local day |
+| `srs_log` | every lesson, review, practice answer and reset (`user_id`, `kind`, `item_id`, `details`) — only ever added to (the one exception: migration 002 gave every existing line the owner's user id, with the owner's approval, on 2026-09-27) |
 
 - **Saving.** Each answer is one transaction: the item (its row locked while
   it is read and written, which also stops a double submit), the day's count
   and the log line are saved together or not at all.
-- **Daily backup.** Taken when the server starts (`php server.php`), before it
-  answers anything: all your study data in one file,
-  `backups/academy-<date>.json` (see `src/backup.php`); the last 14 are kept.
-  A server left running overnight takes the new day's copy at the first page
-  load (`GET /api/kanji/progress`, `/summary` or `/api/meta`). No backup ever
-  runs inside a lesson, review or practice request, and a failed one is only
-  reported. An empty database has nothing to back up.
-- **Full reset** (`POST /reset`): backed up first
-  (`academy-before-reset-<time>.json`, with the log); items and day counts go,
-  the settings and the log stay.
-- **Editing by hand** is SQL on `japanese_academy` — only when the owner asks,
-  after `php setup.php --backup`. The server reads the database on every
-  request, so it needn't be stopped.
+- **Daily backup.** Taken when the server starts (`php backend/server.php`),
+  before it answers anything: all the study data, everybody's, in one file,
+  `backups/academy-<date>.json` (see `backend/src/backup.php`); the last 14 are
+  kept. A server left running overnight, and a hosted site (which has no
+  start), take the new day's copy at the first page load
+  (`GET /api/kanji/progress`, `/summary` or `/api/meta`: the routes registered
+  with `data_route(…, true)`). No backup ever runs inside a lesson, review or
+  practice request, and a failed one is only reported. An empty database has
+  nothing to back up.
+- **Full reset** (`POST /reset`): the person's data is backed up first, theirs
+  alone (`academy-before-reset-user-<id>-<time>.json`, with the log; their
+  last 14 are kept, and restoring one replaces only their data); the person's
+  items and day counts go, their settings and the log stay. Nobody else's are
+  touched.
+- **Editing by hand** is SQL on the owner's database — only when the owner
+  asks, after `php backend/manage.php --backup`, and always with
+  `user_id = <the owner's id>` (1 unless `auth.local_user_id` says otherwise).
+  The server reads the database on every request, so it needn't be stopped.
 
 The old app's file, `progress/kanji.json`, and its log were imported once by
-`setup.php` (see [architecture.md](architecture.md)); nothing writes them any
+the setup (see [architecture.md](architecture.md)); nothing writes them any
 more.
 
-## Answer checking — `public/kanji/answer.js`
+## Answer checking — `frontend/src/app/kanji/answer.ts`
 
 - **Meaning**: lowercase; apostrophes and punctuation dropped; leading
   to/be/the/a/an removed; number words = digits ("300" = "three hundred");
@@ -122,33 +136,44 @@ more.
 - Learner synonyms / extra readings (from "My answer was right" or the item
   page) are accepted like printed answers.
 
-## Browser flow — `public/kanji/session.js`
+## Browser flow — `frontend/src/app/kanji/session/`
 
-Meaning then reading, back to back. A miss shows the answer and re-queues that
-half 2–4 cards later; an item completes when both halves are right, and the
-misses are what the schedule sees. Completing an item **saves in the
-background** (the next card never waits for the disk); the summary waits for all
-saves. Reading input is bound to wanakana (IME mode): a trailing `n` stays `n`
-until Enter, when `toKana` turns it into ん — expected behaviour.
+The screens have addresses of their own: `/kanji` (the dashboard),
+`/kanji/lessons`, `/kanji/reviews`, `/kanji/practice`, `/kanji/browse`
+(`?lesson=6`), `/kanji/item/:id`. Every screen loads the person's progress
+fresh first (a resolver, run again even for the address already shown); the
+catalog is loaded once.
+
+Meaning then reading, back to back (`session-engine.ts`, the answering engine
+without the page, and `session.component`). A miss shows the answer and
+re-queues that half 2–4 cards later; an item completes when both halves are
+right, and the misses are what the schedule sees. Completing an item **saves
+in the background** (the next card never waits for the server); the summary
+waits for all saves. Reading input is bound to wanakana (IME mode): a trailing
+`n` stays `n` until Enter, when `toKana` turns it into ん — expected
+behaviour.
 
 A batch, its quiz and the summary draw over the screen they started from; the
-address doesn't change (a batch started on the dashboard stays at `#/`). Nav
-links still work because `app.js` routes a click on a link to the current
-address by hand. If the learner leaves while the last answers are still
-saving, the saves still land, but the summary is not drawn over the new screen
-(guards in `finish()` in `session.js` and in `V.summary`).
+address doesn't change (a batch started on the dashboard stays at `/kanji`;
+`kanji-screen.service.ts` holds what is drawn over the screen). The tabs still
+work because the kanji shell routes a click on a link to the current address
+by hand (the router does nothing for it), drawing that screen again, fresh. If
+the learner leaves while the last answers are still saving, the saves still
+land, but the summary is not drawn over the new screen (the session sends its
+result only while it is still on the page, and the shell checks that it is
+still what is drawn).
 
 Keys: Enter submit / continue · F item info · lessons ←/→ or Enter.
 
-## Audio — `src/speech.php`, `src/build-audio.php`
+## Audio — `backend/src/speech.php`, `backend/tools/build-audio.php`
 
-`npm run build:audio` (`php src/build-audio.php`) voices every word of
+`npm run build:audio` (`php backend/tools/build-audio.php`) voices every word of
 `data/vocab.json` and every SRS vocabulary item with Google Cloud
 Text-to-Speech, in two voices: female `ja-JP-Neural2-B` and male
 `ja-JP-Neural2-C`. After it, restart the server: the catalog and the bank pick
 up the new clips.
 
-- **What is spoken** (`speech_spoken()` in `src/speech.php`, shared by the builder,
+- **What is spoken** (`speech_spoken()` in `backend/src/speech.php`, shared by the builder,
   the catalog and the exam): the first spelling, without notes, punctuation and
   optional endings (いじわる(な) → いじわる, 妹(さん) → 妹); brackets inside a
   word stay part of it (ほ(う)っておく → ほうっておく), and a phrase is spoken whole
@@ -174,5 +199,5 @@ up the new clips.
   everything.
 - **The key**: `GOOGLE_TTS_API_KEY` in the environment or in the gitignored
   `.env` (README). It is sent in a header, never in a URL, and never printed.
-- **In the browser** (`KA.play` in `core.js`): the voices take turns, so every
-  word is heard from both over time.
+- **In the browser** (`AudioService` in `frontend/src/app/core/audio.service.ts`):
+  the voices take turns, so every word is heard from both over time.

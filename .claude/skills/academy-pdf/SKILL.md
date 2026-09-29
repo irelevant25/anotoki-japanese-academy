@@ -8,21 +8,23 @@ description: Read pages of the scanned course books (textbooks and workbooks for
 The five PDFs are in `books/` at the repository root. That folder is
 gitignored: the books stay on this computer, and a new machine needs them
 copied in by hand (or `ACADEMY_BOOKS_DIR` pointed at them). They are page scans
-with **no text layer**, and this machine has no poppler, so the Read tool can't
-open them as PDFs. `tools/pdf/pages.js` copies each page's embedded JPEG out,
-crops and scales it, and prints the file path. Open that path with the Read
-tool.
+with **no text layer**, and these machines have no poppler, so the Read tool
+can't open them as PDFs. `backend/tools/pdf/pages.js` copies each page's
+embedded JPEG out, crops and scales it, and prints the file path. Open that
+path with the Read tool. (It needs `sharp`: `npm install` at the root, once.)
 
 Whatever you learn from a book, never write the course's name into the
 repository (see `CLAUDE.md`): say "textbook 1", "the answer key" and so on.
 
 ```bash
 # from the repository root
-node tools/pdf/pages.js textbook-2 357-359          # full pages, by PDF page number
-node tools/pdf/pages.js textbook-1 364 --book-page  # by the page number printed in the book
-node tools/pdf/pages.js answer-key 1-40 --sheet     # contact sheet of thumbnails to find things
-node tools/pdf/pages.js textbook-1 389 --width 1800 # bigger, for small print (furigana, charts)
+node backend/tools/pdf/pages.js textbook-2 357-359          # full pages, by PDF page number
+node backend/tools/pdf/pages.js textbook-1 364 --book-page  # by the page number printed in the book
+node backend/tools/pdf/pages.js answer-key 1-40 --sheet     # contact sheet of thumbnails to find things
+node backend/tools/pdf/pages.js textbook-1 389 --width 1800 # bigger, for small print (furigana, charts)
 ```
+
+(`npm run pdf:pages -- textbook-2 357-359` does the same.)
 
 Page numbers are **PDF page numbers**, the same numbers a PDF viewer shows. The
 offsets hold for whole books, because blank and divider pages are numbered book

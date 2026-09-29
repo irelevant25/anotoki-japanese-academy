@@ -1,0 +1,264 @@
+<!-- ---------------------------------------------------------- setup ---- -->
+<main id="setup" class="screen" [hidden]="screen() !== 'setup'">
+  <div class="wrap">
+    <header class="hero">
+      <h1>試験 <span>Exam</span></h1>
+      <p class="tagline">
+        Could you pass a test on the whole course? Built from its vocabulary, all 317 kanji, the conjugation charts, hand-written grammar
+        questions and spoken vocabulary — Part 1 (Lessons 1–12) and Part 2 (13–23).
+      </p>
+      <p class="bank" id="bankLine">{{ bankLine() }}</p>
+    </header>
+
+    <section class="panel">
+      <label class="field">
+        <span class="lbl">Your name <em>(for the report)</em></span>
+        <input id="candidate" type="text" placeholder="optional" autocomplete="name" [value]="candidate()" (input)="candidate.set($any($event.target).value)" />
+      </label>
+
+      <div class="field">
+        <span class="lbl">Part</span>
+        <div class="chips" id="bookChips">
+          @for (bk of meta()?.books ?? []; track bk.id) {
+            <button type="button" class="chip" [class.is-on]="books().has(bk.id)" [attr.data-book]="bk.id" [title]="bookTitle(bk)" (click)="toggleBook(bk.id)">
+              {{ bk.name }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Paper length</span>
+        <div class="chips" id="sizeChips">
+          @for (s of sizes; track s[0]) {
+            <button type="button" class="chip" [class.is-on]="size() === s[0]" [attr.data-size]="s[0]" (click)="size.set(s[0])">{{ s[1] }}</button>
+          }
+        </div>
+      </div>
+
+      <details class="adv">
+        <summary>Narrow the scope</summary>
+
+        <div class="field">
+          <div class="lblrow">
+            <span class="lbl">Lessons</span>
+            <button type="button" class="link" data-all="lessons" (click)="allLessons(true)">all</button>
+            <button type="button" class="link" data-none="lessons" (click)="allLessons(false)">none</button>
+          </div>
+          <div class="chips" id="lessonChips">
+            @for (l of lessonChoices(); track l.id) {
+              <button type="button" class="chip" [class.is-on]="lessons().has(l.id)" [attr.data-lesson]="l.id" [title]="l.name" (click)="toggleLesson(l.id)">
+                {{ l.id === 0 ? 'Greetings' : 'L' + l.id }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="lblrow">
+            <span class="lbl">Sections</span>
+            <button type="button" class="link" data-all="sections" (click)="allSections(true)">all</button>
+            <button type="button" class="link" data-none="sections" (click)="allSections(false)">none</button>
+          </div>
+          <div class="chips" id="sectionChips">
+            @for (s of meta()?.sections ?? []; track s.id) {
+              <button type="button" class="chip" [class.is-on]="sections().has(s.id)" [attr.data-section]="s.id" [title]="s.available + ' available'" (click)="toggleSection(s.id)">
+                {{ s.name }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="lbl">Paper ID <em>(reuse one to sit the identical paper again)</em></span>
+          <input id="seed" type="text" placeholder="leave blank for a new paper" [value]="seed()" (input)="seed.set($any($event.target).value)" />
+        </label>
+      </details>
+
+      <div class="actions">
+        <button id="startBtn" class="primary" type="button" [disabled]="building()" (click)="start()">
+          {{ building() ? 'Building the paper…' : 'Start the test' }}
+        </button>
+        <button id="historyBtn" class="ghost" type="button" (click)="toggleHistory()">Past attempts</button>
+      </div>
+      <p class="err" id="setupErr">{{ setupErr() }}</p>
+    </section>
+
+    @if (history(); as rows) {
+      <section class="panel history" id="historyPanel">
+        <h2>Past attempts</h2>
+        <div id="historyBody">
+          @if (rows.length) {
+            <table class="hist">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Qs</th>
+                  <th>Score</th>
+                  <th>Grade</th>
+                  <th>Result</th>
+                  <th>Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of rows; track r.id) {
+                  <tr>
+                    <td>{{ when(r.finishedAt) }}</td>
+                    <td>{{ r.candidate || '—' }}</td>
+                    <td>{{ r.total }}</td>
+                    <td>{{ r.pct }}%</td>
+                    <td>{{ r.grade }}</td>
+                    <td [class.pass]="r.passed" [class.fail]="!r.passed">{{ r.passed ? 'PASS' : 'FAIL' }}</td>
+                    <td>
+                      <a [href]="reportUrl(r.id)" target="_blank" rel="noopener" (click)="privateLinks.click($event, reportUrl(r.id))">open</a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="tagline">No attempts recorded yet.</p>
+          }
+        </div>
+      </section>
+    }
+  </div>
+</main>
+
+<!-- ----------------------------------------------------------- test ---- -->
+<main id="test" class="screen" [hidden]="screen() !== 'test'">
+  <div class="topbar">
+    <div class="progress"><div id="progressFill" [style.width.%]="progress()"></div></div>
+    <div class="topmeta">
+      <span id="counter">{{ idx() + 1 }} / {{ total() }}</span>
+      <span class="sect" id="sectionTag">{{ q()?.sectionName }}</span>
+      <span class="spacer"></span>
+      <span id="clock" class="clock">{{ clock() }}</span>
+      <button id="quitBtn" class="ghost sm" type="button" [disabled]="quitting()" (click)="quit()">Finish now</button>
+    </div>
+  </div>
+
+  <div class="wrap qwrap">
+    <div class="qcard">
+      <div class="qhead">
+        <span class="qlesson" id="qLesson">{{ q() ? lessonLabel(q()!.lesson) : '' }}</span>
+        <span class="qhint" id="qHint">{{ q()?.hint || '' }}</span>
+      </div>
+      <h2 class="qtext" id="qText">{{ q()?.question }}</h2>
+
+      <div class="player" id="player" [hidden]="!q()?.audio" [class.err]="playerErr()">
+        <button type="button" id="playBtn" class="playbtn" [class.playing]="playing()" aria-label="Play the recording" (click)="playAudio()">
+          <span class="tri"></span>
+        </button>
+        <div class="playmeta">
+          <span id="playState">{{ playState() }}</span>
+          <span class="playhint">press <kbd>R</kbd> to replay</span>
+        </div>
+        <audio #audio id="audio" preload="auto" (play)="onPlay()" (ended)="onStop()" (pause)="onStop()" (error)="onAudioError()"></audio>
+      </div>
+
+      <div class="opts" id="opts">
+        @for (opt of q()?.options ?? []; track $index; let i = $index) {
+          <button type="button" class="opt" [class.is-on]="chosen() === i" (click)="choose(i)">
+            <span class="key">{{ 'ABCD'[i] || i + 1 }}</span><span class="txt">{{ opt }}</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="navrow">
+      <button id="prevBtn" class="ghost" type="button" [disabled]="idx() === 0" (click)="go(idx() - 1)">&larr; Back</button>
+      <span class="flagwrap">
+        <label><input type="checkbox" id="flagBox" [checked]="q() ? flags().has(q()!.id) : false" (change)="toggleFlag()" /> flag for review</label>
+      </span>
+      <button id="nextBtn" class="primary" type="button" (click)="next()">{{ isLast() ? 'Finish →' : 'Next →' }}</button>
+    </div>
+
+    <div class="gridnav" id="gridNav">
+      @for (question of exam()?.questions ?? []; track question.id; let i = $index) {
+        <button type="button" [class]="gridClass(question, i)" [title]="question.sectionName" (click)="go(i)">{{ i + 1 }}</button>
+      }
+    </div>
+  </div>
+</main>
+
+<!-- --------------------------------------------------------- result ---- -->
+<main id="result" class="screen" [hidden]="screen() !== 'result'">
+  <div class="wrap">
+    @if (result(); as res) {
+      <div class="verdict panel" id="verdict">
+        <div class="bigscore">{{ res.summary.pct }}<small>%</small></div>
+        <div class="stamp" [class.pass]="res.summary.passed" [class.fail]="!res.summary.passed">
+          {{ res.summary.passed ? 'PASS' : 'FAIL' }} &middot; {{ res.summary.grade }}
+        </div>
+        <div class="vfacts">
+          <div><div class="k">Correct</div><div class="v">{{ res.summary.right }} / {{ res.summary.total }}</div></div>
+          <div><div class="k">Unanswered</div><div class="v">{{ res.summary.unanswered }}</div></div>
+          <div><div class="k">Time</div><div class="v">{{ duration(res.summary.totalMs) }}</div></div>
+          <div><div class="k">Per question</div><div class="v">{{ perQuestion(res.summary.avgMs) }}</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>By skill</h2>
+        <div id="bySection">
+          @for (g of res.bySection; track g.name) {
+            <ng-container *ngTemplateOutlet="bar; context: { $implicit: g }" />
+          }
+        </div>
+      </div>
+      <div class="panel">
+        <h2>By lesson</h2>
+        <div id="byLesson">
+          @for (g of res.byLesson; track g.name) {
+            <ng-container *ngTemplateOutlet="bar; context: { $implicit: g }" />
+          }
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Review</h2>
+        <div class="revfilter">
+          <button type="button" class="chip" [class.is-on]="reviewMode() === 'wrong'" data-rev="wrong" (click)="reviewMode.set('wrong')">Missed only</button>
+          <button type="button" class="chip" [class.is-on]="reviewMode() === 'all'" data-rev="all" (click)="reviewMode.set('all')">Everything</button>
+        </div>
+        <div id="review">
+          @for (r of reviewRows(); track r.n) {
+            <div class="rev" [class.good]="r.correct" [class.bad]="!r.correct">
+              <div class="rq">
+                <span class="rn">Q{{ r.n }} · {{ r.section }}</span>
+                {{ r.question }}
+                @if (r.audio) {
+                  <button type="button" class="miniplay" aria-label="Play the recording" (click)="listen(r.audio)">&#9654; listen</button>
+                }
+              </div>
+              <div class="ra">
+                <span class="mine">You: <b>{{ r.chosen === null ? '—' : r.chosen }}</b></span>
+                @if (!r.correct) {
+                  <span class="sol">Correct: <b>{{ r.correctAnswer }}</b></span>
+                }
+              </div>
+              <div class="rw">{{ r.explain }}{{ r.ref ? ' · ' + r.ref : '' }}</div>
+            </div>
+          } @empty {
+            <p class="tagline">Nothing missed.</p>
+          }
+        </div>
+      </div>
+      <div class="actions">
+        <a id="reportLink" class="primary btn" target="_blank" rel="noopener" [href]="res.reportUrl" (click)="privateLinks.click($event, res.reportUrl)">Open full report</a>
+        <button id="againBtn" class="ghost" type="button" (click)="again()">New test</button>
+      </div>
+      <p class="savedline" id="savedLine">Attempt and its report saved ({{ res.id }}).</p>
+    }
+  </div>
+</main>
+
+<ng-template #bar let-g>
+  <div class="brow">
+    <div class="bname">{{ g.name }}</div>
+    <div class="bbar">
+      <div class="bfill" [class]="'bfill ' + barClass(g)" [style.width.%]="round(g.pct)"></div>
+      <span class="bpct">{{ round(g.pct) }}% ({{ g.right }}/{{ g.total }})</span>
+    </div>
+  </div>
+</ng-template>

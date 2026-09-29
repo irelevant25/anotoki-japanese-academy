@@ -1,0 +1,35 @@
+<header class="topnav">
+  <div class="in">
+    <a class="brand" routerLink="/" [attr.aria-current]="section() === 'home' ? 'page' : null"
+      ><span class="mark">日</span><span class="full">Japanese </span><b>Academy</b></a
+    >
+    @if (auth.state() === 'ready') {
+      <nav>
+        <a routerLink="/kanji" [attr.aria-current]="section() === 'kanji' ? 'page' : null"
+          >Kanji@if (due()) {<span class="badge" id="navDue">{{ due() }}</span>}</a
+        >
+        <a routerLink="/exam" [attr.aria-current]="section() === 'exam' ? 'page' : null">Exam</a>
+      </nav>
+      @if (auth.user()) {
+        <app-account-menu />
+      }
+    }
+  </div>
+</header>
+
+@switch (auth.state()) {
+  @case ('ready') {
+    <router-outlet />
+  }
+  @case ('signed-out') {
+    <app-sign-in />
+  }
+  @case ('not-set-up') {
+    <app-not-set-up />
+  }
+  @case ('problem') {
+    <app-problem />
+  }
+}
+
+<app-footer />

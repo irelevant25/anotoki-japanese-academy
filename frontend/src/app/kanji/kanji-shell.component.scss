@@ -1,0 +1,36 @@
+:host {
+  display: block;
+}
+.subnav {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.subnav .in {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.subnav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.subnav a:hover {
+  color: var(--ink);
+}
+.subnav a[aria-current] {
+  color: var(--ink);
+  border-bottom-color: var(--kanji);
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .subnav a {
+    padding: 10px 8px; /* all five tabs fit a 390 px screen */
+  }
+}

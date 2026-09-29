@@ -1,0 +1,18 @@
+@if (item().type === 'kanji') {
+  <div class="readings">
+    <div class="rd"><span class="rk">On'yomi</span><span class="rv" lang="ja">{{ join(item().on) }}</span></div>
+    <div class="rd"><span class="rk">Kun'yomi</span><span class="rv" lang="ja">{{ join(item().kun) }}</span></div>
+    @if (extra().length) {
+      <div class="rd"><span class="rk">Also accepted</span><span class="rv" lang="ja">{{ extra().join('、') }}</span></div>
+    }
+  </div>
+} @else {
+  <div class="readings">
+    <div class="rd">
+      <span class="rk">Reading</span><span class="rv" lang="ja">{{ wordReadings() }}</span>
+      @if (item().audio) {
+        <button class="ghost sm play" type="button" (click)="listen()">▶ Listen</button>
+      }
+    </div>
+  </div>
+}

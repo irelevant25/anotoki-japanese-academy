@@ -1,0 +1,46 @@
+<h1 class="page">Lessons</h1>
+<p class="muted">
+  Learn new items in small batches, then a short quiz fixes them in the SRS. Take as many batches as you like — there is no daily limit.
+</p>
+<section class="panel">
+  <div class="field">
+    <span class="lbl">Batch size</span>
+    <div class="chips">
+      @for (n of sizes; track n) {
+        <button type="button" class="chip" [class.is-on]="batch() === n" [attr.data-batch]="n" (click)="setBatch(n)">{{ n }} per batch</button>
+      }
+    </div>
+  </div>
+  <div class="field">
+    <span class="lbl">Include</span>
+    <div class="chips">
+      @for (k of kinds; track k[0]) {
+        <button type="button" class="chip" [class.is-on]="types() === k[0]" [attr.data-types]="k[0]" (click)="setTypes(k[0])">{{ k[1] }}</button>
+      }
+    </div>
+  </div>
+  <div class="field">
+    <span class="lbl">From <em>(vocabulary opens up once its kanji are learned)</em></span>
+    <div class="chips">
+      <button type="button" class="chip" [class.is-on]="lesson() === null" (click)="lesson.set(null)">Course order</button>
+      @for (c of lessonChoices(); track c.L) {
+        <button type="button" class="chip" [class.is-on]="lesson() === c.L" [disabled]="!c.n" [title]="c.n + ' available'" (click)="lesson.set(c.L)">L{{ c.L }}</button>
+      }
+    </div>
+  </div>
+  <div class="field">
+    <span class="lbl">Next up</span>
+    <div class="preview">
+      @for (it of next(); track it.id) {
+        <app-tile [item]="it" [withMeaning]="true" />
+      } @empty {
+        <p class="muted small">Nothing left to learn with these choices.</p>
+      }
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" type="button" [disabled]="!next().length" (click)="start()">
+      {{ next().length ? 'Start ' + next().length + ' lesson' + (next().length === 1 ? '' : 's') : 'Nothing to learn' }}
+    </button>
+  </div>
+</section>

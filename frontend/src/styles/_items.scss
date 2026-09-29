@@ -1,0 +1,166 @@
+// The study items wherever they show: tiles (coloured by type, edged by SRS
+// stage) and the details of one item (lessons, the item page, "Item info" in
+// a session).
+
+/* ---------------------------------------------------------------- tiles */
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 40px;
+  padding: 0 7px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-family: var(--jp-sans);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--item-ink);
+  border-bottom: 4px solid transparent;
+  position: relative;
+}
+.tile.t-kanji {
+  background: var(--kanji);
+}
+.tile.t-vocab {
+  background: var(--vocab);
+  font-size: 16px;
+}
+.tile .tm {
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.1;
+  margin-top: 3px;
+  opacity: 0.9;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tile:has(.tm) {
+  height: auto;
+  padding: 6px 8px 4px;
+  min-width: 54px;
+}
+.tile:hover {
+  filter: brightness(1.1);
+}
+/* not yet learned: outlined, not filled */
+.tile.g-none {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-bottom: 4px solid var(--st-none);
+}
+.tile.g-none.t-kanji {
+  color: var(--kanji-text);
+}
+.tile.g-none.t-vocab {
+  color: var(--vocab-text);
+}
+.tile.g-apprentice {
+  border-bottom-color: var(--st-apprentice);
+}
+.tile.g-guru {
+  border-bottom-color: var(--st-guru);
+}
+.tile.g-master {
+  border-bottom-color: var(--st-master);
+}
+.tile.g-enlightened {
+  border-bottom-color: var(--st-enlightened);
+}
+.tile.g-burned {
+  border-bottom-color: var(--st-burned);
+  opacity: 0.75;
+}
+.preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* --------------------------------------------------------------- details */
+.details .dsec {
+  margin-bottom: 18px;
+}
+.details h3,
+.lbody h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.meanings {
+  font-size: 18px;
+  margin: 0;
+}
+.readings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.rd {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.rk {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 78px;
+}
+.rv {
+  font-size: 22px;
+  font-family: var(--jp-sans);
+}
+.examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.examples li {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) minmax(90px, auto) 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ex-w {
+  font-size: 19px;
+  color: var(--vocab-text);
+  text-decoration: none;
+  font-family: var(--jp-sans);
+}
+.ex-r {
+  color: var(--muted);
+}
+.ex-m {
+  font-size: 14px;
+}
+.play {
+  padding: 3px 10px;
+}
+.notes .field {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 760px) {
+  .examples li {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ex-m {
+    grid-column: 1 / -1;
+  }
+}
