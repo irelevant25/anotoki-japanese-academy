@@ -30,11 +30,13 @@ file. Look at its last lines: the size and the upload map.
 Tell them, in these words or plainer:
 
 1. In the hosting panel: make a PostgreSQL database and a user that owns it,
-   and point the site (e.g. `ja.anotoki.eu`) at a folder, with the document
-   root at that folder's `public/`.
+   and point the site (e.g. `japanese.anotoki.eu`) at a folder, with the
+   document root at that folder's `public/`. Where the panel cannot (their
+   hosting serves a subdomain from `sub/<name>/` itself), the top-level
+   `.htaccess` in docs/kb/hosting.md, *The first install*, does the same.
 2. Upload everything in `dist/japanese-academy/` into that folder
    (`public/`, `backend/`, `data/`, `backups/`).
-3. Open `https://ja.anotoki.eu/setup.php`. Download
+3. Open `https://japanese.anotoki.eu/setup.php`. Download
    `backend/config/setup-token.local.php` by FTP and paste the token from it:
    the page checks it at once, and only then fills in what is set already (on
    a site set up before) and lists the files in `backups/`.
@@ -46,10 +48,11 @@ Tell them, in these words or plainer:
    IAM get in (the IAM's admin console gives roles).
 
 The IAM must know the site first: client `japanese-academy` with redirect URI
-`https://ja.anotoki.eu/auth/callback`, post-logout `https://ja.anotoki.eu/` and
-web origin `https://ja.anotoki.eu`. (Until 2026-09-29 the redirect URI was
-`/auth/callback.html`: check the IAM's registration says `/auth/callback`
-before the first sign-in on a site built from this version.)
+`https://japanese.anotoki.eu/auth/callback`, post-logout
+`https://japanese.anotoki.eu/` and web origin `https://japanese.anotoki.eu`.
+(Until 2026-09-29 the redirect URI was `/auth/callback.html`: check the IAM's
+registration says `/auth/callback` before the first sign-in on a site built
+from this version.)
 
 ## 3. The owner's data
 

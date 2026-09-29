@@ -3,7 +3,7 @@
 The owner's shared hosting runs Apache, PHP 8.x and PostgreSQL, and allows
 **no shell, no cron and no long-running process**: files go up by FTP or SFTP,
 and PHP runs once per request. Everything here is built for that. The site is
-meant for `https://ja.anotoki.eu`, with sign-in through the anotoki IAM
+meant for `https://japanese.anotoki.eu`, with sign-in through the anotoki IAM
 ([sign-in.md](sign-in.md)).
 
 ## How the same app runs under Apache
@@ -112,8 +112,24 @@ checks that what a site needs is there, and parses every PHP file.
 
 1. In the hosting panel, make a PostgreSQL database and a user that owns it.
 2. `npm run build:dist`, then upload `dist/japanese-academy/` into the site's
-   folder, and set the site's document root to its `public/`.
-3. Open `https://ja.anotoki.eu/setup.php`. It writes a random token into
+   folder, and set the site's document root to its `public/`. Where the panel
+   cannot do that - the owner's hosting serves each subdomain from its own
+   folder, `sub/<name>/`, as it is - put this `.htaccess` at the top of the
+   upload instead, beside `public/`:
+
+   ```apache
+   RewriteEngine On
+   RewriteCond %{REQUEST_URI} !^/public/
+   RewriteRule ^(.*)$ public/$1 [L]
+   ```
+
+   Every request is then served from `public/`, whose own `.htaccess` routes
+   it, and the backend's addresses stay `/api/...`: `front.php` reads the
+   address the browser asked for, which a rewrite leaves alone. `backend/`,
+   `data/` and `backups/` refuse requests by themselves as well. The build
+   leaves this file out and an update never deletes it, so it is written once,
+   by hand; japanese.anotoki.eu runs this way.
+3. Open `https://japanese.anotoki.eu/setup.php`. It writes a random token into
    `backend/config/setup-token.local.php`; download that file by FTP and paste
    the token into the form. (Nobody without FTP access to the server can read
    it: that is how the setup page knows it is the owner. The page never shows

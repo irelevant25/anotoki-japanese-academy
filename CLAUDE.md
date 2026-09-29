@@ -11,7 +11,7 @@ signals (`frontend/`), built once and served by the backend. It runs two ways:
   (`php backend/server.php`, started by `start.ps1` / `start.sh`), with no
   sign-in (auth mode `none`): the owner studies with it daily at
   http://127.0.0.1:8200;
-- **as a website** (https://ja.anotoki.eu), on the owner's FTP-only shared
+- **as a website** (https://japanese.anotoki.eu), on the owner's FTP-only shared
   hosting under Apache, where people sign in through the anotoki IAM (auth mode
   `iam`) and each person has their own progress, settings and exam history.
   The owner decided both on 2026-09-27.

@@ -11,7 +11,7 @@ Lessons 1–23). Two parts, one site:
 Every word is spoken in two voices, female and male.
 
 It runs on your own computer with no sign-in, or as a website
-(https://ja.anotoki.eu) where people sign in with their anotoki account and
+(https://japanese.anotoki.eu) where people sign in with their anotoki account and
 each has their own progress — see *The website* below.
 
 It replaced the earlier N4 Coach app on 2026-09-23. N4 Coach is still in the

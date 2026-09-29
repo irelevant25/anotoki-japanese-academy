@@ -41,8 +41,8 @@ the same things in this app today.
 | | Production | Development |
 |---|---|---|
 | issuer | `https://iam.anotoki.eu` | `http://localhost:4300` |
-| redirect URI | `https://ja.anotoki.eu/auth/callback` | `http://localhost:4400/auth/callback` (the Angular dev server) |
-| after sign-out | `https://ja.anotoki.eu/` | `http://localhost:4400/` |
+| redirect URI | `https://japanese.anotoki.eu/auth/callback` | `http://localhost:4400/auth/callback` (the Angular dev server) |
+| after sign-out | `https://japanese.anotoki.eu/` | `http://localhost:4400/` |
 
 The IAM registers the development addresses by default. To run a copy against
 the development IAM, choose it in the setup page (`DEVELOPING.md`).
