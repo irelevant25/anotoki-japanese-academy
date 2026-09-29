@@ -53,7 +53,7 @@ const DIST_DENIED = ['backend', 'backend/storage', 'data', 'backups'];
 const DIST_NEVER = '~(^|/)(\.env|[^/]*\.local\.php)$'
     . '|^(tests|tools|docs|books|progress|results|reports|node_modules|\.claude|\.git|temp|dist|frontend|src)/'
     . '|^backend/(tests|tools|public|node_modules)/|^backend/storage/(?!\.htaccess$)|^backend/(server|manage)\.php$'
-    . '|^(start\.ps1|start\.sh|package(-lock)?\.json|CLAUDE\.md|README\.md|DEVELOPING\.md)$|^backups/(?!\.htaccess$)|^data/source/~';
+    . '|^(start\.ps1|start\.sh|package(-lock)?\.json|CLAUDE\.md|README\.md|DEV\.md)$|^backups/(?!\.htaccess$)|^data/source/~';
 
 /** The files under a folder, as paths relative to $base. */
 function dist_tree(string $base, string $dir): array

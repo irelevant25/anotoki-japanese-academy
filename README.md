@@ -46,7 +46,8 @@ No web server of its own: PHP's built-in one serves the app.
    open it again any time to change the settings. It never shows the password;
    left empty, the saved one stays.
 3. Or by hand, with that PHP: `npm run build:frontend` (builds the app), then
-   `php backend/server.php` (→ http://127.0.0.1:8200).
+   `php backend/server.php` (→ http://127.0.0.1:8200) - or `composer start` in
+   `backend/`, when that PHP is the first on PATH.
 
 The app only listens on this computer (127.0.0.1): other devices on your
 network can't reach it, and without sign-in it refuses to listen anywhere
@@ -300,7 +301,7 @@ books/                     the scanned books (not in git)
 
 ## Development
 
-`DEVELOPING.md` is the guide: what to install, running the backend and the
+`DEV.md` is the guide: what to install, running the backend and the
 Angular dev server side by side, signing in against the development IAM, the
 tests, and building the website's upload. `docs/kb/` is the reference for
 changing anything: where the data came from (with page maps of every book), how

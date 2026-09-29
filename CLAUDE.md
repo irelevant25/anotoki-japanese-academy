@@ -31,7 +31,7 @@ doesn't want it to show the source. Say "the course", "Part 1 / Part 2",
 (The real word 元気 in the vocabulary is fine.)
 
 **Knowledge base: `docs/kb/README.md`.** Before changing an area, read its kb
-page. If a change makes a statement in the kb, the README, `DEVELOPING.md` or a
+page. If a change makes a statement in the kb, the README, `DEV.md` or a
 count wrong, fix it in the same piece of work.
 
 ## What is where
@@ -93,6 +93,7 @@ hand, call that PHP (`docs/kb/environment.md`).
 
 ```
 npm start                    the app on 127.0.0.1:8200 with your settings (php backend/server.php; academy-run skill)
+(cd backend && composer start)  the same server, the way every anotoki backend starts (with the php on PATH)
 npm run frontend             ng serve on localhost:4400, proxying the backend's addresses to :8200
 npm test                     backend (PHP unit + API) and frontend (Angular unit) tests: run after every change
 npm run test:browser         Edge end to end: lessons → reviews → practice → exam, then sign-in and sign-out
@@ -286,7 +287,7 @@ review round.
    page changed, `npm run test:setup` too.
 2. The checkpoint agents that apply have run. Their findings are fixed or
    reported.
-3. The kb pages, the README, `DEVELOPING.md` and the counts are still true. Any
+3. The kb pages, the README, `DEV.md` and the counts are still true. Any
    decision someone might question has an entry in `docs/kb/decisions.md`.
 4. If server-side code or data changed, the owner's server has been restarted
    (academy-run) and answers requests. If it wasn't running, start it once to

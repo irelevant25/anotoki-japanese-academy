@@ -11,5 +11,14 @@
     "config": {
         "optimize-autoloader": true,
         "sort-packages": true
+    },
+    "scripts": {
+        "start": [
+            "Composer\\Config::disableProcessTimeout",
+            "php server.php"
+        ]
+    },
+    "scripts-descriptions": {
+        "start": "Japanese Academy on http://127.0.0.1:8200: brings the database up to date, then serves the app and the API (server.php)"
     }
 }

@@ -45,7 +45,7 @@ the same things in this app today.
 | after sign-out | `https://japanese.anotoki.eu/` | `http://localhost:4400/` |
 
 The IAM registers the development addresses by default. To run a copy against
-the development IAM, choose it in the setup page (`DEVELOPING.md`).
+the development IAM, choose it in the setup page (`DEV.md`).
 
 ## The server — `backend/src/auth.php`
 

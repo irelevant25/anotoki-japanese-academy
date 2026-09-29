@@ -1,7 +1,7 @@
 # Japanese Academy — knowledge base
 
 Reference for anyone (human or Claude) changing this project. `CLAUDE.md` holds
-the always-on rules, `DEVELOPING.md` the setup for working on it; these pages
+the always-on rules, `DEV.md` the setup for working on it; these pages
 hold the detail. Read the page for an area before changing it.
 
 | Page | Read it when |

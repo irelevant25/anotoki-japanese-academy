@@ -144,7 +144,7 @@ settings, Apache or the setup page; `architecture.md` for the map).
 9. **Consistency.** The change matches the surrounding style and comment
    density. No dead code, no leftover debugging, no new dependency without a
    reason.
-10. **Docs.** The kb pages, the README, `DEVELOPING.md`, the changelog and the
+10. **Docs.** The kb pages, the README, `DEV.md`, the changelog and the
     counts are still true after the change.
 
 Then run `npm test` from the repository root. If `frontend/` changed and the

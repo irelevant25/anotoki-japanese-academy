@@ -5,7 +5,7 @@ paths:
 
 # Frontend (Japanese Academy)
 
-Reference: `docs/kb/architecture.md` (the frontend's map), `DEVELOPING.md`.
+Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
 
 - Angular 21: standalone components, `ChangeDetectionStrategy.OnPush`, state
   in signals (`signal`, `computed`, `input`, `output`), zoneless

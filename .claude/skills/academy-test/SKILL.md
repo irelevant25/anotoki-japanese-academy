@@ -69,7 +69,7 @@ Always finish with the full `npm test`.
   sign-in tests).
 - `The tests make their databases on the PostgreSQL server of
   backend/config/database.local.php, and there is none` means this copy is not
-  set up: start it and open `/setup.php` (`DEVELOPING.md`).
+  set up: start it and open `/setup.php` (`DEV.md`).
 - `Could not prepare the test database` means PostgreSQL isn't reachable with
   those settings.
 - A failing test is information. Work out whether the code or the expectation

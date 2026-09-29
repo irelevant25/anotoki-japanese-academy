@@ -42,6 +42,7 @@ router draws the page).
 npm install                  # the root's tools (sharp, for the PDF page tool)
 npm run build:frontend       # installs the frontend's packages when needed, builds the app
 npm start                    # php backend/server.php → http://127.0.0.1:8200
+                             # (or in backend/: composer start - the same server, with the php on PATH)
 ```
 
 `npm start` says the copy is not set up yet: open
@@ -77,7 +78,7 @@ Changes to the PHP code need no restart.
 ### Signing in against the development IAM
 
 The anotoki IAM runs next to this repository (`../anotoki-iam`; its
-`DEVELOPING.md`): its API on 8100, its pages on http://localhost:4300. It
+`DEV.md`): its API on 8100, its pages on http://localhost:4300. It
 registers Japanese Academy for http://localhost:4400 by default, with the
 redirect URI http://localhost:4400/auth/callback and `/` after sign-out.
 
