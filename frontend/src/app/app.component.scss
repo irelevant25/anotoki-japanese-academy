@@ -1,12 +1,4 @@
 // The top bar's looks are the app's (styles/_base.scss: .topnav, .brand, .badge).
-// A column the height of the window at least, so the foot sits at its bottom
-// edge on a short screen rather than halfway up it.
 :host {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-app-footer {
-  margin-top: auto;
+  display: block;
 }

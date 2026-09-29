@@ -1,6 +1,6 @@
 {
   "name": "japanese-academy",
-  "version": "3.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Japanese Academy — WaniKani-style kanji SRS and a full course exam, with spoken vocabulary in two voices. Backend: PHP (Slim 4) + PostgreSQL in backend/; frontend: Angular in frontend/. These scripts run both.",
   "type": "commonjs",

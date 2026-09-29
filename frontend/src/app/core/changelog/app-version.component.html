@@ -1,0 +1,6 @@
+@if (changelog.version()) {
+  <button type="button" class="version" id="version" title="What’s new" (click)="open()">
+    v{{ changelog.version() }}@if (changelog.unseen()) {<span class="dot" title="Something new"></span>}
+  </button>
+}
+<app-changelog-dialog />

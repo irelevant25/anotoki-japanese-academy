@@ -47,6 +47,13 @@ a {
   align-items: center;
   gap: 22px;
 }
+// The app's name and its version (app-version) as one piece: the bar's wide
+// gap is for what sits apart, like the navigation.
+.brandline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .brand {
   color: var(--ink);
   text-decoration: none;
@@ -404,6 +411,9 @@ kbd {
   .topnav .in {
     gap: 10px;
   }
+  .brandline {
+    gap: 6px;
+  }
   .brand .full {
     display: none;
   }
@@ -415,5 +425,16 @@ kbd {
   }
   .usermenu summary {
     padding: 4px;
+  }
+}
+
+// The smallest phones: the mark stands for the name, so the version, both
+// sections with the reviews due, and the account menu still fit on one line.
+@media (max-width: 370px) {
+  .brand b {
+    display: none;
+  }
+  .brand .mark {
+    margin-right: 0;
   }
 }

@@ -4,18 +4,17 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router
 import { filter } from 'rxjs';
 import { AccountMenuComponent } from './core/auth/account-menu/account-menu.component';
 import { AuthService } from './core/auth/auth.service';
-import { AppFooterComponent } from './core/changelog/app-footer.component';
+import { AppVersionComponent } from './core/changelog/app-version.component';
 import { KanjiStateService } from './kanji/kanji-state.service';
 import { NotSetUpComponent } from './standin/not-set-up/not-set-up.component';
 import { ProblemComponent } from './standin/problem/problem.component';
 import { SignInComponent } from './standin/sign-in/sign-in.component';
 
 /**
- * The page around every screen: the top bar (with the reviews due, and who is
- * signed in), the screen of the address — or, while the app cannot be used,
- * the page that says why (signed out, not set up yet, a server that does not
- * answer) — and the foot with the version, at the bottom of the window however
- * short the screen.
+ * The page around every screen: the top bar (the version beside the app's name,
+ * the reviews due, and who is signed in), then the screen of the address — or,
+ * while the app cannot be used, the page that says why (signed out, not set up
+ * yet, a server that does not answer).
  *
  * The top bar's Kanji and Exam show only while the app can be used: following
  * one loads its section, and the kanji screens ask the API for data on the
@@ -23,7 +22,7 @@ import { SignInComponent } from './standin/sign-in/sign-in.component';
  */
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet, AccountMenuComponent, AppFooterComponent, SignInComponent, NotSetUpComponent, ProblemComponent],
+  imports: [RouterLink, RouterOutlet, AccountMenuComponent, AppVersionComponent, SignInComponent, NotSetUpComponent, ProblemComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

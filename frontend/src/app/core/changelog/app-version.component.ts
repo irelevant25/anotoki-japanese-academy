@@ -2,15 +2,19 @@ import { ChangeDetectionStrategy, Component, inject, OnInit, viewChild } from '@
 import { ChangelogDialogComponent } from './changelog-dialog.component';
 import { ChangelogService } from './changelog.service';
 
-/** The foot of every page: the app's version, which opens what changed in it. */
+/**
+ * The app's version, beside its name in the top bar, which opens what changed
+ * in it. It sat at the foot of the page once, where a long page hid it below
+ * the fold and a short one left it small and far from anything anybody looks at.
+ */
 @Component({
-  selector: 'app-footer',
+  selector: 'app-version',
   imports: [ChangelogDialogComponent],
-  templateUrl: './app-footer.component.html',
-  styleUrl: './app-footer.component.scss',
+  templateUrl: './app-version.component.html',
+  styleUrl: './app-version.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppFooterComponent implements OnInit {
+export class AppVersionComponent implements OnInit {
   readonly changelog = inject(ChangelogService);
   private readonly dialog = viewChild.required(ChangelogDialogComponent);
 

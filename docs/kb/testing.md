@@ -229,7 +229,7 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - `core/auth/private-links.service.spec.ts` — `lockDown()` puts the no-script
   policy before anything of a report's; the download's file name.
 - `core/format.spec.ts` (times, dates, counts in words: "1 attempt"),
-  `core/changelog/app-footer.component.spec.ts` (the version, its dot until
+  `core/changelog/app-version.component.spec.ts` (the version, its dot until
   the news is read, the dialog), `standin/not-set-up/not-set-up.component.spec.ts`.
 
 Browser (`frontend/e2e/`, Edge through `playwright-core`):

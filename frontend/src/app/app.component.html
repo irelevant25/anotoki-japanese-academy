@@ -1,8 +1,11 @@
 <header class="topnav">
   <div class="in">
-    <a class="brand" routerLink="/" [attr.aria-current]="section() === 'home' ? 'page' : null"
-      ><span class="mark">日</span><span class="full">Japanese </span><b>Academy</b></a
-    >
+    <div class="brandline">
+      <a class="brand" routerLink="/" [attr.aria-current]="section() === 'home' ? 'page' : null"
+        ><span class="mark">日</span><span class="full">Japanese </span><b>Academy</b></a
+      >
+      <app-version />
+    </div>
     @if (auth.state() === 'ready') {
       <nav>
         <a routerLink="/kanji" [attr.aria-current]="section() === 'kanji' ? 'page' : null"
@@ -31,5 +34,3 @@
     <app-problem />
   }
 }
-
-<app-footer />

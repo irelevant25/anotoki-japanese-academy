@@ -1,6 +1,6 @@
 {
   "name": "japanese-academy-frontend",
-  "version": "3.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Japanese Academy's frontend: the kanji SRS and the exam, in Angular 21 (standalone, zoneless, signals).",
   "engines": {
