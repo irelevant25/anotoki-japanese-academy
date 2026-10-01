@@ -4,6 +4,8 @@ paths:
   - "backend/src/users.php"
   - "backend/src/upkeep.php"
   - "backend/src/owner.php"
+  - "backend/src/translations.php"
+  - "backend/translations.php"
   - "backend/src/anotoki_iam.php"
   - "backend/api/**"
   - "backend/config/**"
@@ -43,10 +45,24 @@ For building and uploading, use the `academy-deploy` skill.
 - Every address with somebody's data is registered with `data_route()`
   (`backend/api/routes/site.php`: set up → upkeep → the person → on a page load
   the day's backup) and passes the user id down. Only `/api/auth/config`,
-  `/api/health` and the clips need no sign-in.
+  `/api/health`, `/api/translations/{code}` (the app's own words, the same for
+  everybody: set up and upkeep, no person, no token looked at) and the clips
+  need no sign-in. The `/api/owner/…` addresses go through `owner_route()`
+  (`backend/api/routes/translations.php`): `data_route()`, then
+  `owner_middleware()` (an `Origin` of another host 403 `wrong_origin`, no
+  `ADMIN` role 403 `owner_only`, a body over 1 MiB 413) — in mode `none` the
+  owner has every role, so that is this computer.
 - Every query of a study table has `WHERE user_id = ?`, and a new study table
   gets `user_id` first in its primary key, referencing `users (id)` with
   `ON UPDATE CASCADE`, and goes into `USER_TABLES` (`backend/src/users.php`).
+- The three translation tables (`languages`, `translation_keys`,
+  `translations`; migration 004, `backend/src/translations.php`) are the
+  site's, not a person's: read by everybody, written by the owner, never in
+  `USER_TABLES`, and their queries carry no `user_id`. The one user id there
+  is `translations.updated_by` (who last reworded a string: `uid($request)`,
+  null for a migration or the command line). Keys come only from migrations;
+  `backend/translations.php` is a command-line tool and never uploaded
+  (`DIST_NEVER`).
 - The study rows are never rewritten. Migration `002_users.sql` was the one
   exception, approved by the owner on 2026-09-27 (every existing row became
   user 1's, with a check that no row was lost or changed). A migration that

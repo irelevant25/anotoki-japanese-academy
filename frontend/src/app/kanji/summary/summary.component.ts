@@ -1,18 +1,33 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { fmtClock, fmtIn, pct, plural } from '../../core/format';
+import { ApiError } from '../../core/api/api.service';
+import { fmtClock, fmtIn, pct } from '../../core/format';
+import { errorKey, errorParams } from '../../core/i18n/error-text';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
+import { TranslationService } from '../../core/i18n/translation.service';
 import { KanjiScreenService, SummaryContext } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
-import { DoneEntry, SessionResult } from '../session/session-engine';
+import { DoneEntry, SessionMode, SessionResult } from '../session/session-engine';
 import { TileComponent } from '../shared/tile/tile.component';
+import { Part, wordedParts } from '../shared/worded/worded-parts';
+import { WordedComponent } from '../shared/worded/worded.component';
 
-const TITLES = { lesson: 'Lessons done', review: 'Reviews done', practice: 'Practice done' };
+/** The heading of each kind of session's summary, as keys. */
+const TITLES: Record<SessionMode, string> = {
+  lesson: 'summary.title.lesson',
+  review: 'summary.title.review',
+  practice: 'summary.title.practice',
+};
+
+/** A review's move between stages: the stage names are the catalog's own, English in every language. */
+export type Move = { kind: 'stays'; parts: Part[] } | { kind: 'moved'; from: string; to: string; dir: 'up' | 'down' };
 
 /** A finished lesson quiz, review session or practice: what was learned, missed and saved, and what next. */
 @Component({
   selector: 'app-summary',
-  imports: [NgTemplateOutlet, RouterLink, TileComponent],
+  imports: [NgTemplateOutlet, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, WordedComponent],
   templateUrl: './summary.component.html',
   styleUrl: './summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,6 +35,7 @@ const TITLES = { lesson: 'Lessons done', review: 'Reviews done', practice: 'Prac
 export class SummaryComponent {
   private readonly kanji = inject(KanjiStateService);
   private readonly screen = inject(KanjiScreenService);
+  private readonly i18n = inject(TranslationService);
 
   readonly result = input.required<SessionResult>();
   readonly ctx = input<SummaryContext>({});
@@ -30,24 +46,25 @@ export class SummaryComponent {
   readonly failed = computed(() => this.result().done.filter((d) => d.error));
   readonly summary = this.kanji.summary;
 
+  /**
+   * The first line. After lessons: how many items were learned and, as a
+   * sentence of its own, when their first review comes. After reviews or
+   * practice: how many items went without a mistake, and the share of answers
+   * right (left out when nothing was answered).
+   */
   readonly lead = computed(() => {
     const r = this.result();
     const s = this.summary();
     if (r.mode === 'lesson') {
-      const first = s?.nextReviewAt ? ` The first review is ${fmtIn(s.nextReviewAt)}, at ${fmtClock(s.nextReviewAt)}.` : '';
-      return `You learned ${plural(r.done.length - this.failed().length, 'item')}.${first}`;
+      const learned = this.i18n.plural('summary.learned', r.done.length - this.failed().length);
+      return s?.nextReviewAt
+        ? `${learned} ${this.i18n.t('summary.firstReview', { when: fmtIn(this.i18n, s.nextReviewAt), clock: fmtClock(this.i18n, s.nextReviewAt) })}`
+        : learned;
     }
-    return `${this.clean().length} of ${plural(r.done.length, 'item')} with no mistakes${r.answered ? ` · ${pct(r.right, r.answered)}% of answers right.` : '.'}`;
-  });
-  /** Half-answered items the session ended on, which it did not save. */
-  readonly unsaved = computed(() => {
-    const n = this.result().unfinished;
-    return `${plural(n, 'half-answered item')} ${n === 1 ? 'was' : 'were'} not saved.`;
-  });
-  /** The button that goes on with the lessons. */
-  readonly moreLabel = computed(() => {
-    const n = this.more().length;
-    return n ? `Next ${plural(n, 'lesson')}` : 'All caught up';
+    const clean = this.clean().length;
+    return r.answered
+      ? this.i18n.plural('summary.score', r.done.length, { clean, pct: pct(r.right, r.answered) })
+      : this.i18n.plural('summary.scoreOnly', r.done.length, { clean });
   });
 
   /** The next lessons, as the dashboard would offer them. */
@@ -60,15 +77,20 @@ export class SummaryComponent {
     return d.wrongM + d.wrongR;
   }
 
-  /** A review's move between stages, or null. */
-  moved(d: DoneEntry): { text: string; dir: '' | 'up' | 'down' } | null {
+  /** A review's move between stages, or null. Called from the template, so "stays" follows the language. */
+  moved(d: DoneEntry): Move | null {
     if (this.result().mode !== 'review' || d.from == null || d.to == null) {
       return null;
     }
     if (d.to === d.from) {
-      return { text: `stays ${this.kanji.stageName(d.to)}`, dir: '' };
+      return { kind: 'stays', parts: wordedParts(this.i18n, 'summary.stays', { stage: { text: this.kanji.stageName(d.to), lang: 'en' } }) };
     }
-    return { text: `${this.kanji.stageName(d.from)} → ${this.kanji.stageName(d.to)}`, dir: d.to > d.from ? 'up' : 'down' };
+    return { kind: 'moved', from: this.kanji.stageName(d.from), to: this.kanji.stageName(d.to), dir: d.to > d.from ? 'up' : 'down' };
+  }
+
+  /** Why an item was not saved, in the app's own words (called from the template, so it follows the language). */
+  reason(error: ApiError): string {
+    return this.i18n.t(errorKey(error), errorParams(error));
   }
 
   nextLessons(): void {

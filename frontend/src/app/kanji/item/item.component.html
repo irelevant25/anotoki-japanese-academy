@@ -2,63 +2,77 @@
   <div class="ihead t-{{ it.type }}">
     <div class="ichars" lang="ja">{{ it.chars }}</div>
     <div class="imeta">
-      <div class="itype">{{ typeLabel() }}</div>
-      <div class="imean">{{ it.meanings.join('; ') }}</div>
-      <span class="stagepill g-{{ group() }}">{{ stageName() }}</span>
+      <div class="itype">{{ typeKey() | translate }} · {{ 'common.lesson' | translate: { n: it.lesson } }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
+      <div class="imean" lang="en">{{ it.meanings.join('; ') }}</div>
+      @if (stageName(); as name) {
+        <span class="stagepill g-{{ group() }}" lang="en">{{ name }}</span>
+      } @else {
+        <span class="stagepill g-{{ group() }}">{{ 'item.notLearned' | translate }}</span>
+      }
     </div>
   </div>
 
   <div class="actions">
     @if (stage()) {
-      <button class="primary" type="button" (click)="practise()">Practise it now</button>
-      <button class="ghost" type="button" (click)="reset()">Reset progress</button>
+      <button class="primary" type="button" (click)="practise()">{{ 'item.practiseNow' | translate }}</button>
+      <button class="ghost" type="button" (click)="reset()">{{ 'item.reset' | translate }}</button>
     } @else if (available()) {
-      <button class="primary" type="button" (click)="learn()">Learn it now</button>
+      <button class="primary" type="button" (click)="learn()">{{ 'item.learnNow' | translate }}</button>
     } @else {
-      <p class="small muted">Learn its kanji first: {{ need() }}</p>
+      <p class="small muted"><app-worded [parts]="kanjiFirst()" /></p>
     }
   </div>
 
   <section class="panel"><app-item-details [item]="it" [full]="true" /></section>
 
   <section class="panel">
-    <h2>Progress</h2>
+    <h2>{{ 'item.progress' | translate }}</h2>
     <dl class="stats">
-      <dt>Stage</dt>
-      <dd>{{ stageName() }}</dd>
-      <dt>Learned</dt>
+      <dt>{{ 'item.stage' | translate }}</dt>
+      @if (stageName(); as name) {
+        <dd lang="en">{{ name }}</dd>
+      } @else {
+        <dd>{{ 'item.notLearned' | translate }}</dd>
+      }
+      <dt>{{ 'item.learned' | translate }}</dt>
       <dd>{{ learnedAt() }}</dd>
-      <dt>Next review</dt>
-      <dd>{{ nextReview() }}</dd>
-      <dt>Meaning answers</dt>
+      <dt>{{ 'item.nextReview' | translate }}</dt>
+      <dd><app-worded [parts]="nextReview()" /></dd>
+      <dt>{{ 'item.meaningAnswers' | translate }}</dt>
       <dd>{{ accuracy(st()?.reviews?.meaning) }}</dd>
-      <dt>Reading answers</dt>
+      <dt>{{ 'item.readingAnswers' | translate }}</dt>
       <dd>{{ accuracy(st()?.reviews?.reading) }}</dd>
-      <dt>Practice</dt>
+      <dt>{{ 'kanji.tab.practice' | translate }}</dt>
       <dd>{{ accuracy(st()?.practice) }}</dd>
     </dl>
   </section>
 
   <section class="panel">
-    <h2>Your accepted answers</h2>
-    <p class="small muted">Answers you added with “My answer was right”, or here. They count in reviews and practice.</p>
+    <h2>{{ 'item.acceptedTitle' | translate }}</h2>
+    <p class="small muted">{{ 'item.acceptedNote' | translate }}</p>
     <div class="chips">
       @if (!synonyms().length && !extra().length) {
-        <span class="small muted">None yet.</span>
+        <span class="small muted">{{ 'item.noneYet' | translate }}</span>
       }
       @for (x of synonyms(); track x) {
-        <button type="button" class="chip" title="Remove" (click)="removeSynonym(x)">{{ x }} ✕</button>
+        <button type="button" class="chip" [title]="'item.remove' | translate" (click)="removeSynonym(x)">{{ x }} ✕</button>
       }
       @for (x of extra(); track x) {
-        <button type="button" class="chip" lang="ja" title="Remove" (click)="removeReading(x)">{{ x }} ✕</button>
+        <button type="button" class="chip" lang="ja" [title]="'item.remove' | translate" (click)="removeReading(x)">{{ x }} ✕</button>
       }
     </div>
     <div class="addrow">
-      <input type="text" placeholder="Add your own meaning" [value]="added()" (input)="added.set($any($event.target).value)" (keydown.enter)="addSynonym()" />
-      <button class="ghost" type="button" (click)="addSynonym()">Add</button>
+      <input
+        type="text"
+        [placeholder]="'item.addMeaning' | translate"
+        [value]="added()"
+        (input)="added.set($any($event.target).value)"
+        (keydown.enter)="addSynonym()"
+      />
+      <button class="ghost" type="button" (click)="addSynonym()">{{ 'item.add' | translate }}</button>
     </div>
   </section>
 } @else {
-  <h1 class="page">Not found</h1>
-  <p>No such item.</p>
+  <h1 class="page">{{ 'item.notFound' | translate }}</h1>
+  <p>{{ 'error.no_such_item' | translate }}</p>
 }

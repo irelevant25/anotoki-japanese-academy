@@ -135,6 +135,14 @@ more.
   penalty).
 - Learner synonyms / extra readings (from "My answer was right" or the item
   page) are accepted like printed answers.
+- An invalid answer comes back with its kind (`readingEmpty`,
+  `readingUnfinished`, `readingInKanji`, `meaningNotEnglish`,
+  `meaningEmpty`), which the session words in the page's language as
+  `answer.check.<kind>`; `answer.ts` holds no sentence. `materialLang()`
+  says whether a piece of material is Japanese (`ja`: it has kana or kanji)
+  or English (`en`), for the `lang` it carries on the page. The stage names
+  (Apprentice … Burned) are never translated: the page takes them from the
+  server (the catalog's `stages` and `groups`, and the summary's groups).
 
 ## Browser flow — `frontend/src/app/kanji/session/`
 

@@ -1,6 +1,6 @@
 @let it = current();
 <div class="lhead">
-  <h1 class="page">Lessons</h1>
+  <h1 class="page">{{ 'kanji.tab.lessons' | translate }}</h1>
   <div class="lstrip">
     @for (x of items(); track x.id; let k = $index) {
       <button type="button" class="lchip t-{{ x.type }}" [class.on]="k === i()" lang="ja" (click)="pick(k)">{{ x.chars }}</button>
@@ -10,11 +10,11 @@
 
 <div class="lband t-{{ it.type }}">
   <div class="lchars" lang="ja">{{ it.chars }}</div>
-  <div class="lmeta">{{ typeLabel(it) }} · Lesson {{ it.lesson }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
+  <div class="lmeta">{{ typeKey(it) | translate }} · {{ 'common.lesson' | translate: { n: it.lesson } }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
 </div>
 <div class="ltabs" role="tablist">
   @for (t of tabs; track t; let k = $index) {
-    <button type="button" role="tab" class="ltab" [class.on]="k === tab()" [attr.aria-selected]="k === tab()" (click)="setTab(k)">{{ t }}</button>
+    <button type="button" role="tab" class="ltab" [class.on]="k === tab()" [attr.aria-selected]="k === tab()" (click)="setTab(k)">{{ t | translate }}</button>
   }
 </div>
 <div class="lbody">
@@ -22,10 +22,10 @@
     @switch (tab()) {
       @case (0) {
         <div>
-          <p class="lbig">{{ it.meanings.join('; ') }}</p>
+          <p class="lbig" lang="en">{{ it.meanings.join('; ') }}</p>
           @if (it.type === 'vocab') {
             <div class="dsec">
-              <h3>Made of</h3>
+              <h3>{{ 'lesson.madeOf' | translate }}</h3>
               <div class="tiles">
                 @for (kj of madeOf(it); track kj.id) {
                   <app-tile [item]="kj" [withMeaning]="true" />
@@ -40,9 +40,7 @@
         <div>
           <app-readings [item]="it" />
           @if (it.type === 'kanji') {
-            <p class="small muted">
-              On'yomi usually appear in compounds, kun'yomi when the kanji stands alone. In reviews either kind of reading is accepted.
-            </p>
+            <p class="small muted">{{ 'lesson.readingNote' | translate }}</p>
           }
           <app-notes-editor [item]="it" [parts]="['reading']" [title]="null" />
         </div>
@@ -54,7 +52,7 @@
   }
 </div>
 <div class="lnav">
-  <button class="ghost" type="button" [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">← Back</button>
-  <span class="small muted lhint">Arrow keys or Enter to move on</span>
-  <button class="primary" type="button" (click)="step(1)">{{ last() ? 'Start the quiz →' : 'Next →' }}</button>
+  <button class="ghost" type="button" [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">{{ 'lesson.back' | translate }}</button>
+  <span class="small muted lhint">{{ 'lesson.keysHint' | translate }}</span>
+  <button class="primary" type="button" (click)="step(1)">{{ (last() ? 'lesson.startQuiz' : 'lesson.next') | translate }}</button>
 </div>

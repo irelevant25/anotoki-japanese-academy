@@ -108,8 +108,7 @@ function upkeep_run(): ?array
                 $migrated = upkeep_migrate($stamp);
             } catch (PDOException $e) {
                 error_log('[upkeep] a migration failed: ' . $e->getMessage());
-                throw new HttpError(503, 'The database could not be brought up to date with the upload'
-                    . (PHP_SAPI === 'cli-server' ? ': ' . $e->getMessage() : '. The server\'s error log says more.'));
+                throw upkeep_failed($e);
             }
             if ($migrated['backup']) {
                 $done['backup'] = $migrated['backup'];
@@ -131,6 +130,20 @@ function upkeep_run(): ?array
         }
         return $done;
     });
+}
+
+/**
+ * The 503 of a migration that failed: every request answers it until the file
+ * is fixed. The message names the migration and says why, so it goes out —
+ * in the sentence and as the answer's "detail" — under PHP's built-in server
+ * only (this computer); a website's error log has it ($sapi is PHP_SAPI; a
+ * test names another).
+ */
+function upkeep_failed(PDOException $e, string $sapi = PHP_SAPI): HttpError
+{
+    $reason = error_reason($e, $sapi);
+    return new HttpError(503, 'The database could not be brought up to date with the upload'
+        . ($reason !== null ? ': ' . $reason : '. The server\'s error log says more.'), [], 'not_up_to_date', $reason);
 }
 
 /** The stamp of what is done — if there is a column for it yet (migration 003 might be the one still arriving). */

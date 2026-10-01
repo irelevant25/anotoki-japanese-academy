@@ -8,7 +8,8 @@
   margin: 0 0 6px;
   letter-spacing: -0.01em;
 }
-.hero h1 span {
+/* the word beside the mark; the mark itself is a span too (it says it is Japanese) */
+.hero h1 .word {
   color: var(--muted);
   font-weight: 400;
   font-size: 26px;
@@ -22,6 +23,12 @@
   color: var(--muted);
   font-size: 13px;
   margin: 0;
+}
+/* the server's own reason, which only the owner's computer is given: after the page's words, small */
+.err .detail {
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
 }
 .adv {
   margin-bottom: 18px;
@@ -417,29 +424,16 @@
   margin-top: 16px;
 }
 
-table.hist {
-  width: 100%;
-  border-collapse: collapse;
+/* seven columns, and their headings are longer in some languages: on a phone the table scrolls, never the page */
+#historyBody {
+  overflow-x: auto;
 }
-table.hist th {
-  text-align: left;
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 6px 10px 6px 0;
-  border-bottom: 1px solid var(--line);
-}
-table.hist td {
-  padding: 7px 10px 7px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 14px;
-}
-table.hist td.pass {
+/* the table itself is the shared table.data (styles/_base.scss) */
+table.data td.pass {
   color: var(--good);
   font-weight: 600;
 }
-table.hist td.fail {
+table.data td.fail {
   color: var(--bad);
   font-weight: 600;
 }

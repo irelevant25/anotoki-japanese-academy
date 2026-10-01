@@ -3,7 +3,9 @@
  * An error with the HTTP answer it deserves. The domain code throws it where a
  * request cannot go on (nobody signed in, a database not set up); the API's
  * error middleware (backend/api/middleware/errors.php) answers it as JSON:
- * {"error": sentence, "code": word?}.
+ * {"error": sentence, "code": word?, "detail": reason?}. The sentence is for
+ * the command line, the logs and the tests; a page words the failure itself,
+ * from the code.
  */
 
 declare(strict_types=1);
@@ -15,14 +17,28 @@ final class HttpError extends RuntimeException
     public array $headers;
     /** A word for the browser to act on ('not_set_up'), or null. */
     public ?string $errorCode;
+    /** Why, for the owner on their own computer (error_reason()), or null: a website never says. */
+    public ?string $detail;
 
-    public function __construct(int $status, string $message, array $headers = [], ?string $errorCode = null)
+    public function __construct(int $status, string $message, array $headers = [], ?string $errorCode = null, ?string $detail = null)
     {
         parent::__construct($message);
         $this->status = $status;
         $this->headers = $headers;
         $this->errorCode = $errorCode;
+        $this->detail = $detail;
     }
+}
+
+/**
+ * Why a request failed, for the answer's "detail": the exception's message
+ * under PHP's built-in server (this computer), null anywhere else. A website
+ * says no more than a sentence; its error log has the rest (a database error
+ * names the user and the host).
+ */
+function error_reason(Throwable $e, string $sapi = PHP_SAPI): ?string
+{
+    return $sapi === 'cli-server' ? $e->getMessage() : null;
 }
 
 /** What the app says while it is not set up yet: the API answers 503 with it, and the page offers /setup.php. */

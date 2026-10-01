@@ -1,0 +1,66 @@
+// The menu's looks are the app's (styles/_base.scss: .umenu), as the account
+// menu's are; what is the chooser's own is the pill and where the menu hangs.
+:host {
+  display: flex;
+  align-items: center;
+}
+.langmenu {
+  position: relative;
+}
+// A pill like the version beside it, forty wide and no wider: on a phone the
+// bar also carries the navigation and the account menu.
+summary {
+  list-style: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 1px 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:hover,
+.langmenu[open] summary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+summary[aria-busy='true'] {
+  opacity: 0.6;
+}
+// A finger needs more than the small pill a mouse is happy with; the top bar
+// is 52px high, so 44 still fits inside it.
+@media (pointer: coarse) {
+  summary {
+    width: 44px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+// The pill stands at the left of the bar, so the menu hangs from its left
+// edge: there is always room to its right, and it never leaves a narrow screen.
+.umenu {
+  left: 0;
+  right: auto;
+  width: max-content;
+  min-width: 150px;
+  max-width: calc(100vw - 32px);
+}
+.umenu button[aria-current='true'] {
+  font-weight: 700;
+}
+.umenu .err {
+  max-width: 220px;
+  margin: 4px 8px 6px;
+  font-size: 13px;
+}

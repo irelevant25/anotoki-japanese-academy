@@ -83,11 +83,16 @@ settings, Apache or the setup page; `architecture.md` for the map).
    straight from this computer (its `Host` and no proxy headers). Tokens:
    verified by `backend/src/anotoki_iam.php` (unchanged copy), key cache in
    `backend/storage/`; 401 without or with a bad token, 403 without a role;
-   `/api/auth/config`, `/api/health` and the clips are the only open addresses.
-   In the browser: every API call through `ApiService` and the interceptor,
-   which sends the token to this site's `/api` and `/report` only; links to
-   somebody's data through `PrivateLinksService`; in mode `none` nothing on the
-   page changed. A report opened from memory keeps its no-script policy
+   `/api/auth/config`, `/api/health`, `/api/translations/{code}` (the app's own
+   words, the same for everybody) and the clips are the only open addresses;
+   `/api/owner/…` goes through `owner_route()` (the `ADMIN` role, or this
+   computer in mode `none`; another host's `Origin` refused). The translation
+   tables are the site's: no `user_id` in their queries, never in
+   `USER_TABLES`. In the browser: every API call through `ApiService` and the
+   interceptor (the bundle of words alone by plain `fetch()`, without a
+   token), which sends the token to this site's `/api` and `/report` only;
+   links to somebody's data through `PrivateLinksService`; in mode `none`
+   nothing about sign-in shows. A report opened from memory keeps its no-script policy
    (`lockDown()`). The IAM's browser SDK (`frontend/src/app/core/auth/sdk/`) is
    an unchanged copy.
 4. **The setup page and hosting.** `backend/setup.php`: from this computer the
@@ -134,7 +139,15 @@ settings, Apache or the setup page; `architecture.md` for the map).
      escape the rest.
    - Colours come only from tokens (`frontend/src/styles/_tokens.scss`); dark
      mode and phone width work.
-   - English text, with `'en-GB'` for dates that have words.
+   - The words a learner reads are keys with an English and a Slovak string
+     (a new key comes with a migration; `php backend/translations.php
+     --status` is clean); no English written into a template, the kept terms
+     and the two English owner pages aside; state holds keys, never worded
+     sentences; a failure is worded from its code, not the server's sentence.
+     Dates and numbers go through the language's locale
+     (`TranslationService.locale()`), never the system's or a fixed
+     `'en-GB'`. The material and the stage names are never translated, and
+     carry `lang="en"` / `lang="ja"`.
    - Keys work: Enter, F, arrows in the kanji screens; 1–4/A–D, arrows, Enter,
      F, R in the exam.
    - Saves stay in the background; a card never waits for one; a summary is

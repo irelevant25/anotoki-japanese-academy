@@ -34,6 +34,12 @@ const AUTH_ROLES = ['ADMIN', 'MEMBER'];
 const AUTH_NONE_ONLY = 'Sign-in is off here (auth mode none), and that only works on your own computer: through php backend/server.php, '
     . 'opened at 127.0.0.1 or localhost, with no proxy in between. A website needs auth mode iam in backend/config/auth.local.php.';
 
+/** The 403 of a copy without sign-in, to a request that is not this computer's own (auth_none_allowed()). */
+function auth_none_only(): HttpError
+{
+    return new HttpError(403, AUTH_NONE_ONLY, [], 'this_computer_only');
+}
+
 /** 'iam' or 'none'; anything else is a mistake in the settings. */
 function auth_mode(): string
 {
@@ -174,22 +180,22 @@ function auth_user(): array
 
     if (auth_mode() === 'none') {
         if (!auth_none_allowed(PHP_SAPI, $_SERVER)) {
-            throw new HttpError(403, AUTH_NONE_ONLY);
+            throw auth_none_only();
         }
         $found = ['id' => auth_local_user_id(), 'username' => null, 'roles' => AUTH_ROLES];
     } else {
         $token = anotoki_iam_bearer_token(anotoki_iam_authorization_header());
         if ($token === null) {
-            throw new HttpError(401, 'Sign in first.', ['WWW-Authenticate: Bearer']);
+            throw new HttpError(401, 'Sign in first.', ['WWW-Authenticate: Bearer'], 'sign_in_required');
         }
         $claims = auth_verify($token, $reason);
         if ($claims === null) {
             error_log('[auth] a token was refused: ' . auth_log_text((string) $reason));
-            throw new HttpError(401, 'Sign in again.', ['WWW-Authenticate: Bearer error="invalid_token"']);
+            throw new HttpError(401, 'Sign in again.', ['WWW-Authenticate: Bearer error="invalid_token"'], 'invalid_token');
         }
         $roles = anotoki_iam_roles($claims);
         if (!$roles) {
-            throw new HttpError(403, 'Your account has no access to Japanese Academy.');
+            throw new HttpError(403, 'Your account has no access to Japanese Academy.', [], 'no_access');
         }
         $name = $claims['preferred_username'] ?? null;
         $found = [

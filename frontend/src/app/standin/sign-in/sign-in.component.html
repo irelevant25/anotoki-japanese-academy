@@ -1,9 +1,9 @@
 <main class="wrap signin" id="signin">
   <section class="panel">
     <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
-    <p>Sign in to study. Your kanji progress and your exam results are kept with your account.</p>
+    <p>{{ words().intro }}</p>
     <div class="actions">
-      <button class="primary" type="button" id="signin-button" [disabled]="busy()" (click)="signIn()">Sign in</button>
+      <button class="primary" type="button" id="signin-button" [disabled]="busy()" (click)="signIn()">{{ words().button }}</button>
     </div>
     <p class="err" role="alert">{{ error() }}</p>
   </section>

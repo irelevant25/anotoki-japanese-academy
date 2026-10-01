@@ -1,13 +1,13 @@
 <section class="dsec notes">
-  @if (title()) {
-    <h3>{{ title() }}</h3>
+  @if (title(); as heading) {
+    <h3>{{ heading | translate }}</h3>
   }
   @for (field of fields; track field.part) {
     <label class="field">
-      <span class="lbl">{{ field.label }} <span class="small muted">{{ field.status() }}</span></span>
+      <span class="lbl">{{ field.label | translate }} <span class="small muted">{{ said(field.status()) }}</span></span>
       <textarea
         rows="2"
-        [placeholder]="field.placeholder"
+        [placeholder]="field.placeholder | translate"
         [value]="field.value"
         (input)="typed(field, $any($event.target).value)"
         (blur)="left(field)"

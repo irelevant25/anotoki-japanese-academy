@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../../core/api/api.service';
 import { LessonTypes, Settings } from '../../core/api/api.types';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { TileComponent } from '../shared/tile/tile.component';
@@ -8,7 +10,7 @@ import { TileComponent } from '../shared/tile/tile.component';
 /** Choosing lessons: the batch size, which kinds, from which lesson — as many batches as wanted, no daily limit. */
 @Component({
   selector: 'app-lessons',
-  imports: [TileComponent],
+  imports: [TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './lessons.component.html',
   styleUrl: './lessons.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,10 +26,11 @@ export class LessonsComponent {
   readonly lesson = signal<number | null>(null);
 
   readonly sizes = [3, 5, 10];
+  /** Which kinds of items a batch takes: [the setting, the key of its name]. */
   readonly kinds: [LessonTypes, string][] = [
-    ['both', 'Kanji & vocabulary'],
-    ['kanji', 'Kanji only'],
-    ['vocab', 'Vocabulary only'],
+    ['both', 'kanji.type.both'],
+    ['kanji', 'lessons.kanjiOnly'],
+    ['vocab', 'lessons.vocabOnly'],
   ];
 
   readonly next = computed(() => {

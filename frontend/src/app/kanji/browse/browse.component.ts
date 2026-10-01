@@ -2,15 +2,23 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute } from '@angular/router';
 import { toHiragana } from 'wanakana';
 import { CatalogItem } from '../../core/api/api.types';
-import { plural } from '../../core/format';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { canonReading } from '../answer';
 import { KanjiStateService } from '../kanji-state.service';
 import { TileComponent } from '../shared/tile/tile.component';
 
+/** A choice of stage: the app's own words by their key, or a stage group by its own name, which is never translated. */
+interface StatusChoice {
+  id: string;
+  key: string | null;
+  name: string;
+}
+
 /** Every item, filterable by type, lesson and stage, and searchable by kanji, reading (romaji or kana) or meaning. */
 @Component({
   selector: 'app-browse',
-  imports: [TileComponent],
+  imports: [TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,20 +32,20 @@ export class BrowseComponent {
   readonly status = signal(this.params.get('status') || 'all');
   readonly query = signal(this.params.get('q') || '');
 
+  /** Which kinds of items: [the choice, the key of its name]. */
   readonly typeChoices: [string, string][] = [
-    ['all', 'All'],
-    ['kanji', 'Kanji'],
-    ['vocab', 'Vocabulary'],
+    ['all', 'browse.allTypes'],
+    ['kanji', 'kanji.type.kanji'],
+    ['vocab', 'kanji.type.vocab'],
   ];
-  readonly statusChoices = computed<[string, string][]>(() => [
-    ['all', 'Any stage'],
-    ['new', 'Not learned'],
-    ...this.kanji.groups().map((g): [string, string] => [g.id, g.name]),
+  readonly statusChoices = computed<StatusChoice[]>(() => [
+    { id: 'all', key: 'browse.anyStage', name: '' },
+    { id: 'new', key: 'item.notLearned', name: '' },
+    ...this.kanji.groups().map((g): StatusChoice => ({ id: g.id, key: null, name: g.name })),
   ]);
 
   readonly list = computed(() => this.kanji.items().filter((it) => this.matches(it, this.type(), this.lesson(), this.status(), this.query())));
   readonly shown = computed(() => this.list().slice(0, 1500));
-  readonly count = computed(() => plural(this.list().length, 'item'));
 
   private matches(it: CatalogItem, type: string, lesson: number | null, status: string, query: string): boolean {
     if (type !== 'all' && it.type !== type) {

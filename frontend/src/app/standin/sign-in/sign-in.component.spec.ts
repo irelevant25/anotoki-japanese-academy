@@ -1,6 +1,8 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationRef, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from '../../core/auth/auth.service';
+import { TranslationService } from '../../core/i18n/translation.service';
+import { provideTestTranslations } from '../../core/testing/test-translations';
 import { SignInComponent } from './sign-in.component';
 
 /**
@@ -33,19 +35,105 @@ describe('SignInComponent: a sign-in that came back without one', () => {
     history.replaceState(null, '', '/');
   });
 
-  it('cancelled at the IAM: the IAM’s own sentence, and nothing more', async () => {
+  // The rule changed (it was "in the IAM's own words"): the IAM's sentence is
+  // English, so the page words a sign-in that came back without one from its
+  // code. With no strings in memory, as here, it draws the English it keeps.
+  const NOT_COMPLETED = 'Signing in was not completed. If you did not mean to stop it, this account may have no access to Japanese Academy.';
+
+  it('cancelled at the IAM: one sentence of the page’s own, true whoever ended it — not the IAM’s', async () => {
     const el = await comeBack('access_denied', 'The sign-in was cancelled');
-    expect(el.querySelector('.err')?.textContent?.trim()).toBe('The sign-in was cancelled.');
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe(NOT_COMPLETED);
     expect(location.pathname, 'the callback left the address bar').toBe('/');
   });
 
-  it('refused by the IAM: the refusal, as the IAM says it', async () => {
+  it('refused by the IAM: the same sentence, and nothing of the IAM’s English', async () => {
     const el = await comeBack('access_denied', 'This account cannot use Japanese Academy');
-    expect(el.querySelector('.err')?.textContent?.trim()).toBe('This account cannot use Japanese Academy.');
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe(NOT_COMPLETED);
+    expect(el.textContent).not.toContain('cannot use');
   });
 
-  it('any other failure: signing in did not work, and why', async () => {
+  it('any other failure: signing in did not work, with its code — not the IAM’s sentence', async () => {
     const el = await comeBack('server_error', 'The IAM could not finish the sign-in');
-    expect(el.querySelector('.err')?.textContent?.trim()).toBe('Signing in did not work: The IAM could not finish the sign-in');
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe('Signing in did not work. Try again. (server_error)');
+    expect(el.textContent).not.toContain('could not finish');
+  });
+
+  it('its own words with no strings: the English it keeps, word for word — no key, and nothing said before anything went wrong', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fixture = TestBed.createComponent(SignInComponent);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.panel > p:not(.err)')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
+    expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Sign in');
+    expect(el.querySelector('.err')?.textContent).toBe('');
+    expect(el.querySelector('h1 .mark')?.getAttribute('lang')).toBe('ja');
+    expect(warn, 'a page without strings asks for none').not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('SignInComponent: in the reader’s language', () => {
+  const realFetch = globalThis.fetch;
+  const ENGLISH = {
+    'signIn.intro': 'Sign in to study. Your kanji progress and your exam results are kept with your account.',
+    'signIn.button': 'Sign in',
+    'signIn.notCompleted': 'Signing in was not completed.',
+    'signIn.failed': 'Signing in did not work. Try again. ({code})',
+  };
+  const SLOVAK = {
+    'signIn.intro': 'Ak sa chceš učiť, prihlás sa. Tvoj pokrok v kanji a výsledky skúšok sa ukladajú k tvojmu účtu.',
+    'signIn.button': 'Prihlásiť sa',
+    'signIn.notCompleted': 'Prihlásenie sa nedokončilo.',
+    'signIn.failed': 'Prihlásenie sa nepodarilo. Skús to znova. ({code})',
+  };
+
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] }));
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
+  });
+
+  it('words the failure from the strings, and again when the language changes', async () => {
+    const el = await comeBack('server_error', 'The IAM could not finish the sign-in');
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe('Prihlásenie sa nepodarilo. Skús to znova. (server_error)');
+
+    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe('Signing in did not work. Try again. (server_error)');
+  });
+
+  it('its own words come from the strings too, and follow the language', async () => {
+    const fixture = TestBed.createComponent(SignInComponent);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.panel > p:not(.err)')?.textContent?.trim()).toBe('Ak sa chceš učiť, prihlás sa. Tvoj pokrok v kanji a výsledky skúšok sa ukladajú k tvojmu účtu.');
+    expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Prihlásiť sa');
+
+    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(el.querySelector('.panel > p:not(.err)')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
+    expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Sign in');
+  });
+
+  it('a sign-in that cannot even start says so with a code of the page’s own, and hands the IAM the language read here', async () => {
+    const clientId = `academy-test-${Math.random().toString(36).slice(2, 10)}`;
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ mode: 'iam', issuer: 'https://iam.test', clientId }), { status: 200, headers: { 'Content-Type': 'application/json' } })),
+    ) as unknown as typeof fetch;
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    const login = vi.spyOn(auth, 'login').mockRejectedValue(new Error('This browser will not let the site remember the sign-in in progress'));
+    const fixture = TestBed.createComponent(SignInComponent);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe('');
+
+    (el.querySelector('#signin-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(login.mock.calls).toEqual([['sk']]);
+    expect(el.querySelector('.err')?.textContent?.trim()).toBe('Prihlásenie sa nepodarilo. Skús to znova. (could_not_start)');
+    expect(el.textContent).not.toContain('This browser');
+    expect((el.querySelector('#signin-button') as HTMLButtonElement).disabled).toBe(false);
   });
 });

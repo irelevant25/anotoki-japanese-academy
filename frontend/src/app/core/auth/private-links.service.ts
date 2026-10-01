@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { TranslationService } from '../i18n/translation.service';
 import { AuthService } from './auth.service';
 
 /** A report opened from memory shows as it was saved, but may never run a script. */
@@ -24,12 +25,14 @@ export function fileNameOf(response: Response): string | null {
   return m ? m[1] : null;
 }
 
-async function reasonOf(response: Response): Promise<string> {
-  try {
-    return ((await response.clone().json()) as { error?: string }).error || response.statusText;
-  } catch {
-    return (await response.text()) || response.statusText;
-  }
+/**
+ * What a report or a download that could not be had is called, by its status
+ * alone: the report's address answers plain English text and no code, so there
+ * is nothing else to word it from. 404 is a report that is not there (or is
+ * somebody else's); anything else is the general sentence.
+ */
+export function failureKey(status: number): string {
+  return status === 404 ? 'report.notFound' : 'error.unknown';
 }
 
 /**
@@ -39,10 +42,15 @@ async function reasonOf(response: Response): Promise<string> {
  * they can't carry the token, so a click fetches them with it and opens the
  * report from memory (a blob: address, with its no-script policy), or saves the
  * file under the server's name. The server sends a report with the same policy.
+ *
+ * What it says itself — the waiting tab's title, the alert when it fails — is
+ * worded at the moment it is raised, in the language on the page; the server's
+ * own English sentence is never shown.
  */
 @Injectable({ providedIn: 'root' })
 export class PrivateLinksService {
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(TranslationService);
 
   /** For (click) on such a link: in auth mode iam, fetched with the token instead of followed. */
   click(event: MouseEvent, url: string, download = false): void {
@@ -58,12 +66,13 @@ export class PrivateLinksService {
     // The tab opens during the click itself: later, the browser would block it.
     const tab = download ? null : window.open('', '_blank');
     if (tab) {
-      tab.document.title = 'Opening…';
+      tab.document.title = this.i18n.t('report.opening');
     }
     try {
       const r = await this.auth.fetch(url);
       if (!r.ok) {
-        throw new Error(await reasonOf(r));
+        this.failed(tab, failureKey(r.status));
+        return;
       }
       const blob = await r.blob();
       if (download) {
@@ -84,8 +93,15 @@ export class PrivateLinksService {
         location.assign(page); // pop-ups blocked: here, then
       }
     } catch (e) {
-      tab?.close();
-      alert(`Could not open it: ${e instanceof Error ? e.message : String(e)}`);
+      // No answer at all, or an answer that could not be read: what it was is for the console, in English.
+      console.error('[links] could not open', url, e);
+      this.failed(tab, 'error.unknown');
     }
+  }
+
+  /** The waiting tab closed, and the browser's own dialog, worded now: "Could not open it: {reason}", the reason a sentence of its own. */
+  private failed(tab: Window | null, reason: string): void {
+    tab?.close();
+    alert(this.i18n.t('report.openFailed', { reason: this.i18n.t(reason) }));
   }
 }

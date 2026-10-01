@@ -29,9 +29,16 @@ function ids_of(array $items): array
     return $ids;
 }
 
-test('the browser is told how to sign in; the pages, the clips and health need no sign-in', function (): void {
+test('the browser is told how to sign in; the pages, the clips, health and the app’s own words need no sign-in', function (): void {
     assert_same(['mode' => 'iam', 'issuer' => 'https://iam.test', 'clientId' => 'japanese-academy'], as_user(null, 'GET', '/api/auth/config')['body']);
     assert_same(200, as_user(null, 'GET', '/api/health')['status']);
+    // The third address without sign-in: the app's own words, the same for everybody, so the Sign in page reads in the reader's language.
+    foreach (['en', 'sk', 'sk-sk', 'de'] as $code) {
+        $words = as_user(null, 'GET', "/api/translations/$code");
+        assert_same(200, $words['status'], "/api/translations/$code without a token");
+        assert_same(['en', 'sk'], array_column($words['body']['languages'] ?? [], 'code'), "/api/translations/$code");
+        assert_false(isset($words['headers']['www-authenticate']), "/api/translations/$code asks for no sign-in");
+    }
     assert_same(200, as_user(null, 'GET', '/')['status']);
     assert_same(200, as_user(null, 'GET', '/auth/callback?code=x&state=y')['status'], 'where the IAM sends the browser back: a page of the app');
     $clip = (string) db_value('SELECT audio FROM exam_questions WHERE audio IS NOT NULL ORDER BY seq LIMIT 1');
@@ -42,16 +49,26 @@ test('without a token every address with somebody’s data answers 401, and asks
     $routes = ['GET /api/meta', 'GET /api/attempts', 'GET /api/kanji/catalog', 'GET /api/kanji/progress', 'GET /api/kanji/summary',
         'GET /api/kanji/export', 'GET /report/some-attempt', 'POST /api/exam', 'POST /api/submit', 'POST /api/kanji/learn',
         'POST /api/kanji/review', 'POST /api/kanji/practice', 'POST /api/kanji/item', 'POST /api/kanji/settings',
-        'POST /api/kanji/reset-item', 'POST /api/kanji/reset'];
+        'POST /api/kanji/reset-item', 'POST /api/kanji/reset',
+        // the owner's: the languages and the app's own words (tests/api/translations.test.php has who may, once signed in)
+        'GET /api/owner/languages', 'POST /api/owner/languages', 'PUT /api/owner/languages/sk', 'DELETE /api/owner/languages/sk',
+        'GET /api/owner/translations', 'PUT /api/owner/translations', 'GET /api/owner/translations/sk/export', 'PUT /api/owner/translations/sk/import'];
+    $languages = db_all('SELECT * FROM languages ORDER BY code');
     foreach ($routes as $route) {
         [$method, $url] = explode(' ', $route);
-        $r = as_user(null, $method, $url, $method === 'POST' ? ['id' => 'k:大', 'confirm' => 'RESET'] : null);
+        $body = $method === 'POST' ? ['id' => 'k:大', 'confirm' => 'RESET'] : null;
+        if (str_starts_with($url, '/api/owner/') && $method !== 'GET' && $method !== 'DELETE') {
+            $body = ['code' => 'xx', 'name' => 'X', 'nativeName' => 'X', 'enabled' => false, 'values' => new stdClass()];
+        }
+        $r = as_user(null, $method, $url, $body);
         assert_same(401, $r['status'], $route);
         assert_same('Bearer', $r['headers']['www-authenticate'] ?? null, "$route says how to sign in");
         assert_same('Sign in first.', $r['body']['error'] ?? null, $route);
+        assert_same(['error' => 'Sign in first.', 'code' => 'sign_in_required'], $r['body'], "$route: the code a page words it from, beside the sentence, and no more");
     }
     assert_same(404, as_user(null, 'GET', '/api/nothing')['status'], 'an unknown address is still a 404');
     assert_same(0, (int) db_value('SELECT count(*) FROM srs_progress'), 'nothing was learned');
+    assert_same($languages, db_all('SELECT * FROM languages ORDER BY code'), 'and no language added, changed or deleted');
 });
 
 test('a token that is not good is refused', function (): void {
@@ -71,9 +88,11 @@ test('a token that is not good is refused', function (): void {
         $r = as_user($token, 'GET', '/api/kanji/progress');
         assert_same(401, $r['status'], $what);
         assert_same('Bearer error="invalid_token"', $r['headers']['www-authenticate'] ?? null, $what);
+        assert_same(['error' => 'Sign in again.', 'code' => 'invalid_token'], $r['body'], "$what: the same words and code whatever was wrong with it (the log has the reason)");
     }
     $basic = call($GLOBALS['app']['base'], 'GET', '/api/kanji/progress', null, ['Authorization: Basic YWRhOnNlY3JldA==']);
     assert_same(401, $basic['status'], 'a bearer token only');
+    assert_refused(401, 'sign_in_required', 'Sign in first.', $basic, 'no bearer token is no token');
     assert_same(null, db_value('SELECT id FROM users WHERE id = ?', [ADA]), 'nobody refused got a row');
 });
 
@@ -81,6 +100,7 @@ test('a token without a role here is refused: only the people the owner gave a r
     $r = as_user(test_token(ADA, []), 'GET', '/api/kanji/progress');
     assert_same(403, $r['status']);
     assert_same('Your account has no access to Japanese Academy.', $r['body']['error']);
+    assert_same('no_access', $r['body']['code'] ?? null, 'the code a page words it from');
     assert_same(200, as_user(test_token(ADA, ['ADMIN']), 'GET', '/api/kanji/summary')['status'], 'ADMIN is a role here too');
 });
 
@@ -189,7 +209,19 @@ test('without sign-in only under php backend/server.php, only from this computer
             $r = call($none['base'], 'GET', $url, null, [$header]);
             assert_same(403, $r['status'], "$header $url");
             assert_same(AUTH_NONE_ONLY, $r['body']['error'] ?? null, "$header $url");
+            assert_same(['error' => AUTH_NONE_ONLY, 'code' => 'this_computer_only'], $r['body'], "$header $url: the code a page words it from, and no more");
         }
+    }
+    // The owner's addresses are somebody's to change: closed the same way. The app's own words are nobody's data: open under any name.
+    assert_same(200, call($none['base'], 'GET', '/api/owner/languages')['status'], 'straight from this computer: the owner');
+    foreach (['GET /api/owner/languages', 'GET /api/owner/translations', 'PUT /api/owner/translations', 'DELETE /api/owner/languages/sk'] as $route) {
+        [$method, $url] = explode(' ', $route);
+        $r = call($none['base'], $method, $url, $method === 'PUT' ? ['values' => new stdClass()] : null, ['Host: academy.example.com']);
+        assert_same([403, 'this_computer_only'], [$r['status'], $r['body']['code'] ?? null], "Host: academy.example.com $route");
+    }
+    foreach (['Host: academy.example.com', 'X-Forwarded-For: 203.0.113.9'] as $header) {
+        $words = call($none['base'], 'GET', '/api/translations/sk', null, [$header]);
+        assert_same([200, 'sk'], [$words['status'], $words['body']['language'] ?? null], "$header /api/translations/sk: the same for everybody");
     }
     $health = call($none['base'], 'GET', '/api/health', null, ['Host: academy.example.com']);
     assert_same(200, $health['status'], 'health still answers');

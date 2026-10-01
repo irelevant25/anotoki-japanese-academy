@@ -401,9 +401,10 @@ $legacy = $saved['database'] === null && SETUP_LOCAL ? setup_legacy() : null;
 $savedDb = $saved['database'] ?? ($legacy['db'] ?? null);
 $savedAuth = $saved['auth'] ?? [];
 $hasPassword = is_string($savedDb['password'] ?? null) && $savedDb['password'] !== '';
+// the backups of study data: not the raw copies, nor the strings of a deleted language
 $serverBackups = array_values(array_filter(
     array_map('basename', glob(backup_dir() . '/academy-*.json') ?: []),
-    static fn (string $f): bool => !str_ends_with($f, '.raw.json')
+    static fn (string $f): bool => !str_ends_with($f, '.raw.json') && !str_starts_with($f, TRANSLATIONS_COPY_PREFIX)
 ));
 /** The form's fields as this copy has them set (or the version before had them): never the password. */
 $fromSaved = array_map('strval', array_filter([
@@ -675,8 +676,9 @@ function setup_first_import(int $owner): string
     if (learner_has_data_of($owner) || legacy_imported($owner)) {
         return 'Your study data is in the database.';
     }
-    // The backups a restore takes: not the raw copies, nor somebody else's before-reset copy.
+    // The backups a restore takes: not the raw copies, the strings of a deleted language, nor somebody else's before-reset copy.
     $backups = array_values(array_filter(glob(backup_dir() . '/academy-*.json') ?: [], static fn (string $f): bool => !str_ends_with($f, '.raw.json')
+        && !str_starts_with(basename($f), TRANSLATIONS_COPY_PREFIX)
         && (!preg_match('/^academy-before-reset-user-(\d+)-/', basename($f), $m) || (int) $m[1] === $owner)));
     if ($backups) {
         // the newest by time, not by name (academy-before-reset-… would sort after academy-2026-…)

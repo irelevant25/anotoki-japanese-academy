@@ -98,9 +98,38 @@ person is their own either way (`docs/kb/sign-in.md`).
 
 `frontend/public/changelog.json` lists the releases, newest first, each with
 `added`, `updated` and `fixed` lines in plain words, for the person using the
-app. The version at the foot of every page is the newest entry's, and opens
-the list. Add an entry with every release the owner will notice, and keep
-`version` in `package.json` and `frontend/package.json` in step.
+app (they stay English in every language). The version beside the name at
+the top of every page is the newest entry's, and opens the list. Add an
+entry with every release the owner will notice, and keep `version` in
+`package.json` and `frontend/package.json` in step.
+
+### The app's words
+
+What a learner reads is not written in the templates: each word is a key,
+with an English and an informal Slovak ("ty") string in the database
+(`docs/kb/architecture.md`, *The app's words*). Rewording a string a
+database already has is the owner's, on the Translations page: a migration's
+insert leaves it alone. To add one:
+
+1. Use the key in the code (`{{ 'signIn.button' | translate }}`, a plural
+   family with `translatePlural: n`; a key put together at run time goes
+   into `core/i18n/dynamic-keys.ts`).
+2. Add a migration (the next number, ending `-- end of NNN`) that inserts the
+   key with a description for the translator, its English and its Slovak
+   string, as 004 does, with the same `ON CONFLICT DO NOTHING` (a string the
+   owner reworded stays) and a `DO $$` gate that checks exactly the keys it
+   writes, in every language (a test holds it to that). A committed
+   migration is never edited; while yours is not committed,
+   `php backend/tests/tools/testdb.php template --fresh` makes the tests
+   take your edits.
+3. `npm test`: the catalogue test fails on a key the frontend uses that has
+   no string, a string nobody uses, a placeholder the Slovak invents, or a
+   plural family missing a form. On a set-up copy,
+   `php backend/translations.php --status` says the same about its database.
+
+The learning material, the SRS stage names, grammar terms and the brand are
+never keys. The command line also exports and imports a language
+(`--export sk [FILE]`, `--import sk FILE`; a backup file works as well).
 
 ## Tests
 
@@ -109,9 +138,9 @@ the list. Add an entry with every release the owner will notice, and keep
 | `npm test` | both of these | ~40 s |
 | `npm run test:backend` | `php backend/tests/run.php`: the PHP unit and API tests, each file in its own throwaway database | ~25 s |
 | `npm run test:frontend` | the Angular unit tests (Vitest, in jsdom): answer checking against the whole catalog, the session engine, the interceptor, the changelog … | ~15 s |
-| `npm run test:browser` | the whole study loop, an exam, then signing in and out of a hosted site's copy, in Edge, against the production build | ~2 min |
+| `npm run test:browser` | the whole study loop, an exam, the language chooser by keys, the owner's pages, then signing in and out of a hosted site's copy, in Edge, against the production build | ~2 min |
 | `npm run test:setup` | the setup page in Edge, on a built upload: this computer's way and a website's | ~1 min |
-| `npm run screens [name]` | every screen in light, dark and phone layouts → `frontend/e2e/shots/`; fails on overflow or an error | ~1 min |
+| `npm run screens [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark), then the top bar measured at 360–560 px → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page | a few min |
 
 The browser suites build the app first when its sources changed. Every test
 that needs a database gets a throwaway one (`academy_test_…`), made on the
@@ -147,4 +176,7 @@ page, updates, and how the owner's data moves to the site.
   site's `/api` and `/report` addresses only.
 - **Migrations** are numbered SQL files in `backend/migrations/`; a committed
   one is never edited, and every one after 001 ends with `-- end of NNN`.
-- The UI is in English, plain and short.
+- The UI is in English and Slovak (informal "ty"), plain and short, from the
+  database: a new word is a key and a migration (above). Dates and numbers
+  follow the language on the page, never the system's locale. The two owner
+  pages are English.

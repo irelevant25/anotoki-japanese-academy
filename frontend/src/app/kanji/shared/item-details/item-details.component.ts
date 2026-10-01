@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { RouterLink } from '@angular/router';
 import { AudioService } from '../../../core/audio.service';
 import { CatalogItem } from '../../../core/api/api.types';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { KanjiStateService } from '../../kanji-state.service';
 import { NotesEditorComponent } from '../notes-editor/notes-editor.component';
 import { ReadingsComponent } from '../readings/readings.component';
@@ -15,7 +16,7 @@ import { TileComponent } from '../tile/tile.component';
  */
 @Component({
   selector: 'app-item-details',
-  imports: [RouterLink, ReadingsComponent, TileComponent, NotesEditorComponent],
+  imports: [RouterLink, ReadingsComponent, TileComponent, NotesEditorComponent, TranslatePipe],
   templateUrl: './item-details.component.html',
   styleUrl: './item-details.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +33,7 @@ export class ItemDetailsComponent {
   readonly context = input(false);
 
   readonly synonyms = computed(() => this.kanji.st(this.item().id)?.synonyms ?? []);
+  /** A word's class, as a grammar term: terms are English in every language (the template says so with `lang`). */
   readonly wordClass = computed(() => {
     const it = this.item();
     if (it.type !== 'vocab') {

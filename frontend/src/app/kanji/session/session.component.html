@@ -6,24 +6,30 @@
   [class.is-close]="close()"
 >
   <div class="s-top">
-    <span class="s-mode">{{ cfg().title }}</span>
-    <span class="s-count"><b>{{ counts().done }}</b> done · <b>{{ counts().left }}</b> left</span>
-    <span class="s-acc">{{ counts().acc }}</span>
+    <span class="s-mode">{{ cfg().title | translate }}</span>
+    <span class="s-count"
+      >{{ doneWords()[0] }}@if (doneWords()[2]) {<b>{{ counts().done }}</b>}{{ doneWords()[1] }} · {{ leftWords()[0] }}@if (leftWords()[2]) {<b>{{ counts().left }}</b>}{{ leftWords()[1] }}</span
+    >
+    <span class="s-acc">{{ counts().acc === null ? '—' : ('session.accuracy' | translate: { pct: counts().acc }) }}</span>
     <span class="spacer"></span>
     @if (mode() === 'review') {
-      <button type="button" class="ghost sm" [disabled]="wrapping()" (click)="wrapUp()">{{ wrapping() ? 'Wrapping up…' : 'Wrap up' }}</button>
+      <button type="button" class="ghost sm" [disabled]="wrapping()" (click)="wrapUp()">
+        {{ (wrapping() ? 'session.wrappingUp' : 'session.wrapUp') | translate }}
+      </button>
     }
-    <button type="button" class="ghost sm" (click)="end()">End</button>
+    <button type="button" class="ghost sm" (click)="end()">{{ 'session.end' | translate }}</button>
   </div>
   <div class="s-progress"><div class="fill" [style.width.%]="counts().fill"></div></div>
-  @if (cfg().note) {
-    <p class="s-note small muted">{{ cfg().note }}</p>
+  @if (cfg().note; as note) {
+    <p class="s-note small muted">{{ note | translate }}</p>
   }
   <div class="s-card t-{{ card()?.type }}">
     <div class="s-chars" [class.long]="long()" lang="ja">{{ card()?.chars }}</div>
   </div>
   <div class="s-q {{ part() }}">
-    <span class="s-type">{{ card()?.type === 'kanji' ? 'Kanji' : 'Vocabulary' }}</span>&ngsp;<b class="s-ask">{{ part() === 'meaning' ? 'Meaning' : 'Reading' }}</b>
+    <span class="s-type">{{ (card()?.type === 'kanji' ? 'kanji.type.kanji' : 'kanji.type.vocab') | translate }}</span>&ngsp;<b class="s-ask">{{
+      (part() === 'meaning' ? 'kanji.meaning' : 'kanji.reading') | translate
+    }}</b>
   </div>
   <div class="s-form">
     <input
@@ -34,16 +40,17 @@
       autocapitalize="off"
       autocorrect="off"
       spellcheck="false"
-      aria-label="Your answer"
+      [placeholder]="(part() === 'meaning' ? 'session.placeholder.meaning' : 'session.placeholder.reading') | translate"
+      [attr.aria-label]="'session.yourAnswer' | translate"
       (keydown)="onKey($event)"
     />
-    <button type="button" class="s-go" aria-label="Submit" (click)="go()">→</button>
+    <button type="button" class="s-go" [attr.aria-label]="'session.submit' | translate" (click)="go()">→</button>
   </div>
-  <div class="s-feedback" aria-live="polite">{{ feedback() }}</div>
+  <div class="s-feedback" aria-live="polite"><app-worded [parts]="feedbackParts()" /></div>
   <div class="s-actions" [hidden]="!actionsShown()">
-    <button type="button" class="ghost sm" (click)="toggleInfo()">Item info <kbd>F</kbd></button>
-    <button type="button" class="ghost sm" [hidden]="!acceptShown()" (click)="acceptMine()">My answer was right</button>
-    <button type="button" class="ghost sm" [hidden]="!card()?.audio" (click)="listen()">▶ Listen</button>
+    <button type="button" class="ghost sm" (click)="toggleInfo()">{{ 'session.itemInfo' | translate }} <kbd>F</kbd></button>
+    <button type="button" class="ghost sm" [hidden]="!acceptShown()" (click)="acceptMine()">{{ 'session.myAnswerWasRight' | translate }}</button>
+    <button type="button" class="ghost sm" [hidden]="!card()?.audio" (click)="listen()">{{ 'kanji.listen' | translate }}</button>
   </div>
   <div class="s-panel" [hidden]="!panelOpen()">
     @if (panelOpen() && card(); as it) {

@@ -5,7 +5,11 @@ import { filter } from 'rxjs';
 import { AccountMenuComponent } from './core/auth/account-menu/account-menu.component';
 import { AuthService } from './core/auth/auth.service';
 import { AppVersionComponent } from './core/changelog/app-version.component';
+import { LanguageChooserComponent } from './core/i18n/language-chooser/language-chooser.component';
+import { TranslationService } from './core/i18n/translation.service';
 import { KanjiStateService } from './kanji/kanji-state.service';
+import { OwnerDrafts } from './owner/owner-drafts.service';
+import { keptWord } from './standin/kept-word';
 import { NotSetUpComponent } from './standin/not-set-up/not-set-up.component';
 import { ProblemComponent } from './standin/problem/problem.component';
 import { SignInComponent } from './standin/sign-in/sign-in.component';
@@ -19,10 +23,14 @@ import { SignInComponent } from './standin/sign-in/sign-in.component';
  * The top bar's Kanji and Exam show only while the app can be used: following
  * one loads its section, and the kanji screens ask the API for data on the
  * way, which nobody signed out, or a copy not set up, can have.
+ *
+ * The bar is drawn in every state, so its own word has its English here too
+ * (standin/kept-word.ts). "Kanji" is a term and the app's name a name: both
+ * are the same in every language.
  */
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet, AccountMenuComponent, AppVersionComponent, SignInComponent, NotSetUpComponent, ProblemComponent],
+  imports: [RouterLink, RouterOutlet, AccountMenuComponent, AppVersionComponent, LanguageChooserComponent, SignInComponent, NotSetUpComponent, ProblemComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +40,15 @@ export class AppComponent implements OnInit {
   private readonly kanji = inject(KanjiStateService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly i18n = inject(TranslationService);
+  /**
+   * Made here, once the sign-in has settled, so the owner's unsaved words are
+   * asked about when the tab is closed, whichever page is showing.
+   */
+  private readonly ownerDrafts = inject(OwnerDrafts);
+
+  /** The link to the exam, in the language on the page. */
+  readonly exam = computed(() => keptWord(this.i18n, 'topbar.exam', 'Exam'));
 
   private readonly url = signal(location.pathname);
   /** The part of the app the address is in: its link in the top bar is marked. */

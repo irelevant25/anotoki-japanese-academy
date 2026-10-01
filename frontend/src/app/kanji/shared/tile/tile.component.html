@@ -1,3 +1,3 @@
-<a [class]="classes()" [routerLink]="['/kanji/item', item().id]" [title]="title()" lang="ja"
-  ><span class="tc">{{ item().chars }}</span>@if (withMeaning()) {<span class="tm">{{ item().meanings[0] }}</span>}</a
+<a [class]="classes()" [routerLink]="['/kanji/item', item().id]" [title]="title()"
+  ><span class="tc" lang="ja">{{ item().chars }}</span>@if (withMeaning()) {<span class="tm" lang="en">{{ item().meanings[0] }}</span>}</a
 >

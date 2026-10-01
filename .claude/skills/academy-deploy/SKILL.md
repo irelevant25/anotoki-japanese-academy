@@ -21,8 +21,8 @@ npm run build:dist -- --list       # only what would go in, as JSON
 
 The build refuses to empty a folder that isn't an earlier build, leaves out
 everything in `DIST_NEVER` (tests, tools, docs, books, the frontend's sources,
-the owner's history, backups, `.env`, every `*.local.php`, `server.php` and
-`manage.php`), checks that what a site needs is there, and parses every PHP
+the owner's history, backups, `.env`, every `*.local.php`, `server.php`,
+`manage.php` and `translations.php`), checks that what a site needs is there, and parses every PHP
 file. Look at its last lines: the size and the upload map.
 
 ## 2. What the owner does, the first time
@@ -92,12 +92,34 @@ upload, not per try.
 Run again on purpose (the lock deleted), the setup page takes the same raw
 copy before it applies anything new.
 
+**The app's words.** The update that brings migration 004 (English and
+Slovak, the Translations and Languages pages) changes no study table: the
+first request after the upload applies it under the upkeep lock, after the
+raw copy. While it is still arriving the bundle of words answers 503
+`not_up_to_date` and a page that starts shows "The database is not up to date
+with the uploaded version of the app yet"; a reload once the upload is whole
+shows the app. Tell the owner:
+
+- the owner's pages are for the `ADMIN` role (the account menu's
+  *Translations* link); `MEMBER`s study only;
+- the site keeps its own strings, apart from their computer's: a string
+  reworded in one copy reaches the other only by the Translations page's
+  export and import (or `php backend/translations.php --import` on the
+  computer). Later migrations leave reworded strings alone, but before an
+  upload that changes strings, export the site's languages all the same;
+- a new language added on the Languages page starts hidden until its box is
+  ticked; English cannot be hidden or deleted, Slovak cannot be deleted.
+
+On their own computer the same migration is applied by the next start, after
+a raw copy of every table — or by the setup page run again with their
+database's name, which takes the copy first too.
+
 ## 5. When something is wrong
 
 The table at the end of `docs/kb/hosting.md` (500 after upload, 401 while
 signed in, "Sign in again", "not set up yet" or 503 "could not be brought up
 to date", a migration that never applies, 403 "Sign-in is off here", 404 for
-`/api` or for a page's address on reload). The host's PHP error log has the
+`/api` or for a page's address on reload, keys on a page instead of words). The host's PHP error log has the
 details a website's answers leave out.
 
 ## Never

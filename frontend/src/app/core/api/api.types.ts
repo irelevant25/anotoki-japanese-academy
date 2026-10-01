@@ -7,12 +7,27 @@ export interface AuthConfig {
   clientId?: string;
 }
 
-/** Every failure: {error, code?}; a copy not set up yet also says where to set it up (and, to this computer, what is missing). */
+/**
+ * Every failure: {error, code?}. The sentence is English, for the console; a
+ * page words the failure from the code. A copy not set up yet also says where
+ * to set it up (and, to this computer, what is missing); and under PHP's
+ * built-in server — the owner's computer, never a website — three failures
+ * (database_unavailable, server_error, not_up_to_date) give the reason too.
+ */
 export interface ApiErrorBody {
   error?: string;
   code?: string;
   setup?: string;
   reason?: string;
+  /** The reason in the server's own English words: shown small, after the page's own, in a `lang="en"` span. */
+  detail?: string;
+  /** The item as it stands, beside `already_learned` (always) and `not_due` (when the item has a record). */
+  state?: ItemState;
+  /** Beside a refused save or import of the app's words: the key, the language and the placeholder it is about; every unknown key. */
+  key?: string;
+  language?: string;
+  placeholder?: string;
+  keys?: string[];
 }
 
 /* ------------------------------------------------------------------ kanji */
@@ -116,7 +131,8 @@ export interface Summary {
   lessonsAvailable: number;
   reviewsDue: number;
   nextReviewAt: number | null;
-  groups: Record<string, { total: number; kanji: number; vocab: number }>;
+  /** By stage group id, in the order of the stages. `name` is the group's own name, which is never translated. */
+  groups: Record<string, { name: string; total: number; kanji: number; vocab: number }>;
   forecastHours: number[];
   forecastDays: number[];
   byLesson: Record<string, { kanji: LessonCounts; vocab: LessonCounts }>;
@@ -184,7 +200,13 @@ export interface ExamPaper {
   questions: ExamQuestion[];
 }
 
+/**
+ * One line of a result's breakdown. `key` is what the line is about — a
+ * section's id, a lesson's number (0: the greetings) or a part's number — and
+ * the page words the line from it; `name` is the server's English name for it.
+ */
 export interface Breakdown {
+  key: string | number;
   name: string;
   pct: number;
   right: number;
@@ -193,7 +215,10 @@ export interface Breakdown {
 
 export interface ReviewRow {
   n: number;
+  /** The section's English name; the page words the section from `sectionId`. */
   section: string;
+  /** The section's id, one of /api/meta's `sections[].id`. */
+  sectionId: string;
   lesson: number;
   audio: string | null;
   question: string;
@@ -222,6 +247,9 @@ export interface ExamResult {
   };
   bySection: Breakdown[];
   byLesson: Breakdown[];
+  byBook: Breakdown[];
+  weakSections: Breakdown[];
+  weakLessons: Breakdown[];
   reportUrl: string;
   review: ReviewRow[];
 }

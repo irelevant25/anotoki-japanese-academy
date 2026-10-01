@@ -4,7 +4,7 @@ import { SessionEngine, shuffled } from './session-engine';
 
 const RIGHT: Check = { verdict: 'correct' };
 const WRONG: Check = { verdict: 'wrong' };
-const INVALID: Check = { verdict: 'invalid', message: 'Type the meaning first.' };
+const INVALID: Check = { verdict: 'invalid', kind: 'meaningEmpty' };
 
 function items(n: number): CatalogItem[] {
   return Array.from({ length: n }, (_, i) => ({

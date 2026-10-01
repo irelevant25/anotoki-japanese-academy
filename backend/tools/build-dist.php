@@ -23,8 +23,8 @@
  *
  * backend/, data/ and backups/ each get a .htaccess that refuses every request,
  * in case the site's document root ends up above public/ after all. Left out:
- * the tests and tools, the command-line helpers (server.php, manage.php: they
- * need a shell), frontend/ as source, docs/, books/, progress/, results/,
+ * the tests and tools, the command-line helpers (server.php, manage.php,
+ * translations.php: they need a shell), frontend/ as source, docs/, books/, progress/, results/,
  * reports/, the backups themselves, .env, node_modules/, .claude/, the
  * launchers, data/source/.
  *
@@ -52,7 +52,7 @@ const DIST_DENIED = ['backend', 'backend/storage', 'data', 'backups'];
 /** Never in an upload, whatever the lists below say: settings, secrets, the owner's study history, the tools. */
 const DIST_NEVER = '~(^|/)(\.env|[^/]*\.local\.php)$'
     . '|^(tests|tools|docs|books|progress|results|reports|node_modules|\.claude|\.git|temp|dist|frontend|src)/'
-    . '|^backend/(tests|tools|public|node_modules)/|^backend/storage/(?!\.htaccess$)|^backend/(server|manage)\.php$'
+    . '|^backend/(tests|tools|public|node_modules)/|^backend/storage/(?!\.htaccess$)|^backend/(server|manage|translations)\.php$'
     . '|^(start\.ps1|start\.sh|package(-lock)?\.json|CLAUDE\.md|README\.md|DEV\.md)$|^backups/(?!\.htaccess$)|^data/source/~';
 
 /** The files under a folder, as paths relative to $base. */

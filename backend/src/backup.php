@@ -14,12 +14,21 @@
  *   academy-manual-<time>.json             php backend/manage.php --backup
  *   academy-before-migration-<time>.raw.json   every table as it was, before a migration
  *                                          is applied (see backup_write_raw())
+ *   academy-before-language-delete-<code>-<time>.json   a language's own strings, before the owner
+ *                                          deletes it (translations_copy() in src/translations.php):
+ *                                          a flat {key: text}, not a backup of anybody's data
  * Each .json holds everything the database knows, per person: their kanji
  * progress, their answer log, every exam attempt with its report — of
  * everybody, or (a before-reset copy, "everybody": false) of the people it
  * names. php backend/manage.php --restore=<file> puts it back. This is format
  * version 2; version 1, from before people had user ids, held the owner's data
  * alone, and restores into the owner's account (auth.local_user_id).
+ *
+ * A copy of everybody also holds the app's own words, as the owner reworded
+ * them: "translations", {languages, values: {code: {key: text}}}. They are the
+ * site's, not anybody's study data: backup_read() and a restore pass them
+ * over, and php backend/translations.php --import <code> <file> puts a
+ * language's strings back from such a file.
  *
  * The import: the JSON files the app kept before it used a database
  * (progress/kanji.json, progress/kanji-log.jsonl, results/*.json,
@@ -77,7 +86,10 @@ function backup_person(int $uid): array
 /**
  * Everything the database knows about everybody, in one document — or, given
  * $only (user ids), about those people alone: 'everybody' says which, and a
- * restore of the second kind replaces only their data.
+ * restore of the second kind replaces only their data. A copy of everybody
+ * also holds 'translations', the app's own words as the owner reworded them
+ * (translations_backup()): the format stays version 2, and older files stay
+ * valid without it.
  */
 function backup_data(?array $only = null): array
 {
@@ -87,7 +99,7 @@ function backup_data(?array $only = null): array
             $known = array_column($people, null, 'id');
             $people = array_map(static fn (int $id): array => $known[$id] ?? ['id' => $id, 'username' => null, 'createdAt' => null, 'lastSeenAt' => null], $only);
         }
-        return [
+        $data = [
             'format' => BACKUP_FORMAT,
             'version' => BACKUP_VERSION,
             'takenAt' => iso_time(now_ms()),
@@ -95,6 +107,9 @@ function backup_data(?array $only = null): array
             'everybody' => $only === null,
             'users' => array_map(static fn (array $u): array => $u + backup_person($u['id']), $people),
         ];
+        // The site's own words go with a copy of everybody, never with one of some people alone.
+        $translations = $only === null ? translations_backup() : null;
+        return $translations !== null ? $data + ['translations' => $translations] : $data;
     });
 }
 

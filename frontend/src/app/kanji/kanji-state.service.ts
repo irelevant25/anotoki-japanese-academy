@@ -102,8 +102,14 @@ export class KanjiStateService {
     return this.stages()[stage]?.group ?? 'lesson';
   }
 
+  /** A stage's own name, from the catalog: never translated, and never drawn for stage 0 (the page says "not learned"). */
   stageName(stage: number): string {
     return this.stages()[stage]?.name ?? '—';
+  }
+
+  /** A stage group's own name (Apprentice, Guru, …), from the catalog: never translated. */
+  groupName(id: string): string {
+    return this.groups().find((g) => g.id === id)?.name ?? '—';
   }
 
   acceptMeanings(it: CatalogItem): string[] {
@@ -114,8 +120,9 @@ export class KanjiStateService {
     return [...it.readings, ...(this.st(it.id)?.extraReadings || [])];
   }
 
-  typeLabel(it: CatalogItem): string {
-    return it.type === 'kanji' ? 'Kanji' : 'Vocabulary';
+  /** The key of an item's type, for the page to word. */
+  typeKey(it: CatalogItem): string {
+    return it.type === 'kanji' ? 'kanji.type.kanji' : 'kanji.type.vocab';
   }
 
   /** The next lessons in course order, honouring the chosen lessons and types. */

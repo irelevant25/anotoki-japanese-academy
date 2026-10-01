@@ -1,65 +1,69 @@
 <main class="wrap">
   <section class="hero">
-    <h1><span class="mark">日本語</span>Japanese Academy</h1>
-    <p>
-      Learn the kanji of the course — and the vocabulary written with them — through spaced-repetition lessons, reviews and practice. Then test
-      yourself on the whole course with the exam.
-    </p>
+    <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
+    <p>{{ 'home.intro' | translate }}</p>
   </section>
 
   <div class="homecards">
     <a class="hc hc-kanji" routerLink="/kanji">
       <div class="hc-band">
-        <span class="hc-glyph">漢</span>
+        <span class="hc-glyph" lang="ja">漢</span>
         <div>
           <div class="hc-title">Kanji</div>
-          <div class="hc-sub">Lessons · reviews · practice</div>
+          <div class="hc-sub">{{ 'home.kanji.sub' | translate }}</div>
         </div>
       </div>
       <div class="hc-body">
         <div class="hc-stats">
           <div class="hc-stat">
-            <b id="kDue">{{ summary()?.reviewsDue ?? '–' }}</b><span>{{ summary()?.reviewsDue === 1 ? 'review due' : 'reviews due' }}</span>
+            <b id="kDue">{{ summary()?.reviewsDue ?? '–' }}</b><span>{{ 'home.kanji.reviewsDue' | translatePlural: (summary()?.reviewsDue ?? 0) }}</span>
           </div>
           <div class="hc-stat">
             <b id="kLessons">{{ summary()?.lessonsAvailable ?? '–' }}</b
-            ><span>{{ summary()?.lessonsAvailable === 1 ? 'lesson available' : 'lessons available' }}</span>
+            ><span>{{ 'home.kanji.lessonsAvailable' | translatePlural: (summary()?.lessonsAvailable ?? 0) }}</span>
           </div>
           <div class="hc-stat">
-            <b id="kLearned">{{ summary() ? summary()!.learned + ' / ' + summary()!.total : '–' }}</b><span>learned</span>
+            <b id="kLearned">{{ summary() ? summary()!.learned + ' / ' + summary()!.total : '–' }}</b><span>{{ 'home.kanji.learned' | translate }}</span>
           </div>
         </div>
-        <div class="stagebar" id="kBar" title="Apprentice · Guru · Master · Enlightened · Burned">
+        <div class="stagebar" id="kBar" lang="en" [attr.title]="barTitle()">
           @for (b of bar(); track b.g) {
-            <i [style.width.%]="b.width" [style.background]="b.color" [title]="b.g + ': ' + b.n"></i>
+            <i [style.width.%]="b.width" [style.background]="b.color" [title]="b.name + ': ' + b.n"></i>
           }
         </div>
         <span class="small muted" id="kNext">{{ kanjiNote() }}</span>
-        <span class="hc-go">Open Kanji →</span>
+        <span class="hc-go">{{ 'home.kanji.open' | translate }} →</span>
       </div>
     </a>
 
     <a class="hc hc-exam" routerLink="/exam">
       <div class="hc-band">
-        <span class="hc-glyph">試</span>
+        <span class="hc-glyph" lang="ja">試</span>
         <div>
-          <div class="hc-title">Exam</div>
-          <div class="hc-sub">Multiple choice with listening</div>
+          <div class="hc-title">{{ 'home.exam.title' | translate }}</div>
+          <div class="hc-sub">{{ 'home.exam.sub' | translate }}</div>
         </div>
       </div>
       <div class="hc-body">
         <div class="hc-stats">
           <div class="hc-stat">
-            <b id="eLast">{{ attempts() === null ? '–' : last() ? last()!.pct + '%' : '—' }}</b><span>last score</span>
+            <b id="eLast">{{ lastScore() }}</b><span>{{ 'home.exam.lastScore' | translate }}</span>
           </div>
           <div class="hc-stat">
-            <b id="eCount">{{ attempts()?.length ?? '–' }}</b><span>{{ attempts()?.length === 1 ? 'attempt' : 'attempts' }}</span>
+            <b id="eCount">{{ attempts()?.length ?? '–' }}</b><span>{{ 'home.exam.attempts' | translatePlural: (attempts()?.length ?? 0) }}</span>
           </div>
-          <div class="hc-stat"><b id="eBank">{{ bankSize() }}</b><span>questions in the bank</span></div>
+          <div class="hc-stat">
+            <b id="eBank">{{ bankSize() }}</b><span>{{ 'home.exam.bankQuestions' | translatePlural: (meta()?.bankSize ?? 0) }}</span>
+          </div>
         </div>
         <span class="small muted" id="eWhen">{{ examNote() }}</span>
-        <span class="hc-go">Open Exam →</span>
+        <span class="hc-go">{{ 'home.exam.open' | translate }} →</span>
       </div>
     </a>
   </div>
+
+  @if (ownerLink()) {
+    <!-- The owner's page is English, in every language. -->
+    <p class="ownerlink small"><a routerLink="/translations" lang="en" id="ownerTranslations">Translations</a></p>
+  }
 </main>

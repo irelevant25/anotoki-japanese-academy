@@ -145,7 +145,7 @@ test('a form that did not come from the page itself is refused', function (): vo
 test('Test connection: the database, with the earlier password, and an IAM', function (): void {
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-db']), [], jar());
     assert_same(true, $r['body']['ok'] ?? null, $r['raw']);
-    assert_match("/Connected to the database " . db_name() . ": Japanese Academy's tables are there, with 2 updates to apply \\(a copy of every table is taken first\\), holding study data\\./",
+    assert_match("/Connected to the database " . db_name() . ": Japanese Academy's tables are there, with 3 updates to apply \\(a copy of every table is taken first\\), holding study data\\./",
         $r['body']['message']);
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-db', 'db_name' => 'academy_test_nowhere_' . getmypid()]), [], jar());
     assert_same(false, $r['body']['ok'] ?? null, 'a user who may not make databases');
@@ -178,7 +178,7 @@ test('setting up the earlier version’s database: a raw copy, the migrations, a
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce']), [], jar());
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
     assert_match('/Backup before the update: backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
-    assert_match('/Applied the migrations: 002_users\.sql, 003_content_stamp\.sql\./', $r['raw']);
+    assert_match('/Applied the migrations: 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql\./', $r['raw']);
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_match('/no sign-in \(this computer only\)/', $r['raw']);
     assert_match('/are not used any more: you may delete that file/', $r['raw'], 'the earlier settings: told they are done with');

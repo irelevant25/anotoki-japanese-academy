@@ -92,6 +92,7 @@ require __DIR__ . '/srs/store.php';
 require __DIR__ . '/srs/kanji.php';
 require __DIR__ . '/content.php';
 require __DIR__ . '/exam.php';
+require __DIR__ . '/translations.php';
 require __DIR__ . '/backup.php';
 require __DIR__ . '/upkeep.php';
 require __DIR__ . '/owner.php';

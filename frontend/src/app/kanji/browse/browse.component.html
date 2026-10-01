@@ -1,29 +1,33 @@
-<h1 class="page">Browse</h1>
+<h1 class="page">{{ 'kanji.tab.browse' | translate }}</h1>
 <input
   type="text"
-  placeholder="Search: kanji, reading (romaji or kana), or meaning"
+  [placeholder]="'browse.search' | translate"
   [value]="query()"
   (input)="query.set($any($event.target).value)"
 />
 <div class="bfilters">
   <div class="chips">
     @for (t of typeChoices; track t[0]) {
-      <button type="button" class="chip" [class.is-on]="type() === t[0]" (click)="type.set(t[0])">{{ t[1] }}</button>
+      <button type="button" class="chip" [class.is-on]="type() === t[0]" (click)="type.set(t[0])">{{ t[1] | translate }}</button>
     }
   </div>
   <div class="chips">
-    <button type="button" class="chip" [class.is-on]="!lesson()" (click)="lesson.set(null)">Any lesson</button>
+    <button type="button" class="chip" [class.is-on]="!lesson()" (click)="lesson.set(null)">{{ 'browse.anyLesson' | translate }}</button>
     @for (L of kanji.lessons(); track L) {
       <button type="button" class="chip" [class.is-on]="lesson() === L" (click)="lesson.set(L)">L{{ L }}</button>
     }
   </div>
   <div class="chips">
-    @for (s of statusChoices(); track s[0]) {
-      <button type="button" class="chip" [class.is-on]="status() === s[0]" (click)="status.set(s[0])">{{ s[1] }}</button>
+    @for (s of statusChoices(); track s.id) {
+      @if (s.key !== null) {
+        <button type="button" class="chip" [class.is-on]="status() === s.id" (click)="status.set(s.id)">{{ s.key | translate }}</button>
+      } @else {
+        <button type="button" class="chip" [class.is-on]="status() === s.id" lang="en" (click)="status.set(s.id)">{{ s.name }}</button>
+      }
     }
   </div>
 </div>
-<p class="small muted">{{ count() }}</p>
+<p class="small muted">{{ 'browse.count' | translatePlural: list().length }}</p>
 <div class="bgrid">
   @for (it of shown(); track it.id) {
     <app-tile [item]="it" [withMeaning]="true" />

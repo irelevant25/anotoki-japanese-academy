@@ -1,46 +1,48 @@
-<h1 class="page">Lessons</h1>
-<p class="muted">
-  Learn new items in small batches, then a short quiz fixes them in the SRS. Take as many batches as you like — there is no daily limit.
-</p>
+<h1 class="page">{{ 'kanji.tab.lessons' | translate }}</h1>
+<p class="muted">{{ 'lessons.intro' | translate }}</p>
 <section class="panel">
   <div class="field">
-    <span class="lbl">Batch size</span>
+    <span class="lbl">{{ 'lessons.batchSize' | translate }}</span>
     <div class="chips">
       @for (n of sizes; track n) {
-        <button type="button" class="chip" [class.is-on]="batch() === n" [attr.data-batch]="n" (click)="setBatch(n)">{{ n }} per batch</button>
+        <button type="button" class="chip" [class.is-on]="batch() === n" [attr.data-batch]="n" (click)="setBatch(n)">{{ 'lessons.perBatch' | translate: { n: n } }}</button>
       }
     </div>
   </div>
   <div class="field">
-    <span class="lbl">Include</span>
+    <span class="lbl">{{ 'lessons.include' | translate }}</span>
     <div class="chips">
       @for (k of kinds; track k[0]) {
-        <button type="button" class="chip" [class.is-on]="types() === k[0]" [attr.data-types]="k[0]" (click)="setTypes(k[0])">{{ k[1] }}</button>
+        <button type="button" class="chip" [class.is-on]="types() === k[0]" [attr.data-types]="k[0]" (click)="setTypes(k[0])">{{ k[1] | translate }}</button>
       }
     </div>
   </div>
   <div class="field">
-    <span class="lbl">From <em>(vocabulary opens up once its kanji are learned)</em></span>
+    <span class="lbl">{{ 'lessons.from' | translate }} <em>{{ 'lessons.fromNote' | translate }}</em></span>
     <div class="chips">
-      <button type="button" class="chip" [class.is-on]="lesson() === null" (click)="lesson.set(null)">Course order</button>
+      <button type="button" class="chip" [class.is-on]="lesson() === null" (click)="lesson.set(null)">{{ 'lessons.courseOrder' | translate }}</button>
       @for (c of lessonChoices(); track c.L) {
-        <button type="button" class="chip" [class.is-on]="lesson() === c.L" [disabled]="!c.n" [title]="c.n + ' available'" (click)="lesson.set(c.L)">L{{ c.L }}</button>
+        <button type="button" class="chip" [class.is-on]="lesson() === c.L" [disabled]="!c.n" [title]="'lessons.available' | translate: { n: c.n }" (click)="lesson.set(c.L)">L{{ c.L }}</button>
       }
     </div>
   </div>
   <div class="field">
-    <span class="lbl">Next up</span>
+    <span class="lbl">{{ 'lessons.nextUp' | translate }}</span>
     <div class="preview">
       @for (it of next(); track it.id) {
         <app-tile [item]="it" [withMeaning]="true" />
       } @empty {
-        <p class="muted small">Nothing left to learn with these choices.</p>
+        <p class="muted small">{{ 'lessons.nothingLeft' | translate }}</p>
       }
     </div>
   </div>
   <div class="actions">
     <button class="primary" type="button" [disabled]="!next().length" (click)="start()">
-      {{ next().length ? 'Start ' + next().length + ' lesson' + (next().length === 1 ? '' : 's') : 'Nothing to learn' }}
+      @if (next().length) {
+        {{ 'lessons.start' | translatePlural: next().length }}
+      } @else {
+        {{ 'kanji.nothingToLearn' | translate }}
+      }
     </button>
   </div>
 </section>

@@ -101,9 +101,11 @@ function file_response(Request $request, Response $response, string $file, strin
 /**
  * The rest of an error's sentence for the browser: the details on this
  * computer, none on a hosted site, whose error log has them (a database error
- * names the user and the host).
+ * names the user and the host). The same rule as the answer's "detail"
+ * (error_reason() in src/errors.php), which a page shows after its own words.
  */
-function error_detail(Throwable $e): string
+function error_detail(Throwable $e, string $sapi = PHP_SAPI): string
 {
-    return PHP_SAPI === 'cli-server' ? ': ' . $e->getMessage() : '. The server\'s error log says more.';
+    $reason = error_reason($e, $sapi);
+    return $reason !== null ? ': ' . $reason : '. The server\'s error log says more.';
 }

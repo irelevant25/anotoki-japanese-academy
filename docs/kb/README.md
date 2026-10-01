@@ -6,7 +6,7 @@ hold the detail. Read the page for an area before changing it.
 
 | Page | Read it when |
 |---|---|
-| [architecture.md](architecture.md) | You need the map: the backend (Slim) and the frontend (Angular), data flow, API, settings, the setup page, where files live |
+| [architecture.md](architecture.md) | You need the map: the backend (Slim) and the frontend (Angular), data flow, API, settings, the setup page, where files live; the app's words in English and Slovak (the translation tables, the bundle, `core/i18n`, the owner's pages) |
 | [data-provenance.md](data-provenance.md) | You touch `data/`, fix a typo, add content, or need a book page — **page maps for every PDF are here** |
 | [kanji-srs.md](kanji-srs.md) | You change the kanji trainer: catalog, schedule, answer checking, storage, screens |
 | [exam.md](exam.md) | You change the exam: question generation, papers, scoring, reports, its screen |

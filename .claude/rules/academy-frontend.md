@@ -18,14 +18,18 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   from the tokens, each defined for light and `prefers-color-scheme: dark`.
   Use `--kanji`/`--vocab` for item types and the stage tokens for SRS stages.
   Check contrast in dark mode.
-- The app talks to the backend only through `ApiService` (HttpClient). The
+- The app talks to the backend only through `ApiService` (HttpClient) —
+  except the bundle of words, `GET /api/translations/{code}`, which the
+  translation service asks with a plain `fetch()` and no token. The
   auth interceptor adds the sign-in's token to this site's `/api` and
   `/report` addresses and to nothing else; a link the browser would follow by
   itself to somebody's data (a report, the progress download) goes through
   `PrivateLinksService` (in auth mode `iam` it fetches with the token and opens
   from memory; a report gets `lockDown()`'s no-script policy first). In auth
-  mode `none` nothing on the page may change: no account menu, no Sign in
-  page.
+  mode `none` nothing about sign-in shows: no account menu, no Sign in page.
+  (The language chooser shows in every mode; the owner's link to Translations
+  is in the account menu on a website, at the foot of the home page without
+  sign-in.)
 - `core/auth/sdk/anotoki-auth.mjs` + `.d.ts` are the anotoki IAM's browser SDK
   v1.1.1, copied unchanged from `../anotoki-iam/sdk/js/`. Never edit them; to
   update, copy the new files and change the version in `auth.service.ts`,
@@ -42,8 +46,35 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   on submit.
 - At 390 px there must be no horizontal scroll; `npm run screens` fails on
   overflow.
-- The UI is in English, plain and short. Dates and times with words use
-  `'en-GB'` (`core/format.ts`), because the system locale is Slovak.
+- The UI is in English and Slovak (informal "ty"), plain and short, from the
+  database (`core/i18n/`, `docs/kb/architecture.md`, *The app's words*).
+  Dates, times and numbers follow the language on the page through `Intl`
+  (`TranslationService.locale()`: `'en-GB'`, `'sk-SK'`; `core/format.ts`, the
+  `localDate` pipe), never the system's locale. The learning material, the SRS
+  stage names (from the server) and the two owner pages stay as they are;
+  material carries `lang="en"` or `lang="ja"` whatever the page's language.
+- A word a learner reads is a key with an English and a Slovak string — a new
+  one comes with a migration (`DEV.md`) — asked for with the `translate` /
+  `translatePlural` pipes or `t()` / `plural()`; never English written into a
+  template (kept terms like "Kanji" and the owner pages aside). A key put
+  together at run time comes from a closed set declared in
+  `core/i18n/dynamic-keys.ts`, never from an address, the IAM or what
+  somebody typed. What is drawn while there may be no strings (the stand-in pages, the
+  top bar) uses `keptWord()` / `keptAround()` (`standin/`), with the seeded
+  English in the code. `backend/translations.php --status` and
+  `backend/tests/unit/translations.test.php` hold the keys to the database.
+- State holds keys, kinds and `ApiError`s, never a worded sentence: wording
+  happens in a template or inside a `computed()`, so a page follows a change
+  of language without being made again. A failed request is worded from its
+  code (`core/i18n/error-text.ts`), never with the server's sentence (the
+  owner pages excepted).
+- The chooser (and the account menu) keeps its keys to itself
+  (`core/menu-keys.ts`): no key pressed inside a menu reaches `document`,
+  where Enter submits a card or finishes a paper. Switching the language
+  changes words only: a session or a paper goes on where it was.
+- "Academy" in the top bar gives way at 440 px and below, so the bar with the
+  chooser fits 360 px; the five kanji tabs fit 390 px in Slovak (360 px in
+  English). `npm run screens` measures both.
 - `frontend/public/changelog.json`: an entry, in plain words, for every
   release the owner will notice; keep its version and the `version` of both
   `package.json` files in step.

@@ -1,0 +1,30 @@
+:host {
+  display: contents;
+}
+.confirm {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  width: min(440px, calc(100vw - 32px));
+}
+.confirm::backdrop {
+  background: var(--scrim);
+}
+h2 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+p {
+  margin: 0 0 18px;
+}
+.actions {
+  justify-content: flex-end;
+}
+.primary.danger {
+  background: var(--bad-fill);
+  border-color: var(--bad-fill);
+  color: var(--item-ink);
+}

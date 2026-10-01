@@ -6,6 +6,13 @@
  *
  *   php backend/tests/tools/testdb.php template       make or update academy_test_template:
  *                                                     its tables and the study content from data/
+ *   php backend/tests/tools/testdb.php template --fresh
+ *                                                     drop the template first, then replay every migration and
+ *                                                     build the content: after an edit of a migration that is not
+ *                                                     committed yet. (Without it only new files are applied: an
+ *                                                     edited one changes nothing in the template, and nobody is
+ *                                                     told.) Not while another run of the tests is going on: its
+ *                                                     copies of the template fail
  *   php backend/tests/tools/testdb.php create NAME    a new test database, copied from the template
  *   php backend/tests/tools/testdb.php site NAME      an empty test database, owned by a database user of its
  *                                                     own (NAME_site, with a password made for this run), as a
@@ -61,6 +68,15 @@ switch ($command) {
     case 'template':
         if (db_name() !== TEMPLATE) {
             exit(1);
+        }
+        $options = array_slice($argv, 2);
+        if (array_diff($options, ['--fresh'])) {
+            fwrite(STDERR, "testdb: template takes no option but --fresh\n");
+            exit(1);
+        }
+        if ($options) {
+            // The one place the template is ever dropped, and the constant names it: test_name() refuses that name.
+            db_server()->exec('DROP DATABASE IF EXISTS "' . TEMPLATE . '" WITH (FORCE)');
         }
         db_create();
         $applied = db_migrate();
@@ -118,7 +134,7 @@ switch ($command) {
         break;
 
     default:
-        fwrite(STDERR, "usage: php backend/tests/tools/testdb.php template | create NAME | site NAME | drop NAME | sweep | sql NAME SQL [JSON-PARAMS]"
+        fwrite(STDERR, "usage: php backend/tests/tools/testdb.php template [--fresh] | create NAME | site NAME | drop NAME | sweep | sql NAME SQL [JSON-PARAMS]"
             . " | config DIR NAME none|iam [JWKS] BACKUPS [FRONTEND]\n");
         exit(1);
 }

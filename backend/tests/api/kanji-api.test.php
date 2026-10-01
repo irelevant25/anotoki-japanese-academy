@@ -33,16 +33,39 @@ test('fresh start', function (): void {
     assert_match('/"items":\{\}/', api('GET', '/progress')['raw'], 'an empty object, as the browser expects');
 });
 
+test('the summary names its stage groups: the home page draws them without the catalog', function (): void {
+    $names = ['apprentice' => 'Apprentice', 'guru' => 'Guru', 'master' => 'Master', 'enlightened' => 'Enlightened', 'burned' => 'Burned'];
+    assert_same($names, array_column(SRS_GROUPS, 'name', 'id'), 'the one source of the names: the server’s constants');
+    $catalog = api('GET', '/catalog')['body'];
+    assert_same($names, array_column($catalog['groups'], 'name', 'id'), 'the catalog’s groups, as before');
+    foreach (['/summary' => api('GET', '/summary')['body'], '/progress' => api('GET', '/progress')['body']['summary']] as $url => $summary) {
+        assert_same(array_keys($names), array_keys($summary['groups']), "$url: a group per id, in the stages’ order");
+        foreach ($names as $id => $name) {
+            assert_same(['name' => $name, 'total' => 0, 'kanji' => 0, 'vocab' => 0], $summary['groups'][$id], "$url: $id, with its name and its counts");
+        }
+    }
+});
+
 test('lessons: vocabulary waits for its kanji; nothing is learned twice', function (): void {
-    assert_same(409, api('POST', '/learn', ['id' => 'v:大学'])['status']);
+    $r = api('POST', '/learn', ['id' => 'v:大学']);
+    assert_same(409, $r['status']);
+    assert_refused(409, 'kanji_first', 'Learn its kanji first.', $r, 'the code a page words it from, beside the sentence');
     foreach (['k:大', 'k:学'] as $id) {
         $r = api('POST', '/learn', ['id' => $id]);
         assert_same(200, $r['status']);
         assert_same(1, $r['body']['state']['stage']);
     }
     assert_same(200, api('POST', '/learn', ['id' => 'v:大学'])['status']);
-    assert_same(409, api('POST', '/learn', ['id' => 'k:大'])['status']);
-    assert_same(404, api('POST', '/learn', ['id' => 'k:nope'])['status']);
+    $r = api('POST', '/learn', ['id' => 'k:大']);
+    assert_same(409, $r['status']);
+    assert_refused(409, 'already_learned', 'Already learned.', $r);
+    assert_same(1, $r['body']['state']['stage'] ?? null, 'with the item as it is');
+    $r = api('POST', '/learn', ['id' => 'k:nope']);
+    assert_same(404, $r['status']);
+    assert_refused(404, 'no_such_item', 'No such item.', $r);
+    foreach (['/review', '/practice', '/item', '/reset-item'] as $url) {
+        assert_refused(404, 'no_such_item', 'No such item.', api('POST', $url, ['id' => 'k:nope']), $url);
+    }
     $p = api('GET', '/progress')['body'];
     assert_same(3, $p['summary']['learned']);
     assert_same(3, $p['summary']['today']['lessons']);
@@ -50,15 +73,22 @@ test('lessons: vocabulary waits for its kanji; nothing is learned twice', functi
 });
 
 test('reviews: only when due, once, and the stage moves', function (): void {
-    assert_same(409, api('POST', '/review', ['id' => 'k:大'])['status'], 'not due yet');
+    $r = api('POST', '/review', ['id' => 'k:大']);
+    assert_same(409, $r['status'], 'not due yet');
+    assert_refused(409, 'not_due', 'That item is not due for review.', $r, 'not due yet');
+    assert_refused(409, 'not_due', 'That item is not due for review.', api('POST', '/review', ['id' => 'k:食']), 'nor is one not learned yet');
     foreach (['k:大', 'k:学', 'v:大学'] as $id) {
         make_due($id);
     }
-    assert_same(3, api('GET', '/progress')['body']['summary']['reviewsDue']);
+    $p = api('GET', '/progress')['body'];
+    assert_same(3, $p['summary']['reviewsDue']);
+    assert_same(['name' => 'Apprentice', 'total' => 3, 'kanji' => 2, 'vocab' => 1], $p['summary']['groups']['apprentice'], 'the group’s name beside its counts');
 
     $r = api('POST', '/review', ['id' => 'k:大', 'meaningWrong' => 0, 'readingWrong' => 0]);
     assert_same([1, 2], [$r['body']['from'], $r['body']['to']]);
-    assert_same(409, api('POST', '/review', ['id' => 'k:大'])['status'], 'double submit refused');
+    $r = api('POST', '/review', ['id' => 'k:大']);
+    assert_same(409, $r['status'], 'double submit refused');
+    assert_refused(409, 'not_due', 'That item is not due for review.', $r, 'double submit refused');
 
     $r = api('POST', '/review', ['id' => 'k:学', 'meaningWrong' => 1, 'readingWrong' => 1]);
     assert_same(1, $r['body']['to'], 'floor at Apprentice I');
@@ -83,7 +113,9 @@ test('practice: recorded, but never touches the schedule', function (): void {
     assert_same($before['stage'], $after['stage']);
     assert_same($before['nextReview'], $after['nextReview']);
     assert_same(25, $after['practice']['correct']);
-    assert_same(409, api('POST', '/practice', ['id' => 'k:食'])['status'], 'unlearned');
+    $r = api('POST', '/practice', ['id' => 'k:食']);
+    assert_same(409, $r['status'], 'unlearned');
+    assert_refused(409, 'not_learned', 'Only learned items can be practised.', $r, 'unlearned');
 });
 
 test('notes, synonyms and extra readings', function (): void {

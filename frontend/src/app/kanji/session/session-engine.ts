@@ -1,3 +1,4 @@
+import { ApiError } from '../../core/api/api.service';
 import { CatalogItem } from '../../core/api/api.types';
 import { Check } from '../answer';
 
@@ -15,14 +16,18 @@ export interface QueueEntry {
   started: boolean;
 }
 
-/** An item done: both halves answered right, with the misses on the way (and, once saved, its stages). */
+/**
+ * An item done: both halves answered right, with the misses on the way — and,
+ * once saved, its stages; or, when the save failed, the failure itself (the
+ * summary words it from its code, in the reader's language).
+ */
 export interface DoneEntry {
   it: CatalogItem;
   wrongM: number;
   wrongR: number;
   from?: number;
   to?: number;
-  error?: string;
+  error?: ApiError;
 }
 
 /** What a finished session hands its summary. */

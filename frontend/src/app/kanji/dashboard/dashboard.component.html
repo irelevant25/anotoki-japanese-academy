@@ -1,7 +1,9 @@
 @if (s(); as s) {
   <div class="cards3">
     <div class="bigcard c-lessons">
-      <div class="bc-head"><span class="bc-title">Lessons</span><span class="bc-num">{{ s.lessonsAvailable }}</span></div>
+      <div class="bc-head">
+        <span class="bc-title">{{ 'kanji.tab.lessons' | translate }}</span><span class="bc-num">{{ s.lessonsAvailable }}</span>
+      </div>
       <div class="bc-body">
         @if (next().length) {
           <div class="preview">
@@ -10,64 +12,78 @@
             }
           </div>
         } @else {
-          <p class="muted small">Everything available has been learned.</p>
+          <p class="muted small">{{ 'dashboard.allLearned' | translate }}</p>
         }
       </div>
       <div class="bc-foot">
         <button class="primary" type="button" [disabled]="!next().length" (click)="learn(next())">
-          {{ next().length ? 'Learn ' + next().length + ' item' + (next().length === 1 ? '' : 's') : 'Nothing to learn' }}
+          @if (next().length) {
+            {{ 'dashboard.learn' | translatePlural: next().length }}
+          } @else {
+            {{ 'kanji.nothingToLearn' | translate }}
+          }
         </button>
-        <a routerLink="/kanji/lessons" class="small">Choose lessons…</a>
+        <a routerLink="/kanji/lessons" class="small">{{ 'dashboard.chooseLessons' | translate }}</a>
       </div>
     </div>
 
     <div class="bigcard c-reviews">
-      <div class="bc-head"><span class="bc-title">Reviews</span><span class="bc-num">{{ s.reviewsDue }}</span></div>
+      <div class="bc-head">
+        <span class="bc-title">{{ 'kanji.tab.reviews' | translate }}</span><span class="bc-num">{{ s.reviewsDue }}</span>
+      </div>
       <div class="bc-body"><p class="muted small">{{ reviewsText() }}</p></div>
       <div class="bc-foot">
-        <button class="primary" type="button" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">Start reviews</button>
+        <button class="primary" type="button" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">{{ 'dashboard.startReviews' | translate }}</button>
       </div>
     </div>
 
     <div class="bigcard c-practice">
-      <div class="bc-head"><span class="bc-title">Practice</span><span class="bc-num">{{ s.learned }}</span></div>
+      <div class="bc-head">
+        <span class="bc-title">{{ 'kanji.tab.practice' | translate }}</span><span class="bc-num">{{ s.learned }}</span>
+      </div>
       <div class="bc-body">
-        <p class="muted small">
-          {{
-            s.learned
-              ? 'Drill anything you have learned, as often as you like. It never changes the SRS schedule.'
-              : 'Once you have learned something you can drill it here any time.'
-          }}
-        </p>
+        <p class="muted small">{{ (s.learned ? 'dashboard.practiceReady' : 'dashboard.practiceEmpty') | translate }}</p>
       </div>
       <div class="bc-foot">
-        <button class="primary" type="button" [disabled]="!s.learned" (click)="go('/kanji/practice')">Practice</button>
+        <button class="primary" type="button" [disabled]="!s.learned" (click)="go('/kanji/practice')">{{ 'kanji.tab.practice' | translate }}</button>
       </div>
     </div>
   </div>
 
   <div class="today">
-    <span><b>{{ s.today.lessons }}</b> learned today</span>
-    <span><b>{{ s.today.reviews }}</b> reviews{{ s.today.reviews ? ' (' + pct(s.today.reviewsCorrect, s.today.reviews) + '% right)' : '' }}</span>
-    <span><b>{{ s.today.practice }}</b> practised{{ s.today.practice ? ' (' + pct(s.today.practiceCorrect, s.today.practice) + '% right)' : '' }}</span>
-    <span class="muted">{{ s.learned }} of {{ s.total }} items learned</span>
+    <span
+      >{{ learnedToday()[0] }}@if (learnedToday()[2]) {<b>{{ s.today.lessons }}</b>}{{ learnedToday()[1] }}</span
+    >
+    <span
+      >{{ reviewsToday()[0] }}@if (reviewsToday()[2]) {<b>{{ s.today.reviews }}</b>}{{ reviewsToday()[1] }}
+      @if (s.today.reviews) {
+        {{ 'dashboard.right' | translate: { pct: pct(s.today.reviewsCorrect, s.today.reviews) } }}
+      }
+    </span>
+    <span
+      >{{ practisedToday()[0] }}@if (practisedToday()[2]) {<b>{{ s.today.practice }}</b>}{{ practisedToday()[1] }}
+      @if (s.today.practice) {
+        {{ 'dashboard.right' | translate: { pct: pct(s.today.practiceCorrect, s.today.practice) } }}
+      }
+    </span>
+    <span class="muted">{{ 'dashboard.learnedOfTotal' | translate: { learned: s.learned, total: s.total } }}</span>
   </div>
 
   <section class="panel">
-    <h2>SRS stages</h2>
+    <h2>{{ 'dashboard.stages' | translate }}</h2>
     <div class="groups">
       @for (g of kanji.groups(); track g.id) {
         <div class="grp g-{{ g.id }}">
-          <span class="gn">{{ g.name }}</span>
+          <span class="gn" lang="en">{{ g.name }}</span>
           <span class="gc">{{ s.groups[g.id].total }}</span>
-          <span class="gs small">{{ s.groups[g.id].kanji }} kanji · {{ s.groups[g.id].vocab }} vocab</span>
+          <span class="gs small">{{ 'dashboard.groupCounts' | translate: { kanji: s.groups[g.id].kanji, vocab: s.groups[g.id].vocab } }}</span>
         </div>
       }
     </div>
   </section>
 
   <section class="panel">
-    <h2>Upcoming reviews</h2>
+    <h2>{{ 'dashboard.upcoming' | translate }}</h2>
     @if (anyAhead()) {
       <div class="fchart">
         @for (b of bars(); track $index) {
@@ -80,7 +96,7 @@
         }
       </div>
     } @else {
-      <p class="muted small">Nothing scheduled in the next 24 hours.</p>
+      <p class="muted small">{{ 'dashboard.nothingAhead' | translate }}</p>
     }
     <div class="fdays">
       @for (d of days(); track $index) {
@@ -90,7 +106,7 @@
   </section>
 
   <section class="panel">
-    <h2>Progress by lesson</h2>
+    <h2>{{ 'dashboard.byLesson' | translate }}</h2>
     @for (row of lessonRows(); track row.L) {
       <div class="lrow">
         <a class="lname" routerLink="/kanji/browse" [queryParams]="{ lesson: row.L }">L{{ row.L }}</a>
@@ -99,8 +115,8 @@
             <app-tile [item]="it" />
           }
         </div>
-        <div class="lvocab small" title="vocabulary learned / total">
-          <span class="muted">vocab </span><b>{{ row.learned }}</b>/{{ row.total }}
+        <div class="lvocab small" [title]="'dashboard.vocabTitle' | translate">
+          <span class="muted">{{ 'dashboard.vocab' | translate }} </span><b>{{ row.learned }}</b>/{{ row.total }}
           <div class="mini"><div [style.width.%]="row.fill"></div></div>
         </div>
       </div>
@@ -108,7 +124,8 @@
   </section>
 
   <p class="small muted foot">
-    Your progress is saved in the database, with a daily copy in backups/.
-    <a href="/api/kanji/export" download (click)="privateLinks.click($event, '/api/kanji/export', true)">Download a copy</a>.
+    {{ 'dashboard.saved' | translate }}
+    <a href="/api/kanji/export" download (click)="privateLinks.click($event, '/api/kanji/export', true)">{{ 'dashboard.download' | translate }}</a
+    >.
   </p>
 }

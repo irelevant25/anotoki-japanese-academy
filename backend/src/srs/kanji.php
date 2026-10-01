@@ -62,9 +62,10 @@ function kanji_summarize(int $uid, ?int $now = null): array
     $items = kanji_items();
     $progress = store_items($uid);
 
+    // with each group's name (WaniKani's, never translated): the home page draws them without the catalog
     $groups = [];
     foreach (SRS_GROUPS as $g) {
-        $groups[$g['id']] = ['total' => 0, 'kanji' => 0, 'vocab' => 0];
+        $groups[$g['id']] = ['name' => $g['name'], 'total' => 0, 'kanji' => 0, 'vocab' => 0];
     }
     $lessonsAvailable = 0;
     $reviewsDue = 0;
@@ -178,15 +179,15 @@ function kanji_learn(int $uid, array $b): array
 {
     $it = kanji_item($b);
     if (!$it) {
-        return [404, ['error' => 'No such item.']];
+        return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it): array {
         $st = store_item($uid, $it['id'], true);
         if (srs_is_learned($st)) {
-            return [409, ['error' => 'Already learned.', 'state' => $st]];
+            return [409, ['error' => 'Already learned.', 'code' => 'already_learned', 'state' => $st]];
         }
         if (!kanji_is_available($it, kanji_states($uid, array_map(static fn (string $c): string => "k:$c", $it['kanji'])))) {
-            return [409, ['error' => 'Learn its kanji first.']];
+            return [409, ['error' => 'Learn its kanji first.', 'code' => 'kanji_first']];
         }
         $now = now_ms();
         $state = srs_learn($st, $now);
@@ -214,14 +215,14 @@ function kanji_review(int $uid, array $b): array
 {
     $it = kanji_item($b);
     if (!$it) {
-        return [404, ['error' => 'No such item.']];
+        return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
         $now = now_ms();
         $st = store_item($uid, $it['id'], true);
         // A minute's grace for clock edges; anything else means a double submit.
         if (!srs_is_learned($st) || !srs_is_due($st, $now + 60 * 1000)) {
-            return [409, ['error' => 'That item is not due for review.'] + ($st ? ['state' => $st] : [])];
+            return [409, ['error' => 'That item is not due for review.', 'code' => 'not_due'] + ($st ? ['state' => $st] : [])];
         }
         $meaningWrong = kanji_count($b['meaningWrong'] ?? null);
         $readingWrong = kanji_count($b['readingWrong'] ?? null);
@@ -237,12 +238,12 @@ function kanji_practice(int $uid, array $b): array
 {
     $it = kanji_item($b);
     if (!$it) {
-        return [404, ['error' => 'No such item.']];
+        return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
         $st = store_item($uid, $it['id'], true);
         if (!srs_is_learned($st)) {
-            return [409, ['error' => 'Only learned items can be practised.']];
+            return [409, ['error' => 'Only learned items can be practised.', 'code' => 'not_learned']];
         }
         $now = now_ms();
         $firstTryCorrect = js_truthy($b['firstTryCorrect'] ?? null);
@@ -259,7 +260,7 @@ function kanji_edit_item(int $uid, array $b): array
 {
     $it = kanji_item($b);
     if (!$it) {
-        return [404, ['error' => 'No such item.']];
+        return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
         $st = array_merge(srs_blank(), store_item($uid, $it['id'], true) ?? []);
@@ -320,7 +321,7 @@ function kanji_reset_item(int $uid, array $b): array
 {
     $it = kanji_item($b);
     if (!$it) {
-        return [404, ['error' => 'No such item.']];
+        return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it): array {
         $old = store_item($uid, $it['id'], true);

@@ -98,6 +98,9 @@ the page maps were converted and checked against the printed page numbers.
 
 **2026-09-23 — English UI, including dates with words.** The system locale is
 Slovak; word-based dates use `en-GB`, numeric ones follow the locale.
+*(Superseded 2026-09-30: the UI is in English and Slovak, from the database,
+and every date and number follows the language on the page — see "The app's
+words live in the database".)*
 
 **2026-09-23 — Claude Code setup lives in the repository's `.claude/`.** The
 agents, skills and rules sit next to the app, with `CLAUDE.md` at the root, and
@@ -628,6 +631,8 @@ page, or the refusal itself ("This account cannot use Japanese Academy") —
 and the app decides nothing from it (the IAM's `docs/api.md`). So that
 sentence stands alone, with a full stop, as in the owner's other apps
 (`describeSignInFailure()`); any other failure keeps the prefix.
+*(Reversed 2026-09-30: the IAM's sentence is English, and the page is now in
+the reader's language — a refused sign-in is worded from its code.)*
 
 **2026-09-29 — A migration that fails at the server's start does not stop
 it.** It was reported as "Cannot reach the database … Is PostgreSQL
@@ -644,3 +649,107 @@ verdicts read at 2.2–2.9:1. `--good-fill`, `--bad-fill` and `--ok-fill` stay
 dark enough under white in both themes (at least 4.8:1), as the item colours
 do, rather than turning the text dark in dark mode; `--ok-text` is the amber
 as small text on the page (the changelog's heading, a flagged exam question).
+
+**2026-09-30 — The app's words live in the database, in English and
+Slovak.** The owner's decision, as on the other anotoki sites: what the app
+itself says is a key with a string per language (migration 004: 392 keys,
+`languages` / `translation_keys` / `translations`), and the owner rewords
+them in the browser (`/translations`, `/languages`). Not files in the build:
+the next upload would overwrite them, and a website has no shell to edit one
+with. English is the fallback, string by string, so it cannot be hidden,
+deleted or left empty; Slovak is informal ("ty"), the owner's choice for
+this app. A key
+with no string shows as the key itself, on purpose: the owner wants to see
+which is missing (a console warning too, which fails the browser suites).
+Keys are the code's — migrations write them, the pages only change strings —
+so a new or reworded string is a new migration, and a migration's insert
+steps aside for a string the owner reworded.
+
+**2026-09-30 — What is not translated, and why.** The study material: the
+kanji, the words, their readings and English glosses, the exam's questions,
+options and explanations, the learner's notes — the course is learned from
+English, and answers are checked against English glosses. The SRS stage and
+group names (Apprentice … Burned) are WaniKani's and stay English, from one
+source, the server's constants (the frontend's own copies went; the home
+page gets them on the summary's groups). The grammar terms, the grades, the
+brand, the changelog's entries. The two owner pages are English, the
+owner's decision (they list the keys beside every language's strings). The
+material stands in a
+sentence as a placeholder, and on the page carries `lang="en"` or
+`lang="ja"` whatever the page's language.
+
+**2026-09-30 — The exam report stays English.** It is a standalone HTML page
+the server renders at submit and stores with the attempt; stored rows are
+never rewritten, and wording it per language would need server-side strings.
+The link to it is translated and says `hreflang="en"`. A known limit.
+
+**2026-09-30 — A failure is worded from its code; a refused sign-in too.**
+The server puts a `code` beside every sentence (`sign_in_required`,
+`invalid_token`, `no_access`, `this_computer_only`, `not_up_to_date`,
+`database_unavailable`, `server_error` …), and the page words it in the
+reader's language (`core/i18n/error-text.ts`, through a table: an unknown
+code is `error.unknown`, never a key made from the code). The server's
+sentence stays for the command line, the logs and the tests; under PHP's
+built-in server a `detail` carries the reason for the owner. This reverses
+2026-09-29's "in the IAM's words": a sign-in that came back without one is
+worded from its code — `access_denied` is one sentence true whether the
+person went back or the account was turned away — and the IAM's English
+sentence is not kept. The owner pages, English, still show the server's
+sentence.
+
+**2026-09-30 — Numbers and dates follow the language on the page.** Before,
+words in dates were `en-GB` and numbers and numeric dates followed the
+system's locale (Slovak on the owner's computer), so an English page read
+"22. 9. 2026" and "11 481". Now everything goes through `Intl` with the
+language's own locale — `en-GB` for English, `sk-SK` for Slovak — whatever
+the system's is: "24 Sept 2026", "11,523" on an English page, "24. 9. 2026",
+"11 523" on a Slovak one.
+
+**2026-09-30 — The words are one public bundle.** `GET
+/api/translations/{code}` is the third address without sign-in (after
+`/api/auth/config` and `/api/health`): the app's own words hold nobody's
+data and are the same for everybody, and a page needs them before anybody
+signs in — on the Sign in page, and when a session has run out. No token is
+looked at (the browser sends none: a plain `fetch()`, outside both
+interceptors), the answer is the same in both modes and for any `Host`, and
+it is revalidated each time (`ETag`, `no-cache`), because the owner's
+rewording must show at the next page load. The browser keeps the last
+bundle, so a returning reader never sees keys while it is on its way.
+
+**2026-09-30 — ADMIN means the owner's pages.** The two IAM roles studied
+alike until now; `ADMIN` now also opens the Translations and Languages pages
+and their `/api/owner/…` addresses, decided in one place on the server
+(`middleware/owner.php`). Without sign-in the owner is this computer (mode
+`none` holds every role), and an `Origin` of another host is refused, since
+a page of another site can reach 127.0.0.1 from the owner's browser.
+
+**2026-09-30 — Each database holds its own strings.** The owner's computer
+and the website have a database each, and each its own words: migrations
+seed both, and a string reworded in one does not reach the other. Export and
+import (the Translations page, or `php backend/translations.php`) are the
+bridge; a backup of everybody carries the strings too, and a restore passes
+them over, since they are the site's and not anybody's study data.
+
+**2026-09-30 — A new language starts hidden.** With no string of its own it
+would read in English throughout, under its own name in the chooser. The
+Languages page adds it hidden unless the owner ticks the box (the API offers
+it unless told `enabled: false`; the page always says which). Slovak, which
+the migrations write strings for, can be hidden but not deleted: the next
+migration with strings would fail on the missing language, and a failed
+migration closes a site that has no shell to mend it from.
+
+**2026-09-30 — "Academy" gives way to the chooser on a phone.** The language
+chooser sits beside the version in the top bar, in every state and mode. To
+fit a 360 px screen signed in, with a three-digit due badge, in Slovak, the
+word "Academy" hides at 440 px and below (up to 370 px before). The kanji
+tabs got a little tighter at 440 px and below (5 px a tab, no gap) so all
+five fit 390 px in Slovak, whose words are about 50 px wider; in English
+they fit 360 px. `npm run screens` measures both.
+
+**2026-09-30 — The chooser keeps its keys to itself.** The lesson quiz, the
+reviews and the exam listen for keys on `document`, where Enter submits a
+card or, on a paper's last question, stores the attempt. Every key pressed
+inside the chooser or the account menu stops there (`core/menu-keys.ts`),
+and a switch of language changes words only — no screen is made again, so a
+session or a paper goes on where it was. The browser suite checks it by keys
+on a review card and on a paper's last question.

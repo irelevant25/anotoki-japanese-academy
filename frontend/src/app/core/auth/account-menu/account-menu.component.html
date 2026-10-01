@@ -1,10 +1,14 @@
-<details class="usermenu" id="usermenu" #menu>
-  <summary [title]="'Signed in as ' + name()">
+<details class="usermenu" id="usermenu" #menu (keydown)="keys($event)">
+  <summary [title]="words().signedInAs">
     <span class="avatar" aria-hidden="true">{{ initial() }}</span><span class="uname">{{ name() }}</span>
   </summary>
   <div class="umenu">
-    <p class="who">Signed in as <b>{{ name() }}</b><span class="uid"> · user {{ sub() }}</span></p>
-    <a [href]="auth.accountUrl()">Your account</a>
-    <button type="button" (click)="logout()">Sign out</button>
+    <p class="who">{{ who()[0] }}@if (who()[2]) {<b>{{ name() }}</b>}{{ who()[1] }}<span class="uid"> · {{ words().userId }}</span></p>
+    <a [href]="auth.accountUrl()">{{ words().yourAccount }}</a>
+    @if (auth.isOwner()) {
+      <!-- The owner's page is English, in every language. -->
+      <a routerLink="/translations" lang="en" id="ownerTranslations" (click)="shut()">Translations</a>
+    }
+    <button type="button" (click)="logout()">{{ words().signOut }}</button>
   </div>
 </details>

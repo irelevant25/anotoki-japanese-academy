@@ -1,0 +1,5 @@
+// The pieces sit in the sentence's own line, as text does: the host takes no
+// room of its own.
+:host {
+  display: contents;
+}

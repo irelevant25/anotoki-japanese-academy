@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 /**
  * /auth/callback, where the IAM sends the browser back. The IAM's SDK has
@@ -9,6 +10,7 @@ import { Router } from '@angular/router';
  */
 @Component({
   selector: 'app-auth-callback',
+  imports: [TranslatePipe],
   templateUrl: './auth-callback.component.html',
   styleUrl: './auth-callback.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

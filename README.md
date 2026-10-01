@@ -8,7 +8,9 @@ Lessons 1–23). Two parts, one site:
 - **Exam** — an 11,523-question multiple-choice test of the whole course, with
   listening, scoring and a report.
 
-Every word is spoken in two voices, female and male.
+Every word is spoken in two voices, female and male. The app itself speaks
+English and Slovak (see *Languages* below); the material stays as the
+course has it.
 
 It runs on your own computer with no sign-in, or as a website
 (https://japanese.anotoki.eu) where people sign in with their anotoki account and
@@ -186,7 +188,12 @@ php backend/manage.php --restore=backups/academy-2026-09-24.json
 ```
 
 It saves what is there now first. A copy from before 2026-09-27 (before
-sign-in) holds only your data and replaces only yours.
+sign-in) holds only your data and replaces only yours. A copy of everybody
+also holds the app's words as you reworded them (*Languages* below); a
+restore leaves the words as they are, and
+`php backend/translations.php --import sk backups/academy-<date>.json` takes
+one language's strings back from it. Before a language is deleted its
+strings are copied to `backups/academy-before-language-delete-…json`.
 `php backend/manage.php --backup` writes a copy any time. (`npm run manage --
 --backup` does the same with a PHP that can run the app.)
 
@@ -217,9 +224,34 @@ recording again, **Enter** on the last question finishes.
 
 ## What's new
 
-The version number at the foot of every page opens the list of what changed,
-release by release (`frontend/public/changelog.json`). A small dot on it means
-there is news you haven't opened yet.
+The version number beside the name at the top of every page opens the list
+of what changed, release by release (`frontend/public/changelog.json`). A
+small dot on it means there is news you haven't opened yet.
+
+---
+
+## Languages
+
+The app speaks English and Slovak: the small **EN / SK** button beside the
+version switches, and the choice is remembered in that browser. Without a
+choice it follows your account's language (on the website) or the
+browser's, and English when it has neither; `?lang=sk` in an address opens
+that tab in Slovak. The study material is never translated — the kanji, the
+words, their readings and English meanings, the exam's questions — and
+neither are the stage names (Apprentice … Burned), which are WaniKani's.
+The exam report stays English.
+
+The app's own words live in the database, so you can reword them in the
+browser: **Translations** (on your computer, a link at the foot of the home
+page; on the website, in the account menu, for the `ADMIN` role) shows every
+string in every language, with a search, and saves the ones you changed.
+**Languages** (linked from there) adds a language — hidden until you tick
+its box —, renames, orders, hides or deletes one; English cannot be hidden
+or deleted, Slovak cannot be deleted. Each language exports to a file and
+imports from one. Your computer and the website each keep their own
+strings: export from one and import into the other to carry a change over.
+A word that shows as its key (`home.intro`) has no string in the database:
+`php backend/translations.php --status` lists them.
 
 ---
 
@@ -279,8 +311,9 @@ backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL
   server.php               the server on this computer (PHP's built-in web server): app + API on one address
   setup.php                the setup page, /setup.php: settings, database, tables, content, your data
   manage.php               command-line helpers: --check, --backup, --restore, --import, --owner-id
+  translations.php         the app's own words from the command line: --status, --export, --import
   api/                     the HTTP side: the Slim app, its routes and middleware, the front controller
-  src/                     the app itself: kanji SRS (srs/), exam, content, backups, sign-in, upkeep
+  src/                     the app itself: kanji SRS (srs/), exam, content, backups, sign-in, upkeep, the app's words
   config/                  config.php, and this copy's settings (*.local.php, not in git)
   migrations/              the database tables
   vendor/                  Composer's packages (Slim), committed: a website has no shell to install them
@@ -288,7 +321,8 @@ backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL
   tests/                   PHP unit and API tests
   tools/                   data and audio builders, the website's upload (build-dist.php), the PDF page tool
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals)
-  src/app/                 home, kanji/, exam/, core/ (API, sign-in, changelog), standin/ (sign in, not set up)
+  src/app/                 home, kanji/, exam/, core/ (API, sign-in, changelog, i18n), owner/ (Translations,
+                           Languages), standin/ (sign in, not set up, a problem)
   public/                  favicon, changelog.json
   e2e/                     the browser suites (Edge, playwright-core)
 data/                      what the study content is built from, and the audio

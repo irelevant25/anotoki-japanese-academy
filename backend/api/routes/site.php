@@ -32,7 +32,7 @@ function academy_site_routes(Slim\App $app): void
     // copy without sign-in says so only to this computer.
     $app->get('/api/auth/config', static function (Request $request, Response $response): Response {
         if (auth_mode() === 'none' && !auth_none_allowed(PHP_SAPI, $request->getServerParams())) {
-            throw new HttpError(403, AUTH_NONE_ONLY);
+            throw auth_none_only();
         }
         return json_response($response, auth_public_config());
     })->add(set_up_middleware());

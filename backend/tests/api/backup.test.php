@@ -133,6 +133,123 @@ test('a backup says which database it copies', function (): void {
     assert_same(db_name(), backup_data()['database']);
 });
 
+/** The app's own words as the database has them: languages, keys, strings. */
+function words(): array
+{
+    return [db_all('SELECT * FROM languages ORDER BY code'), db_all('SELECT * FROM translation_keys ORDER BY name'), db_all('SELECT * FROM translations ORDER BY key_name, language_code')];
+}
+
+test('a backup of everybody holds the app’s own words, as the owner reworded them; a copy of some people alone holds none', function (): void {
+    // a key of the test's own beside whatever the migrations wrote, reworded by somebody; and a language that is hidden and has no string
+    db_exec("INSERT INTO translation_keys (name, description) VALUES ('test.word', 'A word of the test')");
+    db_exec("INSERT INTO translations (key_name, language_code, value, updated_by) VALUES ('test.word', 'en', 'Word', NULL), ('test.word', 'sk', 'Slovo – „naše“', ?)", [OTHER]);
+    db_exec("INSERT INTO languages (code, name, native_name, enabled, sort_order) VALUES ('de', 'German', 'Deutsch', false, 3)");
+
+    $data = backup_data();
+    assert_same(BACKUP_VERSION, $data['version'], 'the format is still version 2: a file without the entry is as valid as ever');
+    assert_same(['format', 'version', 'takenAt', 'database', 'everybody', 'users', 'translations'], array_keys($data), 'one more entry, after the people');
+    $text = json_text($data);
+    $held = json_decode($text, true)['translations'];
+    assert_same(['languages', 'values'], array_keys($held));
+    assert_same(languages_all(), $held['languages'], 'every language, the hidden one too, as the owner’s page lists them');
+    assert_same(['en', 'sk', 'de'], array_keys($held['values']), 'each language’s own strings, by code');
+    assert_same(['Word', 'Slovo – „naše“'], [$held['values']['en']['test.word'], $held['values']['sk']['test.word']], 'the letters as they are');
+    foreach (['en', 'sk', 'de'] as $code) {
+        assert_same(translations_of($code), $held['values'][$code], "$code: every string of it, not merged with English");
+    }
+    assert_true(str_contains($text, '"de":{}'), 'a language with no strings is {} and not []');
+
+    $file = backup_write('manual');
+    assert_same($held, read_json($file)['translations'], 'in the file as in the data');
+    assert_same($held, backup_read($file)['translations'], 'backup_read() takes the file for the backup it is, and leaves the entry alone');
+    unlink($file);
+    assert_same($held, read_json(backup_write('daily'))['translations'] ?? null, 'and in the day’s copy');
+
+    // A copy of some people alone (before somebody's reset) is their study data: none of the site's words.
+    assert_false(array_key_exists('translations', backup_data([OTHER])));
+    assert_false(array_key_exists('translations', backup_data([])));
+    assert_same(['format', 'version', 'takenAt', 'database', 'everybody', 'users'], array_keys(backup_data([auth_local_user_id(), OTHER])));
+});
+
+test('a restore passes the words over: they are the site’s, not anybody’s study data; and a file without them restores as before', function (): void {
+    $owner = auth_local_user_id();
+    $file = backup_write('manual');
+    $with = backup_read($file);
+    assert_true(is_array($with['translations'] ?? null));
+    $before = [everything_of($owner), everything_of(OTHER)];
+
+    // Since that backup: a string reworded, a language deleted, a key gained; and something studied.
+    db_exec("UPDATE translations SET value = 'Slovíčko', updated_by = ? WHERE key_name = 'test.word' AND language_code = 'sk'", [$owner]);
+    db_exec("DELETE FROM languages WHERE code = 'de'");
+    db_exec("INSERT INTO translation_keys (name) VALUES ('test.later')");
+    db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('test.later', 'en', 'Later')");
+    $words = words();
+    store_put($owner, 'k:一', srs_learn(null, now_ms()));
+
+    $counts = backup_restore($with);
+    assert_same(2, $counts['people']);
+    assert_same($before, [everything_of($owner), everything_of(OTHER)], 'the study data as the file has it');
+    assert_same($words, words(), 'the words as they are now: a restore reads nothing of them');
+
+    // The same file without the entry, as every backup was before the app kept its words in the database.
+    $without = backup_dir() . '/academy-without-words.json';
+    file_put_contents($without, json_text(array_diff_key($with, ['translations' => 0])) . "\n");
+    store_put($owner, 'k:二', srs_learn(null, now_ms()));
+    assert_same($counts, backup_restore(backup_read($without)), 'restores as before');
+    assert_same($before, [everything_of($owner), everything_of(OTHER)]);
+    assert_same($words, words());
+
+    // Nor does it matter what stands there: the entry is never read, so it can never stop a restore of study data.
+    foreach (['not even a map', ['languages' => 'x', 'values' => [['a']]], null, 5] as $odd) {
+        file_put_contents($without, json_text(['translations' => $odd] + $with) . "\n");
+        assert_same($counts, backup_restore(backup_read($without)), test_show($odd));
+    }
+    assert_same($words, words());
+
+    // And the command line's --restore: the same.
+    store_put($owner, 'k:三', srs_learn(null, now_ms()));
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/manage.php') . ' --restore=' . escapeshellarg($file) . ' 2>&1', $out, $code);
+    assert_same(0, $code, implode("\n", $out));
+    assert_match('/Restored from .*: 2 people, /', implode("\n", $out));
+    assert_same($before, [everything_of($owner), everything_of(OTHER)]);
+    assert_same($words, words(), 'not a word changed');
+    unlink($without);
+    unlink($file);
+});
+
+test('before a language is deleted: a copy of its strings in backups/, which nothing takes for a backup of study data', function (): void {
+    db_exec("INSERT INTO languages (code, name, native_name, enabled, sort_order) VALUES ('de', 'German', 'Deutsch', false, 3)");
+    db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('test.word', 'de', 'Wort'), ('test.later', 'de', 'Später – „bald“')");
+    $copies = static fn (): array => array_map('basename', glob(backup_dir() . '/' . TRANSLATIONS_COPY_PREFIX . '*.json') ?: []);
+
+    // What is refused leaves no copy.
+    assert_same([409, 'fallback_language'], [languages_delete('en')[0], languages_delete('en')[1]['code']]);
+    assert_same([409, 'seeded_language'], [languages_delete('sk')[0], languages_delete('sk')[1]['code']]);
+    assert_same([404, 'not_found'], [languages_delete('fr')[0], languages_delete('fr')[1]['code']]);
+    assert_same(404, languages_delete("d\xFF")[0], 'what is no code reaches no query and names no file');
+    assert_same([], $copies());
+
+    $words = words();
+    [$status, $body] = languages_delete('de');
+    assert_same([200, ['copy']], [$status, array_keys($body)]);
+    assert_match('/^academy-before-language-delete-de-\d{8}-\d{6}-\d{3}\.json$/D', $body['copy']);
+    assert_same([$body['copy']], $copies(), 'in the backup folder, under the language’s code and the time');
+    $file = backup_dir() . '/' . $body['copy'];
+    assert_same("{\n    \"test.later\": \"Später – „bald“\",\n    \"test.word\": \"Wort\"\n}\n", file_get_contents($file), 'its own strings, flat, as an export gives them');
+    assert_same([], glob(backup_dir() . '/*.tmp') ?: [], 'written aside and renamed');
+    assert_same([0, 0], [(int) db_value("SELECT count(*) FROM languages WHERE code = 'de'"), (int) db_value("SELECT count(*) FROM translations WHERE language_code = 'de'")], 'then the language, and its strings with it');
+    assert_same($words[1], words()[1], 'the keys are the code’s, and stay');
+    assert_same(array_values(array_filter($words[2], static fn (array $r): bool => $r['language_code'] !== 'de')), words()[2], 'and no other language lost a string');
+
+    // It is a flat {key: text}: no backup of anybody's data, and never counted or thinned with the day's copies.
+    assert_throws(static fn () => backup_read($file), '/is not a Japanese Academy backup/');
+    assert_false((bool) preg_match(DAILY_BACKUP, $body['copy']));
+    unlink(backup_dir() . '/academy-' . local_date() . '.json');
+    backup_daily();
+    assert_same([$body['copy']], $copies(), 'the day’s backup leaves it where it is');
+    unlink($file);
+});
+
 test('a throwaway database keeps its copies apart from yours, even without a folder of its own', function (): void {
     $dir = str_replace('\\', '/', backup_dir());
     assert_same($GLOBALS['TEST_CONFIG']['backups'], $dir, 'the folder of the test’s settings');
@@ -155,7 +272,8 @@ test('before a migration: every table copied as it is, whatever its columns', fu
     $raw = read_json($file);
     assert_same('japanese-academy-tables', $raw['format']);
     assert_same(db_name(), $raw['database']);
-    foreach (['migrations', 'users', 'srs_settings', 'srs_progress', 'srs_daily', 'srs_log', 'exam_attempts', 'imports'] as $t) {
+    // with the app's own words: the three tables of migration 004 are copied like every other
+    foreach (['migrations', 'users', 'srs_settings', 'srs_progress', 'srs_daily', 'srs_log', 'exam_attempts', 'imports', 'languages', 'translation_keys', 'translations'] as $t) {
         assert_true(array_key_exists($t, $raw['tables']), "table $t");
         assert_same((int) db_value("SELECT count(*) FROM $t"), count($raw['tables'][$t]), "rows of $t");
     }

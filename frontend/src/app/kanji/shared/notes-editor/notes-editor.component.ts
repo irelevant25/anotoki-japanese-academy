@@ -1,22 +1,36 @@
-import { ChangeDetectionStrategy, Component, inject, input, OnDestroy, OnInit, signal } from '@angular/core';
-import { ApiService } from '../../../core/api/api.service';
+import { ChangeDetectionStrategy, Component, inject, input, OnDestroy, OnInit, signal, WritableSignal } from '@angular/core';
+import { ApiError, ApiService, toApiError } from '../../../core/api/api.service';
 import { CatalogItem } from '../../../core/api/api.types';
+import { errorKey, errorParams } from '../../../core/i18n/error-text';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { TranslationService } from '../../../core/i18n/translation.service';
 import { KanjiStateService } from '../../kanji-state.service';
 
 type NotePart = 'meaning' | 'reading';
 
+/** Where a note stands: nothing to say, on its way to the server, saved — or the failure that kept it from being saved. */
+export type NoteStatus = '' | 'saving' | 'saved' | ApiError;
+
 interface NoteField {
   part: NotePart;
+  /** the keys of its label and of its placeholder */
   label: string;
   placeholder: string;
   value: string;
-  status: ReturnType<typeof signal<string>>;
+  status: WritableSignal<NoteStatus>;
   timer: ReturnType<typeof setTimeout> | null;
 }
+
+/** The words of each note, as keys: the template words them. */
+const WORDS: Record<NotePart, { label: string; placeholder: string }> = {
+  meaning: { label: 'notes.meaningLabel', placeholder: 'notes.meaningPlaceholder' },
+  reading: { label: 'notes.readingLabel', placeholder: 'notes.readingPlaceholder' },
+};
 
 /** The learner's own mnemonics for an item: saved as they type (a moment after they stop), and when they leave the field. */
 @Component({
   selector: 'app-notes-editor',
+  imports: [TranslatePipe],
   templateUrl: './notes-editor.component.html',
   styleUrl: './notes-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,10 +38,12 @@ interface NoteField {
 export class NotesEditorComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly kanji = inject(KanjiStateService);
+  private readonly i18n = inject(TranslationService);
 
   readonly item = input.required<CatalogItem>();
   readonly parts = input<NotePart[]>(['meaning', 'reading']);
-  readonly title = input<string | null>('Your notes');
+  /** The key of the heading over the notes, or null for none. */
+  readonly title = input<string | null>('notes.title');
 
   fields: NoteField[] = [];
 
@@ -35,11 +51,10 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
     const notes = this.kanji.st(this.item().id)?.notes ?? { meaning: '', reading: '' };
     this.fields = this.parts().map((part) => ({
       part,
-      label: part === 'meaning' ? 'Meaning note' : 'Reading note',
-      placeholder:
-        part === 'meaning' ? 'A mnemonic for the meaning — e.g. 休: a person (亻) resting against a tree (木).' : 'A mnemonic for the reading.',
+      label: WORDS[part].label,
+      placeholder: WORDS[part].placeholder,
       value: notes[part] || '',
-      status: signal(''),
+      status: signal<NoteStatus>(''),
       timer: null,
     }));
   }
@@ -55,7 +70,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
 
   typed(field: NoteField, value: string): void {
     field.value = value;
-    field.status.set('…');
+    field.status.set('saving');
     if (field.timer) {
       clearTimeout(field.timer);
     }
@@ -73,6 +88,24 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
     event.stopPropagation();
   }
 
+  /**
+   * What stands beside a note's label, in the language on the page: "…" while
+   * the note is on its way, "saved", or why it was not. Called from the
+   * template, so it follows the language.
+   */
+  said(status: NoteStatus): string {
+    if (status === '') {
+      return '';
+    }
+    if (status === 'saving') {
+      return '…';
+    }
+    if (status === 'saved') {
+      return this.i18n.t('notes.saved');
+    }
+    return this.i18n.t('notes.notSaved', { reason: this.i18n.t(errorKey(status), errorParams(status)) });
+  }
+
   private async save(field: NoteField): Promise<void> {
     if (field.timer) {
       clearTimeout(field.timer);
@@ -84,7 +117,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
       this.kanji.setItemState(id, r.state);
       field.status.set('saved');
     } catch (e) {
-      field.status.set(`not saved: ${e instanceof Error ? e.message : String(e)}`);
+      field.status.set(toApiError(e));
     }
   }
 }

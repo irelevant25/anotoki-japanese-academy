@@ -55,6 +55,24 @@ test('scoring: perfect, zero, and the 70% boundary', function (): void {
     assert_same('A', $r['body']['summary']['grade']);
     assert_same(2, count($r['body']['byBook']));
 
+    // The review rows say which section each question is of by its id too: a
+    // page words the section from the id; the name stays beside it, as it was.
+    $sections = array_column(api('GET', '/api/meta')['body']['sections'], 'name', 'id');
+    assert_same(15, count($sections));
+    assert_same(count($key['questions']), count($r['body']['review']));
+    foreach ($r['body']['review'] as $i => $row) {
+        $q = $key['questions'][$i];
+        assert_same([$q['n'], $q['section'], $q['sectionName']], [$row['n'], $row['sectionId'] ?? null, $row['section']], "review row $i: the section's id, and its name");
+        assert_same($sections[$row['sectionId']] ?? null, $row['section'], "review row $i: an id of /api/meta, with that section's name");
+    }
+    assert_true(count(array_unique(array_column($r['body']['review'], 'sectionId'))) > 5, 'a paper of many sections');
+    // Nothing of it is stored: the rows are made for the answer and sent once. A stored
+    // attempt keeps what it always kept — each response's section as its id, no name.
+    $stored = json_decode((string) db_value('SELECT attempt FROM exam_attempts WHERE user_id = ? AND id = ?', [auth_local_user_id(), $r['body']['id']]), true);
+    assert_false(array_key_exists('review', $stored), 'an attempt is stored without the review rows');
+    assert_same(array_column($r['body']['review'], 'sectionId'), array_column($stored['responses'], 'section'), 'its responses hold the ids');
+    assert_same([], array_column($stored['responses'], 'sectionId'), 'under the name they always had');
+
     $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn (array $q): int => ($q['answerIndex'] + 1) % count($q['options']))]);
     assert_same(0, $r['body']['summary']['pct']);
     assert_same(false, $r['body']['summary']['passed']);
@@ -69,6 +87,14 @@ test('answers for another paper are refused, not mis-scored', function (): void 
     $responses = array_fill_keys(array_column($ex['questions'], 'id'), ['choice' => 0]);
     $r = api('POST', '/api/submit', ['spec' => ['seed' => 'someone-else'] + $ex['spec'], 'responses' => $responses]);
     assert_same(409, $r['status']);
+    assert_same('paper_mismatch', $r['body']['code'] ?? null, 'the code a page words it from, beside the sentence');
+    assert_match('/^The submitted answers do not belong to this paper \([1-9]\d* unknown question id\(s\)\)\. Nothing was saved\.$/D', (string) ($r['body']['error'] ?? ''));
+    assert_same(3, (int) db_value('SELECT count(*) FROM exam_attempts'), 'nothing saved');
+
+    // and answers that name no paper at all: a paper is rebuilt from its seed
+    foreach ([['responses' => $responses], ['spec' => ['seed' => ''] + $ex['spec'], 'responses' => $responses]] as $i => $body) {
+        assert_refused(400, 'seed_required', 'spec.seed is required', api('POST', '/api/submit', $body), "without a seed ($i)");
+    }
     assert_same(3, (int) db_value('SELECT count(*) FROM exam_attempts'), 'nothing saved');
 });
 

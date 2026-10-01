@@ -1,16 +1,16 @@
 @if (due.length) {
   <app-session mode="review" [items]="due" (done)="finished($event)" />
 } @else {
-  <h1 class="page">Reviews</h1>
+  <h1 class="page">{{ 'kanji.tab.reviews' | translate }}</h1>
   <section class="panel empty">
-    <p>No reviews due right now.</p>
+    <p>{{ 'reviews.noneDue' | translate }}</p>
     @if (next()) {
       <p class="muted">{{ next() }}</p>
     }
-    <p class="muted">You can still drill anything you have learned in Practice — it does not touch the schedule.</p>
+    <p class="muted">{{ 'reviews.practiceHint' | translate }}</p>
     <div class="actions">
-      <a class="btn primary" routerLink="/kanji/practice">Practice</a>
-      <a class="btn ghost" routerLink="/kanji/lessons">Lessons</a>
+      <a class="btn primary" routerLink="/kanji/practice">{{ 'kanji.tab.practice' | translate }}</a>
+      <a class="btn ghost" routerLink="/kanji/lessons">{{ 'kanji.tab.lessons' | translate }}</a>
     </div>
   </section>
 }

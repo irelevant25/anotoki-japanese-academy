@@ -39,20 +39,26 @@ count wrong, fix it in the same piece of work.
 - `backend/` — `server.php` (the start command on a computer, and the
   built-in server's router), `setup.php` (the setup page, `/setup.php`),
   `manage.php` (command-line helpers: `--check`, `--sync`, `--backup`,
-  `--restore`, `--import`, `--owner-id`), `api/` (the HTTP side: `app.php`
-  the Slim app, `routes/` site, exam and kanji, `middleware/`, `front.php`
-  which sends each request to the API, the setup page or the built app),
-  `src/` (the app: `bootstrap.php`, `db.php`, `auth.php`, `users.php`,
-  `upkeep.php`, `owner.php`, the SRS in `src/srs/`, the exam, content,
-  backups), `config/` (`config.php`; this copy's settings in `*.local.php`),
+  `--restore`, `--import`, `--owner-id`), `translations.php` (the app's own
+  strings from the command line: `--status`, `--export`, `--import`; never
+  uploaded), `api/` (the HTTP side: `app.php` the Slim app, `routes/` site,
+  exam, kanji and translations, `middleware/` — `owner.php` guards the
+  owner's addresses —, `front.php` which sends each request to the API, the
+  setup page or the built app), `src/` (the app: `bootstrap.php`, `db.php`,
+  `auth.php`, `users.php`, `upkeep.php`, `owner.php`, the SRS in `src/srs/`,
+  the exam, content, backups, `translations.php` — the languages and the
+  app's words), `config/` (`config.php`; this copy's settings in `*.local.php`),
   `migrations/`, `vendor/` (Composer's packages, committed: a website has no
   shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
   `tests/`, `tools/` (data and audio builders, `build-dist.php` for the
   upload, `php.js` which finds PHP for npm, `pdf/pages.js`), `storage/`
   (gitignored contents: the IAM's keys, cached; a website's setup lock).
 - `frontend/` — the Angular app: `src/app/` (`home/`, `kanji/`, `exam/`,
-  `core/` — API, sign-in, the changelog —, `standin/` — the Sign in, not set
-  up and problem pages), `src/styles/` (tokens, base, items), `public/`
+  `core/` — API, sign-in, the changelog, `i18n/` (the app's words: the
+  translation service, its pipes, the language chooser, failures worded from
+  their codes) —, `owner/` — the owner's Translations and Languages pages,
+  in English —, `standin/` — the Sign in, not set up and problem pages),
+  `src/styles/` (tokens, base, items), `public/`
   (favicon, `changelog.json`), `e2e/` (the browser suites), `scripts/`
   (`ensure-build.mjs`, which builds only when the sources changed).
 - `backend/config/*.local.php` are gitignored and required: `database` (with
@@ -95,15 +101,19 @@ hand, call that PHP (`docs/kb/environment.md`).
 npm start                    the app on 127.0.0.1:8200 with your settings (php backend/server.php; academy-run skill)
 (cd backend && composer start)  the same server, the way every anotoki backend starts (with the php on PATH)
 npm run frontend             ng serve on localhost:4400, proxying the backend's addresses to :8200
-npm test                     backend (PHP unit + API) and frontend (Angular unit) tests: run after every change
-npm run test:browser         Edge end to end: lessons → reviews → practice → exam, then sign-in and sign-out
-npm run test:setup           the setup page in Edge: this computer's way and a website's
-npm run screens -- [name]    screenshots, light/dark/phone → frontend/e2e/shots/
+npm test                     backend (PHP unit + API, 169 tests) and frontend (Angular unit, 472 in 39 files): after every change
+npm run test:browser         Edge end to end (73 checks): lessons → reviews → practice → exam, the language chooser by keys,
+                             the owner's pages, then sign-in and sign-out
+npm run test:setup           the setup page in Edge (40 checks): this computer's way and a website's
+npm run screens -- [name]    screenshots → frontend/e2e/shots/: 17 screens light/dark/phone and Slovak phone light/dark,
+                             and the top bar measured at 360-560 px (-- room for that alone)
 npm run build:frontend       the Angular build, when its sources changed
 npm run build:data           data/source/*.tsv → data/*.json (php backend/tools/build-data.php)
 npm run build:audio          missing clips → data/audio/ (Google TTS; -- --dry-run needs no key)
 npm run build:dist           the upload for the website → dist/japanese-academy/ (academy-deploy skill)
 npm run manage -- --backup   backend/manage.php: --check, --sync, --backup, --restore=F, --import=D, --owner-id=N
+php backend/translations.php --status   the keys the frontend uses against the database's (exit 1: a page would show a key);
+                             --export CODE [FILE], --import CODE FILE (a language's strings; with the PHP above, by hand)
 npm run pdf:pages -- <book> <pages>    page images of the scanned PDFs (academy-pdf skill)
 ```
 
@@ -166,7 +176,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   another's rows, attempt and report ids included (they are unique per person
   only). The user id comes from `auth_user()` (`backend/src/auth.php`, put on
   the request by the person middleware) and nowhere else: in auth mode `iam`
-  from a verified access token, in mode `none` the owner.
+  from a verified access token, in mode `none` the owner. The three
+  translation tables (`languages`, `translation_keys`, `translations`) are
+  the site's, not a person's: read by everybody, written by the owner, never
+  in `USER_TABLES`, and their queries carry no `user_id`.
 - **Settings are required, and sign-in is deployment configuration**
   (`auth.mode` in `backend/config/auth.local.php`), never a request's. Without
   the settings every address with data answers `503 {"code": "not_set_up"}`.
@@ -176,9 +189,12 @@ Tests enforce most of these. Never weaken a test to make it pass.
   on 127.0.0.1 only. To any other request, every address with somebody's data,
   and `/api/auth/config`, answers 403.
 - Every `/api` and `/report` address needs a signed-in person except
-  `/api/auth/config` and `/api/health`; the audio clips are public (shared
-  content). On a website, `/api/health` shows no database, folder or owner, and
-  errors say no more than a sentence.
+  `/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
+  own words, the same for everybody); the audio clips are public (shared
+  content). The `/api/owner/…` addresses (the languages and the words) are the
+  owner's alone: the IAM role `ADMIN`, or this computer in mode `none`
+  (`backend/api/middleware/owner.php`). On a website, `/api/health` shows no
+  database, folder or owner, and errors say no more than a sentence.
 - The setup page: from this computer (PHP's built-in server, a request
   straight from here) no token but a nonce (cookie + form, SameSite=Strict, and
   the `Origin` checked); it stays, never shows a password, and offers mode
@@ -236,8 +252,15 @@ Tests enforce most of these. Never weaken a test to make it pass.
   suites are CommonJS (`frontend/e2e/`) or ES modules (`.mjs`).
 - Colours come only from tokens in `frontend/src/styles/_tokens.scss`, each
   defined for light and dark. Every screen must work at phone width (390 px).
-- The UI is in English. The system locale is Slovak, so dates with words use
-  `'en-GB'`.
+- The UI is in English and Slovak (informal "ty"), English the fallback. The
+  app's own words live in the database (migration 004 and later ones: a key,
+  an English string, a Slovak one) and the owner rewords them in the browser
+  (`/translations`, `/languages`); a key without a string shows as the key, on
+  purpose. The learning material and the SRS stage names are never translated,
+  and the two owner pages are English. Dates, times and numbers follow the
+  language on the page (`'en-GB'`, `'sk-SK'` through `Intl`), never the
+  system's locale. A new string is a new migration with its English and
+  informal Slovak (`DEV.md`; `docs/kb/architecture.md`, *The app's words*).
 - The owner writes in non-native English: keep UI text and explanations plain
   and short. `frontend/public/changelog.json` gets an entry, in plain words,
   for each release the owner will notice.
@@ -256,7 +279,7 @@ there load when you read the matching files.
 |---|---|
 | `academy-run` | start, stop or restart the owner's server on :8200, the Angular dev server on :4400, or a throwaway server with its own database (with or without sign-in) |
 | `academy-test` | which suites to run for a change, reading results, adding tests (tests with tokens too) |
-| `academy-ui-check` | screenshots of every screen (light/dark/phone) and a visual checklist |
+| `academy-ui-check` | screenshots of every screen (light/dark/phone, Slovak on a phone light/dark), the top bar measured, and a visual checklist |
 | `academy-data` | editing the `data/source` TSVs, rebuilding, making audio, SRS id renames |
 | `academy-pdf` | reading the scanned books as page images; page maps |
 | `academy-exam-items` | writing or fixing hand-written exam questions |

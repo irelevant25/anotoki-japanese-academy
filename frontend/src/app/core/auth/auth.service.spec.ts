@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { AuthService, describeSignInFailure } from './auth.service';
+import { AuthService } from './auth.service';
 
 /** fetch() that answers GET /api/auth/config with this. */
 function server(status: number, body: unknown): typeof fetch {
@@ -81,17 +81,66 @@ describe('AuthService: what the app can show', () => {
     expect(auth.notSetUpReason()).toBe('backend/config/auth.local.php is missing');
   });
 
-  it('a server that does not answer, or refuses: the reason, never a blank page', async () => {
+  it('a server that does not answer, or refuses: what happened — a kind and a code, never a blank page and never a sentence', async () => {
     globalThis.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+    const auth = TestBed.inject(AuthService);
+    expect(auth.problem()).toBeNull();
+    await auth.init();
+    expect(auth.state()).toBe('problem');
+    expect(auth.problem()).toEqual({ kind: 'offline' });
+
+    // Opened through another host name or a tunnel, without sign-in: the server's own code for it.
+    globalThis.fetch = server(403, { error: 'Sign-in is off here (auth mode none), and that only works on your own computer.', code: 'this_computer_only' });
+    const refused = TestBed.runInInjectionContext(() => new AuthService());
+    await refused.init();
+    expect(refused.state()).toBe('problem');
+    expect(refused.problem()).toEqual({ kind: 'server', status: 403, code: 'this_computer_only', detail: null });
+  });
+
+  it('a failure with the reason the server gives the owner’s own computer: kept as the detail', async () => {
+    globalThis.fetch = server(503, { error: 'The database is not reachable: connection refused', code: 'database_unavailable', detail: 'connection refused' });
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('problem');
-    expect(auth.problem()).toBe('Japanese Academy could not start: the server does not answer.');
+    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'database_unavailable', detail: 'connection refused' });
+  });
 
-    globalThis.fetch = server(403, { error: 'Without sign-in, Japanese Academy only answers this computer.' });
-    const refused = TestBed.runInInjectionContext(() => new AuthService());
-    await refused.init();
-    expect(refused.problem()).toContain('only answers this computer');
+  it('an answer that is not the API’s own (no code, or no JSON at all): the status stands for it', async () => {
+    globalThis.fetch = server(500, { error: 'Something went wrong.' });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect(auth.problem()).toEqual({ kind: 'server', status: 500, code: 'http_500', detail: null });
+
+    globalThis.fetch = vi.fn(() => Promise.resolve(new Response('<html>Bad gateway</html>', { status: 502 }))) as unknown as typeof fetch;
+    const proxied = TestBed.runInInjectionContext(() => new AuthService());
+    await proxied.init();
+    expect(proxied.problem()).toEqual({ kind: 'server', status: 502, code: 'http_502', detail: null });
+  });
+
+  it('a sign-in that cannot start (settings the IAM’s SDK refuses): the kind signIn, with the SDK’s own message as the detail', async () => {
+    globalThis.fetch = server(200, { mode: 'iam', issuer: '', clientId: 'japanese-academy' });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect(auth.state()).toBe('problem');
+    const problem = auth.problem();
+    expect(problem?.kind).toBe('signIn');
+    expect(problem?.kind === 'signIn' ? problem.detail : null).toContain('issuer');
+  });
+
+  it('cannotStart(): the problem page for whoever finds out the app cannot go on — but not set up stays not set up', async () => {
+    globalThis.fetch = server(200, { mode: 'none' });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect(auth.state()).toBe('ready');
+    auth.cannotStart({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 failed' });
+    expect(auth.state()).toBe('problem');
+    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 failed' });
+
+    const other = TestBed.runInInjectionContext(() => new AuthService());
+    other.notSetUp('the database has no tables yet');
+    other.cannotStart({ kind: 'offline' });
+    expect(other.state()).toBe('not-set-up');
+    expect(other.problem()).toBeNull();
   });
 
   it('not set up after all (a database missing), said by a later answer: the page that says so', async () => {
@@ -193,18 +242,98 @@ describe('AuthService: what the app can show', () => {
   });
 });
 
-describe('describeSignInFailure: what the Sign in page says', () => {
-  it('access_denied: the IAM’s own sentence alone, ending with one full stop', () => {
-    expect(describeSignInFailure({ code: 'access_denied', message: 'The sign-in was cancelled' })).toBe('The sign-in was cancelled.');
-    expect(describeSignInFailure({ code: 'access_denied', message: 'This account cannot use Japanese Academy' })).toBe(
-      'This account cannot use Japanese Academy.',
-    );
-    expect(describeSignInFailure({ code: 'access_denied', message: 'Confirm your email address first.' })).toBe('Confirm your email address first.');
-    expect(describeSignInFailure({ code: 'access_denied' })).toBe('The sign-in was cancelled.');
+describe('AuthService: a sign-in that came back without one', () => {
+  const realFetch = globalThis.fetch;
+
+  /**
+   * The IAM sends the browser back to /auth/callback with an error, for a
+   * sign-in this page started (its state waiting in sessionStorage, as the SDK
+   * keeps it): the real SDK finishes that callback.
+   */
+  async function comeBack(clientId: string, error: string, description: string): Promise<AuthService> {
+    const state = `state-${clientId}`;
+    sessionStorage.setItem(`anotoki-auth:${clientId}:login:${state}`, JSON.stringify({ verifier: 'v', nonce: 'n', returnTo: '/', createdAt: Date.now() }));
+    history.replaceState(null, '', `/auth/callback?error=${error}&error_description=${encodeURIComponent(description)}&state=${state}`);
+    website(clientId);
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    return auth;
+  }
+
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    history.replaceState(null, '', '/');
   });
 
-  it('anything else: signing in did not work, and why', () => {
-    expect(describeSignInFailure({ code: 'invalid_grant', message: 'The code has expired' })).toBe('Signing in did not work: The code has expired');
-    expect(describeSignInFailure({ code: 'state_mismatch', message: '' })).toBe('Signing in did not work: state_mismatch');
+  it('keeps the code, and nothing of the IAM’s English sentence: the Sign in page words it', async () => {
+    const auth = await comeBack('academy-test-denied', 'access_denied', 'This account cannot use Japanese Academy');
+    expect(auth.state()).toBe('signed-out');
+    expect(auth.signInError()).toEqual({ code: 'access_denied' });
+    expect(JSON.stringify(auth.signInError())).not.toContain('cannot use');
+  });
+
+  it('any other failure: its code too', async () => {
+    const auth = await comeBack('academy-test-failed', 'server_error', 'The IAM could not finish the sign-in');
+    expect(auth.signInError()).toEqual({ code: 'server_error' });
+  });
+
+  it('a page load that was no callback has none', async () => {
+    website('academy-test-plain');
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect(auth.signInError()).toBeNull();
+  });
+});
+
+describe('AuthService: what it hands to the pages', () => {
+  const realFetch = globalThis.fetch;
+
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  /** A signed-in session whose person has this name and address. */
+  function named(sub: string, name: string | null, email: string | null): string {
+    const kept = JSON.parse(session(sub)) as { user: Record<string, unknown> };
+    kept.user['preferred_username'] = name;
+    kept.user['email'] = email;
+    return JSON.stringify(kept);
+  }
+
+  it('the name to show: the one in the IAM, else the address, else nothing — the account menu words that', async () => {
+    const auth = TestBed.inject(AuthService);
+    expect(auth.displayName(), 'nobody signed in').toBe('');
+
+    const key = website('academy-test-names');
+    localStorage.setItem(key, named('7', 'Hana', 'hana@example.test'));
+    vi.spyOn(auth, 'reload').mockImplementation(() => undefined);
+    await auth.init();
+    expect(auth.displayName()).toBe('Hana');
+
+    otherTab(key, named('7', null, 'hana@example.test'));
+    expect(auth.displayName()).toBe('hana@example.test');
+
+    otherTab(key, named('7', null, null));
+    expect(auth.state()).toBe('ready');
+    expect(auth.displayName(), 'no English word of its own').toBe('');
+  });
+
+  it('login() takes the language from its caller, and says nothing of it when there is none', async () => {
+    website('academy-test-login');
+    history.replaceState(null, '', '/kanji/reviews?x=1#top');
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    // The SDK would leave the page: a stand-in takes the call instead.
+    const login = vi.fn(() => Promise.resolve());
+    (auth as unknown as { sdk: { login: typeof login } }).sdk.login = login;
+
+    await auth.login('sk');
+    await auth.login();
+    await auth.login('');
+    expect(login.mock.calls).toEqual([[{ returnTo: '/kanji/reviews?x=1#top', uiLocales: 'sk' }], [{ returnTo: '/kanji/reviews?x=1#top' }], [{ returnTo: '/kanji/reviews?x=1#top' }]]);
+    history.replaceState(null, '', '/');
   });
 });

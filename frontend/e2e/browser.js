@@ -33,10 +33,23 @@ async function launch({ args = [] } = {}) {
 }
 
 /**
+ * A browser context, in English unless `opts.locale` says otherwise. The app
+ * takes its language from the browser when nothing else names one (no choice
+ * made, no ?lang=, nobody signed in), and a context's language is its locale -
+ * left out, the computer's own: on a Slovak system every page would be Slovak
+ * and the suites' English matchers would break. Every suite makes its
+ * contexts here. A signed-in session says 'en' in its token as well.
+ */
+function newContext(browser, opts = {}) {
+  return browser.newContext({ locale: 'en-GB', ...opts });
+}
+
+/**
  * Collects page errors, errors the app logged and failed requests, so a run
  * can assert "no errors". Angular catches an error of the app itself (in an
  * event handler, in drawing a screen) and logs it to the console instead of
- * letting it reach the page, so the console counts too.
+ * letting it reach the page, so the console counts too - a warning as well:
+ * a key with no string warns ("[i18n] no string for ...").
  */
 function watch(page, { ignore = [] } = {}) {
   const errors = [];
@@ -44,6 +57,7 @@ function watch(page, { ignore = [] } = {}) {
   page.on('console', (m) => {
     // a failed request logs itself too: the responses below judge those
     if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`);
+    if (m.type() === 'warning') errors.push(`console warning: ${m.text()}`);
   });
   page.on('response', (r) => {
     const url = r.url();
@@ -129,4 +143,4 @@ async function emulateIam(context, person) {
 
 const SHOTS = path.join(__dirname, 'shots');
 
-module.exports = { launch, watch, reporter, findBrowser, emulateIam, SHOTS };
+module.exports = { launch, newContext, watch, reporter, findBrowser, emulateIam, SHOTS };

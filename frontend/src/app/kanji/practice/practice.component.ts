@@ -1,21 +1,29 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogItem, ItemState, LessonTypes } from '../../core/api/api.types';
-import { plural } from '../../core/format';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslationService } from '../../core/i18n/translation.service';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { Parts } from '../session/session-engine';
+import { Part, wordedParts } from '../shared/worded/worded-parts';
+import { WordedComponent } from '../shared/worded/worded.component';
 
 type Scope = 'all' | 'weakest' | 'mistakes' | 'recent' | 'apprentice' | 'guru' | 'burned';
 
-const SCOPES: [Scope, string][] = [
-  ['all', 'Everything learned'],
-  ['weakest', 'Weakest'],
-  ['mistakes', 'Recent mistakes'],
-  ['recent', 'Learned in the last 24 h'],
-  ['apprentice', 'Apprentice'],
-  ['guru', 'Guru and above'],
-  ['burned', 'Burned'],
+/**
+ * What to practise. `key`: the key of the scope's name. `group`: a stage group
+ * of the catalog whose own name — never translated, and never a copy kept
+ * here — is the scope's name (no key), or stands inside it as {stage}.
+ */
+const SCOPES: { id: Scope; key: string | null; group?: string }[] = [
+  { id: 'all', key: 'practice.scope.all' },
+  { id: 'weakest', key: 'practice.scope.weakest' },
+  { id: 'mistakes', key: 'practice.scope.mistakes' },
+  { id: 'recent', key: 'practice.scope.recent' },
+  { id: 'apprentice', key: null, group: 'apprentice' },
+  { id: 'guru', key: 'practice.scope.guruUp', group: 'guru' },
+  { id: 'burned', key: null, group: 'burned' },
 ];
 
 /** How often an item was missed, in reviews and practice ("weakest" sorts by it). */
@@ -30,7 +38,7 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
 /** Practice: drill what has been learned, any time, as many rounds as wanted. It never changes the SRS schedule. */
 @Component({
   selector: 'app-practice',
-  imports: [RouterLink],
+  imports: [RouterLink, TranslatePipe, WordedComponent],
   templateUrl: './practice.component.html',
   styleUrl: './practice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,17 +46,19 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
 export class PracticeComponent {
   private readonly kanji = inject(KanjiStateService);
   private readonly screen = inject(KanjiScreenService);
+  private readonly i18n = inject(TranslationService);
 
-  readonly scopes = SCOPES;
+  /** Which kinds of items: [the choice, the key of its name]. */
   readonly kinds: [LessonTypes, string][] = [
-    ['both', 'Kanji & vocabulary'],
-    ['kanji', 'Kanji'],
-    ['vocab', 'Vocabulary'],
+    ['both', 'kanji.type.both'],
+    ['kanji', 'kanji.type.kanji'],
+    ['vocab', 'kanji.type.vocab'],
   ];
+  /** Which halves are asked: [the choice, the key of its name]. */
   readonly asks: [Parts, string][] = [
-    ['both', 'Meaning + reading'],
-    ['meaning', 'Meaning only'],
-    ['reading', 'Reading only'],
+    ['both', 'practice.ask.both'],
+    ['meaning', 'practice.ask.meaning'],
+    ['reading', 'practice.ask.reading'],
   ];
   readonly counts = [10, 20, 50, 100, 0];
 
@@ -60,8 +70,9 @@ export class PracticeComponent {
 
   readonly learned = computed(() => this.kanji.items().filter((it) => this.kanji.isLearned(it.id)));
   readonly learnedLessons = computed(() => [...new Set(this.learned().map((it) => it.lesson))].sort((a, b) => a - b));
+  /** The scopes to choose from: each with its name in pieces (a stage name inside it says it is English) and how many items it gives. */
   readonly scopeChoices = computed(() =>
-    SCOPES.map(([id, label]) => ({ id, label, n: this.pool(id, this.lessons(), this.types()).length })),
+    SCOPES.map((scope) => ({ id: scope.id, name: this.scopeName(scope.key, scope.group), n: this.pool(scope.id, this.lessons(), this.types()).length })),
   );
   readonly current = computed(() => this.pool(this.scope(), this.lessons(), this.types()));
   readonly take = computed(() => {
@@ -69,9 +80,12 @@ export class PracticeComponent {
     const pool = this.current().length;
     return n ? Math.min(n, pool) : pool;
   });
+  /** "5 items match; this session will ask 5.": a frame over a plural phrase, because the verb agrees with the count. */
   readonly info = computed(() => {
     const n = this.current().length;
-    return n ? `${plural(n, 'item')} ${n === 1 ? 'matches' : 'match'}; this session will ask ${this.take()}.` : 'Nothing matches — widen the choices above.';
+    return n
+      ? this.i18n.t('practice.info', { matches: this.i18n.plural('practice.matches', n), take: this.i18n.number(this.take()) })
+      : this.i18n.t('practice.noMatch');
   });
 
   toggleLesson(L: number): void {
@@ -97,6 +111,15 @@ export class PracticeComponent {
       items = items.slice().sort(() => Math.random() - 0.5);
     }
     this.screen.practice(items.slice(0, this.take()), this.parts());
+  }
+
+  /** A scope's name: the app's words, the stage group's own name, or the one inside the other ("Guru and above"). */
+  private scopeName(key: string | null, group: string | undefined): Part[] {
+    const stage: Part | null = group ? { text: this.kanji.groupName(group), lang: 'en' } : null;
+    if (key === null) {
+      return stage ? [stage] : [];
+    }
+    return wordedParts(this.i18n, key, stage ? { stage } : {});
   }
 
   /** The learned items one choice of scope, lessons and type gives. */

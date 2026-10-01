@@ -15,15 +15,38 @@ import {
   StateAnswer,
   Summary,
 } from './api.types';
+import { LanguageChanges, NewLanguage, OwnerLanguage, TranslationChanges, TranslationGrid } from '../i18n/translation.model';
 
-/** A failed call: the server's own sentence, its status and its whole answer. */
+/**
+ * What a failure is called: the word the server put in its answer; `offline`
+ * when there was no answer at all (status 0); else `http_<status>` — an answer
+ * that was not the API's own (a proxy's page, a body without a code).
+ */
+export function errorCode(status: number, body: unknown): string {
+  const code = body && typeof body === 'object' ? (body as ApiErrorBody).code : undefined;
+  if (typeof code === 'string' && code !== '') {
+    return code;
+  }
+  return status === 0 ? 'offline' : `http_${status}`;
+}
+
+/**
+ * A failed call: its status, its code (errorCode()) and the server's whole
+ * answer. A page words the failure from the code, in the reader's language
+ * (core/i18n/error-text.ts). The message is the server's English sentence,
+ * kept for the console and never shown on a page that is translated.
+ */
 export class ApiError extends Error {
+  readonly code: string;
+
   constructor(
     message: string,
     readonly status: number,
     readonly body: ApiErrorBody,
+    code?: string,
   ) {
     super(message);
+    this.code = code ?? errorCode(status, body);
   }
 }
 
@@ -97,7 +120,45 @@ export class ApiService {
     return this.call(this.http.get<Attempt[]>('/api/attempts'));
   }
 
-  /** The answer, or an ApiError with the server's own sentence. */
+  /* --------------------------------------- the owner's words and languages */
+  // Only the owner may (the server's owner_middleware: ADMIN, or this computer).
+
+  languages(): Promise<OwnerLanguage[]> {
+    return this.call(this.http.get<{ languages: OwnerLanguage[] }>('/api/owner/languages')).then((r) => r.languages);
+  }
+
+  createLanguage(language: NewLanguage): Promise<OwnerLanguage> {
+    return this.call(this.http.post<{ language: OwnerLanguage }>('/api/owner/languages', language)).then((r) => r.language);
+  }
+
+  updateLanguage(code: string, changes: LanguageChanges): Promise<OwnerLanguage> {
+    return this.call(this.http.put<{ language: OwnerLanguage }>(`/api/owner/languages/${encodeURIComponent(code)}`, changes)).then((r) => r.language);
+  }
+
+  /** Answers the name of the copy of its strings the server made in backups/ first. */
+  deleteLanguage(code: string): Promise<{ copy: string }> {
+    return this.call(this.http.delete<{ copy: string }>(`/api/owner/languages/${encodeURIComponent(code)}`));
+  }
+
+  translationGrid(): Promise<TranslationGrid> {
+    return this.call(this.http.get<TranslationGrid>('/api/owner/translations'));
+  }
+
+  /** Only the changed cells; the server checks them all before it writes any, and answers the grid as it is now. */
+  saveTranslations(values: TranslationChanges): Promise<TranslationGrid> {
+    return this.call(this.http.put<TranslationGrid>('/api/owner/translations', { values }));
+  }
+
+  /** A language's own strings, flat: fetched here, with the token, and saved by the page from a Blob. */
+  exportTranslations(code: string): Promise<Record<string, string>> {
+    return this.call(this.http.get<Record<string, string>>(`/api/owner/translations/${encodeURIComponent(code)}/export`));
+  }
+
+  importTranslations(code: string, values: Record<string, string>): Promise<TranslationGrid> {
+    return this.call(this.http.put<TranslationGrid>(`/api/owner/translations/${encodeURIComponent(code)}/import`, values));
+  }
+
+  /** The answer, or an ApiError: its status, its code and the server's answer. */
   private async call<T>(request: Observable<T>): Promise<T> {
     try {
       return await firstValueFrom(request);
@@ -107,7 +168,11 @@ export class ApiService {
   }
 }
 
-/** Any failure of a call as an ApiError: the server's sentence when it gave one. */
+/**
+ * Any failure of a call as an ApiError. Something that was not an answer at
+ * all (a fault in the page's own code) is `unknown`, not `offline`: the server
+ * was never asked.
+ */
 export function toApiError(e: unknown): ApiError {
   if (e instanceof ApiError) {
     return e;
@@ -117,5 +182,5 @@ export function toApiError(e: unknown): ApiError {
     const message = body.error || (e.status === 0 ? 'the server does not answer' : e.statusText || `HTTP ${e.status}`);
     return new ApiError(message, e.status, body);
   }
-  return new ApiError(e instanceof Error ? e.message : String(e), 0, {});
+  return new ApiError(e instanceof Error ? e.message : String(e), 0, {}, 'unknown');
 }

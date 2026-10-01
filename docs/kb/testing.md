@@ -4,7 +4,9 @@ Every test that needs the database gets a **throwaway database**:
 `academy_test_<…>`, a copy of `academy_test_template` (tables and study
 content, brought up to date at the start of each run by
 `php backend/tests/tools/testdb.php template` — a few seconds when `data/` or
-the generators changed, instant otherwise), made on the PostgreSQL server of
+the generators changed, instant otherwise; it applies only migrations it has
+not applied, so after an edit of one not committed yet, `template --fresh`
+drops the template and replays them all), made on the PostgreSQL server of
 the developer's own settings (`backend/config/database.local.php`: this copy
 must be set up first). Backups go to a temp folder. The database is dropped
 when the test file or suite ends; set `ACADEMY_KEEP_TEMP=1` to keep it and the
@@ -56,11 +58,11 @@ a JWKS file that a server in auth mode `iam` reads instead of asking an IAM
 | Command | What | Time |
 |---|---|---|
 | `npm test` | `npm run test:backend` + `npm run test:frontend` | ~40 s |
-| `npm run test:backend` | `php backend/tests/run.php`: every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 109 tests | ~25 s |
-| `npm run test:frontend` | `ng test` in `frontend/` (Vitest, jsdom): 64 tests in 12 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `data/` for them | ~15 s |
-| `npm run test:browser` | `frontend/e2e/run.js` — Edge, the production build: the whole study loop + an exam, the app's own navigation and changelog, then signing in and out of a hosted site's copy | ~2 min |
-| `npm run test:setup` | `frontend/e2e/setup.js` — Edge, the setup page on a built upload: not set up, this computer's way, a website's | ~1 min |
-| `npm run screens [filter]` | `frontend/e2e/screens.js` — 15 screens × light/dark/phone into `frontend/e2e/shots/`; fails on overflow or an error | ~1 min |
+| `npm run test:backend` | `php backend/tests/run.php`: every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 169 tests | ~25 s |
+| `npm run test:frontend` | `ng test` in `frontend/` (Vitest, jsdom): 472 tests in 39 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `data/` for them | ~15 s |
+| `npm run test:browser` | `frontend/e2e/run.js` — Edge, the production build: the whole study loop + an exam, the language chooser by keys, the app's own navigation and changelog, the owner's pages, then signing in and out of a hosted site's copy: 73 checks | ~2 min |
+| `npm run test:setup` | `frontend/e2e/setup.js` — Edge, the setup page on a built upload: not set up, this computer's way, a website's: 40 checks | ~1 min |
+| `npm run screens [filter]` | `frontend/e2e/screens.js` — 17 screens × light/dark/phone and Slovak phone light/dark (85 shots), then the room: the top bar measured 30 times (2 shots); into `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, or a squeezed bar | a few min |
 | `php backend/tests/run.php backend/tests/unit/srs.test.php` | some PHP files (with PHP 8 — `npm test` finds it; see [environment.md](environment.md)) | |
 
 The browser suites build the app first when its sources changed
@@ -108,12 +110,49 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   variable, `f(...)`, `new` in a default, trailing commas in parameter lists,
   `$object::class`, `0o` numbers, typed and dynamic class constants — and a
   second test proves it finds each.
+- `unit/translations.test.php` — the catalogue as the migrations leave it:
+  English and Slovak, English first; every key with an English and a Slovak
+  string; no placeholder a translation invents; plural families whole
+  (`.one`, `.few`, `.other` in both languages); no namespace named after a
+  file the frontend names (`changelog.json` would read as a key); every
+  language a migration writes strings for undeletable; every key the frontend
+  uses in the database, and every database key used (the key scan,
+  `backend/tools/translation_keys.php`, with fixtures of its own: a family
+  asked for as one string, a run-time key from an undeclared prefix, a
+  translated string given to `innerHTML`); 004 touching only its own three
+  tables; every seeded string passing the checks a save makes; the problem
+  page's own English (`standin/problem/problem.component.ts`) the seeded
+  English word for word; the text
+  helpers, placeholders, a weak `If-None-Match`, and reading a language out of
+  an export or a backup. Its `migration_keys()` reads the seed's lists with
+  regular expressions, and finds the gate's list from its end (the last
+  `VALUES` before `AS k(name)`): one pattern spanning the whole catalogue runs
+  out of PCRE's JIT stack, and a pattern that cannot run throws rather than
+  finding nothing.
+- `api/translations.test.php` — the bundle (merged with English, objects
+  even when empty, 404 for what is no code without asking the database, 304
+  for its tag), who may do what (a `MEMBER` 403 `owner_only`, `ADMIN` allowed;
+  without sign-in this computer only; another host's `Origin`, a non-JSON
+  body and a body over 1 MiB changing nothing), the languages (added offered
+  or hidden, renamed, reordered, switched off, English never; two added at
+  once against the limit; deleted with a copy first, never English or
+  Slovak, waiting for a save in progress), saving strings (only the changed
+  ones, by whoever saved them, all checked before any is written, each
+  refusal naming its key), export and import, the command line (`--export`,
+  `--import`, `--status` and its exit code), `updated_by` following a moved
+  user id and emptied with a deleted one, and no PHP warning in the log.
+- `api/errors.test.php` — what a failure says: its sentence, its code, and
+  its reason (`detail`) only under PHP's built-in server — a database that
+  cannot be reached (`database_unavailable`), anything else (`server_error`),
+  a failed migration (`not_up_to_date`), 404 and 405 keeping their codes; and
+  once for real, a server whose database is not there.
 - `api/kanji-api.test.php` — learn / review / practice / notes / settings /
   export / reset through HTTP, moving the clock by editing the test database;
   every answer in `srs_log`, every row the owner's (sign-in off); the day's
   backup taken by a page load and never by an answer; a full reset backed up
   first — that person's data alone, named after them, with the log — and the
-  log kept.
+  log kept; the summary naming its stage groups (the home page draws them
+  without the catalog).
 - `api/exam-api.test.php` — no answer leaks, perfect/zero/70 % scoring,
   foreign answers refused (409, nothing saved), report and history, clips
   streaming from `data/audio` (byte ranges too, `HEAD` without a body; a bad or
@@ -123,7 +162,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   saying how to build it while the API answers, mode `none` told to the
   browser, and the server logged no PHP warning.
 - `api/auth.test.php` — a server in auth mode `iam`: how to sign in
-  (`/api/auth/config`); every address with somebody's data 401 without a token
+  (`/api/auth/config`); the pages, the clips, health and the app's own words
+  (`/api/translations/{code}`) without a token; every address with
+  somebody's data, and every owner address, 401 without a token
   (with `WWW-Authenticate`), and for an expired token, one for another app or
   from another IAM, an ID token, a forged one, one without a user id, a Basic
   header; 403 without a role; two people with their own progress, settings,
@@ -157,7 +198,10 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   study data, the files unchanged, a short old record completed, unreadable
   lines listed, an unreadable progress file importing nothing and named in the
   error, no file read at all when the database holds data), and
-  `manage.php --import` / `--check`.
+  `manage.php --import` / `--check`; a backup of everybody holding the app's
+  words (`translations`) and a copy of some people none, a restore passing
+  them over (and a file without them restoring as before), and the copy of a
+  language's strings before it is deleted.
 - `api/deploy.test.php` — a hosted site end to end: `build-dist.php` builds
   the upload (what it holds and leaves out; `--list` has every clip), served as
   Apache serves it (`.ht*` files refused), closed before the setup page runs,
@@ -176,7 +220,11 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   out and put back, a copy of its own; the fixed file applied after its own
   copy); the setup page run again on purpose, showing nothing of what is set
   until the token is proven (its button then hands it over, never the
-  password), and taking the raw copy before it migrates.
+  password), and taking the raw copy before it migrates; and the update that
+  brings 004 while it has not arrived whole: the bundle 503
+  `not_up_to_date`, nothing logged, the rest of the site going on. Its test
+  migrations are numbered 901–903, out of the way of the real ones, and
+  `backend/translations.php` must stay out of the upload.
 - `api/setup.test.php` — the setup page on the owner's computer: before it is
   set up the API says so (and to this computer why); the version before's
   settings (`src/config.local.php`) and a database in the shape of 001 with the
@@ -218,19 +266,49 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   other tabs played by `storage` events: somebody else signing in loads the
   page again, the same person back or a refreshed token does not, a page that
   loaded signed out just starts, not set up stays so, and its own `fetch()`
-  sends no token of somebody else; `describeSignInFailure()`.
+  sends no token of somebody else; a sign-in that came back without one
+  keeps its code and nothing of the IAM's English sentence.
 - `core/api/not-set-up.interceptor.spec.ts` — any answer 503 `not_set_up`
   from this site puts up the "not set up yet" page (with the reason when
   given); other failures, and other hosts' answers, change nothing.
 - `app.routes.spec.ts` — `/kanji` and `/exam` open only in state `ready`.
 - `standin/sign-in/sign-in.component.spec.ts` — a sign-in cancelled or
-  refused at the IAM shows the IAM's own sentence alone; another failure
-  "Signing in did not work: …" (through the SDK's own callback).
+  refused at the IAM worded from its code (`access_denied`: "Signing in was
+  not completed…"), another failure "Signing in did not work. Try again.
+  ({code})", in the page's language (through the SDK's own callback).
 - `core/auth/private-links.service.spec.ts` — `lockDown()` puts the no-script
   policy before anything of a report's; the download's file name.
-- `core/format.spec.ts` (times, dates, counts in words: "1 attempt"),
-  `core/changelog/app-version.component.spec.ts` (the version, its dot until
-  the news is read, the dialog), `standin/not-set-up/not-set-up.component.spec.ts`.
+- `core/i18n/translation.service.spec.ts` — which language a page takes
+  (`?lang=` for the tab, the choice, the token's `locale`, the browser's — a
+  Czech browser Slovak —, English), when the server is asked, a bundle
+  answered 503 changing what the app shows instead of leaving a page of keys,
+  the cached bundle and its refresh;
+  `core/i18n/pipes.spec.ts` (translate, plurals, dates), `error-text.spec.ts`
+  (every code worded, an unknown one `error.unknown`),
+  `language-chooser.component.spec.ts` (the chooser and its keys),
+  `core/boot.spec.ts` (the start, in order, in every state; the title
+  strategy; `keptWord()`), `app.component.spec.ts` (the top bar with and
+  without strings), `account-menu.component.spec.ts`.
+- The owner's pages: `owner/translation-grid.spec.ts` (plural families,
+  search, changed cells), `translations.component.spec.ts`,
+  `languages.component.spec.ts`, `owner-drafts.service.spec.ts` (drafts
+  surviving a session's end and a sign-in as the same person),
+  `unsaved-changes.guard.spec.ts`.
+- Every screen's component in English and Slovak: home, exam, the kanji
+  shell, dashboard, lessons, practice, session, summary, browse, item, the
+  tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
+  with its `lang`), the stand-in pages (`kept-around.spec.ts`,
+  `problem.component.spec.ts`).
+- `core/format.spec.ts` (times, dates, counts in words: "1 attempt", in the
+  language's locale), `core/changelog/app-version.component.spec.ts` (the
+  version, its dot until the news is read, the dialog),
+  `standin/not-set-up/not-set-up.component.spec.ts`.
+
+A spec gets its strings from `core/testing/test-translations.ts`
+(`provideTestTranslations()`): the real `TranslationService` with the
+strings the spec gives it in memory, English or another language with
+English beside it, and no HTTP; a key not given shows as itself and warns, as
+in the app.
 
 Browser (`frontend/e2e/`, Edge through `playwright-core`):
 
@@ -242,16 +320,26 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   come back over the dashboard), checks browse and a listening exam answered
   with the keys (1–4, ←, F, →, Enter — twice at the end, storing one
   attempt), moving between the sections without a page load, the version and
-  its "What's new", and that without sign-in nothing is different. Then a
+  its "What's new", and that without sign-in nothing about sign-in shows.
+  The language chooser worked by keys (focus, Enter, ArrowDown, Enter) on the
+  first review card and on a paper's last question: the page turns Slovak and
+  nothing else happens — the card unanswered, the paper open on its last
+  question, no new attempt — then back to English with the mouse. The
+  owner's pages, in a context of their own: `/?lang=sk` makes that tab Slovak
+  and leaves the address (another tab stays English); on Translations a bad
+  Slovak string refused beside its key, and leaving with it unsaved asks in a
+  modal dialog (Escape stays, Leave leaves); on Languages a language added
+  without the box ticked comes in hidden, and is not in the public list. Then a
   second server in auth mode `iam`: the Sign in page, signing in through the
   emulated IAM, a lesson saved with the token as that person's, the progress
   download and a report fetched with the token (the report opened from memory,
   with its no-script policy, and reports made to get round it — a script
   before `<head>`, a no-break space before the doctype — running nothing), the
-  token on every API call and on nothing else, the account menu, signing out;
+  token on every API call and on nothing else (the bundle of words, public,
+  goes without one), the account menu, signing out;
   then a sign-in in another tab starting the app, and somebody else's there
-  loading the page again, as them. Fails on any page error, error the app
-  logged, or failed request.
+  loading the page again, as them. Fails on any page error, error or
+  warning the app logged (a key with no string warns), or failed request.
 - `setup.js` — the setup page on a built upload with the real app: the "not
   set up yet" page and both forms in light, dark and phone layouts (no
   overflow); from this computer no token, sign-in off, the IAM's fields hiding
@@ -265,12 +353,30 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   it too, a pasted token checked at once, what is set filled in once it is
   right (the password kept back, what was typed left alone), **Set up** with
   sign-in, the lock, the page and its token gone, the app's Sign in page.
+  The migrations it applies include 004.
 - `screens.js` — the home page, every kanji screen (with a review answered
-  wrongly and its item info open), the exam's three screens, the changelog, and
+  wrongly and its item info open), the exam's three screens, the changelog,
   a hosted site's Sign in page and account menu (open over the kanji
-  dashboard, whose nav is the widest). Its phone shots mostly show buttons at
-  their mouse size: a full-page shot switches Edge's touch emulation off
-  ([environment.md](environment.md)).
+  dashboard, whose nav is the widest), and the owner's Translations and
+  Languages pages: 17 screens in light, dark and phone, and **the Slovak
+  pass** — every screen again at 390 px in a Slovak browser (`sk-phone`,
+  `sk-phone-dark`), each checked for `<html lang="sk">`, no text that is a
+  key (but on the owner pages, which list keys), no English string of the
+  bundle whose Slovak differs outside `[lang=en]` / `[lang=ja]`, and no
+  overflow; the kanji tab strip is checked on every screen. Then **the
+  room**: the top bar's pieces measured (`locator.boundingBox()`) at 360,
+  370, 390, 440 and 560 px, signed in with a three-digit due badge, without
+  sign-in and signed out, in English and Slovak — everything needed inside
+  the screen, nothing overlapping, no text cut short, "Academy" only above
+  440 px — with shots of the signed-in Slovak bar at 360 and 390 px
+  (`room-*.png`). `npm run screens -- room` runs only the room. Its phone
+  shots mostly show buttons at their mouse size: a full-page shot switches
+  Edge's touch emulation off ([environment.md](environment.md)).
+
+Every browser context comes from `newContext()` (`browser.js`), with locale
+`'en-GB'` unless a test says otherwise, so the suites read English on a
+computer whose system language is Slovak; signed-in sessions say `en` in
+their token.
 
 The audio checks (catalog, exam bank, exam API, the browser's listening exam)
 need the clips of `npm run build:audio`, which are in git.
@@ -299,7 +405,8 @@ came after it.
 | `backend/setup.php`, `backend/config/` | `npm test`, `npm run test:setup` |
 | `data/source/**`, build scripts | `npm run build:data` (and `build:audio` when words changed), `npm test` |
 | `backend/src/conjugate.php`, `backend/src/generate.php`, authored items | `npm test` + the `academy-japanese-reviewer` agent |
-| `backend/migrations/` | `npm test` (the template picks new migrations up) and `php backend/manage.php --check` |
+| `backend/migrations/` | `npm test` (the template picks new migrations up; after an edit of one not committed yet, `php backend/tests/tools/testdb.php template --fresh` first) and `php backend/manage.php --check` |
+| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php` | `npm test` (`translations.test.php`, unit and API), `npm run test:browser`, `npm run screens` (the Slovak pass); `php backend/translations.php --status` on a set-up copy |
 | sign-in, the routes or middleware, Apache's files, `build-dist.php` | `npm test` (auth, deploy) and `npm run test:browser` |
 
 ## Reading results — expected noise
@@ -315,6 +422,11 @@ came after it.
   work: they send bad tokens on purpose.
 - The setup suite's "not set up" pages answer `/api/auth/config` with 503: that
   is what they are for, and its error check ignores it.
+- `[i18n] no string for …` in a browser suite is a failure, not noise: a key
+  the page asks for has no string in the database.
+- The native file picker on the owner's Translations page speaks the
+  browser's own language ("Vybrať súbor" in a Slovak Edge): the app cannot
+  word it.
 
 ## Adding tests
 
@@ -338,8 +450,10 @@ Angular: a `*.spec.ts` next to the file it tests. Provide
 component's DOM.
 
 Browser scripts: `frontend/e2e/browser.js` finds Edge/Chrome (`BROWSER_PATH`
-overrides) and provides `launch()`, `watch()` (collects page errors, errors
-the app logged, failed requests), `emulateIam()` and a reporter;
+overrides) and provides `launch()`, `newContext()` (locale `'en-GB'` unless
+told otherwise: use it for every context), `watch()` (collects page errors,
+errors and warnings the app logged, failed requests), `emulateIam()` and a
+reporter;
 `app.makeDue(ids, agoMs, userId)` makes reviews due (the owner's by default).
 Angular draws what a key or a click changed a moment later: wait for the
 result (`waitForSelector`, `waitForFunction`) rather than reading the page
@@ -347,4 +461,8 @@ right after `keyboard.press`. Find buttons by their accessible name
 (`getByRole('button', { name: /^Learn \d+ items?$/ })`): their text may carry
 spaces around it. Navigate through `about:blank` when the target URL equals
 the current one, or the page won't reload. Audio tests pass `audio_build()` a
-fake `synth` and temp folders.
+fake `synth` and temp folders. A test that switches the page to Slovak
+switches it back before the suite goes on: the choice is kept in that
+browser, and the rest matches English words. A finished kanji session stays
+on screen with a read-only answer box until its saves land: a loop that
+answers cards stops there.

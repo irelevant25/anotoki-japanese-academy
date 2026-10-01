@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, OnInit, signal } from '@angular/core';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemDetailsComponent } from '../shared/item-details/item-details.component';
@@ -8,7 +9,8 @@ import { NotesEditorComponent } from '../shared/notes-editor/notes-editor.compon
 import { ReadingsComponent } from '../shared/readings/readings.component';
 import { TileComponent } from '../shared/tile/tile.component';
 
-const TABS = ['Meaning', 'Reading', 'Context'];
+/** The three tabs of an item, as the keys of their names. */
+const TABS = ['kanji.meaning', 'kanji.reading', 'lesson.context'];
 
 /**
  * A batch of lessons: each item shown in three tabs (Meaning → Reading →
@@ -16,7 +18,7 @@ const TABS = ['Meaning', 'Reading', 'Context'];
  */
 @Component({
   selector: 'app-lesson-batch',
-  imports: [TileComponent, ReadingsComponent, NotesEditorComponent, ItemDetailsComponent],
+  imports: [TileComponent, ReadingsComponent, NotesEditorComponent, ItemDetailsComponent, TranslatePipe],
   templateUrl: './lesson-batch.component.html',
   styleUrl: './lesson-batch.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,8 +42,8 @@ export class LessonBatchComponent implements OnInit {
     this.autoplay();
   }
 
-  typeLabel(it: CatalogItem): string {
-    return this.kanji.typeLabel(it);
+  typeKey(it: CatalogItem): string {
+    return this.kanji.typeKey(it);
   }
 
   madeOf(it: CatalogItem): CatalogItem[] {

@@ -16,7 +16,7 @@ default: without the file every address with data answers 503 `not_set_up`.
 | Mode | Where | What |
 |---|---|---|
 | `iam` | a hosted site (the only mode its setup page offers), or a developer's copy against the development IAM | every request with somebody's data needs an access token from the IAM; each person sees and changes only their own rows |
-| `none` | the owner's computer (the setup page offers it there) | no sign-in: every request is the owner, IAM user `auth.local_user_id` (1 unless set), with every role. The page looks exactly as it did before sign-in existed |
+| `none` | the owner's computer (the setup page offers it there) | no sign-in: every request is the owner, IAM user `auth.local_user_id` (1 unless set), with every role. Nothing about sign-in shows: no Sign in page, no account menu |
 
 Mode `none` works only under PHP's built-in server, only from this computer,
 and only for a request that came straight to it (`auth_none_allowed()`): its
@@ -35,8 +35,17 @@ headers, so a developer's copy in mode `none` works through it.)
 
 The application is registered in the IAM as client `japanese-academy`: a
 public client, access `members` (only accounts given a role here can sign
-in), roles `ADMIN` and `MEMBER`. The owner holds `ADMIN`; the two roles grant
-the same things in this app today.
+in), roles `ADMIN` and `MEMBER`. The owner holds `ADMIN`. Both roles study
+alike; `ADMIN` also means the owner's pages: the app's words and its
+languages (`/translations`, `/languages`, and their `/api/owner/…`
+addresses). The server decides that in one place,
+`backend/api/middleware/owner.php`: a person without `ADMIN` gets 403
+`owner_only`, and a request whose `Origin` names another host 403
+`wrong_origin` (without sign-in a page of another site, open in the owner's
+browser, can reach 127.0.0.1). In mode `none` the owner holds every role, so
+the owner's pages are this computer's. In the browser `AuthService.isOwner()`
+only hides the links and the routes (`ownerOnly`) that the server refuses
+anyway.
 
 | | Production | Development |
 |---|---|---|
@@ -63,16 +72,22 @@ data and puts the user id on the request:
    an error on every page): RS256 signature against the IAM's published keys
    (cached for an hour in `backend/storage/cache/`, not the shared temp
    folder), `typ at+jwt`, issuer, audience `japanese-academy`, expiry. Its
-   `sub` is the user id. No token: 401 `Sign in first.`; a token that does not
-   verify: 401 `Sign in again.` (the reason goes to the error log only, on one
-   line and clipped to 300 characters: it can quote the token's own header,
-   which whoever sent it chose); a token without a role here: 403.
+   `sub` is the user id. No token: 401 `Sign in first.` (code
+   `sign_in_required`); a token that does not verify: 401 `Sign in again.`
+   (`invalid_token`; the reason goes to the error log only, on one line and
+   clipped to 300 characters: it can quote the token's own header, which
+   whoever sent it chose); a token without a role here: 403 (`no_access`); mode
+   `none` from anywhere but this computer: 403 (`this_computer_only`). The page
+   words each from its code, in the reader's language.
 3. Then `users_seen()` keeps the person's `users` row up to date (below).
 
 Every address with somebody's data needs it: all of `/api/*` and `/report/*`,
-except `/api/auth/config` (how to sign in: `{mode, issuer, clientId}`) and
-`/api/health`. The audio clips are shared content and need no sign-in.
-Unknown addresses stay 404.
+except `/api/auth/config` (how to sign in: `{mode, issuer, clientId}`),
+`/api/health` and `/api/translations/{code}` (the app's own words, the same
+for everybody: no token is looked at, a good one or a bad one, so a page
+whose sign-in ran out still reads in its language, and the browser sends
+none). The audio clips are shared content and need no sign-in. Unknown
+addresses stay 404.
 
 ## Each person's data
 
@@ -122,7 +137,8 @@ The IAM's browser SDK **v1.1.1** is copied unchanged into `sdk/`
 
 - `AuthService.init()` runs before anything else (`provideAppInitializer`):
   it asks `GET /api/auth/config`. In mode `none` it does nothing more, and
-  nothing on the page changes. A 503 `not_set_up` shows the "not set up yet"
+  nothing about sign-in shows. (Then the language and its strings are loaded:
+  `core/boot.ts`, [architecture.md](architecture.md), *The app's words*.) A 503 `not_set_up` shows the "not set up yet"
   page (with a link to `/setup.php`, and, to this computer, why); a server
   that does not answer, a page that says so. `/api/auth/config` needs only the
   settings, so a copy whose database is missing or has no tables starts all
@@ -145,13 +161,15 @@ The IAM's browser SDK **v1.1.1** is copied unchanged into `sdk/`
   in, the top bar shows an avatar and the name, with a menu: *Signed in as …*,
   *Your account* (the IAM's account page), *Sign out* (the IAM ends its
   session and sends the browser back to `/`).
-- A sign-in that comes back without one says why on the Sign in page
-  (`describeSignInFailure()`). For `access_denied` that is the IAM's own
-  sentence alone, as the IAM means it to be shown — "The sign-in was
-  cancelled." when the person went back from its page, or the refusal itself
-  ("This account cannot use Japanese Academy.", "Confirm your email address
-  first."); the app decides nothing from those words. Anything else reads
-  "Signing in did not work: …".
+- A sign-in that comes back without one says so on the Sign in page, worded
+  from its code in the reader's language (`signInFailureKey()` in
+  `core/i18n/error-text.ts`); the IAM's English sentence is not kept. For
+  `access_denied` — the person went back from the IAM's page, or the account
+  was turned away — one sentence true either way: "Signing in was not
+  completed. If you did not mean to stop it, this account may have no access
+  to Japanese Academy." Anything else: "Signing in did not work. Try again.
+  ({code})" — the code as it came, or `unknown` when it does not look like
+  one (it came through the address).
 - **A page is one person's.** The SDK shares its session with every tab, and
   what a page loaded stays in root services (the kanji state, a paper of the
   exam). So once the app has shown somebody's data, a sign-in of somebody else
@@ -191,7 +209,11 @@ The IAM's browser SDK **v1.1.1** is copied unchanged into `sdk/`
   work as they always did.
 
 The avatar menu uses the colour tokens (`--shadow` among them) and works at
-390 px: the name hides, the avatar stays.
+390 px: the name hides, the avatar stays. For the owner it also links to the
+Translations page (in English, whatever the page's language); without
+sign-in, where there is no menu, that link is at the foot of the home page.
+Like the language chooser, the menu keeps its keys to itself
+(`core/menu-keys.ts`), so Enter inside it never submits a card behind it.
 
 ## Testing with tokens
 

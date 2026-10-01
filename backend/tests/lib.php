@@ -141,6 +141,17 @@ function assert_throws(callable $fn, string $pattern = '/./'): void
     fail('expected an error');
 }
 
+/**
+ * A refusal of the API ($r as call() gives it): its status, the code a page
+ * words it from, and the sentence beside the code — for the command line, the
+ * logs and these tests, word for word.
+ */
+function assert_refused(int $status, string $code, string $sentence, array $r, string $message = ''): void
+{
+    $body = is_array($r['body'] ?? null) ? $r['body'] : [];
+    assert_same([$status, $code, $sentence], [$r['status'] ?? null, $body['code'] ?? null, $body['error'] ?? null], $message);
+}
+
 /** Runs the file's tests; the last line tells tests/run.php the counts. */
 function test_run(): int
 {

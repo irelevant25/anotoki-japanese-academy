@@ -14,20 +14,49 @@ import {
   viewChild,
 } from '@angular/core';
 import { bind, toKana, unbind } from 'wanakana';
-import { ApiService } from '../../core/api/api.service';
+import { ApiError, ApiService, toApiError } from '../../core/api/api.service';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
-import { pct, plural } from '../../core/format';
-import { canonReading, checkMeaning, checkReading } from '../answer';
+import { pct } from '../../core/format';
+import { errorKey, errorParams } from '../../core/i18n/error-text';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslationParams, TranslationService } from '../../core/i18n/translation.service';
+import { canonReading, CheckKind, checkMeaning, checkReading, materialLang } from '../answer';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemDetailsComponent } from '../shared/item-details/item-details.component';
+import { Marks, Part, wordedParts } from '../shared/worded/worded-parts';
+import { WordedComponent } from '../shared/worded/worded.component';
 import { DoneEntry, Parts, QueueEntry, SessionEngine, SessionMode, SessionResult } from './session-engine';
 
+/** What each kind of session is called, and what it says under its bar: keys, worded by the template. */
 const MODES: Record<SessionMode, { title: string; note: string | null }> = {
-  lesson: { title: 'Lesson quiz', note: 'Get each one right once to learn it.' },
-  review: { title: 'Reviews', note: null },
-  practice: { title: 'Practice', note: 'Practice never changes your SRS schedule.' },
+  lesson: { title: 'session.mode.lesson', note: 'session.note.lesson' },
+  review: { title: 'session.mode.review', note: null },
+  practice: { title: 'session.mode.practice', note: 'session.note.practice' },
 };
+
+/** Why an answer was not taken as one, as the key of what to do instead (the family answer.check. of dynamic-keys.ts). */
+const CHECK_KEYS: Record<CheckKind, string> = {
+  readingEmpty: 'answer.check.readingEmpty',
+  readingUnfinished: 'answer.check.readingUnfinished',
+  readingInKanji: 'answer.check.readingInKanji',
+  meaningNotEnglish: 'answer.check.meaningNotEnglish',
+  meaningEmpty: 'answer.check.meaningEmpty',
+};
+
+/**
+ * What the card says under the answer: a key and what fills it, never a
+ * sentence — so it is worded in the language on the page, and follows a
+ * change of it while it stands there.
+ */
+export interface Feedback {
+  key: string;
+  params?: TranslationParams;
+  /** the material and the typed text inside the sentence, each with the language it is in */
+  marks?: Marks;
+  /** a save that failed: worded from its code, as the sentence's {reason} */
+  error?: ApiError;
+}
 
 /**
  * A lesson quiz, reviews or practice: meaning then reading, back to back.
@@ -43,7 +72,7 @@ const MODES: Record<SessionMode, { title: string; note: string | null }> = {
  */
 @Component({
   selector: 'app-session',
-  imports: [ItemDetailsComponent],
+  imports: [ItemDetailsComponent, TranslatePipe, WordedComponent],
   templateUrl: './session.component.html',
   styleUrl: './session.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +81,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly kanji = inject(KanjiStateService);
   private readonly audio = inject(AudioService);
+  private readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly mode = input.required<SessionMode>();
@@ -76,14 +106,28 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly part = signal<'meaning' | 'reading'>('meaning');
   readonly verdict = signal<'correct' | 'wrong' | null>(null);
   readonly close = signal(false);
-  readonly feedback = signal('');
+  readonly feedback = signal<Feedback | null>(null);
   readonly actionsShown = signal(false);
   readonly acceptShown = signal(false);
   readonly panelOpen = signal(false);
   readonly wrapping = signal(false);
-  readonly counts = signal({ done: 0, left: 0, acc: '—', fill: 0 });
+  /** `acc`: the share of answers right so far, in per cent; null before the first answer. */
+  readonly counts = signal<{ done: number; left: number; acc: number | null; fill: number }>({ done: 0, left: 0, acc: null, fill: 0 });
 
   readonly long = computed(() => [...(this.card()?.chars ?? '')].length > 4);
+
+  /** The feedback in the language on the page, cut where its material stands: each piece of that says which language it is in. */
+  readonly feedbackParts = computed<Part[]>(() => {
+    const f = this.feedback();
+    if (!f) {
+      return [];
+    }
+    const params = f.error ? { ...f.params, reason: this.i18n.t(errorKey(f.error), errorParams(f.error)) } : f.params;
+    return wordedParts(this.i18n, f.key, f.marks ?? {}, params);
+  });
+  /** "{n} done" and "{n} left", each cut at its number: the template draws the number in bold. */
+  readonly doneWords = computed(() => this.i18n.around('session.done', 'n'));
+  readonly leftWords = computed(() => this.i18n.around('session.left', 'n'));
 
   ngOnInit(): void {
     this.engine = new SessionEngine(this.items(), this.parts(), this.shuffle());
@@ -111,16 +155,16 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     this.part.set(part);
     this.verdict.set(null);
     this.close.set(false);
-    this.feedback.set('');
+    this.feedback.set(null);
     this.actionsShown.set(false);
     this.panelOpen.set(false);
 
     const el = this.inputRef().nativeElement;
     el.value = '';
     el.readOnly = false;
-    el.placeholder = part === 'meaning' ? 'Answer in English' : 'Type the reading — romaji turns into kana';
-    el.lang = part === 'reading' ? 'ja' : 'en';
     this.bindKana(part === 'reading');
+    // after wanakana, which puts back the language the field had when it was bound
+    el.lang = part === 'reading' ? 'ja' : 'en';
     this.updateCounts();
     el.focus();
   }
@@ -143,24 +187,24 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     this.counts.set({
       done: doneN,
       left,
-      acc: e.answered ? `${pct(e.right, e.answered)}%` : '—',
+      acc: e.answered ? pct(e.right, e.answered) : null,
       fill: e.total ? (doneN / (doneN + left)) * 100 : 100,
     });
   }
 
-  private shake(message: string): void {
-    this.feedback.set(message);
+  private shake(feedback: Feedback | null): void {
+    this.feedback.set(feedback);
     const root = this.rootRef().nativeElement;
     root.classList.remove('shake');
     void root.offsetWidth; // restart the animation
     root.classList.add('shake');
   }
 
-  /** What was expected, shown after a miss or a near miss. */
-  private expected(): string {
+  /** What was expected, shown after a miss or a near miss: material, in English for a meaning and in Japanese for a reading. */
+  private expected(): Part {
     const it = this.engine.cur?.it as CatalogItem;
     if (this.engine.part === 'meaning') {
-      return this.kanji.acceptMeanings(it).join('; ');
+      return { text: this.kanji.acceptMeanings(it).join('; '), lang: 'en' };
     }
     if (it.type === 'kanji') {
       const bits: string[] = [];
@@ -170,9 +214,9 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
       if (it.kun?.length) {
         bits.push(`kun: ${it.kun.join('、')}`);
       }
-      return bits.join('  ·  ');
+      return { text: bits.join('  ·  '), lang: 'ja' };
     }
-    return this.kanji.acceptReadings(it).join('、');
+    return { text: this.kanji.acceptReadings(it).join('、'), lang: 'ja' };
   }
 
   /* ----------------------------------------------------------- answers */
@@ -194,7 +238,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
         ? checkMeaning(typed, this.kanji.acceptMeanings(it), this.kanji.known())
         : checkReading(typed, this.kanji.acceptReadings(it));
     if (res.verdict === 'invalid') {
-      this.shake(res.message ?? '');
+      this.shake(res.kind ? { key: CHECK_KEYS[res.kind] } : null);
       return;
     }
     e.submit(typed, res);
@@ -206,14 +250,14 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
       this.verdict.set('correct');
       if (res.close) {
         this.close.set(true);
-        this.feedback.set(`Close enough — it's “${this.expected()}”.`);
+        this.feedback.set({ key: 'session.closeEnough', marks: { expected: this.expected() } });
       }
       if (e.part === 'reading' && it.audio && this.kanji.settings().autoplay !== false) {
         this.audio.play(it.audio);
       }
     } else {
       this.verdict.set('wrong');
-      this.feedback.set(`The answer: ${this.expected()}`);
+      this.feedback.set({ key: 'session.theAnswer', marks: { expected: this.expected() } });
     }
     this.actionsShown.set(true);
     this.acceptShown.set(e.verdict === 'wrong');
@@ -236,13 +280,14 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
       this.kanji.setItemState(it.id, r.state);
       e.accept();
       this.verdict.set('correct');
-      this.feedback.set(
-        meaning ? `Added “${typed}” as one of your synonyms for ${it.chars}.` : `Added ${typed} as an accepted reading for ${it.chars}.`,
-      );
+      this.feedback.set({
+        key: meaning ? 'session.synonymAdded' : 'session.readingAdded',
+        marks: { typed: { text: typed, lang: materialLang(typed) }, chars: { text: it.chars, lang: 'ja' } },
+      });
       this.acceptShown.set(false);
       this.updateCounts();
     } catch (err) {
-      this.feedback.set(`Could not save that: ${err instanceof Error ? err.message : String(err)}`);
+      this.feedback.set({ key: 'session.notSaved', error: toApiError(err) });
     } finally {
       this.busy = false;
       this.inputRef().nativeElement.focus();
@@ -281,7 +326,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
           entry.to = r.to;
         },
         (err: unknown) => {
-          entry.error = err instanceof Error ? err.message : String(err);
+          entry.error = toApiError(err);
         },
       ),
     );
@@ -305,7 +350,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     this.finished = true;
     this.bindKana(false);
     this.inputRef().nativeElement.readOnly = true;
-    this.feedback.set(this.pending.length ? 'Saving…' : '');
+    this.feedback.set(this.pending.length ? { key: 'session.saving' } : null);
     const e = this.engine;
     void Promise.allSettled(this.pending).then(() => {
       // Left for another screen while saving: the saves landed, keep that screen.
@@ -338,7 +383,8 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
 
   end(): void {
     const half = this.engine.halfAnswered();
-    if (half && !confirm(`Stop now? ${plural(half, 'half-answered item')} will not be saved.`)) {
+    // The browser's own dialog, worded at the moment it is raised, in the language on the page.
+    if (half && !confirm(this.i18n.plural('session.confirmEnd', half))) {
       return;
     }
     this.finish(true);

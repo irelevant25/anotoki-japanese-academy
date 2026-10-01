@@ -127,7 +127,7 @@ function exam_submit(int $uid, array $body): array
 {
     $spec = exam_normalize_spec(is_array($body['spec'] ?? null) ? $body['spec'] : $body);
     if ($spec['seed'] === null) {
-        return [400, ['error' => 'spec.seed is required']];
+        return [400, ['error' => 'spec.seed is required', 'code' => 'seed_required']];
     }
     $responses = is_array($body['responses'] ?? null) ? $body['responses'] : [];
 
@@ -138,7 +138,10 @@ function exam_submit(int $uid, array $body): array
     $ids = array_flip(array_column($exam['questions'], 'id'));
     $stray = array_filter(array_keys($responses), static fn ($id): bool => !isset($ids[(string) $id]));
     if ($stray) {
-        return [409, ['error' => 'The submitted answers do not belong to this paper (' . count($stray) . ' unknown question id(s)). Nothing was saved.']];
+        return [409, [
+            'error' => 'The submitted answers do not belong to this paper (' . count($stray) . ' unknown question id(s)). Nothing was saved.',
+            'code' => 'paper_mismatch',
+        ]];
     }
 
     $result = score_attempt($exam, $responses);
@@ -213,9 +216,12 @@ function exam_submit(int $uid, array $body): array
         'weakLessons' => $result['weakLessons'],
         'reportUrl' => "/report/$id",
         'byBook' => $result['byBook'],
+        // Made here and sent once: an attempt is stored without them (its responses hold the section's id).
+        // The page words a section from sectionId; the name stays for anything that reads it.
         'review' => array_map(static fn (array $r): array => [
             'n' => $r['n'],
             'section' => $r['sectionName'],
+            'sectionId' => $r['section'],
             'lesson' => $r['lesson'],
             'audio' => $r['audio'],
             'question' => $r['question'],

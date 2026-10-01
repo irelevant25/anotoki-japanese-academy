@@ -26,7 +26,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { BACKEND, BUILD, php, findPhp, freePort } = require('./helpers');
-const { launch, watch, reporter, SHOTS } = require('./browser');
+const { launch, newContext, watch, reporter, SHOTS } = require('./browser');
 
 const TESTDB = path.join(BACKEND, 'tests', 'tools', 'testdb.php');
 const WEBSITE = 'academy.example.test';
@@ -119,7 +119,7 @@ async function cleanup() {
   /* ------------------------------------------------ the looks, not set up */
   console.log('not set up: the pages in light, dark and phone');
   for (const [variant, opts] of VARIANTS) {
-    const context = await browser.newContext(opts);
+    const context = await newContext(browser, opts);
     const page = await context.newPage();
     const errors = watch(page, { ignore: [/\/api\/auth\/config$/] }); // 503: not set up, as it should
     for (const [name, url, ready] of [
@@ -143,7 +143,7 @@ async function cleanup() {
 
   /* ---------------------------------------------------- this computer */
   console.log('this computer');
-  const context = await browser.newContext({ viewport: { width: 1100, height: 900 }, timezoneId: 'Asia/Tokyo' });
+  const context = await newContext(browser, { viewport: { width: 1100, height: 900 }, timezoneId: 'Asia/Tokyo' });
   const page = await context.newPage();
   const errors = watch(page, { ignore: [/\/api\/auth\/config$/] });
   await page.goto(`${local}/kanji`);
@@ -192,7 +192,7 @@ async function cleanup() {
   await page.waitForSelector('h1');
   const done = await page.textContent('main');
   ck('Set up: done', (await page.textContent('h1')) === 'Set up', done.replace(/\s+/g, ' ').slice(0, 300));
-  ck('the tables made', /Applied the migrations: 001_init\.sql, 002_users\.sql, 003_content_stamp\.sql\./.test(done));
+  ck('the tables made', /Applied the migrations: 001_init\.sql, 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql\./.test(done));
   ck('the study content built', /Built the study content: [\d,]+ kanji items and [\d,]+ exam questions/.test(done));
   ck('no sign-in, this computer only; the page stays', /no sign-in \(this computer only\)/.test(done) && /This page stays/.test(done));
   ck('the setup page is still there', fs.existsSync(path.join(DIR, 'backend', 'setup.php')));
@@ -216,7 +216,7 @@ async function cleanup() {
 
   /* --------------------------------------------------------- a website */
   console.log('a website');
-  const siteContext = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  const siteContext = await newContext(browser, { viewport: { width: 1100, height: 900 } });
   const site = await siteContext.newPage();
   const siteErrors = watch(site);
   await site.goto(`${website}/setup.php`);

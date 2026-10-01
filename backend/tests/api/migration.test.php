@@ -64,7 +64,7 @@ test('the check at the end fails the migration when a row changed on the way, an
 
 test('every row comes through as it was, and is the owner’s', function (): void {
     $before = rows_001();
-    assert_same(['002_users.sql', '003_content_stamp.sql'], db_migrate());
+    assert_same(['002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql'], db_migrate());
     assert_same($before, rows_001(), 'the same rows, the same content');
     foreach (USER_TABLES as $table) {
         assert_same([1], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')), "$table: the owner's");

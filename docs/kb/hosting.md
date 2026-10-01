@@ -94,8 +94,9 @@ an app built elsewhere instead).
 
 `backend/`, `backend/storage/`, `data/` and `backups/` each get a `.htaccess`
 that refuses every request, in case the document root ends up above `public/`
-after all. Left out: the tests and tools, `backend/server.php` and
-`backend/manage.php` (they need a shell), `backend/public/` (it became
+after all. Left out: the tests and tools, `backend/server.php`,
+`backend/manage.php` and `backend/translations.php` (they need a shell; a
+site's words are reworded on its Translations page), `backend/public/` (it became
 `public/`), the frontend's sources, `docs/`, `books/`, `progress/`,
 `results/`, `reports/`, backups, `.env`, every `*.local.php`,
 `node_modules/`, `.claude/`, the launchers, `data/source/`,
@@ -189,6 +190,22 @@ before the content changed can't be submitted afterwards (409), as on this
 computer after a restart. A browser that still has the old app open loads the
 new one at its next page load (`index.html` is never cached).
 
+**The app's words (migration 004, and every later one with strings).** 004
+makes the three translation tables and fills them; it changes no study table.
+On a site it is applied like any migration: by the first request after the
+upload, under the upkeep lock, after the raw copy of every table. While its
+file is still arriving (no `-- end of 004` yet) the bundle of words,
+`/api/translations/{code}`, answers 503 `not_up_to_date` and logs nothing,
+and a page that starts then shows the problem page ("The database is not up
+to date with the uploaded version of the app yet. Try again in a moment; …");
+a reload once the upload is whole
+shows the app. Strings the owner reworded
+on the site survive later migrations — a migration's insert steps aside for
+a row that is there —, but the site and this computer each hold their own
+strings: export the site's languages (the Translations page) before an upload
+that changes strings, all the same, and carry a change from one copy to the
+other by export and import.
+
 ## Moving the owner's data to the site
 
 The owner's real data is in their computer's database. There:
@@ -211,9 +228,13 @@ both copies agree.
 The same files as on this computer, in the site's `backups/`: the day's copy
 (of everybody's data, taken at the first page load of a day; the last 14
 kept), one before somebody's reset (of that person's data alone,
-`academy-before-reset-user-<id>-<time>.json`; their last 14 kept), and a raw
-copy before a migration. Download them by FTP now and then: they are the only
-copy outside the host's database. There is no restore on the site; a backup
+`academy-before-reset-user-<id>-<time>.json`; their last 14 kept), a raw
+copy before a migration, and the strings of a language the owner deleted
+(`academy-before-language-delete-<code>-<time>.json`). A copy of everybody
+also holds the app's words as the owner reworded them (`translations`); a
+restore passes them over, and on a computer `php backend/translations.php
+--import <code> <file>` takes a language's strings from it. Download them by
+FTP now and then: they are the only copy outside the host's database. There is no restore on the site; a backup
 restores on a computer with `php backend/manage.php --restore=FILE`, or goes
 back to the site through the setup page's import (one person at a time).
 
@@ -226,8 +247,10 @@ back to the site through the setup page's import (one person at a time).
 | "Sign in again" right after signing in | the server cannot fetch the IAM's keys (outbound HTTPS blocked?), or the issuer or client id in `backend/config/auth.local.php` is not the IAM's |
 | the app says "not set up yet" at once | the setup page has not run: `backend/config/*.local.php` are missing |
 | the app says "not set up yet" after the Sign in page, at the first screen with data | the settings are there, but the database they name is missing or has no tables (made again in the panel, say): run the setup page again |
-| 503 "could not be brought up to date with the upload" | a new migration fails: the error log names it and says why (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Every request tries it again; upload the fixed file |
+| 503 "could not be brought up to date with the upload" (the page: the database is not up to date, and a reload does not help) | a new migration fails: the error log names it and says why (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Every request tries it again; upload the fixed file |
 | a new migration is not applied, and nothing says why | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
+| right after an upload the page says the database is not up to date with the uploaded version yet, then a reload shows the app | migration 004 (the app's words) was still arriving: the bundle answers 503 `not_up_to_date` until it is whole |
+| the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
 | the API answers 403 "Sign-in is off here" | `backend/config/auth.local.php` says auth mode `none`: a website needs `iam` |
 | the app shows, `/api/...` answers 404 | `mod_rewrite` is off, or the document root is not `public/` |
 | a page's address (`/kanji/reviews`) answers 404 on reload | `mod_rewrite` is off: the app's own addresses need the `index.html` rewrite |

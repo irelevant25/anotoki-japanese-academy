@@ -71,7 +71,9 @@ standalone HTML (inline CSS, no scripts; `GET /report/<id>`, sent with a
 Content-Security-Policy that allows no script) with breakdowns by part (when
 both), skill and lesson, every missed question with explanation, and the
 person's attempt history. Dates in it follow the computer's locale, through
-ICU, as the browser's `toLocaleString()` did.
+ICU, as the browser's `toLocaleString()` did. The report stays English in
+every language (a stored row is never rewritten); the page's link to it is
+translated and says `hreflang="en"`.
 
 Signed in (auth mode iam), the browser can't just follow the report link: it
 carries no token. `PrivateLinksService` fetches the report with the token and
@@ -89,6 +91,14 @@ on by themselves, so a long paper stays a flow —, → or Enter the next questi
 again; a listening question plays its clip when it is shown, and the next
 question's clip is fetched meanwhile. "Finish now" asks first when questions
 are unanswered.
+
+The page's frame is in the language on the page (setup, the running paper's
+chrome, the result, the history); the questions, options, hints and
+explanations are material and stay as written, marked `lang="en"` or
+`lang="ja"`. The section, part and lesson names are worded from the ids the
+server sends (`exam.section.<id>`, `exam.part.<id>`, `common.lesson`; a
+review row carries `sectionId` beside its name), so the server's names stay
+in its answers, unused by the page.
 
 The attempts from before the database (`results/`, `reports/`, from
 2026-09-22) were imported by the setup, their reports unchanged. Migration

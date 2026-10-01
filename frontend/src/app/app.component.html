@@ -2,16 +2,17 @@
   <div class="in">
     <div class="brandline">
       <a class="brand" routerLink="/" [attr.aria-current]="section() === 'home' ? 'page' : null"
-        ><span class="mark">日</span><span class="full">Japanese </span><b>Academy</b></a
+        ><span class="mark" lang="ja">日</span><span class="full">Japanese </span><b>Academy</b></a
       >
       <app-version />
+      <app-language-chooser />
     </div>
     @if (auth.state() === 'ready') {
       <nav>
         <a routerLink="/kanji" [attr.aria-current]="section() === 'kanji' ? 'page' : null"
           >Kanji@if (due()) {<span class="badge" id="navDue">{{ due() }}</span>}</a
         >
-        <a routerLink="/exam" [attr.aria-current]="section() === 'exam' ? 'page' : null">Exam</a>
+        <a routerLink="/exam" [attr.aria-current]="section() === 'exam' ? 'page' : null">{{ exam() }}</a>
       </nav>
       @if (auth.user()) {
         <app-account-menu />

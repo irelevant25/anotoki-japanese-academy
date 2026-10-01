@@ -31,6 +31,17 @@
 }
 @media (max-width: 560px) {
   .subnav a {
-    padding: 10px 8px; /* all five tabs fit a 390 px screen */
+    padding: 10px 8px;
+  }
+}
+// All five tabs fit a 390 px screen in Slovak too (its words are about 50 px
+// wider than the English); in English they fit 360 px.
+@media (max-width: 440px) {
+  .subnav .in {
+    padding: 0 10px;
+    gap: 0;
+  }
+  .subnav a {
+    padding: 10px 5px;
   }
 }

@@ -1,17 +1,17 @@
 <div class="details">
   @if (!context()) {
     <section class="dsec">
-      <h3>Meaning</h3>
-      <p class="meanings">{{ item().meanings.join('; ') }}</p>
+      <h3>{{ 'kanji.meaning' | translate }}</h3>
+      <p class="meanings" lang="en">{{ item().meanings.join('; ') }}</p>
       @if (synonyms().length) {
-        <p class="syn small muted">Your synonyms: {{ synonyms().join(', ') }}</p>
+        <p class="syn small muted">{{ 'item.synonyms' | translate: { synonyms: synonyms().join(', ') } }}</p>
       }
       @if (wordClass()) {
-        <p class="small muted">{{ wordClass() }}</p>
+        <p class="small muted" lang="en">{{ wordClass() }}</p>
       }
     </section>
     <section class="dsec">
-      <h3>Reading</h3>
+      <h3>{{ 'kanji.reading' | translate }}</h3>
       <app-readings [item]="item()" />
     </section>
   }
@@ -19,13 +19,13 @@
   @if (item().type === 'kanji') {
     @if (examples().length) {
       <section class="dsec">
-        <h3>Found in vocabulary</h3>
+        <h3>{{ 'item.foundIn' | translate }}</h3>
         <ul class="examples">
           @for (v of examples(); track v.id) {
             <li>
               <a class="ex-w" lang="ja" [routerLink]="['/kanji/item', v.id]">{{ v.chars }}</a>
               <span class="ex-r" lang="ja">{{ v.readings[0] }}</span>
-              <span class="ex-m">{{ v.meanings[0] }}</span>
+              <span class="ex-m" lang="en">{{ v.meanings[0] }}</span>
               @if (v.audio) {
                 <button class="ghost sm play" type="button" (click)="play(v)">▶</button>
               }
@@ -36,7 +36,7 @@
     }
   } @else {
     <section class="dsec">
-      <h3>Kanji</h3>
+      <h3>{{ 'kanji.type.kanji' | translate }}</h3>
       <div class="tiles">
         @for (k of madeOf(); track k.id) {
           <app-tile [item]="k" [withMeaning]="true" />
@@ -46,7 +46,7 @@
   }
 
   @if (nothingMore()) {
-    <p class="muted">Nothing more to add — on to the next one.</p>
+    <p class="muted">{{ 'lesson.nothingMore' | translate }}</p>
   }
 
   @if (notes() && !context()) {

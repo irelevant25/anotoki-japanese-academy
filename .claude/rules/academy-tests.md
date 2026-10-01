@@ -21,6 +21,11 @@ use the `academy-test` skill.
 - The throwaway databases are made on the PostgreSQL server of the developer's
   own `backend/config/database.local.php` (its password is required from that
   file by the test settings, never copied into them): the copy must be set up.
+- `academy_test_template` only takes migrations it has not applied. After an
+  edit of a migration that is not committed yet (a string of 004 reworded,
+  say), run `php backend/tests/tools/testdb.php template --fresh`: it drops the
+  template and builds it again from every migration and the content (not while
+  another test run is going on). Nothing else may drop the template.
 - Sign-in is tested with the test IAM only: a key pair of the run's own and
   tokens signed with the SDK's test helpers (`test_iam_env()`, `test_token()`
   in PHP; `startApp({ auth: 'iam' })`, `iamToken()`, `iamSession()`,
@@ -37,14 +42,19 @@ use the `academy-test` skill.
 - The layout:
   - `backend/tests/unit/*.test.php`: pure PHP functions (conjugation, SRS,
     catalog, bank, audio builder, data build, source names, the PHP 7.4 syntax
-    check).
+    check, the translation catalogue and key scan).
   - `backend/tests/api/*.test.php`: HTTP against the real server via
     `start_app()`, and the database functions (backups, import, migration) in
     the test process; sign-in (`auth`), a built site with its setup page
-    (`deploy`), the setup page on the owner's computer (`setup`).
+    (`deploy`), the setup page on the owner's computer (`setup`), the
+    languages and the words (`translations`), failures and their codes
+    (`errors`).
   - `frontend/src/**/*.spec.ts`: the Angular unit tests (Vitest, jsdom):
     answer checking against the whole catalog, the session engine, the
-    interceptor, the services, a few components.
+    interceptor, the services, the translation service and pipes, the owner
+    pages, the components. A spec gets its strings from
+    `provideTestTranslations()` (`core/testing/test-translations.ts`: the real
+    service with the spec's strings in memory, no HTTP).
   - `frontend/e2e/`: `playwright-core` driving the installed Edge against the
     production build (`run.js`, `setup.js`, `screens.js`). These are scripts,
     not part of `npm test`.
@@ -61,7 +71,24 @@ use the `academy-test` skill.
   `app.makeDue()` (as `screens.js` does) rather than with long UI sequences.
   Wait for what Angular draws after a key or a click (`waitForSelector`,
   `waitForFunction`); find buttons by role and name. Navigate via
-  `about:blank` to force a reload, and fail on page errors and errors the app
-  logged.
+  `about:blank` to force a reload, and fail on page errors, errors the app
+  logged and console warnings (`watch()`: a key with no string warns).
+- Every browser context comes from `newContext()` (`frontend/e2e/browser.js`):
+  locale `'en-GB'` unless a test asks for another, so the suites match English
+  words on a computer whose system language is Slovak. Signed-in sessions say
+  `en` in their token. A test that switches to Slovak switches back before the
+  suite goes on (the choice is kept in that browser).
+- The Slovak pass (`screens.js`, variants `sk-phone` and `sk-phone-dark`, 390 px,
+  locale `sk-SK`) checks every screen for `<html lang="sk">`, no text that is a
+  key (the owner pages list keys, and are let off), no English string of the
+  bundle whose Slovak differs outside `[lang=en]` / `[lang=ja]`, and no
+  overflow. The room (`npm run screens -- room`) measures the top bar's pieces
+  at 360–560 px in both languages; the kanji tab strip is checked on every
+  screen. Keep these checks when a screen is added.
+- The keyboard check (`run.js`): the chooser worked by keys on a review card and
+  on a paper's last question must change the language and nothing else — the
+  card unanswered, the paper still open, no attempt stored.
+- A finished kanji session stays on screen with a read-only answer box until
+  its saves land: a loop that answers cards stops at a read-only box.
 - `frontend/e2e/shots/` is generated output and safe to overwrite.
 - When suites or counts change, update `docs/kb/testing.md`.

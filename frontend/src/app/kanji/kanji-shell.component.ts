@@ -2,6 +2,10 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, OnI
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, ResolveFn, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
+import { ApiError, toApiError } from '../core/api/api.service';
+import { errorKey, errorParams } from '../core/i18n/error-text';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { TranslationService } from '../core/i18n/translation.service';
 import { KanjiScreenService, Overlay } from './kanji-screen.service';
 import { KanjiStateService } from './kanji-state.service';
 import { LessonBatchComponent } from './lesson-batch/lesson-batch.component';
@@ -11,23 +15,24 @@ import { SummaryComponent } from './summary/summary.component';
 
 /**
  * Before every screen of the section: the catalog (once) and fresh progress —
- * due counts move with the clock. '' when loaded, else why not.
+ * due counts move with the clock. Null when loaded, else the failure itself:
+ * the shell words it from its code, in the reader's language.
  */
-export const freshKanji: ResolveFn<string> = () =>
+export const freshKanji: ResolveFn<ApiError | null> = () =>
   inject(KanjiStateService)
     .load()
     .then(
-      () => '',
-      (e: unknown) => (e instanceof Error ? e.message : String(e)),
+      () => null,
+      (e: unknown) => toApiError(e),
     );
 
-/** The section's tabs: [address, data.nav, label]. */
+/** The section's tabs: [address, data.nav, the key of its name]. */
 const TABS: [string, string, string][] = [
-  ['/kanji', '', 'Dashboard'],
-  ['/kanji/lessons', 'lessons', 'Lessons'],
-  ['/kanji/reviews', 'reviews', 'Reviews'],
-  ['/kanji/practice', 'practice', 'Practice'],
-  ['/kanji/browse', 'browse', 'Browse'],
+  ['/kanji', '', 'kanji.tab.dashboard'],
+  ['/kanji/lessons', 'lessons', 'kanji.tab.lessons'],
+  ['/kanji/reviews', 'reviews', 'kanji.tab.reviews'],
+  ['/kanji/practice', 'practice', 'kanji.tab.practice'],
+  ['/kanji/browse', 'browse', 'kanji.tab.browse'],
 ];
 
 /**
@@ -40,7 +45,7 @@ const TABS: [string, string, string][] = [
  */
 @Component({
   selector: 'app-kanji-shell',
-  imports: [RouterLink, RouterOutlet, LessonBatchComponent, SessionComponent, SummaryComponent],
+  imports: [RouterLink, RouterOutlet, LessonBatchComponent, SessionComponent, SummaryComponent, TranslatePipe],
   templateUrl: './kanji-shell.component.html',
   styleUrl: './kanji-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,11 +56,13 @@ export class KanjiShellComponent implements OnInit {
   private readonly kanji = inject(KanjiStateService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly i18n = inject(TranslationService);
   readonly screen = inject(KanjiScreenService);
 
   readonly tabs = TABS;
   readonly ready = signal(false);
-  readonly loadError = signal('');
+  /** Why the kanji data could not be loaded, or null: the failure, never a sentence. */
+  readonly loadError = signal<ApiError | null>(null);
 
   ngOnInit(): void {
     this.settle();
@@ -99,10 +106,16 @@ export class KanjiShellComponent implements OnInit {
       return;
     }
     const data = child.snapshot.data;
-    this.loadError.set(String(data['fresh'] ?? ''));
+    const fresh: unknown = data['fresh'];
+    this.loadError.set(fresh instanceof ApiError ? fresh : null);
     this.screen.routeTab.set(String(data['nav'] ?? ''));
     this.screen.close();
     this.ready.set(true);
+  }
+
+  /** A failure in the app's own words (called from the template, so it follows the language). */
+  reason(error: ApiError): string {
+    return this.i18n.t(errorKey(error), errorParams(error));
   }
 
   /** A session is done and saved: its summary, unless the learner has moved on. */

@@ -22,10 +22,16 @@
 
 export type Verdict = 'correct' | 'wrong' | 'invalid';
 
+/**
+ * Why an answer was not taken as one. The page words it, in the reader's
+ * language, as `answer.check.<kind>` (declared in core/i18n/dynamic-keys.ts).
+ */
+export type CheckKind = 'readingEmpty' | 'readingUnfinished' | 'readingInKanji' | 'meaningNotEnglish' | 'meaningEmpty';
+
 export interface Check {
   verdict: Verdict;
-  /** an invalid answer: what to do instead */
-  message?: string;
+  /** an invalid answer: what was wrong with it, for the page to say what to do instead */
+  kind?: CheckKind;
   /** a meaning forgiven as a typo */
   close?: boolean;
   matched?: string;
@@ -89,16 +95,27 @@ const hasLatin = (s: string): boolean => /[a-z]/i.test(s);
 const hasKanji = (s: string): boolean => /[一-龯]/.test(s);
 const hasKana = (s: string): boolean => /[぀-ヿ]/.test(s);
 
+/**
+ * The language a piece of the learning material is in, for its `lang`
+ * attribute: Japanese when it holds kana or kanji, English otherwise. The
+ * material is never translated, so this holds whatever language the page is
+ * in — an exam option, a given answer, a word beside its meaning.
+ */
+export function materialLang(text: string | null | undefined): 'ja' | 'en' {
+  const s = String(text ?? '');
+  return hasKana(s) || hasKanji(s) ? 'ja' : 'en';
+}
+
 export function checkReading(answer: string, readings: string[]): Check {
   const a = canonReading(answer);
   if (!a) {
-    return { verdict: 'invalid', message: 'Type the reading first.' };
+    return { verdict: 'invalid', kind: 'readingEmpty' };
   }
   if (hasLatin(a)) {
-    return { verdict: 'invalid', message: 'Finish typing the reading in kana.' };
+    return { verdict: 'invalid', kind: 'readingUnfinished' };
   }
   if (hasKanji(a)) {
-    return { verdict: 'invalid', message: 'Type the reading in kana, not kanji.' };
+    return { verdict: 'invalid', kind: 'readingInKanji' };
   }
   for (const r of readings) {
     if (readingForms(r).has(a)) {
@@ -304,11 +321,11 @@ const tolerance = (len: number): number => (len <= 3 ? 0 : len <= 5 ? 1 : len <=
  */
 export function checkMeaning(answer: string, meanings: string[], knownCores?: Set<string> | null): Check {
   if (hasKana(answer) || hasKanji(answer)) {
-    return { verdict: 'invalid', message: 'We want the meaning in English.' };
+    return { verdict: 'invalid', kind: 'meaningNotEnglish' };
   }
   const a = core(answer);
   if (!a) {
-    return { verdict: 'invalid', message: 'Type the meaning first.' };
+    return { verdict: 'invalid', kind: 'meaningEmpty' };
   }
   const variants = meaningVariants(meanings);
   if (variants.has(a)) {

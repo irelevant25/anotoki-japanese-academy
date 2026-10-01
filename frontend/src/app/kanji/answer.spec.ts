@@ -2,7 +2,8 @@
 // the backend builds from data/ (scripts/catalog-fixture.mjs writes it before
 // every run).
 import fixture from '../../testing/catalog.fixture.json';
-import { checkMeaning, checkReading, knownCoresOf, meaningVariants, readingForms } from './answer';
+import { DYNAMIC_KEYS } from '../core/i18n/dynamic-keys';
+import { CheckKind, checkMeaning, checkReading, knownCoresOf, materialLang, meaningVariants, readingForms } from './answer';
 
 interface FixtureItem {
   id: string;
@@ -91,6 +92,72 @@ describe('reading', () => {
     for (const f of forms) {
       expect(checkReading(f, it.readings).verdict, f).toBe('correct');
     }
+  });
+});
+
+describe('an answer that is not one', () => {
+  it('says what was wrong with it as a kind, never as a sentence: the page words it in the reader’s language', () => {
+    const readings = item('v:大学').readings;
+    expect(checkReading('', readings)).toEqual({ verdict: 'invalid', kind: 'readingEmpty' });
+    expect(checkReading(' 、 ', readings), 'separators alone are nothing').toEqual({ verdict: 'invalid', kind: 'readingEmpty' });
+    expect(checkReading('だいgak', readings)).toEqual({ verdict: 'invalid', kind: 'readingUnfinished' });
+    expect(checkReading('大学', readings)).toEqual({ verdict: 'invalid', kind: 'readingInKanji' });
+
+    const meanings = item('k:食').meanings;
+    expect(checkMeaning('たべる', meanings, known)).toEqual({ verdict: 'invalid', kind: 'meaningNotEnglish' });
+    expect(checkMeaning('食', meanings, known)).toEqual({ verdict: 'invalid', kind: 'meaningNotEnglish' });
+    expect(checkMeaning('  ', meanings, known)).toEqual({ verdict: 'invalid', kind: 'meaningEmpty' });
+    expect(checkMeaning('?!', meanings, known), 'punctuation alone is nothing').toEqual({ verdict: 'invalid', kind: 'meaningEmpty' });
+  });
+
+  it('gives a kind only to an invalid answer', () => {
+    expect(checkReading('しょく', item('k:食').readings).kind).toBeUndefined();
+    expect(checkReading('たいがく', item('v:大学').readings)).toEqual({ verdict: 'wrong' });
+    expect(checkMeaning('eat', item('k:食').meanings, known)).toEqual({ verdict: 'correct' });
+    expect(checkMeaning('drink', item('k:食').meanings, known)).toEqual({ verdict: 'wrong' });
+  });
+
+  it('has exactly the kinds the app has words for (answer.check. in dynamic-keys.ts)', () => {
+    const kinds: Record<CheckKind, true> = {
+      readingEmpty: true,
+      readingUnfinished: true,
+      readingInKanji: true,
+      meaningNotEnglish: true,
+      meaningEmpty: true,
+    };
+    expect([...DYNAMIC_KEYS['answer.check.']].sort()).toEqual(Object.keys(kinds).sort());
+  });
+});
+
+describe('materialLang', () => {
+  it('is Japanese for anything with kana or kanji in it', () => {
+    expect(materialLang('たべる')).toBe('ja');
+    expect(materialLang('タクシー')).toBe('ja');
+    expect(materialLang('食')).toBe('ja');
+    expect(materialLang('大学に行く'), 'kanji and kana').toBe('ja');
+    expect(materialLang('お土産 (souvenir)'), 'Japanese with a gloss beside it').toBe('ja');
+    expect(materialLang('Aさん'), 'one kana is enough').toBe('ja');
+    expect(materialLang('ー'), 'the long-vowel mark is kana').toBe('ja');
+  });
+
+  it('is English for everything else, the page’s language aside', () => {
+    expect(materialLang('to eat')).toBe('en');
+    expect(materialLang('u-verb')).toBe('en');
+    expect(materialLang('300')).toBe('en');
+    expect(materialLang('10:30 a.m.')).toBe('en');
+    expect(materialLang('')).toBe('en');
+    expect(materialLang(null)).toBe('en');
+    expect(materialLang(undefined)).toBe('en');
+  });
+
+  it('calls every item’s characters and readings Japanese, and every typeable meaning English', () => {
+    for (const it of items as (FixtureItem & { chars: string })[]) {
+      expect(materialLang(it.chars), `${it.id} chars`).toBe('ja');
+      for (const r of it.readings) {
+        expect(materialLang(r), `${it.id} ${r}`).toBe('ja');
+      }
+    }
+    expect(materialLang(item('k:食').meanings[0])).toBe('en');
   });
 });
 

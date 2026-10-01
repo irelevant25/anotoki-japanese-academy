@@ -4,8 +4,15 @@
  *            moved) → practice (+ "My answer was right") → item page → browse
  *   exam     a 40-question listening paper, answered and finished with the
  *            keys, scored (once, though Enter came twice), reported
+ *            and on a review card and on a paper's last question, the
+ *            language chooser worked with the keys changes the language and
+ *            nothing else (no answer, no attempt stored)
  *   the app  moving between its sections loads no page; the version at the
  *            foot opens what's new
+ *   owner    ?lang=sk holds for its tab; the Translations page refuses a
+ *            string beside its key and asks (a modal <dialog>) before
+ *            unsaved strings are left, Escape being "no"; a language added
+ *            on the Languages page comes in hidden
  *   sign-in  (auth mode iam, against the test IAM, answered in the browser)
  *            signed out → Sign in → back signed in, with only their own data;
  *            the progress download and a report, fetched with the token, which
@@ -13,8 +20,8 @@
  *            starts the app there, and somebody else's after it loads the
  *            page again, as them
  *
- * The first three run without sign-in (auth mode none), as on the owner's
- * computer. Runs the real server, serving the production build of the app,
+ * The first four run without sign-in (auth mode none), as on the owner's
+ * computer, in a browser whose language is English (newContext()). Runs the real server, serving the production build of the app,
  * against a throwaway database — your own database and backups are never
  * touched.   npm run test:browser
  */
@@ -24,7 +31,7 @@ const { isolate, startApp, closeAll, iamSession, FRONTEND } = require('./helpers
 isolate('academy-browser'); // before the server starts: a throwaway database
 
 const wk = require('wanakana');
-const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
+const { launch, newContext, watch, reporter, emulateIam, SHOTS } = require('./browser');
 
 (async () => {
   const app = await startApp();
@@ -36,7 +43,7 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
   const byChars = {};
   for (const it of cat.items) (byChars[it.chars] = byChars[it.chars] || []).push(it);
 
-  const page = await (await browser.newContext({ viewport: { width: 1100, height: 860 } })).newPage();
+  const page = await (await newContext(browser, { viewport: { width: 1100, height: 860 } })).newPage();
   // /learn and /review may answer 409 by design (e.g. a double submit)
   const errors = watch(page, { ignore: [/\/api\/kanji\/(learn|review)/] });
   const shot = (name, fullPage = false) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
@@ -65,7 +72,10 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(100);
   };
-  const inSession = async () => (await page.$('.session')) !== null;
+  // A finished session stays on the screen, its box read-only, until its saves
+  // have landed and the summary comes: over once its box is read-only after
+  // next() (an answered card's box is too, but next() has moved on from it).
+  const inSession = async () => (await page.$('.session .s-input:not([readonly])')) !== null;
   // Angular draws what a key or click changed a moment later, not during the
   // event: wait for it (true), or for 3 s (false).
   const until = (selector, state = 'visible') => page.waitForSelector(selector, { state, timeout: 3000 }).then(() => true, () => false);
@@ -75,6 +85,23 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
   const open = async (url) => {
     await page.goto('about:blank');
     await page.goto(app.base + url);
+  };
+  // The language chooser, worked with the keys alone: Enter opens it, ↓ goes to
+  // the language after the one in use, Enter chooses it. Its keys stay its own:
+  // the session and the paper listen for Enter on the whole page. True once the
+  // page is in Slovak.
+  const chooseByKeys = async () => {
+    await page.focus('#langmenu summary');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    return page.waitForFunction(() => document.documentElement.lang === 'sk', null, { timeout: 5000 }).then(() => true, () => false);
+  };
+  // and back to English with the mouse: the choice is kept in this browser
+  const backToEnglish = async () => {
+    await page.click('#langmenu summary');
+    await page.click('#langmenu button[lang="en"]');
+    await page.waitForFunction(() => document.documentElement.lang === 'en', null, { timeout: 5000 });
   };
 
   /* ---------------------------------------------------------- lessons */
@@ -132,6 +159,14 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
   let missedChars = null;
   while ((await inSession()) && n < 40) {
     const c = await card();
+    if (n === 0) {
+      const english = (await page.getAttribute('html', 'lang')) === 'en';
+      const switched = await chooseByKeys();
+      ck('the chooser by keys, on a review card: Enter, ↓, Enter changes the language', english && switched);
+      const cls = await page.$eval('.session', (el) => el.className);
+      ck('and the card is still unanswered', !/is-(wrong|correct)/.test(cls) && (await page.inputValue('.s-input')) === '' && (await card()).chars === c.chars, cls);
+      await backToEnglish();
+    }
     const r = await answer({ wrong: !missedChars && c.part === 'reading' });
     if (!missedChars && c.part === 'reading') missedChars = r.chars;
     if (n === 0) {
@@ -250,6 +285,16 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
   ck('F flags the question', flagged.length === 1 && flagged[0] === String(total - 1) && (await page.isChecked('#flagBox')), flagged.join(','));
   await page.keyboard.press('ArrowRight');
   ck('→ moves on', await untilText('#counter', `${total} / ${total}`));
+  // On the last question Enter hands the paper in: not from the chooser
+  const stored = () => Number(app.sql('SELECT count(*) AS n FROM exam_attempts')[0].n);
+  const storedBefore = stored();
+  const switchedOnPaper = await chooseByKeys();
+  ck('the chooser by keys, on the last question: the language changed', switchedOnPaper);
+  ck('and the paper is still open, with no attempt stored',
+    (await page.isVisible('#test')) && !(await page.isVisible('#result')) && (await page.textContent('#counter')).trim() === `${total} / ${total}` && stored() === storedBefore,
+    `stored: ${stored()} (before: ${storedBefore})`);
+  await backToEnglish();
+  await page.evaluate(() => document.activeElement && document.activeElement.blur()); // the paper's keys again
   await page.keyboard.press('Enter'); // the last question: Enter finishes
   await page.keyboard.press('Enter'); // and again while it is being scored: nothing more
   await page.waitForSelector('#result:not([hidden])', { timeout: 15000 });
@@ -298,11 +343,67 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
 
   ck('no browser errors', errors.length === 0, errors.join(' | '));
 
+  /* -------------------------------------- ?lang= and the owner's pages */
+  console.log('?lang= and the owner’s pages');
+  const ownerContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  const owner = await ownerContext.newPage();
+  // a string is refused on purpose below (422)
+  const ownerErrors = watch(owner, { ignore: [/\/api\/owner\/translations$/] });
+  await owner.goto(app.base + '/?lang=sk');
+  await owner.waitForSelector('.homecards');
+  ck('?lang=sk: the page is Slovak, and the parameter leaves the address',
+    (await owner.getAttribute('html', 'lang')) === 'sk' && !new URL(owner.url()).searchParams.has('lang'), owner.url());
+  const otherTab = await ownerContext.newPage();
+  await otherTab.goto(app.base + '/');
+  await otherTab.waitForSelector('.homecards');
+  ck('for that tab only: another one follows the browser, in English', (await otherTab.getAttribute('html', 'lang')) === 'en');
+  await otherTab.close();
+
+  await owner.click('#ownerTranslations'); // the owner's link at the foot of the home page
+  await owner.waitForSelector('table.grid');
+  ck('the Translations page is English on a Slovak page', (await owner.getAttribute('main', 'lang')) === 'en' && (await owner.textContent('h1')).trim() === 'Translations');
+  await owner.fill('input[type=search]', 'common.lesson');
+  const lessonCell = owner.locator('textarea[aria-label="Slovak: common.lesson"]');
+  await lessonCell.fill('Lekcia {x}');
+  await owner.click('.save-bar button.primary');
+  const refusal = owner.locator('tr.row:has(code.key-name:text-is("common.lesson")) td.key .err');
+  const refusedText = await refusal.textContent({ timeout: 5000 }).catch(() => '');
+  ck('a refused string: the reason stands beside its key', /^Nothing was saved\. .*\{x\}/.test(refusedText), refusedText);
+
+  await owner.click('nav.crumbs a[href="/languages"]');
+  const leaveAsked = await owner.waitForSelector('dialog.confirm[open]', { timeout: 3000 }).then(() => true, () => false);
+  const words = leaveAsked ? { title: await owner.textContent('#confirm-title'), message: await owner.textContent('#confirm-message') } : {};
+  ck('leaving with a string not saved asks, in a modal <dialog>, with its words',
+    leaveAsked && (await owner.$eval('dialog.confirm', (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
+    JSON.stringify(words));
+  await owner.keyboard.press('Escape');
+  const closed = await owner.waitForSelector('dialog.confirm[open]', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
+  ck('Escape counts as "no": the page and the string stay',
+    closed && new URL(owner.url()).pathname === '/translations' && (await lessonCell.inputValue()) === 'Lekcia {x}', owner.url());
+  await owner.click('nav.crumbs a[href="/languages"]');
+  await owner.waitForSelector('dialog.confirm[open]');
+  await owner.click('dialog.confirm[open] button.primary');
+  await owner.waitForSelector('section.add form');
+  ck('and "Leave" leaves', new URL(owner.url()).pathname === '/languages', owner.url());
+
+  await owner.fill('section.add .field.code input', 'cs');
+  await owner.fill('section.add input[placeholder="Czech"]', 'Czech');
+  await owner.fill('section.add input[placeholder="Čeština"]', 'Čeština');
+  ck('a new language is not offered unless ticked', !(await owner.isChecked('section.add .offered input')));
+  await owner.click('section.add button[type=submit]');
+  const added = await owner.waitForSelector('li.language[data-code="cs"]', { timeout: 5000 }).then(() => true, () => false);
+  const offered = (await (await fetch(app.base + '/api/translations/en')).json()).languages.map((l) => l.code);
+  ck('a new language comes in hidden: marked so, and not offered',
+    added && (await owner.$eval('li.language[data-code="cs"]', (li) => li.classList.contains('is-hidden') && [...li.querySelectorAll('.tag')].some((tag) => tag.textContent.trim() === 'hidden')))
+      && !offered.includes('cs') && offered.includes('sk'), offered.join(','));
+  ck('no browser errors on the owner’s pages', ownerErrors.length === 0, ownerErrors.join(' | '));
+  await ownerContext.close();
+
   /* ---------------------------------------------- sign-in (auth mode iam) */
   console.log('sign-in (auth mode iam)');
   const site = await startApp({ auth: 'iam' });
   const ada = { sub: 4201, name: 'ada', roles: ['MEMBER'] };
-  const context = await browser.newContext({ viewport: { width: 1100, height: 860 }, acceptDownloads: true });
+  const context = await newContext(browser, { viewport: { width: 1100, height: 860 }, acceptDownloads: true });
   const asked = await emulateIam(context, ada);
   // every request of hers, and whether it carried a token
   const sent = [];
@@ -348,7 +449,7 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
     const part = await signed.$eval('.s-q', (el) => (el.classList.contains('reading') ? 'reading' : 'meaning'));
     return { part, it: (byChars[chars] || []).find((x) => x.type === (isKanji ? 'kanji' : 'vocab')) };
   };
-  for (let n = 0; (await signed.$('.session')) !== null && n < 30; n++) {
+  for (let n = 0; (await signed.$('.session .s-input:not([readonly])')) !== null && n < 30; n++) {
     const c = await signedCard();
     await signed.click('.s-input');
     await signed.keyboard.type(c.part === 'meaning' ? c.it.meanings[0].replace(/\(.*?\)/g, '').trim() : wk.toRomaji(c.it.readings[0]), { delay: 5 });
@@ -401,19 +502,21 @@ const { launch, watch, reporter, emulateIam, SHOTS } = require('./browser');
     await tab.close();
   }
 
-  // The token went with every call to this site's API, and nowhere else.
+  // The token went with every call to this site's API, and nowhere else: not
+  // with the app's words either (/api/translations/, the same for everybody).
   const requests = await Promise.all(sent);
-  const api = requests.filter((r) => r.url.startsWith(`${site.base}/api/`) && !r.url.startsWith(`${site.base}/api/auth/config`));
-  const elsewhere = requests.filter((r) => !r.url.startsWith(`${site.base}/api/`) && !r.url.startsWith(`${site.base}/report/`));
+  const ofWords = (r) => r.url.startsWith(`${site.base}/api/translations/`);
+  const api = requests.filter((r) => r.url.startsWith(`${site.base}/api/`) && !r.url.startsWith(`${site.base}/api/auth/config`) && !ofWords(r));
+  const elsewhere = requests.filter((r) => ofWords(r) || (!r.url.startsWith(`${site.base}/api/`) && !r.url.startsWith(`${site.base}/report/`)));
   ck('her token went with every call to the API', api.length > 5 && api.every((r) => r.bearer), `${api.filter((r) => !r.bearer).map((r) => r.url).join(' ')}`);
-  ck('and nowhere else: not to the IAM, not with the app’s own files',
+  ck('and nowhere else: not to the IAM, not with the app’s own files or words',
     elsewhere.length > 0 && !elsewhere.some((r) => r.bearer) && !asked.some((a) => a.endsWith('+bearer')),
     elsewhere.filter((r) => r.bearer).map((r) => r.url).join(' '));
 
   await signed.click('#usermenu summary');
-  ck('the menu: her IAM account page', (await signed.getAttribute('.umenu a', 'href')) === 'https://iam.test/account');
+  ck('the menu: her IAM account page', (await signed.getAttribute('#usermenu .umenu a', 'href')) === 'https://iam.test/account');
   await signed.screenshot({ path: path.join(SHOTS, 'account-menu.png') });
-  await signed.click('.umenu button');
+  await signed.click('#usermenu .umenu button'); // Sign out (the language chooser's menu is a .umenu too)
   await signed.waitForSelector('#signin-button', { timeout: 10000 });
   ck('Sign out: through the IAM, and back to the Sign in page', asked.includes('GET /api/oidc/logout') && new URL(signed.url()).pathname === '/');
   ck('and the tokens are gone from the browser', (await signed.evaluate(() => localStorage.getItem('anotoki-auth:japanese-academy'))) === null);

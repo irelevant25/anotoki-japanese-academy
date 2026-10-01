@@ -1,9 +1,9 @@
 <main class="wrap signin" id="signin">
   <section class="panel">
     <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
-    <p class="err" role="alert">{{ auth.problem() }}</p>
+    <p class="err" role="alert">{{ said() }}@if (detail(); as detail) {<span class="detail" lang="en">{{ detail }}</span>}</p>
     <div class="actions">
-      <button class="ghost" type="button" (click)="retry()">Try again</button>
+      <button class="ghost" type="button" (click)="retry()">{{ tryAgain() }}</button>
     </div>
   </section>
 </main>

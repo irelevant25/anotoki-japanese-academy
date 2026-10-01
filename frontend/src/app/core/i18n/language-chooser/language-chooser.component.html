@@ -1,0 +1,15 @@
+@if (i18n.languages().length > 1) {
+  <details class="langmenu" id="langmenu" #menu (keydown)="keys($event)">
+    <summary [attr.aria-label]="label()" [title]="label()" [attr.aria-busy]="switching() ? 'true' : null">{{ code() }}</summary>
+    <div class="umenu">
+      @for (offered of i18n.languages(); track offered.code) {
+        <button type="button" [attr.lang]="offered.code" [attr.aria-current]="offered.code === i18n.language() ? 'true' : null" (click)="choose(offered.code)">
+          {{ offered.nativeName }}
+        </button>
+      }
+      @if (failed()) {
+        <p class="err" role="alert">{{ 'language.notLoaded' | translate }}</p>
+      }
+    </div>
+  </details>
+}

@@ -30,16 +30,21 @@ The caller tells you what changed. Then:
    first when its sources changed). It covers the whole flow without sign-in:
    lessons, typed answers, reviews and the F key, practice, the nav links at
    the end of a session, the item page, browse, the exam with its keys, moving
-   between sections without a page load, the changelog; then with sign-in: the
+   between sections without a page load, the changelog, the language chooser
+   worked by keys on a review card and a paper's last question, the owner's
+   Translations and Languages pages; then with sign-in: the
    Sign in page, signing in, a lesson, the progress download, a report opened
    with the token, the token going nowhere but the API, the account menu,
-   signing out. Note every failure, page error and error the app logged.
+   signing out. Note every failure, page error and error or warning the app
+   logged (a key with no string warns).
 2. If the setup page or the "not set up" page may be affected, run
    `npm run test:setup`.
 3. Run `npm run screens`, for all screens or with a filter that covers every
-   screen the change touches. Note any overflow or errors it reports.
+   screen the change touches. Note any overflow or errors it reports, and the
+   Slovak pass's (a key on a page, English left on a Slovak page) and the
+   room's (the top bar at 360–560 px).
 4. With the Read tool, open the screenshots of every affected screen in all
-   three variants (light, dark, phone). Go through the `academy-ui-check`
+   five variants (light, dark, phone, sk-phone, sk-phone-dark). Go through the `academy-ui-check`
    checklist. Also look at the phone and dark shots of the other screens,
    because global styles (`frontend/src/styles/`) spread. A full-page phone
    shot is tall: crop its top to see the nav (for example with `sharp` from

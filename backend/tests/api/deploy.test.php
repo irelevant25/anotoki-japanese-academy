@@ -6,8 +6,9 @@
 // with a database and a PostgreSQL user of its own, as a hosting panel makes
 // them; signed into with the test IAM's tokens; and later uploads: a new
 // migration, which the next request applies once it is all there; one that
-// fails; and the setup page run again on purpose. (The setup page on the
-// owner's own computer is tests/api/setup.test.php's.)
+// fails; the setup page run again on purpose; and the update that brings the
+// app's own words, while its migration (004) is still arriving. (The setup
+// page on the owner's own computer is tests/api/setup.test.php's.)
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -95,6 +96,8 @@ test('the build: what a site needs, and nothing else', function (): void {
     $needed = ['public/index.html', 'public/main-TESTAPP1.js', 'public/changelog.json', 'public/index.php', 'public/.htaccess',
         'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php',
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
+        // the app's own words: the code that serves them, and the migration that holds them
+        'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/owner.php', 'backend/migrations/004_languages_and_translations.sql',
         'backend/composer.lock', 'data/vocab.json', 'data/audio.json', 'backend/.htaccess', 'backend/storage/.htaccess', 'data/.htaccess', 'backups/.htaccess'];
     foreach ($needed as $file) {
         assert_true(is_file("$dir/$file"), $file);
@@ -115,9 +118,18 @@ test('the build: what a site needs, and nothing else', function (): void {
     sort($built);
     assert_same($rest, $built, 'the list is what gets built');
 
-    $never = '~^(tests|tools|docs|books|progress|results|reports|node_modules|\.claude|temp|frontend|src)/|^backend/(tests|tools|public)/|^backend/(server|manage)\.php$'
+    $never = '~^(tests|tools|docs|books|progress|results|reports|node_modules|\.claude|temp|frontend|src)/|^backend/(tests|tools|public)/|^backend/(server|manage|translations)\.php$'
         . '|\.local\.php$|(^|/)\.env$|^data/source/|^backups/.+\.json$|^backend/storage/(?!\.htaccess$)~';
     assert_same([], array_values(array_filter($full, static fn (string $f): bool => (bool) preg_match($never, $f))), 'none of these');
+    // The command line's tools need a shell and the whole repository: the strings' (backend/translations.php,
+    // with the key scan in backend/tools/) stay on the developer's computer, as server.php and manage.php do.
+    assert_true(is_file(BACKEND . '/translations.php') && is_file(BACKEND . '/tools/translation_keys.php'), 'they are there to leave out');
+    assert_true((bool) preg_match($never, 'backend/translations.php'));
+    assert_true(str_contains((string) file_get_contents(BACKEND . '/tools/build-dist.php'), '|^backend/(server|manage|translations)\.php$'), 'the build\'s own list (DIST_NEVER) names it too');
+    foreach (['backend/translations.php', 'backend/tools/translation_keys.php'] as $tool) {
+        assert_false(in_array($tool, $full, true) || in_array($tool, $all, true) || is_file("$dir/$tool"), "$tool is never uploaded");
+    }
+    assert_true(in_array('backend/src/translations.php', $full, true) && in_array('backend/api/routes/translations.php', $full, true), 'what serves the words is');
     foreach (['backend', 'backend/storage', 'data', 'backups'] as $folder) {
         assert_match('/Require all denied/', (string) file_get_contents("$dir/$folder/.htaccess"), "$folder/ is never served");
     }
@@ -182,6 +194,8 @@ test('the token: written whole, and no form passes without it, whatever the file
 test('the setup page: proof of owning the server first', function (): void {
     // put in the site's backups/ by FTP (for one bigger than the host takes in a form)
     copy(owner_backup(), site()['dir'] . '/backups/academy-2026-09-25.json');
+    // beside it, what deleting a language leaves there: its strings, which are nobody's study data to import
+    file_put_contents(site()['dir'] . '/backups/academy-before-language-delete-de-20260925-101500-000.json', "{\n    \"home.title\": \"Übersicht\"\n}\n");
     $page = site_call('GET', '/setup.php');
     assert_same(200, $page['status']);
     assert_match('/Set up Japanese Academy/', $page['raw']);
@@ -223,7 +237,7 @@ test('the setup page: proof of owning the server first', function (): void {
     assert_same(['ok' => false, 'message' => 'That is not the token from backend/config/setup-token.local.php.'], $r['body']);
     $r = test_form(site()['base'], '/setup.php', setup_form(['action' => 'test-token']), WEBSITE);
     assert_same(true, $r['body']['ok'] ?? null, $r['raw']);
-    assert_same(['academy-2026-09-25.json'], $r['body']['backups'] ?? null, 'a backup put in backups/ by FTP can be chosen');
+    assert_same(['academy-2026-09-25.json'], $r['body']['backups'] ?? null, 'a backup put in backups/ by FTP can be chosen; the strings of a deleted language are no backup to choose');
     assert_same([], (array) ($r['body']['saved'] ?? null), 'nothing is set yet');
 });
 
@@ -232,7 +246,7 @@ test('the setup page sets the site up: settings, tables, study content, and the 
     $r = test_form(site()['base'], '/setup.php', setup_form(['auth_mode' => 'none', 'backup' => new CURLFile(owner_backup(), 'application/json', 'academy-2026-09-26.json')]), WEBSITE);
     assert_same(200, $r['status']);
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_match('/Applied the migrations: 001_init\.sql, 002_users\.sql, 003_content_stamp\.sql/', $r['raw']);
+    assert_match('/Applied the migrations: 001_init\.sql, 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql\./', $r['raw']);
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_match('/Imported your data into user 42: 2 kanji items, 1 day, 2 answers, 1 exam attempt\./', $r['raw']);
     assert_match('/Built the study content: 1,373 kanji items and \d{1,3}(,\d{3})+ exam questions/', $r['raw'], 'counts as the app writes them');
@@ -250,7 +264,7 @@ test('the setup page sets the site up: settings, tables, study content, and the 
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'the setup page is gone');
     assert_false(is_file("$config/setup-token.local.php"), 'and its token');
 
-    assert_same(['001_init.sql', '002_users.sql', '003_content_stamp.sql'], array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'));
+    assert_same(['001_init.sql', '002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql'], array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'));
     assert_same(site()['role'], db_value("SELECT tableowner FROM pg_tables WHERE tablename = 'srs_progress'"), 'made by the site’s own user');
     assert_same(1373, (int) db_value('SELECT count(*) FROM srs_items'));
     $items = array_keys(store_items(OWNER_AT_IAM));
@@ -303,17 +317,17 @@ function applied(string $migration): bool
 }
 
 test('a later upload with a new migration: waited for while it is half there, then applied, after a raw copy of every table', function (): void {
-    $file = site()['dir'] . '/backend/migrations/004_test_upload.sql';
+    $file = site()['dir'] . '/backend/migrations/901_test_upload.sql';
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
     file_put_contents($file, "CREATE TABLE academy_test_upload (id int);\n"); // the rest still on its way
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status'], 'the site goes on meanwhile');
-    assert_false(applied('004_test_upload.sql'), 'without its last line it may be half of it: not applied');
+    assert_false(applied('901_test_upload.sql'), 'without its last line it may be half of it: not applied');
     assert_same(null, db_value("SELECT to_regclass('academy_test_upload')"));
     assert_same([], raw_copies(), 'nor any copy taken for it yet');
 
-    file_put_contents($file, "-- end of 004\n", FILE_APPEND); // the rest arrives
+    file_put_contents($file, "-- end of 901\n", FILE_APPEND); // the rest arrives
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
-    assert_true(applied('004_test_upload.sql'), 'applied');
+    assert_true(applied('901_test_upload.sql'), 'applied');
     assert_true((bool) db_value("SELECT to_regclass('academy_test_upload') IS NOT NULL"));
     assert_same(1, count(raw_copies()), 'a copy of every table first');
     $stamp = db_value('SELECT stamp FROM content_state');
@@ -323,30 +337,36 @@ test('a later upload with a new migration: waited for while it is half there, th
 });
 
 test('a migration that fails: every request says so, one copy is taken for one upload however often it is tried, and the fixed file then applies', function (): void {
-    $file = site()['dir'] . '/backend/migrations/005_test_broken.sql';
+    $file = site()['dir'] . '/backend/migrations/902_test_broken.sql';
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
-    file_put_contents($file, "INSERT INTO academy_test_nowhere VALUES (1);\n-- end of 005\n");
+    file_put_contents($file, "INSERT INTO academy_test_nowhere VALUES (1);\n-- end of 902\n");
     foreach ([1, 2, 3] as $try) {
         $r = site_call('GET', '/api/kanji/summary', null, $owner);
         assert_same(503, $r['status'], "try $try");
-        assert_match('/could not be brought up to date with the upload: backend\/migrations\/005_test_broken\.sql: .*academy_test_nowhere/',
+        assert_match('/could not be brought up to date with the upload: backend\/migrations\/902_test_broken\.sql: .*academy_test_nowhere/',
             (string) ($r['body']['error'] ?? ''), "try $try: which migration, and why");
+        assert_same('not_up_to_date', $r['body']['code'] ?? null, "try $try: the code a page words it from");
+        // The tests serve the site with PHP's built-in server, so it answers as the owner's computer does:
+        // the reason once more as "detail", for a page to show after its own words. A website gives
+        // neither (tests/api/errors.test.php).
+        assert_match('/academy_test_nowhere/', (string) ($r['body']['detail'] ?? ''), "try $try: the reason by itself");
+        assert_same('The database could not be brought up to date with the upload: ' . $r['body']['detail'], $r['body']['error'], "try $try: the sentence, as it always was");
     }
-    assert_false(applied('005_test_broken.sql'));
+    assert_false(applied('902_test_broken.sql'));
     assert_same(2, count(raw_copies()), 'one copy for it: each try rolled back, so the first copy is still what is there');
 
     // Taken out again, the site is used as before; put back, it gets a copy of its own.
     unlink($file);
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
-    file_put_contents($file, "INSERT INTO academy_test_nowhere VALUES (1, 2);\n-- end of 005\n");
+    file_put_contents($file, "INSERT INTO academy_test_nowhere VALUES (1, 2);\n-- end of 902\n");
     assert_same(503, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
     assert_same(3, count(raw_copies()), 'the tables may have changed in between');
 
-    file_put_contents($file, "CREATE TABLE academy_test_fixed (id int);\n-- end of 005\n");
+    file_put_contents($file, "CREATE TABLE academy_test_fixed (id int);\n-- end of 902\n");
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
-    assert_true(applied('005_test_broken.sql'));
+    assert_true(applied('902_test_broken.sql'));
     assert_same(4, count(raw_copies()), 'the fixed file is another upload: a copy right before it applies');
-    assert_match('/\[upkeep\] a migration failed: backend\/migrations\/005_test_broken\.sql: .*academy_test_nowhere/', (string) file_get_contents(site()['log']),
+    assert_match('/\[upkeep\] a migration failed: backend\/migrations\/902_test_broken\.sql: .*academy_test_nowhere/', (string) file_get_contents(site()['log']),
         'the site’s log says which failed, and why');
 });
 
@@ -371,13 +391,13 @@ test('the setup page, run again on purpose after a newer upload: a raw copy of e
     assert_same(true, $r['body']['passwordSaved'] ?? null);
     assert_false(str_contains($r['raw'], site()['password']), 'never the password');
     assert_same($backups, $r['body']['backups'] ?? null, 'and the backups to choose from');
-    file_put_contents(site()['dir'] . '/backend/migrations/006_test_reinstall.sql', "CREATE TABLE academy_test_reinstall (id int);\n-- end of 006\n");
+    file_put_contents(site()['dir'] . '/backend/migrations/903_test_reinstall.sql', "CREATE TABLE academy_test_reinstall (id int);\n-- end of 903\n");
     $r = test_form(site()['base'], '/setup.php', setup_form(), WEBSITE);
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
     assert_match('/Backup before the update: backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw']);
-    assert_match('/Applied the migrations: 006_test_reinstall\.sql\./', $r['raw']);
+    assert_match('/Applied the migrations: 903_test_reinstall\.sql\./', $r['raw']);
     assert_same(5, count(raw_copies()));
-    assert_true(applied('006_test_reinstall.sql'));
+    assert_true(applied('903_test_reinstall.sql'));
     assert_true(is_file(site()['dir'] . '/backend/storage/installed.lock'), 'locked again');
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'and gone again');
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
@@ -386,4 +406,62 @@ test('the setup page, run again on purpose after a newer upload: a raw copy of e
     $since = substr((string) file_get_contents(site()['log']), (int) (site()['log_from'] ?? 0));
     $problems = array_filter(preg_split('/\R/', $since), static fn (string $l): bool => (bool) preg_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|Uncaught/i', $l));
     assert_same([], array_values($problems), 'no PHP warnings or errors on the site once it was set up');
+});
+
+test('the update that brings the app’s own words, while migration 004 has not arrived whole: their address says 503 not_up_to_date, nothing is logged, and the rest of the site goes on', function (): void {
+    // The site as it was before this version: its database without 004's tables, and the file itself short
+    // of its last line, as FTP leaves it half-way. (Only a site's copy may hold a migration that is not whole:
+    // no test writes into backend/migrations.)
+    $name = '004_languages_and_translations.sql';
+    $file = site()['dir'] . "/backend/migrations/$name";
+    $whole = (string) file_get_contents($file);
+    $lines = preg_split('/\R/', rtrim($whole));
+    assert_same('-- end of 004', array_pop($lines));
+    db_tx(static function () use ($name): void {
+        db()->exec('DROP TABLE translations, translation_keys, languages');
+        db_exec('DELETE FROM migrations WHERE name = ?', [$name]);
+    });
+    file_put_contents($file, implode("\n", $lines) . "\n");
+    clearstatcache();
+    $logged = (int) filesize(site()['log']);
+    $copies = count(raw_copies());
+    $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
+
+    foreach (['/api/translations/en', '/api/translations/sk', '/api/translations/sk-sk'] as $url) {
+        $r = site_call('GET', $url);
+        assert_same([503, ['error' => TRANSLATIONS_NOT_READY, 'code' => 'not_up_to_date']], [$r['status'], $r['body']], "$url: the page puts up its problem page, not a page of keys");
+    }
+    assert_same(503, site_call('GET', '/api/translations/sk', null, $owner)['status'], 'signed in or not');
+    foreach (['GET /api/owner/languages', 'GET /api/owner/translations', 'PUT /api/owner/translations', 'DELETE /api/owner/languages/sk'] as $route) {
+        [$method, $url] = explode(' ', $route);
+        $r = site_call($method, $url, $method === 'PUT' ? ['values' => new stdClass()] : null, $owner);
+        assert_same([503, 'not_up_to_date'], [$r['status'], $r['body']['code'] ?? null], "$route: the owner's addresses say the same");
+    }
+    assert_false(applied($name), 'without its last line it may be half of it: not applied');
+    assert_same(null, db_value("SELECT to_regclass('translations')"));
+    assert_same($copies, count(raw_copies()), 'nor any copy taken for it yet');
+
+    // Everything else answers as before: people study on while the upload goes on.
+    assert_same(['mode' => 'iam', 'issuer' => 'https://iam.test', 'clientId' => 'japanese-academy'], site_call('GET', '/api/auth/config')['body']);
+    assert_same(true, site_call('GET', '/api/health')['body']['ok'] ?? null);
+    assert_same(4, site_call('GET', '/api/kanji/progress', null, $owner)['body']['items']['k:大']['stage'] ?? null, 'the owner’s data as it was');
+    assert_same(200, site_call('GET', '/api/meta', null, $owner)['status']);
+    assert_same(401, site_call('GET', '/api/kanji/summary')['status']);
+    assert_false(array_key_exists('translations', backup_data()), 'and a backup of everybody holds no words while there are none to hold');
+    clearstatcache();
+    $since = substr((string) file_get_contents(site()['log']), $logged);
+    assert_no_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|\[upkeep\]|Uncaught/i', $since, 'nothing was logged: a query on the missing table would be a [db] line for every page load');
+
+    // The rest of the file arrives: the very next request applies it (after a raw copy of every table), and answers.
+    file_put_contents($file, $whole);
+    $r = site_call('GET', '/api/translations/sk');
+    assert_same([200, 'sk', ['en', 'sk']], [$r['status'], $r['body']['language'] ?? null, array_column($r['body']['languages'] ?? [], 'code')], 'the words, with the page\'s first request');
+    assert_true(applied($name), 'applied');
+    assert_same($copies + 1, count(raw_copies()), 'a copy of every table first');
+    assert_same(['en', 'sk'], array_column(site_call('GET', '/api/owner/languages', null, $owner)['body']['languages'] ?? [], 'code'));
+    assert_same(site()['role'], db_value("SELECT tableowner FROM pg_tables WHERE tablename = 'translations'"), 'made by the site’s own user');
+    assert_same(4, site_call('GET', '/api/kanji/progress', null, $owner)['body']['items']['k:大']['stage'] ?? null);
+    assert_true(array_key_exists('translations', backup_data()), 'and from now on a backup holds them');
+    clearstatcache();
+    assert_no_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|\[upkeep\]|Uncaught/i', substr((string) file_get_contents(site()['log']), $logged));
 });

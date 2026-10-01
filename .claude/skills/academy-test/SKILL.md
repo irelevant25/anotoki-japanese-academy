@@ -24,7 +24,8 @@ made with the server, user and password of `backend/config/database.local.php`).
 | Apache's files, `build-dist.php`, `backend/src/upkeep.php`, `backend/api/front.php` | `npm test` (`deploy.test.php`, `upkeep.test.php`, `exam-api.test.php` for the pages); for `.htaccess`, consider a real Apache (`docs/kb/environment.md`) |
 | `data/source/**`, `backend/tools/build-*.php` | first `npm run build:data` (or `npm run build:audio`), then `npm test` |
 | `backend/src/conjugate.php`, `backend/src/generate.php`, `data/authored-items*.php`, `frontend/src/app/kanji/answer.ts` | `npm test`, then the `academy-japanese-reviewer` agent |
-| `backend/migrations/` | `npm test` (the template takes the new migration — none without its last line, `-- end of NNN`, which `upkeep.test.php` checks; `migration.test.php` shows how to test one on old data), then `php backend/manage.php --check` |
+| `backend/migrations/` | `npm test` (the template takes the new migration — none without its last line, `-- end of NNN`, which `upkeep.test.php` checks; `migration.test.php` shows how to test one on old data), then `php backend/manage.php --check`. After an edit of a migration not committed yet: `php backend/tests/tools/testdb.php template --fresh` first, or the template keeps the old file |
+| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php`, `backend/api/routes/translations.php`, the owner pages | `npm test` (`backend/tests/unit/translations.test.php` holds every key the frontend asks for to the database), `npm run test:browser` (the chooser by keys, the owner's pages), `npm run screens` (the Slovak pass and the room); `php backend/translations.php --status` on a set-up copy |
 | tests only | the changed file, then `npm test` |
 
 Narrower runs while you iterate (the npm scripts find a PHP 8 themselves; by
@@ -34,7 +35,8 @@ hand see `docs/kb/environment.md`):
 npm run test:backend -- backend/tests/unit/srs.test.php backend/tests/api/kanji-api.test.php
 npm run test:backend -- backend/tests/api/auth.test.php backend/tests/api/setup.test.php
 npm run test:frontend                  # all the Angular specs (a few seconds once built)
-npm run screens -- kanji-review        # only screens whose name contains this
+npm run screens -- kanji-review        # only screens whose name contains this (all five variants)
+npm run screens -- room                # only the top bar's measurements
 ```
 
 Always finish with the full `npm test`.
@@ -46,14 +48,19 @@ Always finish with the full `npm test`.
   `ℹ fail N`. A failure prints the assertion's message, expected and actual,
   and the test file's line. `npm run test:frontend` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
-  `Tests` lines. Report the real numbers of both.
+  `Tests` lines. Report the real numbers of both (at the last count 169
+  backend tests; 472 frontend tests in 39 files — `docs/kb/testing.md`).
 - `academy_test_template: updated (3 s)` at the start means `data/`, a
   generator or a migration changed since the last run — expected.
 - `npm run test:browser` prints each step, then `BROWSER SUITE PASSED` or
   `N FAILURE(S)`; `npm run test:setup` ends `SETUP SUITE PASSED`.
   `npm run screens` ends with `no overflow, no page errors` or a `PROBLEMS:`
-  list. All exit with 1 on any problem. They start with
+  list — the Slovak pass's too (a key on the page, English left on a Slovak
+  page) and the room's (a piece of the top bar off the screen, overlapping or
+  cut short). All exit with 1 on any problem. They start with
   `The app is built, and current.` or a build.
+- A console warning fails a browser suite: `[i18n] no string for '…'` is a key
+  the page asks for that has no string in the database.
 - These are expected and not failures:
   - audio requests answering 206 (range requests);
   - an exam verdict like "32.5% FAIL · F" in the browser log, because the
@@ -111,17 +118,25 @@ What each file covers is in `docs/kb/testing.md`.
   `describe`, `it`, `expect`, `vi`). Provide `provideZonelessChangeDetection()`
   in `TestBed`, fake `ApiService` or `fetch`, and `await fixture.whenStable()`
   before reading a component's DOM. The whole catalog is
-  `src/testing/catalog.fixture.json` (made before every run).
+  `src/testing/catalog.fixture.json` (made before every run). Strings come
+  from `provideTestTranslations({ key: 'text' })`
+  (`src/app/core/testing/test-translations.ts`), or
+  `provideTestTranslations({ … }, { language: 'sk', english: { … } })` for a
+  Slovak page; a component that shows words gets a Slovak case too.
 - **Browser:** extend `frontend/e2e/run.js` (or `setup.js` for the setup page).
-  The helpers in `frontend/e2e/browser.js` are `launch`, `watch`,
-  `emulateIam(context, person)` (the IAM's sign-in, token and sign-out,
-  answered in the browser) and the reporter; `startApp({ auth })` from
+  The helpers in `frontend/e2e/browser.js` are `launch`, `newContext(browser,
+  opts)` (every context through it: locale `'en-GB'` unless `opts` says
+  otherwise), `watch` (page errors, errors and warnings the app logged,
+  failed requests), `emulateIam(context, person)` (the IAM's sign-in, token
+  and sign-out, answered in the browser) and the reporter; `startApp({ auth })` from
   `frontend/e2e/helpers.js` (after `isolate()`) gives `base`, `owner`,
   `makeDue(ids, agoMs, userId)` and `sql(query, ...params)`, and may run twice
   (without and with sign-in, one database). `iamToken()` and `iamSession()`
   sign requests and browser contexts in. Seed state through the API or `sql`,
   wait for what Angular draws after a key or click, find buttons with
   `getByRole`, and call `page.goto('about:blank')` before reopening the same
-  URL.
+  URL. A test that switches to Slovak switches back before the suite goes on
+  (the choice stays in that browser). A new screen goes into `screens.js`'s
+  `SCREENS`, which gives it the Slovak pass too.
 - New behaviour gets its test in the same change. If you add a file or change
   what a suite covers, update `docs/kb/testing.md`.

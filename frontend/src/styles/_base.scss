@@ -163,6 +163,9 @@ h1.page {
   margin: 0;
 }
 input[type='text'],
+input[type='search'],
+input[type='file'],
+select,
 textarea {
   width: 100%;
   padding: 10px 12px;
@@ -173,12 +176,29 @@ textarea {
   font: inherit;
   font-size: 15px;
 }
+input[type='file'] {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+input[type='file']::file-selector-button {
+  font: inherit;
+  margin-right: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
 textarea {
   resize: vertical;
   min-height: 70px;
   line-height: 1.5;
 }
 input[type='text']:focus,
+input[type='search']:focus,
+input[type='file']:focus-visible,
+select:focus,
 textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -287,6 +307,63 @@ kbd {
   border-radius: 4px;
   padding: 0 5px;
   background: var(--card);
+}
+
+/* -------------------------------------------------------------- tables */
+/* the exam's past attempts, the owner's languages and words */
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.data th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+table.data td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------- the owner's pages */
+/* Translations and Languages (owner/): English, the owner's only */
+.owner .crumbs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.owner .intro {
+  max-width: 70ch;
+  margin: 0 0 18px;
+}
+.owner code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.owner .tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--muted);
+  vertical-align: 1px;
+}
+.owner .ghost:disabled,
+.owner .link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.owner .err:empty {
+  display: none;
 }
 
 /* ------------------------------------------- the pages instead of the app */
@@ -428,9 +505,11 @@ kbd {
   }
 }
 
-// The smallest phones: the mark stands for the name, so the version, both
-// sections with the reviews due, and the account menu still fit on one line.
-@media (max-width: 370px) {
+// Phones: the mark stands for the name, so the version, the language chooser,
+// both sections with the reviews due, and the account menu still fit on one
+// line. (Up to 370px before the chooser came; with it the bar needs the room
+// of "Academy" on every phone.)
+@media (max-width: 440px) {
   .brand b {
     display: none;
   }

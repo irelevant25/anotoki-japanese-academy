@@ -1,16 +1,21 @@
 <div class="subnav">
   <div class="in">
     @for (tab of tabs; track tab[1]) {
-      <a [routerLink]="tab[0]" [attr.data-route]="tab[1]" [attr.aria-current]="screen.tab() === tab[1] ? 'page' : null">{{ tab[2] }}</a>
+      <a [routerLink]="tab[0]" [attr.data-route]="tab[1]" [attr.aria-current]="screen.tab() === tab[1] ? 'page' : null">{{ tab[2] | translate }}</a>
     }
   </div>
 </div>
 
 <main id="app" class="wrap wide" aria-live="polite">
-  @if (loadError()) {
-    <p class="err">Could not load the kanji data: {{ loadError() }}</p>
+  @if (loadError(); as failure) {
+    <p class="err">
+      {{ 'kanji.loadFailed' | translate: { reason: reason(failure) } }}
+      @if (failure.body.detail) {
+        <span class="small" lang="en">{{ failure.body.detail }}</span>
+      }
+    </p>
   } @else if (!ready()) {
-    <p class="muted">Loading…</p>
+    <p class="muted">{{ 'kanji.loading' | translate }}</p>
   } @else {
     @if (screen.overlay(); as o) {
       @switch (o.kind) {
