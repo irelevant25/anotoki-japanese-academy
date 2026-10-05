@@ -1,6 +1,18 @@
 {
-  "/api": { "target": "http://127.0.0.1:8200", "secure": false },
-  "/audio": { "target": "http://127.0.0.1:8200", "secure": false },
-  "/report": { "target": "http://127.0.0.1:8200", "secure": false },
-  "/setup.php": { "target": "http://127.0.0.1:8200", "secure": false }
+  "/api": {
+    "target": "http://localhost:8200",
+    "secure": false
+  },
+  "/audio": {
+    "target": "http://localhost:8200",
+    "secure": false
+  },
+  "/report": {
+    "target": "http://localhost:8200",
+    "secure": false
+  },
+  "/setup.php": {
+    "target": "http://localhost:8200",
+    "secure": false
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "japanese-academy-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Japanese Academy's frontend: the kanji SRS and the exam, in Angular 21 (standalone, zoneless, signals).",
   "engines": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "bun ci && ng serve --port 4400 --proxy-config proxy.conf.json",
     "build": "ng build",
     "build:dev": "ng build --configuration development",
     "watch": "ng build --watch --configuration development",
