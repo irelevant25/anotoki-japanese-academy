@@ -753,3 +753,493 @@ inside the chooser or the account menu stops there (`core/menu-keys.ts`),
 and a switch of language changes words only — no screen is made again, so a
 session or a paper goes on where it was. The browser suite checks it by keys
 on a review card and on a paper's last question.
+
+**2026-10-04 — The IAM is the one way to sign in (follows 2026-09-27 "no
+sign-in on the owner's computer" and 2026-09-28 "mode `none` also wants the
+request to have come straight to this computer").** The owner's decision for
+the whole anotoki family: "There is no need from project to support no iam
+alternative/version of the projects. The IAM should be the only option." Mode
+`none` is gone from the backend (`auth_mode()`, `auth_none_allowed()`,
+`auth_none_only()`, the 403 `this_computer_only`), and with it the owner id it
+acted as (`auth.local_user_id`, `auth_local_user_id()`, `src/owner.php`,
+`manage.php --owner-id`). On a computer the app signs in against the
+development IAM. `auth_from_this_computer()` stays: it decides what this
+computer is told (the setup page without a token, a not-set-up answer's
+reason, health's database), never who anybody is.
+
+**2026-10-04 — A token with no role here is a learner (follows 2026-09-27 "a
+token without a role here is refused").** "Every project should be available
+for every user not just admin or editor." IAM migration 007 opens every
+first-party site to every account and deletes the `MEMBER` role; refusing a
+token without a role would then lock out everybody but the IAM's
+administrators, so this release goes live before 007. A stale `MEMBER` in a
+token means nothing.
+
+**2026-10-04 — ADMIN and EDITOR, checked on route groups.** "The admin
+consoles only for admins and editors with different rights": `EDITOR` rewords
+the app's words (reads and saves the strings, exports and imports a
+language's); `ADMIN` also adds, changes and deletes languages (and, to come,
+deletes a person's data). `/api/owner/…` became `/api/admin/…` (the survey's
+prefix) in two Slim groups with the checks on the groups
+(`staff_middleware()`, `admin_middleware()`), so a route added later cannot
+forget its check; 403 `staff_only` or `admin_only`, never a 401. The `Origin`
+check of the owner's addresses (`wrong_origin`) went with mode `none`, which
+it existed for: every request there carries a bearer token, never a cookie.
+"Applies database updates", the family's other ADMIN right, needs no button
+here: the app applies them by itself on the first request after an upload.
+
+**2026-10-04 — The setup page asks for the database and the IAM, nothing else
+(follows 2026-09-27 "a web installer" and 2026-09-29 "one setup page for every
+copy").** "Had to specify admin id and time zone and backup stuff which is
+weird": the sign-in choice, the owner's IAM user id, the time zone, the backup
+upload and the `backups/` list, the first version's settings
+(`src/config.local.php`) and its JSON files' import are gone. New copies
+default to the database `anotoki_japanese` on port 5432 (the owner's
+`anotoki_japanese_academy` keeps its name). **Test connection** answers in the
+family's words, the survey's, so its button is **Save**. What is saved is
+shown on this computer only; a website's page shows none of it, before the
+token or after (an empty password still keeps the saved one).
+
+**2026-10-04 — Old settings keys are ignored, not refused (follows 2026-09-29
+"the settings are required").** `auth.local.php`'s `mode` (`iam`) and
+`local_user_id`, and `app.local.php` with its `timezone`, are what every copy
+set up before holds, the owner's and the website's: refusing them would close
+both the moment the code lands, and a website's setup page is locked by then.
+Only `mode` `none` is "not set up" ("sign-in without the IAM is gone: open
+/setup.php and save"): such a copy has no IAM to name. Until each person's
+own time zone, review times and days follow the server's own zone.
+
+**2026-10-04 — Every PHP test signs in.** With one way to sign in there is no
+server without it: `call()` goes as `TEST_USER` (1, no role) through the test
+IAM unless a test sends another token or none (`no_token()`), and the stand-in
+IAM (`backend/tests/tools/stand-in-iam.php`, extended rather than a third
+file, as the review of the plan asked) signs in by redirect, for the tests now
+and for the browser suites with their own change. A version-1 backup restores only with `--user=N`: it
+names nobody, and there is no owner id to take for it.
+
+**2026-10-04 — A clean top folder, like every anotoki site's (follows
+2026-09-23 "the one-click launcher stays" and 2026-09-29 "backend/ +
+frontend/").** The owner: "the project has weird root files like package and
+package.json and nmvrc etc. Any other project has clean root structure." The
+top folder holds `.claude/`, `.gitignore`, `CLAUDE.md`, `README.md`,
+`DEV.md`, `backend/`, `frontend/` and `docs/`, nothing else. `data/` became
+`backend/data/` (moved with `git mv`, every file byte for byte the same; the
+content stamp names the paths, so each copy rebuilds its study content once);
+the backups moved from `backups/` to `backend/storage/backups/` (gitignored
+with the rest of `storage/`); the root `package.json`, its lock and
+`node_modules/` went: the scripts are documented in their direct form
+(`node backend/tools/php.js …`, which finds a PHP 8.1+ where Git Bash's `php`
+is 7.4, and the `node frontend/…` scripts after
+`node frontend/scripts/ensure-build.mjs`), and the PDF tool's `sharp` has its
+own `backend/tools/pdf/package.json` and lock. `.nvmrc` moved to
+`frontend/`; `start.ps1` and `start.sh` were deleted. `frontend/package.json`
+stays the owner's: its `e2e`, `e2e:setup` and `screens` scripts are as they
+were. The audio key's `.env` is `backend/.env`. The upload follows: `public/`
+and `backend/` and nothing beside them; a site set up before moves its
+`data/audio/` and `backups/` once (hosting.md, *The one-time move*).
+`backend/README.md` and `frontend/README.md` map each half.
+
+**2026-10-04 — `progress/`, `results/` and `reports/` deleted (follows
+2026-09-23's history rule).** The owner's decision: the files of the app
+before the database were never imported into it, and git keeps them. The rule
+that forbade deleting them now forbids bringing them back; the source-name
+test no longer leaves them out.
+
+**2026-10-04 — `router.php` instead of `server.php`.** "I prefer the same
+way: php -S localhost:8200 router.php instead of php server.php."
+`composer start` in `backend/` is `php -S localhost:8200 router.php`, as on
+every anotoki site, beside `npm start` in `frontend/`. The router is what
+`server.php`'s built-in-server branch was (the API, the setup page, the built
+app, through `api/front.php`); the start-time work `server.php` did before
+serving (migrations after a raw copy, the content rebuild, the day's backup)
+was already every request's on a website (`upkeep_middleware()`,
+`daily_backup_middleware()`), and now is on a computer too: nothing needs a
+restart. The summary it printed is `php backend/manage.php --check`'s
+(people, kanji items, exam questions). `composer start` runs with the
+`php.ini`'s OPcache; the tests keep `-d opcache.enable=0` (environment.md).
+
+**2026-10-04 — Each person's own time zone; the site's housekeeping in UTC
+(follows 2026-10-04 "the setup page asks for the database and the IAM").**
+The owner found it "weird" that the setup page asked for a time zone: one
+zone for everybody makes no sense once everybody may study here. The
+browser names its zone with every request (`X-Time-Zone`, an IANA name PHP
+knows, anything else ignored); it is that request's zone, kept on the
+person's row (`users.time_zone`, migration 005) when it changed, and a
+request without one uses the kept one, else UTC. Every day and hour of the
+person's follows it: a review rounded to their hour, the day an answer counts
+on, the dashboard's today and forecast, a stored report's date. What a
+traveller sees: each answer stays on the day of the zone it was given in;
+today follows the new zone from its first request; review times are moments.
+The site's own housekeeping (the backups' names, the day of the daily backup)
+is UTC, whoever's request it is, so somebody far east cannot take tomorrow's
+copy today; the database session is UTC. Without the column (an upload whose
+005 is still arriving) the header still counts and nothing is kept: never a
+500. Tests give the clock in process and use Pacific/Kiritimati and
+Pacific/Pago_Pago on the server, whose dates always differ, as the review of
+the plan asked: no test depends on when it runs.
+
+**2026-10-04 — Every person exports and imports their own data; a file
+replaces, after a copy.** "The import/export the users data should be
+available for every user." `GET /api/me/data` gives all of a person's data
+in the backups' format (version 2, one person, no database name);
+`PUT /api/me/data` brings such a file back. It replaces, never merges (a
+merge would count days and answers twice, and there is no sensible merge of
+two schedules); before it, a copy of what it replaces goes to the backups
+(their last 14 kept). It takes the file's one person whatever their id (a
+file of another copy of the app), or the caller's part of a backup of
+several. Import and answers take turns on the person's `users` row (`FOR
+UPDATE` against `FOR SHARE`), so an answer during an import works on what the
+import brought; the `imports` row is an upsert, so imports never collide. The
+size limit is a 24th of `memory_limit` (at most 16 MiB), not `post_max_size`,
+which PHP applies to a POSTed form only, as the review of the plan suspected
+and a test confirms; a file once read takes about seven times its size. The
+kanji-only download (`/api/kanji/export`) went: the file holds all of it.
+
+**2026-10-04 — Version-1 backups are no longer read.** Every backup there is
+is version 2 (the owner's of 2026-10-01 among them), and the owner id that a
+version-1 file was restored into is gone. `backup_read()` refuses one as
+"another version (format 1)"; `manage.php --user` went with it (follows
+2026-09-27 "a version-1 file is the owner's" and stage 1's `--user=N`).
+
+**2026-10-04 — People: the administrators see who has data, and delete a
+person's.** In the admin area's inner group, for `ADMIN` alone (the family's
+split: deleting a person's data is ADMIN's). `GET /api/admin/people` lists
+everybody the site has data of, with how much they studied;
+`DELETE /api/admin/people/{id}` takes a copy of all of that person's data
+first, then deletes their rows and their `users` row in one transaction
+holding that row `FOR UPDATE`. A request of theirs still on its way waits,
+finds no row, and makes it again: their data starts afresh instead of the
+request failing on a missing row (the race the review of the plan found).
+Strings they reworded stay, by nobody. Their account is the IAM's.
+
+**2026-10-04 — A migration being written waits as a draft.** The owner's
+`composer start` serves this working tree, and the app applies a whole
+migration at the next page load: a migration written in parts there would
+reach the owner's database half done. So 005 sits in `backend/migrations/`
+without its `-- end of 005` line until it is final (the app's own rule makes
+it wait, with the study content's rebuild), and says so at its top. The tests
+apply it on their throwaway databases only, by name
+(`ACADEMY_MIGRATION_DRAFTS`, honoured for `academy_test_…` names alone), so
+a file a test leaves half on purpose still waits; the template is made afresh
+when a draft changed. The last line is written last. (The review of the plan
+offered this or keeping the draft outside the repository; this one keeps the
+key test and the tables the code needs in step while it is written.) 005
+got its last line on 2026-10-04, after the reviews of the whole change.
+
+**2026-10-04 — Signed out, straight to the IAM; the card only after a failed
+sign-in.** The family's rule ("opening any page while signed out sends the
+visitor to the IAM's sign-in, and back to that page"), ported from the
+survey's `signInGuard`: `canActivateChild` on the learner's pages and
+`canActivate` on `/admin`, so every navigation asks. It follows 2026-09-27
+"Signed out, a Sign in page, not a jump to the IAM": the worry then — a
+sign-out signing the person straight back in — does not come true, because
+the IAM's own session ends with Sign out, so the IAM shows its sign-in page.
+The Sign in card stays for the cases the redirect cannot serve: a sign-in that
+came back refused or cancelled, or that could not start (the browser refuses
+the storage the SDK keeps it in) — sent straight back the browser would go
+round for ever — and a session that ends while a page is open (as the
+survey's pages do: its layouts draw the card when nobody is signed in). The
+next navigation from there goes to the IAM by itself. `/auth/callback` is not
+behind the guard.
+
+**2026-10-04 — The admin area is `/admin/…`, split by role in the browser as
+on the server.** Translations for EDITOR and ADMIN, Languages and People for
+ADMIN (`staffOnly`, `adminOnly`); the frontend hides, the server refuses. The
+old `/translations` and `/languages` lead to their new addresses. "Admin" in
+the account menu, English like the area. Database updates keep applying
+themselves at the first request after an upload, so the area has no Apply
+button (the plan's decision: nothing can stall waiting for an ADMIN). Until
+the family's top bar comes, a line of links over each admin page leads between
+them (`admin/admin-nav/`).
+
+**2026-10-04 — Your data lives on the home page, and asks before it
+replaces.** A card at the foot of the home page (the dashboard's foot links
+to it), not in the account menu (the family's menu stays as specified). A
+file is read in the browser first, with the server's own rules, so a file that
+is not one, or a backup of others, is refused before anything is sent; then
+the card says what the file holds and asks; only Yes sends it. The size is
+checked against 16 MiB (the server's most, held together by a test) and,
+after a 413, against the limit that server named — there is no fixed limit to
+mirror, since it is a share of the host's `memory_limit`. The question is a
+dialog of the card's own, worded from keys (the admin area's confirm is
+English by design).
+
+**2026-10-04 — Signing out waits for the saves on their way.** The answers of
+a lesson, a review or practice are saved in the background and a note a
+moment after the typing stops, so a Sign out pressed right after could lose
+them. The session, the notes editor and the exam tell one root service
+(`SavesInFlight`), which the account menu (and the family's bar after it) can
+reach where it cannot reach them; Sign out sends a waiting note at once, waits
+for every save with a spinner, and asks in the learner's language — the
+browser's own dialog, as a session's "End now?" — when a save failed meanwhile
+or an exam paper is open and not handed in (the review of the plan found the
+waiting had no mechanism).
+
+**2026-10-04 — Each request names the reader's time zone; the pages count no
+days.** The interceptor and `AuthService.fetch()` send `X-Time-Zone` (the
+browser's IANA name) to this site only. Which day an answer counts on, today,
+the forecast, come in the server's answers; the dashboard names the forecast's
+days by the dates the server says they stand for (`forecastDates`, the
+person's dates), not by a calendar of its own. (At first it named them by
+24-hour steps from the server's `now`; the review found that a day off for an
+hour round a change of summer time, as the server's days start at the
+person's midnight.)
+
+**2026-10-04 — Time zones are checked against ICU as well as PHP, reports
+never fail on a zone; a data file must be in the app's own shape; the upload
+build refuses a draft migration.** From the academy-code-reviewer's review of
+stages 1-3 of the family's port. PHP and ICU (intl) each carry their own copy
+of the zone data, and a report is dated through ICU: a zone only one of them
+knows is no zone (`time_zone_known()`), and `report_when()` dates a kept zone
+ICU lacks at its offset rather than failing. A file brought back on Your data
+is taken only in the shape the app writes (`me_person_in()`), so a half file
+is refused before anything changes. `build-dist.php` refuses while a
+migration lacks its last line: an upload with a draft would wait on it, and
+the content rebuild with it.
+
+**2026-10-04 — The anotoki family's top bar.** The app's own bar (the 日 and
+"Japanese Academy", the version beside them, a `<details>` account menu) gives
+way to the bar every anotoki site has (the survey's is the reference): the
+mark, "anotoki" and "Japanese", the links, the language, a theme switch, the
+person's menu or Sign in; on a phone one menu button. The 日 stays the tab's
+icon. The app has no Home link: the brand is home, as before. The version
+and "What's new" moved to the foot of every page, where the family keeps
+them. The admin area's line of links (`admin-nav/`) went: the bar's links are
+the area's pages there.
+
+**2026-10-04 — No key pressed in the bar reaches the page.** The lesson quiz,
+the reviews and the exam listen for keys on `document`, where Enter submits a
+card or hands a paper in and Space plays a word. The survey's bar keeps keys
+only inside its menus; here the review of the plan found that the buttons,
+links and theme switch outside them would have fed Enter and Space to the
+exam (and the exam's `preventDefault()` would have stopped the buttons
+working). So the whole header stops every key and handles Escape itself;
+specs press every control of the real bar over a real paper and review.
+
+**2026-10-04 — The fold stays at 760 px, measured.** The plan asked for
+Japanese's own number, measured with the real labels: at 761 px, in Slovak,
+with 999 reviews due and signed in, the row needs about 653 px (English 642),
+and signed out with "Prihlásiť sa" less (no links then). The family's 760
+leaves room to spare, so Japanese keeps it, and the spec, the scss and the
+tests share one number (`PHONE_BAR_MAX`). On a phone the reviews due stand on
+the menu button, and its name says them ("Menu: 125 reviews due"), so the
+count is not hidden with the Kanji link inside the menu.
+
+**2026-10-04 — The admin area reads in English, by the translation service,
+not by the bar.** The survey's pattern: the title strategy tells the
+translation service the address (`noteAddress()`), and under `/admin` it
+answers from the bundle's English (`pageLanguage`, `<html lang>` with it); the
+bar, the foot and the "What's new" dialog have no case of their own. The
+reader's choice stays (`language()`): the chooser — hidden there — and the
+IAM's pages go by it. The area's own labels in the bar (its sections, the
+brand's name there, "Back to Japanese Academy") are English words in the
+template, like the area's pages, not keys nobody would read in Slovak.
+
+**2026-10-04 — A migration waits for an administrator's Apply; the area is
+"the admin panel".** The owner asked for the IAM's Migrations page in every
+site, where pending migrations are seen and applied, and for the area to be
+called the admin panel everywhere. Until now the first request after an
+upload applied a whole migration by itself (upkeep); now it waits: every
+address with data answers 503 `not_up_to_date` (the problem page; an ADMIN
+gets "Open the Migrations page"), and an ADMIN applies it on
+`/admin/migrations` (the IAM's page shape and words; ADMIN alone, the
+owner's split: applying database updates is ADMIN's). Its addresses skip the
+waiting check and so does the admin panel's start for an ADMIN
+(`TranslationService.refused()`), or nobody could reach it. Kept: the raw
+copy of every table before applying, one per upload (now taken by Apply);
+the content's rebuild stays automatic once the schema is current; the setup
+page and `manage.php` apply as they did, now under the same lock and in the
+same way as Apply (`upkeep_apply_ready()`), so an Apply and a `manage.php
+--sync` never run at once. Apply waits for the upkeep's lock up to 10 s,
+since every request with data takes it for a moment to look while a
+migration waits (a single try was refused again and again on a site in
+use), then answers 409 `busy` (never a queue of Applies), and applies each
+file under a savepoint, so a failure rolls that file back whole and names it
+while the ones before it stay, as the IAM's does. "Up to date" only when
+nothing is left pending, and after an Apply the panel asks for the app's
+words again, so going back to the learner's pages without a page load draws
+them in words. A file still uploading is listed
+"not whole yet" and blocks nothing (the site goes on, as before). The
+reworded strings (`topbar.admin` "Admin panel" / "Administrátorský panel",
+`error.not_up_to_date` without "try again in a moment") and the link's new
+key are migration 006, as 005 is applied in the owner's database. The admin
+bar folds at 960 px, not 760: its four links and the longer brand need 886
+px; on a phone its brand reads "admin panel". The e2e suite makes a
+migration wait by taking 006 off the list (it re-applies without change),
+since no test writes into `backend/migrations`.
+
+**2026-10-04 — A light, dark or the system's look, per device.** The family's
+switch, new for this app (dark followed the system only). A choice of light
+or dark is `<html data-theme>`; the system's is no attribute, and the tokens'
+media query decides (`:root:not([data-theme='light'])` under
+`prefers-color-scheme: dark`, and `:root[data-theme='dark']`). Kept in
+`localStorage` (`academy-theme`), about the screen, not the person;
+`public/theme-boot.js` sets it before the first paint, so a dark choice
+never flashes light (a file, not an inline script, for a strict CSP). The
+plan said `main.ts`, which runs only after the bundle has loaded.
+
+**2026-10-04 — The browser suites sign in through a stand-in IAM process,
+not inside the browser.** Until now `run.js` answered the IAM's addresses
+inside the browser (`emulateIam()`, `page.route`), on a second server in the
+sign-in mode `none` of before. With one way to sign in, every suite now
+starts the tests' own stand-in IAM (`backend/tests/tools/stand-in-iam.php`,
+the one the PHP tests and the setup page's Test connection already use, as
+the review of the plan asked: no third stand-in) on a free port of this
+computer, and names it the issuer of its servers: a page opened signed out
+really goes there and back, with PKCE and the app's own callback, exactly as
+on a website. `iamState()` says whom it signs in or that it refuses; a
+planted session (`plant()`) is kept for the many contexts that only need to
+be signed in. `emulateIam()` is gone. A website's address in `setup.js` is
+not this computer's, so Edge is told to treat it as secure
+(`--unsafely-treat-insecure-origin-as-secure`): the sign-in's PKCE needs
+`crypto.subtle`, which a real website has through https.
+
+**2026-10-04 — A failed migration shows PostgreSQL's own words on the
+Migrations page, on a website too (follows "A migration waits for an
+administrator's Apply").** The owner: "I would like from piano, japanse and
+builder to show full error as iam does." Until now the Apply's answer said
+why a file failed (`error`) only under PHP's built-in server; a website got
+null and the page said "The server's error log says why". Now `upkeep_apply()`
+always gives the exception's message, as the IAM's page does: under "Stopped
+at …", what was applied first, "The failed file was rolled back as a whole."
+and the error in a box. Only an ADMIN reaches that address, the error says
+what to fix, and on FTP-only hosting the server's error log is hard to get
+at. It is logged as well (`[upkeep] a migration failed: …`). It is the one
+exception to `error_reason()`: every other failure still tells a website no
+more than a sentence and a code (a database that cannot be reached names its
+user and host). The Apply still answers 200 with the failure inside, as
+before (the IAM answers 500; nothing calls the address but the page).
+
+**2026-10-05 — Whether sign-in is required is the IAM's to say; the IAM's
+SDK reads it; sign-in stays required until visitors can be kept.** The
+owner, for the whole anotoki family: "I would like to be able to setup if
+log in is required for a specific project and also what roles can log in to
+a specific project. The default role for users should be member." IAM
+migration 010 gives every application a "Sign-in required" switch and every
+account `MEMBER` again. This site reads the switch through the IAM's PHP SDK
+1.1.0 (`anotoki_iam_login_required()`), copied unchanged like the rest of
+it, instead of a fetch of its own: one reader for the whole family, with one
+rule (kept a minute in `backend/storage/cache/`, the last value when the IAM
+is away, true whenever nothing better is known - a 404 included, so this
+site ships before IAM 010) and one test seam (`application_file`, honoured
+for a throwaway database only, as the keys file is). `src/access.php` adds
+only that term and one of its own: while the database cannot keep visitors
+(migration 007, not written yet: `visitors_ready()`), sign-in is required
+whatever the IAM says (asked only when the IAM says no, so the relay needs no
+database otherwise); the relay
+(`/api/auth/config`'s `loginRequired`) and, when visitors come, the API use
+that same answer, so the browser and the server never disagree about it.
+`MEMBER` in a token is an ordinary learner: nothing here needs it (the IAM
+already decided who may sign in) and nothing refuses it. Only the Bearer
+scheme claims to be somebody (`auth_sent_token()`): `Bearer` with nothing
+after it is a token that does not verify (401 `invalid_token`), while
+`Basic …`, which a host behind a password file sends with every request,
+claims nobody - so once visitors come it can never turn a visitor into a
+failed sign-in, nor a person into a visitor.
+
+**2026-10-05 — Visitors: the server side (migration 007 written as a draft,
+final once the browser suites had passed; the browser's side is the next entry).** The owner: "The visitors will have automatically
+created account ... with all data there. Its just they can lose their data
+because they are not stored via credentials. But when they register the data
+could transfer." The build analyzer's visitor accounts are the pattern; what
+differs here, and why ([sign-in.md](sign-in.md), *Visitors*):
+- **Nobody reads as an empty learner** (user id 0, which no row has), so the
+  kanji pages, a paper and the attempts work for a first-time visitor
+  without a "nobody" state in every page; nobody's resets answer at once and
+  write nothing (no backup file for user 0).
+- **The visitor is made in the save's own transaction** (under an advisory
+  lock, the limits counted on the visitor rows themselves): a save refused
+  or failed makes nobody and counts nothing - no counters to give back.
+- **The order of the rules with 007 pending** (the critique's item 7): one
+  expression, `access_login_required()`, which says "required" while the
+  database cannot keep visitors, decides the 401. So a key sent then is 401
+  `sign_in_required`, which the browser keeps its key on, and never a 503;
+  503 `visitors_unavailable` is left to the move (which works whatever the
+  switch) and to the defensive checks inside `visitors_find()` /
+  `visitors_make()`.
+- **The merge at sign-in** (the coordinator's answer, the owner may reverse
+  it): the person's progress stays per item both studied, every other item
+  moves, the day counts are added, every exam attempt moves (an id both have
+  keeps the person's), the log moves but for the visitor's resets of what the
+  person kept; a copy of the person's data first. Items are scheduled one by
+  one, so a per-item merge is coherent; adding the days keeps every answer
+  given.
+- **The caps** (the coordinator's answer): 10 exam attempts and 20,000
+  answers per visitor, 300 visitors at once, 10 new ones an hour per address
+  and 60 in all - each a setting of `app.local.php`. A visitor at the attempt
+  cap is refused the paper, not only the submit, so no paper of up to 1,200
+  questions is answered in vain.
+- **No earlier sweep of "thin" visitors** (the family's design): the notice
+  promises 30 days after the last visit; somebody filling the 300 from many
+  addresses keeps new visitors out for those 30 days, and
+  [hosting.md](hosting.md) names the knobs instead.
+- **No data file for visitors**: no download, no copy before their reset or
+  the move, none in a backup (`users_all()` is people only; the day's copy is
+  taken only when people have data). A restore of everybody deletes them.
+- **The address is kept as an HMAC** under a secret in
+  `backend/storage/cache/`, so no copy of the database holds an address and
+  the few billion IPv4 addresses cannot be tried against it without the
+  secret.
+
+**2026-10-05 — Visitors: the browser's side (migration 007's strings with it;
+the family's design 4.3).** Built to the critique of the plan, whose one high
+finding was in the browser: tying the visitor key to "no token" would let a
+signed-in page whose token came back null (a session ended, another person's
+sign-in in another tab pending this page's reload, a host that drops
+`Authorization`) send a save without a token - the server would make it a
+visitor, and the next sign-in would move that person's answer into whoever
+signed in. So ([sign-in.md](sign-in.md), *Visitors in the browser*):
+- **Whose a request is, is decided as it is issued**, from what the page is
+  shown as (`AuthService.caller()`, or the request's own `ISSUED_AS`): a page
+  shown to a visitor (the state `visiting`) issues visitors' requests; any
+  other page with a sign-in, a person's - with a token, or **not sent at
+  all** (a 401 `sign_in_required` of its own). A key arriving on a person's
+  answer is not kept, and that answer fails (a 502 `server_error`): the
+  server never saw the token (a host that drops `Authorization`, with
+  sign-in off), so the save went to a new visitor, not to them - better said
+  as not saved than lost silently. `AuthService.fetch()` keeps the same rule
+  for the token (it only reads: no visitor is made on a read).
+- **A person's page never turns into a visitor's**: its session ending is
+  the Sign in card, as before; only a fresh page load can be a visitor's.
+  And a page shown to a visitor loads again when somebody signs in in
+  another tab, so nothing loaded as the visitor stays on it.
+- **The key is kept when sign-in becomes required** (correcting the design's
+  section 2: "forgets"): not sent, a 401 `sign_in_required` never forgets
+  it, so a sign-in still moves what it holds. A 401 `visitor_unknown`
+  forgets only the key that was sent (compare and delete), and the request
+  is tried once more without it.
+- **One visitor per browser**: the first save that may make one goes alone;
+  what is issued meanwhile (reads too) waits for its answer and goes with
+  its key, or one at a time again when it failed. The first key stays.
+- **Signing in from a visitor's page waits for the saves on their way**, as
+  signing out does, and asks when something would be lost: the first save
+  brings the key, and cut off by the page leaving for the IAM its study
+  would stay behind, out of the move's reach. On a phone the bar's menu stays
+  open while it waits, as for Sign out (the UI tester's finding: closed at
+  once, a phone showed the wait nowhere - up to 20 s with slow saves - and
+  the focus fell on `<body>`); the focus waits on the menu button, and the
+  menu closes with it there.
+- **The move at the start** (5 s at most), before the words and the first
+  page, so the first page shows what moved; asked again later on a failure.
+  A key another tab moved first is silent (the moved key is stamped in
+  localStorage); one the server let go is said once.
+- **A refused sign-in while visiting is said** above the page (in the Sign in
+  card's words) - the IAM turning an account away is how an administrator
+  blocks somebody here (`MEMBER` taken away), and it is not swallowed.
+  Blocking stops signing in, not visiting: to keep somebody out entirely,
+  require sign-in.
+- **`/admin` stays a signed-in person's** while visiting
+  (`adminSignInGuard`): a visitor opening the Migrations page goes to the IAM
+  and back, as somebody signed out does.
+- The words are 007's (the notice a plural family on the days; the moved note
+  with its numbers after a colon, so no word must agree with them; the
+  limits worded from which limit the answer names), in English and informal
+  Slovak, as every string here.
+- **007 was made final only after the browser suites had passed** with it
+  (`run.js`'s visitors part: a whole visitor's life, from a page with no trip
+  to the IAM to the move at sign-in, and sign-in switched on with a key
+  held): the owner's computer and the site take it from then on, by an
+  ADMIN's Apply. The release notes (0.2) say it in two lines: you can study
+  without signing in where the site allows it, and the old "you always sign
+  in" became "unless the site lets you study without signing in" - the
+  site's own default stays sign-in required.

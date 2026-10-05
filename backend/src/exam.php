@@ -200,6 +200,7 @@ function exam_submit(int $uid, array $body): array
     ];
 
     db_tx(static function () use ($uid, $attempt, $result): void {
+        users_hold($uid); // an import or a delete of their data first, if one is under way
         // the report lists every attempt of this person, this one included
         $history = exam_history($uid);
         $history[] = exam_history_row($attempt);

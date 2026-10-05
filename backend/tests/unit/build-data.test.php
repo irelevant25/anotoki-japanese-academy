@@ -1,20 +1,20 @@
 <?php
-// data/*.json is generated from data/source/*.tsv: a rebuild of unchanged
+// backend/data/*.json is generated from backend/data/source/*.tsv: a rebuild of unchanged
 // sources must give exactly the files in the repository.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php';
 require BACKEND . '/tools/build-data.php';
 
-test('building data/source/*.tsv again gives exactly data/*.json', function (): void {
+test('building backend/data/source/*.tsv again gives exactly backend/data/*.json', function (): void {
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-data-' . bin2hex(random_bytes(4));
     mkdir($dir);
     try {
         data_build($dir, true);
         foreach (['vocab.json', 'kanji.json', 'grammar-index.json'] as $file) {
             // a Windows checkout may have turned LF into CRLF (core.autocrlf)
-            $committed = str_replace("\r\n", "\n", (string) file_get_contents(ROOT . "/data/$file"));
-            assert_true($committed === file_get_contents("$dir/$file"), "$file differs from a fresh build: run npm run build:data");
+            $committed = str_replace("\r\n", "\n", (string) file_get_contents(BACKEND . "/data/$file"));
+            assert_true($committed === file_get_contents("$dir/$file"), "$file differs from a fresh build: run node backend/tools/php.js backend/tools/build-data.php");
         }
     } finally {
         array_map('unlink', glob("$dir/*") ?: []);

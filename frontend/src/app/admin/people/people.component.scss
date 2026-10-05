@@ -1,0 +1,47 @@
+// The shared pieces (table.data, .admin's tags) are in styles/_base.scss; here the list of people.
+
+.status {
+  min-height: 1.4em;
+  margin: 0 0 8px;
+  color: var(--good);
+}
+.status:empty {
+  min-height: 0;
+}
+.scroll {
+  overflow-x: auto;
+  margin-bottom: 18px;
+}
+table.data {
+  width: 100%;
+}
+table.data td {
+  vertical-align: top;
+}
+.id {
+  margin-left: 6px;
+  white-space: nowrap;
+}
+// The name keeps room for itself, its tag and its number: the table is wider than a phone anyway.
+td.who {
+  min-width: 10rem;
+}
+.row-action {
+  margin-top: 2px;
+}
+.link.danger {
+  color: var(--bad);
+  font-size: 13px;
+  white-space: nowrap;
+}
+// A zone, a moment and a count each stay on one line: the global `.admin code { overflow-wrap: anywhere }`
+// let the zone's column shrink to a letter, and 'Europe/Bratislava' broke letter by letter. The table
+// is wider than a phone then, and scrolls inside .scroll; the name and its Delete data stay in view.
+td.zone code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+td.when,
+td.count {
+  white-space: nowrap;
+}

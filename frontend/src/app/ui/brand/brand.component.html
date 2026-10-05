@@ -1,0 +1,9 @@
+<a class="brand" [routerLink]="link()" [attr.aria-label]="linkLabel()" [attr.aria-current]="current() ? 'page' : null">
+  <img src="anotoki.png" alt="" [attr.width]="size()" [attr.height]="size() * 0.835" />
+  <span class="wordmark" [class.is-short]="!showName()" lang="en">
+    @if (showName()) {
+      <span class="name">anotoki</span>
+    }
+    <span class="area">{{ area() }}</span>
+  </span>
+</a>

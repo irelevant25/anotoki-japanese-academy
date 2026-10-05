@@ -1,5 +1,11 @@
-// The colours and fonts of the whole app, each defined for light and for dark
-// (the reader's system setting). Nothing else anywhere names a colour.
+// The colours and fonts of the whole app, each defined for light and for dark.
+// Nothing else anywhere names a colour.
+//
+// Dark is the system's setting (prefers-color-scheme), unless the reader chose
+// in the top bar's theme switch: their choice is <html data-theme="light|dark">
+// (core/theme/theme.service.ts, and public/theme-boot.js before the first
+// paint). So the dark tokens stand twice: under the media query for a page
+// that is not told light, and for a page that is told dark.
 
 :root {
   --bg: #f6f5f2;
@@ -20,7 +26,14 @@
   --ok-fill: #946a1b;
   --radius: 10px;
   --shadow: 0 8px 28px rgba(29, 29, 31, 0.14); /* menus that float over the page */
+  --shadow-sm: 0 1px 3px rgba(29, 29, 31, 0.18); /* the theme switch's choice, raised a little */
+  /* the top bar: the section the page is in, the role in the person's menu */
+  --accent-soft: #e2eaf4;
+  --accent-soft-ink: #2b4a6f;
+  --topbar-height: 60px; /* what sticks under it (the exam's progress) starts there */
   --scrim: rgba(29, 29, 31, 0.38); /* behind a dialog */
+  /* the anotoki mark (a dark navy picture) in the bar: a soft shadow as on the family's other sites; in dark a light halo, or it sinks into the bar */
+  --mark-shadow: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
 
   /* study items */
   --kanji: #c0412a; /* vermilion — kanji */
@@ -49,41 +62,53 @@
   --jp-sans: 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
 }
 
+@mixin dark {
+  --bg: #16161a;
+  --card: #1e1e23;
+  --ink: #eceaf0;
+  --muted: #9a98a3;
+  --line: #32323a;
+  --soft: #26262c;
+  --accent: #6b9fd8;
+  --accent-ink: #10131a;
+  --good: #5fc094;
+  --ok: #ddab52;
+  --bad: #e2786d;
+  --ok-text: #ddab52;
+  --good-fill: #2b7654;
+  --bad-fill: #ae4a3f;
+  --ok-fill: #8e671d;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --mark-shadow: drop-shadow(0 0 1px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22));
+  --accent-soft: #22324a;
+  --accent-soft-ink: #a9c7ec;
+
+  --kanji: #b8472f;
+  --vocab: #1d7a72;
+  --kanji-text: #ec8a70;
+  --vocab-text: #5cc6bb;
+
+  --st-none: #3a3a42;
+  --st-apprentice: #c98a2a;
+  --st-guru: #4a9a5c;
+  --st-master: #4a7fc0;
+  --st-enlightened: #7a5dc0;
+  --st-burned: #6a6a74;
+
+  --q-meaning-bg: #dcdae3;
+  --q-meaning-ink: #16161a;
+  --q-reading-bg: #050507;
+  --q-reading-ink: #f2f0f5;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16161a;
-    --card: #1e1e23;
-    --ink: #eceaf0;
-    --muted: #9a98a3;
-    --line: #32323a;
-    --soft: #26262c;
-    --accent: #6b9fd8;
-    --accent-ink: #10131a;
-    --good: #5fc094;
-    --ok: #ddab52;
-    --bad: #e2786d;
-    --ok-text: #ddab52;
-    --good-fill: #2b7654;
-    --bad-fill: #ae4a3f;
-    --ok-fill: #8e671d;
-    --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-    --scrim: rgba(0, 0, 0, 0.6);
-
-    --kanji: #b8472f;
-    --vocab: #1d7a72;
-    --kanji-text: #ec8a70;
-    --vocab-text: #5cc6bb;
-
-    --st-none: #3a3a42;
-    --st-apprentice: #c98a2a;
-    --st-guru: #4a9a5c;
-    --st-master: #4a7fc0;
-    --st-enlightened: #7a5dc0;
-    --st-burned: #6a6a74;
-
-    --q-meaning-bg: #dcdae3;
-    --q-meaning-ink: #16161a;
-    --q-reading-bg: #050507;
-    --q-reading-ink: #f2f0f5;
+  :root:not([data-theme='light']) {
+    @include dark;
   }
+}
+
+:root[data-theme='dark'] {
+  @include dark;
 }

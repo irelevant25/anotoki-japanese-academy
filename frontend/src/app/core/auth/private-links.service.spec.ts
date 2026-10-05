@@ -4,6 +4,8 @@ import { TranslationService } from '../i18n/translation.service';
 import { provideTestTranslations } from '../testing/test-translations';
 import { AuthService } from './auth.service';
 import { failureKey, fileNameOf, lockDown, PrivateLinksService, REPORT_CSP } from './private-links.service';
+import { derivedFromState } from '../testing/auth-states';
+import { VISITOR_STORAGE_KEY, VisitorKey } from './visitor-key';
 
 const META = `<meta http-equiv="Content-Security-Policy" content="${REPORT_CSP}">`;
 
@@ -32,13 +34,13 @@ describe('lockDown: a report opened from memory runs no script', () => {
 
 describe('fileNameOf', () => {
   it('takes the name the server gives a download', () => {
-    const r = new Response('{}', { headers: { 'Content-Disposition': 'attachment; filename="kanji-progress-2026-09-29.json"' } });
-    expect(fileNameOf(r)).toBe('kanji-progress-2026-09-29.json');
+    const r = new Response('{}', { headers: { 'Content-Disposition': 'attachment; filename="japanese-academy-2026-09-29.json"' } });
+    expect(fileNameOf(r)).toBe('japanese-academy-2026-09-29.json');
     expect(fileNameOf(new Response('{}'))).toBeNull();
   });
 });
 
-describe('failureKey: a report or a download that could not be had, by its status alone', () => {
+describe('failureKey: a report that could not be had, by its status alone', () => {
   it('404 is a report that is not there; anything else the general sentence', () => {
     expect(failureKey(404)).toBe('report.notFound');
     for (const status of [0, 400, 401, 403, 500, 502, 503]) {
@@ -79,8 +81,8 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
       providers: [
         provideZonelessChangeDetection(),
         provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
-        // As much of the sign-in as the service and the translation service read: a website, somebody signed in.
-        { provide: AuthService, useValue: { state: signal('ready'), user: signal(null), signsIn: () => true, fetch: () => answer() } },
+        // As much of the sign-in as the service and the translation service read: somebody signed in.
+        { provide: AuthService, useValue: { state: signal('ready'), ...derivedFromState(signal('ready')), user: signal(null), fetch: () => answer() } },
       ],
     });
     tab = { document: { title: '' }, opener: window, location: { replace: vi.fn() }, close: vi.fn() };
@@ -97,6 +99,39 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(tab.location.replace).not.toHaveBeenCalled();
     expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.']]);
+  });
+
+  it('a visitor’s report (studying without signing in): fetched with the key this browser holds, never a token — and a key the server no longer knows is forgotten', async () => {
+    const key = 'k'.repeat(43);
+    localStorage.setItem(VISITOR_STORAGE_KEY, key);
+    const sent: (string | null)[] = [];
+    let status = 200;
+    const visiting = signal('visiting');
+    TestBed.overrideProvider(AuthService, {
+      useValue: {
+        state: visiting,
+        ...derivedFromState(visiting),
+        user: signal(null),
+        fetch: (_url: string, _init: RequestInit, visitorKey: string | null) => {
+          sent.push(visitorKey);
+          return Promise.resolve(new Response(JSON.stringify(status === 401 ? { code: 'visitor_unknown' } : {}), { status }));
+        },
+      },
+    });
+    const links = TestBed.inject(PrivateLinksService);
+    const urls = URL as unknown as { createObjectURL?: (blob: Blob) => string };
+    const real = urls.createObjectURL;
+    urls.createObjectURL = () => 'blob:report';
+    try {
+      await links.open('/report/12');
+      status = 401;
+      await links.open('/report/12');
+    } finally {
+      urls.createObjectURL = real;
+    }
+    expect(sent).toEqual([key, key]);
+    expect(localStorage.getItem(VISITOR_STORAGE_KEY)).toBeNull();
+    expect(TestBed.inject(VisitorKey).lost()).toBe(true);
   });
 
   it('any other refusal: the general sentence, whatever the server wrote', async () => {
@@ -125,13 +160,6 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     await links.open('/report/12');
     expect(tab.document.title).toBe('Opening…');
     expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.'], ['Could not open it: No such report.']]);
-  });
-
-  it('a download that fails opens no tab, and says so the same way', async () => {
-    answer = () => Promise.resolve(new Response('', { status: 503 }));
-    await TestBed.inject(PrivateLinksService).open('/api/kanji/export', { download: true });
-    expect(opened).not.toHaveBeenCalled();
-    expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']]);
   });
 
   it('a report that comes is opened from memory with its no-script policy, and nothing is said', async () => {

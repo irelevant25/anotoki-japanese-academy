@@ -1,6 +1,6 @@
 <?php
 /**
- * Builds the multiple-choice question bank from the course data in data/, and
+ * Builds the multiple-choice question bank from the course data in backend/data/, and
  * lays out exam papers from it.
  *
  * Everything here is generated deterministically, so the same seed always

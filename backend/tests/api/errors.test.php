@@ -3,7 +3,7 @@
 // backend/src/errors.php): the sentence, the code a page words the failure
 // from, and — under PHP's built-in server only, the owner's own computer — the
 // reason as "detail". The tests of the failing routes themselves (kanji, exam,
-// sign-in, a failed migration) assert their codes beside their sentences.
+// sign-in, a migration that waits) assert their codes beside their sentences.
 //
 // Most of this runs in the test process, whose SAPI is cli: not the built-in
 // server, so the app answers here as it does on a website. The built-in
@@ -60,7 +60,8 @@ test('the reason of a failure is for the owner’s own computer: PHP’s built-i
     }
     // nothing of the app names the built-in server for these: only a test does
     assert_match('/\$app->add\(errors_middleware\(\)\);/', (string) file_get_contents(BACKEND . '/api/app.php'), 'the app’s middleware: for the SAPI it runs under');
-    assert_match('/throw upkeep_failed\(\$e\);/', (string) file_get_contents(BACKEND . '/src/upkeep.php'), 'and so is a failed migration’s answer');
+    // The one exception: why an Apply failed goes to its administrator everywhere (tests/api/upkeep.test.php).
+    assert_match('/function upkeep_apply\(int \$waitMs = UPKEEP_LOCK_WAIT_MS\)/', (string) file_get_contents(BACKEND . '/src/upkeep.php'), 'an Apply: no SAPI to ask');
 });
 
 test('an HttpError: its sentence, its code, and a reason that reaches this computer only', function (): void {
@@ -84,8 +85,8 @@ test('an HttpError: its sentence, its code, and a reason that reaches this compu
     }
 
     assert_same(['error' => NOT_SET_UP, 'code' => 'not_set_up', 'setup' => '/setup.php'], answer_to(not_set_up(), 'cli-server')['body'], 'not set up: as it was');
-    $none = answer_to(auth_none_only(), 'cli-server');
-    assert_same([403, ['error' => AUTH_NONE_ONLY, 'code' => 'this_computer_only']], [$none['status'], $none['body']], 'a copy without sign-in, asked from elsewhere');
+    $role = answer_to(new HttpError(403, 'This is for the site\'s administrators.', [], 'admin_only'), 'cli-server');
+    assert_same([403, ['error' => 'This is for the site\'s administrators.', 'code' => 'admin_only']], [$role['status'], $role['body']], 'a role the person lacks: as it was');
 });
 
 test('a database that cannot be reached: 503 database_unavailable, and why only on this computer', function (): void {
@@ -127,23 +128,15 @@ test('anything else that goes wrong: 500 server_error, and what only on this com
     assert_same(['error' => 'Something went wrong on the server.', 'code' => 'server_error'], answer_to(new TypeError('not an int'))['body']);
 });
 
-test('a migration that failed: 503 not_up_to_date, naming the migration and why only on this computer', function (): void {
-    $why = 'backend/migrations/009_example.sql: SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nowhere" does not exist';
-    $e = new PDOException($why);
-    $site = upkeep_failed($e);
-    assert_same([503, 'not_up_to_date', null], [$site->status, $site->errorCode, $site->detail], 'a website: no reason on the error at all');
-    assert_same('The database could not be brought up to date with the upload. The server\'s error log says more.', $site->getMessage());
-    assert_same(['error' => 'The database could not be brought up to date with the upload. The server\'s error log says more.', 'code' => 'not_up_to_date'],
-        answer_to($site)['body']);
+test('a migration waiting for an administrator: 503 not_up_to_date, naming the files only to this computer', function (): void {
+    $waits = upkeep_waiting(['009_example.sql', '010_more.sql']);
+    assert_same([503, 'not_up_to_date', 'Waiting to be applied: 009_example.sql, 010_more.sql.'], [$waits->status, $waits->errorCode, $waits->detail]);
+    assert_same(UPKEEP_WAITING, $waits->getMessage());
     foreach (NOT_THIS_COMPUTER as $sapi) {
-        $other = upkeep_failed($e, $sapi);
-        assert_same([$site->getMessage(), 'not_up_to_date', null], [$other->getMessage(), $other->errorCode, $other->detail], $sapi);
-        assert_no_match('/009_example|nowhere|SQLSTATE/', json_text(answer_to($other, $sapi)['body']), $sapi);
+        assert_same(['error' => UPKEEP_WAITING, 'code' => 'not_up_to_date'], answer_to($waits, $sapi)['body'], "$sapi: the sentence, and no file");
     }
-    $here = upkeep_failed($e, 'cli-server');
-    assert_same([503, 'not_up_to_date', $why], [$here->status, $here->errorCode, $here->detail]);
-    assert_same(['error' => "The database could not be brought up to date with the upload: $why", 'code' => 'not_up_to_date', 'detail' => $why],
-        answer_to($here, 'cli-server')['body'], 'this computer: the sentence as it always was, and the reason by itself');
+    assert_same(['error' => UPKEEP_WAITING, 'code' => 'not_up_to_date', 'detail' => 'Waiting to be applied: 009_example.sql, 010_more.sql.'],
+        answer_to($waits, 'cli-server')['body'], 'this computer: which files, by themselves');
 });
 
 test('an unknown address and a wrong method keep their codes', function (): void {
@@ -156,7 +149,7 @@ test('an unknown address and a wrong method keep their codes', function (): void
 
 test('for real, on this computer: a server whose database is not there says why, in the sentence and as "detail"', function (): void {
     // Settings of their own: this file's database, at a port of this computer where nothing listens.
-    $dir = test_server_config('none');
+    $dir = test_server_config();
     file_put_contents("$dir/database.local.php", '<?php return ' . var_export(['name' => db_name(), 'host' => '127.0.0.1', 'port' => test_free_port()], true)
         . ' + (require ' . var_export(test_config_server_file(), true) . ');');
     $app = start_app(['env' => ['ACADEMY_CONFIG_DIR' => $dir]]);

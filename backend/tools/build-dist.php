@@ -4,29 +4,36 @@
  * or SFTP: the built Angular app and the PHP backend beside it.
  * docs/kb/hosting.md has the upload map and the steps.
  *
- *   php backend/tools/build-dist.php [--out=DIR]   default dist/japanese-academy (npm run build:dist)
- *   php backend/tools/build-dist.php --no-audio    the same without data/audio/: an update when no clip
+ *   php backend/tools/build-dist.php [--out=DIR]   default dist/japanese-academy
+ *   php backend/tools/build-dist.php --no-audio    the same without backend/data/audio/: an update when no clip
  *                                                  changed (the 4,000 clips on the host stay as they are)
  *   php backend/tools/build-dist.php --list        only print what would go in (JSON), copying nothing
  *   php backend/tools/build-dist.php --frontend=DIR  take the built app from DIR instead of building it
  *                                                  (the tests; DIR holds index.html)
+ *   php backend/tools/build-dist.php --allow-draft=NAMES  build although these migrations (file names,
+ *                                                  comma-separated) are drafts: for the tests alone
  *
- *   public/     the document root: the built Angular app (frontend/, built here with
- *               npm run build:frontend when its sources changed), index.php (Apache's
- *               front controller) and .htaccess, both from backend/public/
+ * It refuses to build while a migration in backend/migrations/ is a draft
+ * (without its last line, "-- end of NNN": db_migration_whole()): on the host
+ * every request would find it pending and not whole, apply nothing after it
+ * and rebuild no content, so the upload would run half updated.
+ *
+ *   public/     the document root: the built Angular app (frontend/, built here by
+ *               frontend/scripts/ensure-build.mjs when its sources changed), index.php
+ *               (Apache's front controller) and .htaccess, both from backend/public/
  *   backend/    the API (api/), the app (src/), config/config.php (without any *.local.php:
  *               the setup page writes those on the server), migrations/, vendor/ (Composer's
  *               packages: the host has no shell to install them), setup.php (the setup page),
- *               and an empty storage/ for the IAM's keys and the setup page's lock
- *   data/       what the study content is built from, and the audio clips
- *   backups/    for the daily copies (empty)
+ *               data/ (what the study content is built from, and the audio clips), and an
+ *               empty storage/ for the daily copies (storage/backups/), the IAM's keys and the
+ *               setup page's lock
  *
- * backend/, data/ and backups/ each get a .htaccess that refuses every request,
- * in case the site's document root ends up above public/ after all. Left out:
- * the tests and tools, the command-line helpers (server.php, manage.php,
- * translations.php: they need a shell), frontend/ as source, docs/, books/, progress/, results/,
- * reports/, the backups themselves, .env, node_modules/, .claude/, the
- * launchers, data/source/.
+ * Nothing goes up beside public/ and backend/. backend/ and backend/storage/
+ * each get a .htaccess that refuses every request, in case the site's document
+ * root ends up above public/ after all. Left out: the tests and tools, the
+ * command-line helpers (router.php, manage.php, translations.php: they need a
+ * shell or a computer), frontend/ as source, docs/, books/, the backups
+ * themselves, .env, node_modules/, .claude/, backend/data/source/.
  *
  * DIR is emptied first, but only if it is empty already or an earlier build.
  */
@@ -47,13 +54,12 @@ const DIST_DENY = "# Read by PHP from disk, never sent over HTTP.\n"
     . "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n";
 
 /** The folders that get a deny-all .htaccess (every one outside the document root). */
-const DIST_DENIED = ['backend', 'backend/storage', 'data', 'backups'];
+const DIST_DENIED = ['backend', 'backend/storage'];
 
-/** Never in an upload, whatever the lists below say: settings, secrets, the owner's study history, the tools. */
+/** Never in an upload, whatever the lists below say: settings, secrets, anything beside public/ and backend/, the backups, the tools. */
 const DIST_NEVER = '~(^|/)(\.env|[^/]*\.local\.php)$'
-    . '|^(tests|tools|docs|books|progress|results|reports|node_modules|\.claude|\.git|temp|dist|frontend|src)/'
-    . '|^backend/(tests|tools|public|node_modules)/|^backend/storage/(?!\.htaccess$)|^backend/(server|manage|translations)\.php$'
-    . '|^(start\.ps1|start\.sh|package(-lock)?\.json|CLAUDE\.md|README\.md|DEV\.md)$|^backups/(?!\.htaccess$)|^data/source/~';
+    . '|^(?!(public|backend)/)'
+    . '|^backend/(tests|tools|public|node_modules|data/source)/|^backend/storage/(?!\.htaccess$)|^backend/(router|manage|translations)\.php$~';
 
 /** The files under a folder, as paths relative to $base. */
 function dist_tree(string $base, string $dir): array
@@ -120,9 +126,23 @@ function dist_frontend(?string $given, bool $build): string
         }
     }
     if (!is_file("$dir/index.html")) {
-        throw new RuntimeException("There is no built app in $dir (no index.html): npm run build:frontend makes it.");
+        throw new RuntimeException("There is no built app in $dir (no index.html): node frontend/scripts/ensure-build.mjs makes it.");
     }
     return $dir;
+}
+
+/** The migrations still being written: every one but 001 without its last line ("-- end of NNN"), by name. */
+function dist_drafts(): array
+{
+    $drafts = [];
+    foreach (glob(MIGRATIONS_DIR . '/*.sql') ?: [] as $file) {
+        $name = basename($file);
+        if ($name !== '001_init.sql' && !db_migration_whole($name, (string) file_get_contents($file))) {
+            $drafts[] = $name;
+        }
+    }
+    sort($drafts);
+    return $drafts;
 }
 
 /**
@@ -147,13 +167,13 @@ function dist_files(string $frontend, bool $audio): array
     }
     // the data the study content is built from (the list content_sync() hashes), and the clips
     foreach (CONTENT_FILES as $file) {
-        if (str_starts_with($file, 'data/')) {
+        if (str_starts_with($file, 'backend/data/')) {
             $files[$file] = ROOT . "/$file";
         }
     }
     if ($audio) {
         foreach (glob(AUDIO_CLIPS . '/*.mp3') ?: [] as $clip) {
-            $files['data/audio/' . basename($clip)] = $clip;
+            $files['backend/data/audio/' . basename($clip)] = $clip;
         }
     }
     // a settings file, a token: never; the setup page makes them on the server
@@ -162,11 +182,17 @@ function dist_files(string $frontend, bool $audio): array
     return $files;
 }
 
-$opts = getopt('', ['out:', 'no-audio', 'list', 'frontend:']);
+$opts = getopt('', ['out:', 'no-audio', 'list', 'frontend:', 'allow-draft:']);
 $out = rtrim(str_replace('\\', '/', (string) ($opts['out'] ?? ROOT . '/dist/japanese-academy')), '/');
 $started = microtime(true);
 
 try {
+    $allowed = array_filter(array_map('trim', explode(',', (string) ($opts['allow-draft'] ?? ''))));
+    $drafts = array_values(array_diff(dist_drafts(), $allowed));
+    if ($drafts) {
+        throw new RuntimeException('backend/migrations/' . implode(', ', $drafts) . (count($drafts) === 1 ? ' is a draft' : ' are drafts')
+            . ' (no last line "-- end of NNN"): an upload with a draft would never apply it, nor rebuild the study content. Finish it first.');
+    }
     $frontend = dist_frontend(isset($opts['frontend']) ? (string) $opts['frontend'] : null, !isset($opts['list']));
     $files = dist_files($frontend, !isset($opts['no-audio']));
     if (isset($opts['list'])) {
@@ -198,7 +224,7 @@ try {
         throw new RuntimeException('These must not be uploaded: ' . implode(', ', $wrong));
     }
     $needed = ['public/index.html', 'public/index.php', 'public/.htaccess', 'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php',
-        'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php', 'backend/config/config.php', 'backend/vendor/autoload.php', 'data/vocab.json'];
+        'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php', 'backend/config/config.php', 'backend/vendor/autoload.php', 'backend/data/vocab.json'];
     foreach ($needed as $file) {
         if (!in_array($file, $built, true)) {
             throw new RuntimeException("$file is missing from the build.");
@@ -228,11 +254,13 @@ try {
 
   Upload the whole folder to the site's folder on the host, by FTP or SFTP:
     public/     the site's document root: point the (sub)domain here
-    backend/ data/ backups/   beside public/, outside the document root
+    backend/    beside public/, outside the document root (with data/, the study
+                content and the clips, and storage/, the backups)
   The first time, open https://<the site>/setup.php (docs/kb/hosting.md).
-  Later uploads leave backend/config/*.local.php, backend/storage/ and backups/
-  as they are on the server; the first request after an upload applies new
-  migrations and rebuilds the study content.
+  Later uploads leave backend/config/*.local.php and backend/storage/ as they
+  are on the server; a new migration waits until an ADMIN applies it on the
+  admin panel's Migrations page (/admin/migrations), and the first request
+  after that rebuilds the study content.
 
 
 TXT;

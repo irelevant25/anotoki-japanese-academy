@@ -1,4 +1,20 @@
-// The top bar's looks are the app's (styles/_base.scss: .topnav, .brand, .badge).
+// The bar's looks are its own (top-bar/); the page's pieces are global
+// (styles/_base.scss). The foot stays at the bottom of a short page.
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.foot {
+  margin-top: auto;
+  padding: 0 16px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+@media print {
+  .foot {
+    display: none;
+  }
 }

@@ -5,9 +5,11 @@ import { TranslationService } from '../../core/i18n/translation.service';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { ProblemComponent } from './problem.component';
 
-/** The problem page for a start that failed this way. */
-async function draw(problem: StartProblem): Promise<HTMLElement> {
-  TestBed.inject(AuthService).cannotStart(problem);
+/** The problem page for a start that failed this way; `admin`: the person signed in is an administrator. */
+async function draw(problem: StartProblem, admin = false): Promise<HTMLElement> {
+  const auth = TestBed.inject(AuthService);
+  Object.defineProperty(auth, 'isAdmin', { value: () => admin });
+  auth.cannotStart(problem);
   const fixture = TestBed.createComponent(ProblemComponent);
   await fixture.whenStable();
   return fixture.nativeElement as HTMLElement;
@@ -42,17 +44,15 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
   });
 
   it('a server that refuses: worded from its code, never from its sentence', async () => {
-    const el = await draw({ kind: 'server', status: 403, code: 'this_computer_only', detail: null });
-    expect(said(el)).toBe(
-      'Japanese Academy could not start: Sign-in is off here (auth mode none), and that only works on your own computer: through php backend/server.php, opened at 127.0.0.1 or localhost, with no proxy in between. A website needs auth mode iam in backend/config/auth.local.php.',
-    );
+    const el = await draw({ kind: 'server', status: 503, code: 'database_unavailable', detail: null });
+    expect(said(el)).toBe('Japanese Academy could not start: The database is not reachable.');
     expect(el.querySelector('.detail')).toBeNull();
   });
 
   it('the reason the server gives the owner’s own computer comes after the page’s words, small, and marked as English', async () => {
     const el = await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004_languages_and_translations.sql: relation "languages" already exists' });
     expect(said(el)).toBe(
-      "Japanese Academy could not start: The database is not up to date with the uploaded version of the app yet. Try again in a moment; if this stays, the server's error log says why.",
+      "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
     );
     const detail = el.querySelector('.err .detail');
     expect(detail?.textContent).toBe('004_languages_and_translations.sql: relation "languages" already exists');
@@ -77,6 +77,24 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
     }
   });
 
+  it('a database update waiting: an administrator gets the way to the Migrations page, a page load; nobody else, and for nothing else', async () => {
+    const waiting: StartProblem = { kind: 'server', status: 503, code: 'not_up_to_date', detail: null };
+    const el = await draw(waiting, true);
+    const link = el.querySelector<HTMLAnchorElement>('a#toMigrations');
+    expect(link?.textContent?.trim()).toBe('Open the Migrations page');
+    expect(link?.getAttribute('href')).toBe('/admin/migrations');
+    expect(el.querySelector('button')?.textContent?.trim()).toBe('Try again');
+    for (const [problem, admin] of [
+      [waiting, false],
+      [{ kind: 'server', status: 503, code: 'database_unavailable', detail: null }, true],
+      [{ kind: 'offline' }, true],
+    ] as [StartProblem, boolean][]) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      expect((await draw(problem, admin)).querySelector('#toMigrations'), JSON.stringify([problem, admin])).toBeNull();
+    }
+  });
+
   it('a sign-in that could not be set up: the page’s own sentence, then the SDK’s message as the English it is', async () => {
     const el = await draw({ kind: 'signIn', detail: 'createAuth: issuer must be an https URL' });
     expect(said(el)).toBe('Japanese Academy could not start: Signing in could not be set up.');
@@ -90,21 +108,23 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     'boot.problem.couldNotStart': 'Japanese Academy could not start: {reason}',
     'boot.problem.signIn': 'Signing in could not be set up.',
     'common.tryAgain': 'Try again',
+    'boot.problem.migrations': 'Open the Migrations page',
     'error.offline': 'The server does not answer.',
     'error.http': 'The server answered with an error ({status}).',
     'error.unknown': 'Something went wrong.',
     'error.not_found': 'Not found.',
-    'error.not_up_to_date': "The database is not up to date with the uploaded version of the app yet. Try again in a moment; if this stays, the server's error log says why.",
+    'error.not_up_to_date': "The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
   };
   const SLOVAK = {
     'boot.problem.couldNotStart': 'Aplikáciu Japanese Academy sa nepodarilo spustiť: {reason}',
     'boot.problem.signIn': 'Prihlasovanie sa nepodarilo pripraviť.',
     'common.tryAgain': 'Skúsiť znova',
+    'boot.problem.migrations': 'Otvoriť stránku Migrations',
     'error.offline': 'Server neodpovedá.',
     'error.http': 'Server odpovedal chybou ({status}).',
     'error.unknown': 'Niečo sa pokazilo.',
     'error.not_found': 'Nenašlo sa.',
-    'error.not_up_to_date': 'Databáza ešte nie je zosúladená s nahratou verziou aplikácie. Skús to o chvíľu znova; ak to pretrvá, dôvod je v chybovom zázname servera.',
+    'error.not_up_to_date': 'Databáza ešte nie je zosúladená s touto verziou aplikácie: najprv ju musí aktualizovať administrátor. Skús to neskôr.',
   };
 
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] }));
@@ -112,16 +132,19 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
   it('reads in that language, the detail still English, and follows the language when it changes', async () => {
     const el = await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: 'the migration 004 failed' });
     expect(said(el)).toBe(
-      'Aplikáciu Japanese Academy sa nepodarilo spustiť: Databáza ešte nie je zosúladená s nahratou verziou aplikácie. Skús to o chvíľu znova; ak to pretrvá, dôvod je v chybovom zázname servera.',
+      'Aplikáciu Japanese Academy sa nepodarilo spustiť: Databáza ešte nie je zosúladená s touto verziou aplikácie: najprv ju musí aktualizovať administrátor. Skús to neskôr.',
     );
     expect(el.querySelector('.detail')?.textContent).toBe('the migration 004 failed');
     expect(el.querySelector('.detail')?.getAttribute('lang')).toBe('en');
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Skúsiť znova');
+    expect(el.querySelector('#toMigrations'), 'a learner').toBeNull();
+    const admin = (await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: null }, true)).querySelector('#toMigrations');
+    expect(admin?.textContent?.trim(), 'an administrator, in their language').toBe('Otvoriť stránku Migrations');
 
     await TestBed.inject(TranslationService).setLanguage('en', false);
     await TestBed.inject(ApplicationRef).whenStable();
     expect(said(el)).toBe(
-      "Japanese Academy could not start: The database is not up to date with the uploaded version of the app yet. Try again in a moment; if this stays, the server's error log says why.",
+      "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
     );
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Try again');
   });

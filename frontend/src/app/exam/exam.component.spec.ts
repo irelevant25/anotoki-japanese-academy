@@ -1,13 +1,19 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ApiError, ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
+import { AuthService } from '../core/auth/auth.service';
 import { PrivateLinksService } from '../core/auth/private-links.service';
 import { fmtDateTime } from '../core/format';
-import { LanguageChooserComponent } from '../core/i18n/language-chooser/language-chooser.component';
 import { TranslationService } from '../core/i18n/translation.service';
+import { SavesInFlight } from '../core/saves-in-flight.service';
+import { drawnFoot } from '../core/testing/foot-controls';
 import { provideTestTranslations } from '../core/testing/test-translations';
+import { KanjiStateService } from '../kanji/kanji-state.service';
+import { TopBarComponent } from '../top-bar/top-bar.component';
 import { ExamComponent } from './exam.component';
+import { derivedFromState } from '../core/testing/auth-states';
 
 /** Intl writes a no-break space between the thousands, and before a unit, in Slovak. */
 const NBSP = String.fromCharCode(0xa0);
@@ -132,6 +138,7 @@ const ENGLISH: Record<string, string> = {
   'error.unknown': 'Something went wrong.',
   'error.database_unavailable': 'The database is not reachable.',
   'error.server_error': 'Something went wrong on the server.',
+  'error.visitor_limit.attempts': 'This browser has as many exam attempts as it keeps without signing in ({max}). Sign in to keep more.',
   'error.paper_mismatch': 'The submitted answers do not belong to this paper. Nothing was saved.',
   'language.button': 'Language: {name}',
   'language.notLoaded': 'The language could not be loaded. Try again.',
@@ -222,6 +229,25 @@ function question(n: number, over: Partial<ExamQuestion> = {}): ExamQuestion {
     audio: null,
     options: ['は', 'が', 'を', 'に'],
     ...over,
+  };
+}
+
+/** Somebody signed in, an administrator, as the top bar sees them (it draws the links and the person's menu then). */
+function barAuth() {
+  const user = { sub: '7', preferred_username: 'hana', email: 'hana@example.test', email_verified: true, locale: null, roles: ['ADMIN'] };
+  const state = signal('ready');
+  return {
+    state,
+    ...derivedFromState(state),
+    loginRequired: signal(true),
+    user: signal(user),
+    showSignIn: signal(false),
+    displayName: signal('hana'),
+    isAdmin: signal(true),
+    isStaff: signal(true),
+    accountUrl: () => 'https://iam.example.test/account',
+    login: vi.fn(),
+    logout: vi.fn(),
   };
 }
 
@@ -509,6 +535,17 @@ describe('ExamComponent', () => {
       expect(one('#setup').hidden).toBe(false);
     });
 
+    it('a visitor at the attempt cap is told before a paper starts (422 visitor_limit), with the number, in the page’s words', async () => {
+      await open();
+      api.paper.mockRejectedValue(
+        new ApiError('Without signing in, this browser keeps at most 10 exam attempts.', 422, { code: 'visitor_limit', limit: 'attempts', max: 10 }),
+      );
+      one('#startBtn').click();
+      await settle();
+      expect(text('#setupErr')).toBe('This browser has as many exam attempts as it keeps without signing in (10). Sign in to keep more.');
+      expect(one('#setup').hidden, 'no paper to answer in vain').toBe(false);
+    });
+
     it('past attempts: the table’s words, the date and the numbers in the language, PASS and FAIL as marks, the report an English page', async () => {
       const attempts: Attempt[] = [
         { id: 'a 1', finishedAt: '2026-09-24T12:00:00.000Z', total: 40, right: 29, pct: 72.5, grade: 'B', passed: true, candidate: '' },
@@ -680,6 +717,28 @@ describe('ExamComponent', () => {
       expect(confirmBox).toHaveBeenLastCalledWith('4 questions unanswered. Finish and score anyway?');
     });
 
+    it('a paper open and not handed in is what a sign-out would lose (SavesInFlight); handed in, nothing; scored, the save is waited for', async () => {
+      await open();
+      const saves = TestBed.inject(SavesInFlight);
+      expect(saves.losses(), 'the setup: nothing to lose').toEqual([]);
+      await start([question(1)]);
+      expect(saves.losses()).toEqual(['signOut.examOpen']);
+
+      let score!: (value: unknown) => void;
+      api.submit.mockImplementation(() => new Promise((resolve) => (score = resolve)));
+      fixture.componentInstance.choose(1);
+      one('#quitBtn').click();
+      await settle();
+      expect(saves.losses(), 'handed in: on its way, not lost').toEqual([]);
+      expect(saves.saving()).toBe(true);
+      score(RESULT);
+      await settle();
+      expect(saves.saving()).toBe(false);
+
+      fixture.destroy();
+      expect(saves.losses(), 'the page gone: it watches nothing any more').toEqual([]);
+    });
+
     it('every question answered: no dialog, the paper is handed in', async () => {
       await open();
       await start([question(1)]);
@@ -813,29 +872,66 @@ describe('ExamComponent', () => {
   /* -------------------------------------------------------------- keys */
 
   describe('the keys', () => {
-    it('a key pressed inside the language chooser never reaches the paper: nothing is chosen, nothing handed in', async () => {
+    it('Enter and Space on every control of the top bar and the foot never reach the paper: nothing chosen, nothing played, nothing handed in', async () => {
+      // The bar as the app draws it over the exam: somebody signed in, Kanji and Exam, the language, the theme, the person's menu.
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          { provide: AuthService, useValue: barAuth() },
+          { provide: KanjiStateService, useValue: { reviewsDue: signal(125) } },
+        ],
+      });
       await open('sk');
-      await start([question(1)]);
-      const chooser = TestBed.createComponent(LanguageChooserComponent);
-      document.body.appendChild(chooser.nativeElement);
-      await chooser.whenStable();
-      const menu = (chooser.nativeElement as HTMLElement).querySelector<HTMLDetailsElement>('details')!;
-      const summary = menu.querySelector<HTMLElement>('summary')!;
-      const items = Array.from(menu.querySelectorAll<HTMLElement>('.umenu button'));
-      menu.open = true;
+      // The one question is the last, and a spoken one: Enter on the page would hand the paper in, Space play the word.
+      await start([LISTENING]);
+      const played = vi.spyOn(fixture.componentInstance, 'playAudio');
+      const bar = TestBed.createComponent(TopBarComponent);
+      document.body.appendChild(bar.nativeElement);
+      await bar.whenStable();
+      const top = bar.nativeElement as HTMLElement;
+      const controls = (): HTMLElement[] => [
+        top.querySelector<HTMLElement>('app-brand a')!,
+        ...Array.from(top.querySelectorAll<HTMLElement>('.topbar-nav a')),
+        top.querySelector<HTMLElement>('#langButton')!,
+        ...Array.from(top.querySelectorAll<HTMLElement>('[role="radio"]')),
+        top.querySelector<HTMLElement>('#userButton')!,
+      ];
+      expect(controls()).toHaveLength(8);
+      expect(controls().every((control) => control !== null)).toBe(true);
 
-      // The one question is the last: Enter on the page would hand the paper in.
-      for (const key of ['Enter', ' ', '1', '2', 'a', 'd', 'f', 'r', 'ArrowLeft', 'ArrowRight']) {
-        press(summary, key);
-        press(items[0], key);
+      const keys = ['Enter', ' ', '1', '2', 'a', 'd', 'f', 'r', 'ArrowLeft', 'ArrowRight'];
+      for (const control of controls()) {
+        for (const key of keys) {
+          press(control, key);
+        }
+      }
+      // The person's menu open, its items too (Enter on "Sign out" must not also hand the paper in).
+      top.querySelector<HTMLElement>('#userButton')!.click();
+      await bar.whenStable();
+      const items = Array.from(top.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+      expect(items.length).toBeGreaterThan(1);
+      for (const item of items) {
+        for (const key of keys) {
+          press(item, key);
+        }
+      }
+      // The foot under the paper: What's new, and the news it opens (its Close, its lines) - Enter there hands nothing in.
+      const foot = await drawnFoot();
+      for (const control of foot.controls) {
+        for (const key of keys) {
+          press(control, key);
+        }
       }
       await settle();
       expect(api.submit).not.toHaveBeenCalled();
+      expect(played).not.toHaveBeenCalled();
       expect(all('#opts .is-on').length, 'no option chosen').toBe(0);
       expect(all('#gridNav .flag').length, 'not flagged').toBe(0);
       expect(one('#test').hidden).toBe(false);
 
       // The same keys anywhere else are the paper's.
+      press(document.body, ' ');
+      expect(played).toHaveBeenCalledTimes(1);
       press(document.body, '2');
       await settle();
       expect(all('#opts .opt').map((option) => option.classList.contains('is-on'))).toEqual([false, true, false, false]);
@@ -843,8 +939,9 @@ describe('ExamComponent', () => {
       await settle();
       expect(api.submit).toHaveBeenCalledTimes(1);
 
-      chooser.destroy();
-      (chooser.nativeElement as HTMLElement).remove();
+      foot.remove();
+      bar.destroy();
+      (bar.nativeElement as HTMLElement).remove();
     });
   });
 });

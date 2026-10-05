@@ -1,13 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, OnInit, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, Summary } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
+import { VisitorKey } from '../core/auth/visitor-key';
 import { fmtDateTime, fmtInShort } from '../core/format';
 import { TranslatePluralPipe } from '../core/i18n/translate-plural.pipe';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { TranslationService } from '../core/i18n/translation.service';
 import { KanjiStateService } from '../kanji/kanji-state.service';
+import { VisitorNoticeComponent } from './visitor-notice/visitor-notice.component';
+import { YourDataComponent } from './your-data/your-data.component';
 
 /** The stage groups of the bar, by the ids the summary uses, each with its colour. */
 const BAR: [string, string][] = [
@@ -19,7 +22,12 @@ const BAR: [string, string][] = [
 ];
 
 /**
- * The Academy's home: the two parts, with where each stands.
+ * The Academy's home: the two parts, with where each stands, and at its foot
+ * Your data (the learner's data as a file, and back) — a signed-in person's
+ * only. A visitor (nobody signed in, where the IAM does not require it) reads
+ * the visitor notice at the top instead (visitor-notice/), and the page loads
+ * again when what this browser studied moves into an account after the first
+ * page was drawn (a move asked again later: VisitorKey.moves).
  *
  * Its words are in the language on the page. What is kept here is what
  * happened — the numbers, and whether a load failed — and the sentences are
@@ -30,7 +38,7 @@ const BAR: [string, string][] = [
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, TranslatePipe, TranslatePluralPipe],
+  imports: [RouterLink, TranslatePipe, TranslatePluralPipe, VisitorNoticeComponent, YourDataComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,9 +47,8 @@ export class HomeComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly kanji = inject(KanjiStateService);
   private readonly i18n = inject(TranslationService);
-  private readonly auth = inject(AuthService);
-  /** On the owner's computer (mode none) the owner has no account menu: a small link at the foot leads to the Translations page. */
-  readonly ownerLink = computed(() => this.auth.mode() === 'none' && this.auth.isOwner());
+  readonly auth = inject(AuthService);
+  private readonly visitor = inject(VisitorKey);
 
   readonly summary = signal<Summary | null>(null);
   readonly kanjiError = signal(false);
@@ -112,7 +119,22 @@ export class HomeComponent implements OnInit {
     return meta ? this.i18n.number(meta.bankSize) : '–';
   });
 
+  constructor() {
+    // A move that finished after the page was drawn: what it shows is the account's now.
+    const movesAtStart = this.visitor.moves();
+    effect(() => {
+      if (this.visitor.moves() !== movesAtStart) {
+        untracked(() => void this.reload());
+      }
+    });
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.reload();
+  }
+
+  /** Where each part stands, asked again: at the start, and after a data file has replaced the learner's data (Your data). */
+  async reload(): Promise<void> {
     await Promise.all([this.loadKanji(), this.loadExam()]);
   }
 

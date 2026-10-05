@@ -8,7 +8,8 @@
  *   php backend/tests/run.php                                      every file
  *   php backend/tests/run.php backend/tests/unit/srs.test.php …    some files
  *
- * npm test runs this and the frontend's unit tests.
+ * Where an older php comes first on PATH: node backend/tools/php.js backend/tests/run.php.
+ * The frontend's unit tests are npm test in frontend/.
  */
 
 declare(strict_types=1);

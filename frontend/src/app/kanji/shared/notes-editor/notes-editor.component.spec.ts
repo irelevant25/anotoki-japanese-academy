@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ApiError, ApiService } from '../../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../../core/api/api.types';
 import { TranslationService } from '../../../core/i18n/translation.service';
+import { SavesInFlight } from '../../../core/saves-in-flight.service';
 import { provideTestTranslations } from '../../../core/testing/test-translations';
 import { KanjiStateService } from '../../kanji-state.service';
 import { NotesEditorComponent } from './notes-editor.component';
@@ -94,6 +95,26 @@ describe('NotesEditorComponent', () => {
     expect(areas().map((area) => area.value)).toEqual(['a line', '']);
     expect(statuses()).toEqual(['', '']);
     expect(warn, 'no key of the notes is without a string').not.toHaveBeenCalled();
+  });
+
+  it('a note waiting for its moment, and one on its way, are known to SavesInFlight: signing out sends the first at once and waits for both', async () => {
+    await draw();
+    let land!: () => void;
+    api.item.mockImplementation(() => new Promise((resolve) => (land = () => resolve({ state: STATE }))));
+    await write(0, 'a big tree');
+    expect(api.item, 'not yet: the note waits a moment after the typing').not.toHaveBeenCalled();
+    const saves = TestBed.inject(SavesInFlight);
+    let settled = false;
+    const settling = saves.settle().then(() => (settled = true));
+    expect(api.item.mock.calls).toEqual([['k:一', { notes: { meaning: 'a big tree' } }]]);
+    expect(saves.saving()).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    land();
+    await settling;
+    expect(saves.saving()).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect(api.item, 'sent once: the timer was let go of').toHaveBeenCalledTimes(1);
   });
 
   it('has no heading where none is wanted', async () => {

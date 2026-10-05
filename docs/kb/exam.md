@@ -8,8 +8,8 @@ Multiple choice only (the user's choice). Code: `backend/src/generate.php`
 
 ## The bank — 11,523 questions, built when the content is synced
 
-`exam_build_bank()` runs when data/ or the generator changed (the server's
-start, the setup page; ~2 s) and the result is stored in the `exam_questions`
+`exam_build_bank()` runs when `backend/data/` or the generator changed (the
+first request after the change, the setup page, `manage.php --sync`; ~2 s) and the result is stored in the `exam_questions`
 table, in bank order (`seq`). Ids are `q1`, `q2` … in the order the builders
 make them.
 
@@ -24,10 +24,10 @@ make them.
 | `verb-class` | 113 | 162 | u / ru / irregular (three options) |
 | `adjective` | 372 | 234 | い/な rules crossed over for distractors |
 | `kana` | 260 | — | hiragana/katakana tables |
-| `particle`, `grammar`, `counter`, `translation` | 50, 69, 26, 30 | 40, 83, 14, 28 | hand-written: `data/authored-items-part1.php`, `data/authored-items-part2.php` |
+| `particle`, `grammar`, `counter`, `translation` | 50, 69, 26, 30 | 40, 83, 14, 28 | hand-written: `backend/data/authored-items-part1.php`, `backend/data/authored-items-part2.php` |
 
 The listening sections exist only when the audio has been made
-(`npm run build:audio`); without it the bank is 2,782 questions smaller.
+(`backend/tools/build-audio.php`); without it the bank is 2,782 questions smaller.
 
 Keigo verbs (honorific/humble/extra-modest) are excluded from the Part 2 forms
 (no causative-passive of いらっしゃる); the five 〜さる verbs take います
@@ -63,7 +63,7 @@ before the port; `backend/tests/unit/exam-bank.test.php` pins the first numbers.
 Pass mark 70 %; grades A ≥90, B ≥80, C ≥70, D ≥60, F. Sections/lessons under
 60 % are flagged as weaknesses. Unanswered = wrong. Each attempt is stored in
 the `exam_attempts` table as the person's who sat it (`user_id`): the whole
-record (every answer and its timing, in the shape `results/<id>.json` had) and
+record (every answer and its timing, in the shape the old app's `results/<id>.json` had) and
 its report. An attempt's id is its finishing time and seed, so it is unique
 per person only: two people may have the same one, and `/report/<id>` finds
 the one of the person asking (somebody else's answers 404). The report is
@@ -75,7 +75,7 @@ ICU, as the browser's `toLocaleString()` did. The report stays English in
 every language (a stored row is never rewritten); the page's link to it is
 translated and says `hreflang="en"`.
 
-Signed in (auth mode iam), the browser can't just follow the report link: it
+Signed in, the browser can't just follow the report link: it
 carries no token. `PrivateLinksService` fetches the report with the token and
 opens it from memory in a new tab ([sign-in.md](sign-in.md)).
 
@@ -100,10 +100,11 @@ server sends (`exam.section.<id>`, `exam.part.<id>`, `common.lesson`; a
 review row carries `sectionId` beside its name), so the server's names stay
 in its answers, unused by the page.
 
-The attempts from before the database (`results/`, `reports/`, from
-2026-09-22) were imported by the setup, their reports unchanged. Migration
-002 gave them, with everything else, the owner's user id (1), with the
-owner's approval on 2026-09-27; apart from that they are never rewritten.
+The attempts of the app before the database (`results/`, `reports/`, from
+2026-09-22) were never imported into it: the owner deleted the folders on
+2026-10-04, and git keeps them. Migration 002 gave every study row there was
+the owner's user id (1), with the owner's approval on 2026-09-27; apart from
+that attempts are never rewritten.
 
 ## Adding hand-written questions
 

@@ -11,7 +11,8 @@ copied in by hand (or `ACADEMY_BOOKS_DIR` pointed at them). They are page scans
 with **no text layer**, and these machines have no poppler, so the Read tool
 can't open them as PDFs. `backend/tools/pdf/pages.js` copies each page's
 embedded JPEG out, crops and scales it, and prints the file path. Open that
-path with the Read tool. (It needs `sharp`: `npm install` at the root, once.)
+path with the Read tool. (It needs `sharp`, the one package of its own
+`backend/tools/pdf/package.json`: `npm --prefix backend/tools/pdf ci`, once.)
 
 Whatever you learn from a book, never write the course's name into the
 repository (see `CLAUDE.md`): say "textbook 1", "the answer key" and so on.
@@ -24,7 +25,6 @@ node backend/tools/pdf/pages.js answer-key 1-40 --sheet     # contact sheet of t
 node backend/tools/pdf/pages.js textbook-1 389 --width 1800 # bigger, for small print (furigana, charts)
 ```
 
-(`npm run pdf:pages -- textbook-2 357-359` does the same.)
 
 Page numbers are **PDF page numbers**, the same numbers a PDF viewer shows. The
 offsets hold for whole books, because blank and divider pages are numbered book
@@ -71,4 +71,4 @@ open it full size. Add what you found to the kb page maps.
 - Record the page you used (book key + PDF page) in your notes or report so
   anyone can re-check it.
 
-Transcription formats for `data/source` are in the `academy-data` skill.
+Transcription formats for `backend/data/source` are in the `academy-data` skill.

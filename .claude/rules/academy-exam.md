@@ -8,7 +8,7 @@ paths:
   - "backend/src/exam.php"
   - "backend/src/util.php"
   - "frontend/src/app/exam/**"
-  - "data/authored-items*.php"
+  - "backend/data/authored-items*.php"
 ---
 
 # Exam (Japanese Academy)
@@ -26,9 +26,10 @@ Reference: `docs/kb/exam.md`.
   JavaScript-compatible helpers in `backend/src/util.php` (`js_round`,
   `js_to_fixed`, `utf16_units`, `imul` …) must keep giving the first version's
   results; `backend/tests/unit/exam-bank.test.php` pins them. If the question
-  bank or the order of RNG calls changes, a paper started before a server
-  restart can't be submitted afterwards. Mention this when you restart during
-  the owner's study time.
+  bank or the order of RNG calls changes, a paper started before the change
+  reached the server (the next request rebuilds the bank) can't be submitted
+  afterwards. Mention this when such a change lands during the owner's study
+  time.
 - Every question has one right answer and 1–3 distinct distractors, and each
   distractor is wrong for the question as asked. Generated distractors are
   plausible mistakes: the wrong verb class, a compound read with its kanji's
@@ -40,7 +41,7 @@ Reference: `docs/kb/exam.md`.
   teaches the form: potential L13, volitional L15, ば L18, passive L21,
   causative L22, causative-passive L23.
 - The rows of `exam_attempts` are their people's: on the owner's computer the
-  owner's (some were imported from `results/` and `reports/`). If you change
+  owner's. If you change
   the attempt record, the stored ones must still load in the history and the
   reports. Never migrate or rewrite them. The one exception was migration
   `002_users.sql`, which gave every stored attempt the owner's user id (1): a

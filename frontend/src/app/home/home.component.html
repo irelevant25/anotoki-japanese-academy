@@ -1,4 +1,6 @@
 <main class="wrap">
+  <app-visitor-notice />
+
   <section class="hero">
     <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
     <p>{{ 'home.intro' | translate }}</p>
@@ -62,8 +64,8 @@
     </a>
   </div>
 
-  @if (ownerLink()) {
-    <!-- The owner's page is English, in every language. -->
-    <p class="ownerlink small"><a routerLink="/translations" lang="en" id="ownerTranslations">Translations</a></p>
+  @if (auth.signedIn()) {
+    <!-- A person's own data file: never a visitor's (their study has no file; signing in keeps it). -->
+    <app-your-data (brought)="reload()" />
   }
 </main>

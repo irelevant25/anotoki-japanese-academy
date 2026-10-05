@@ -1,7 +1,7 @@
 <?php
 // /api/kanji end to end: the real server with its own throwaway database; the
-// clock is moved by editing that database. Sign-in is off (auth mode none), so
-// every request is the owner (auth.local_user_id).
+// clock is moved by editing that database. Every request is TEST_USER's, signed
+// in through the test IAM (call() in tests/lib.php), a learner with no role.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -18,7 +18,7 @@ function api(string $method, string $url, $body = null): array
 
 function make_due(string $id): void
 {
-    db_exec('UPDATE srs_progress SET next_review = academy_time(?) WHERE user_id = ? AND item_id = ?', [now_ms() - 1000, auth_local_user_id(), $id]);
+    db_exec('UPDATE srs_progress SET next_review = academy_time(?) WHERE user_id = ? AND item_id = ?', [now_ms() - 1000, TEST_USER, $id]);
 }
 
 test('fresh start', function (): void {
@@ -103,13 +103,13 @@ test('reviews: only when due, once, and the stage moves', function (): void {
 });
 
 test('practice: recorded, but never touches the schedule', function (): void {
-    $before = store_item(auth_local_user_id(), 'v:大学');
+    $before = store_item(TEST_USER, 'v:大学');
     $r = api('POST', '/practice', ['id' => 'v:大学', 'firstTryCorrect' => false, 'wrong' => 2]);
     assert_same(1, $r['body']['state']['practice']['incorrect']);
     for ($i = 0; $i < 25; $i++) {
         api('POST', '/practice', ['id' => 'v:大学', 'firstTryCorrect' => true]);
     }
-    $after = store_item(auth_local_user_id(), 'v:大学');
+    $after = store_item(TEST_USER, 'v:大学');
     assert_same($before['stage'], $after['stage']);
     assert_same($before['nextReview'], $after['nextReview']);
     assert_same(25, $after['practice']['correct']);
@@ -142,16 +142,16 @@ test('settings are validated', function (): void {
 });
 
 test('persistence: in the database, every answer in the log; a backup on a page load, never on an answer', function (): void {
-    assert_same(2, store_item(auth_local_user_id(), 'k:大')['stage']);
+    assert_same(2, store_item(TEST_USER, 'k:大')['stage']);
     assert_true((int) db_value('SELECT count(*) FROM srs_log') > 30, 'log lines');
     assert_same(['lesson', 'practice', 'review'], array_column(db_all('SELECT DISTINCT kind FROM srs_log ORDER BY kind'), 'kind'));
     foreach (['srs_progress', 'srs_daily', 'srs_log'] as $table) {
-        assert_same([auth_local_user_id()], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')),
-            "every row of $table is the owner’s: without sign-in, every request is");
+        assert_same([TEST_USER], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')),
+            "every row of $table is the signed-in person’s: every request here is TEST_USER’s");
     }
     // The first page load with data in the database took the day's backup
-    // (for a server left running overnight); answers never take one.
-    $today = backup_dir() . '/academy-' . local_date() . '.json';
+    // (for a server left running overnight); answers never take one. The day is UTC's.
+    $today = backup_dir() . '/academy-' . utc_date() . '.json';
     assert_true(is_file($today), 'the day’s backup, taken by a page load');
     unlink($today);
     api('POST', '/practice', ['id' => 'v:大学', 'firstTryCorrect' => true]);
@@ -162,13 +162,13 @@ test('persistence: in the database, every answer in the log; a backup on a page 
     assert_true(is_file($today), 'the next page load takes it again');
 });
 
-test('export: the progress in the old kanji.json shape, as a download', function (): void {
-    $r = api('GET', '/export');
-    assert_match('/attachment; filename="kanji-progress-\d{4}-\d{2}-\d{2}\.json"/', $r['headers']['content-disposition'] ?? '');
-    assert_same(1, $r['body']['version']);
-    assert_same(2, $r['body']['items']['k:大']['stage']);
-    assert_same(20, $r['body']['settings']['batchSize']);
-    assert_true(isset($r['body']['daily'][local_date()]));
+test('the progress in the data file: the shape the kanji part of a backup has (tests/api/me.test.php has the file)', function (): void {
+    assert_same(404, api('GET', '/export')['status'], 'the kanji-only download went');
+    $kanji = call($GLOBALS['app']['base'], 'GET', '/api/me/data')['body']['users'][0]['kanji'];
+    assert_same(1, $kanji['version']);
+    assert_same(2, $kanji['items']['k:大']['stage']);
+    assert_same(20, $kanji['settings']['batchSize']);
+    assert_true(isset($kanji['daily'][utc_date()]), 'today, in UTC: this person never named a time zone');
 });
 
 test('reset: one item keeps its notes; everything needs confirmation and is backed up', function (): void {
@@ -182,12 +182,12 @@ test('reset: one item keeps its notes; everything needs confirmation and is back
     assert_same(20, $p['settings']['batchSize'], 'settings survive a reset');
     $backups = array_map('basename', glob(backup_dir() . '/academy-before-reset-*.json') ?: []);
     assert_same(1, count($backups), 'one backup before the reset');
-    assert_match('/^academy-before-reset-user-' . auth_local_user_id() . '-\d{8}-\d{6}-\d{3}\.json$/D', $backups[0], 'named after whose data it holds');
+    assert_match('/^academy-before-reset-user-' . TEST_USER . '-\d{8}-\d{6}-\d{3}\.json$/D', $backups[0], 'named after whose data it holds');
     $saved = read_json(backup_dir() . '/' . $backups[0]);
     assert_same(false, $saved['everybody'], 'that person’s data alone');
-    assert_same([auth_local_user_id()], array_column($saved['users'], 'id'));
-    $mine = backup_person_in($saved, auth_local_user_id());
-    assert_same(auth_local_user_id(), $mine['id']);
+    assert_same([TEST_USER], array_column($saved['users'], 'id'));
+    $mine = backup_person_in($saved, TEST_USER);
+    assert_same(TEST_USER, $mine['id']);
     assert_same(3, $mine['kanji']['items']['k:学']['stage'] ?? null, 'it holds the progress as it was');
     assert_true(count($mine['log']) > 30, 'and the answer log');
     assert_same('reset', db_value('SELECT kind FROM srs_log ORDER BY id DESC LIMIT 1'), 'the log keeps going: it is never wiped');

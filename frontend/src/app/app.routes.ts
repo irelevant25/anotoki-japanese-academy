@@ -1,67 +1,112 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
+import { unsavedChangesGuard } from './admin/unsaved-changes.guard';
 import { AuthCallbackComponent } from './core/auth/auth-callback/auth-callback.component';
 import { AuthService } from './core/auth/auth.service';
+import { adminSignInGuard, signInGuard } from './core/auth/sign-in.guard';
 import { HomeComponent } from './home/home.component';
-import { unsavedChangesGuard } from './owner/unsaved-changes.guard';
 
 /**
- * A section's screens only while the app can be used. Once the router has
- * started, Back or Forward still navigates while the page shows the Sign in or
- * the "not set up yet" page, and the kanji screens would ask the API for data
- * on the way (their resolver), which nobody signed out, or a copy not set up,
- * can have.
+ * A section's screens only while the app can be used: somebody signed in, or
+ * a visitor (where the IAM does not require sign-in). signInGuard lets a page
+ * through with nobody signed in after a sign-in that came back without one
+ * (the Sign in card is drawn instead), and once the router has started, Back
+ * or Forward still navigates while the page shows the card or the "not set up
+ * yet" page: the kanji screens would ask the API for data on the way (their
+ * resolver), which nobody signed out, or a copy not set up, can have.
  */
-export const whenReady: CanActivateFn = () => inject(AuthService).state() === 'ready';
+export const whenReady: CanActivateFn = () => inject(AuthService).usable();
 
 /**
- * The owner's pages, for the owner only (AuthService.isOwner): anybody else
- * goes to the home page. It only hides them; the server refuses the calls.
+ * The admin panel, for EDITOR and ADMIN (AuthService.isStaff): anybody else
+ * goes to the home page. It only hides it; the server refuses the calls.
  */
-export const ownerOnly: CanActivateFn = () => inject(AuthService).isOwner() || inject(Router).createUrlTree(['/']);
+export const staffOnly: CanActivateFn = () => inject(AuthService).isStaff() || inject(Router).createUrlTree(['/']);
+
+/** The admin panel's Languages, People and Migrations, for ADMIN alone: an editor goes to the home page (the server answers 403 admin_only). */
+export const adminOnly: CanActivateFn = () => inject(AuthService).isAdmin() || inject(Router).createUrlTree(['/']);
 
 /**
- *   /                 the Academy's home
- *   /kanji            the kanji trainer: /kanji/lessons, /reviews, /practice, /browse?lesson=6, /item/:id
- *   /exam             the exam
- *   /translations     the owner's: the app's words in every language (English)
- *   /languages        the owner's: the languages readers are offered (English)
- *   /auth/callback    where the IAM sends the browser back after a sign-in
+ *   /                       the Academy's home (and Your data, at its foot)
+ *   /kanji                  the kanji trainer: /kanji/lessons, /reviews, /practice, /browse?lesson=6, /item/:id
+ *   /exam                   the exam
+ *   /admin/translations     EDITOR, ADMIN: the app's words in every language (English)
+ *   /admin/languages        ADMIN: the languages readers are offered (English)
+ *   /admin/people           ADMIN: everybody the site has, and deleting a person's data (English)
+ *   /admin/migrations       ADMIN: the database's migrations, applied and pending, and Apply (English)
+ *   /auth/callback          where the IAM sends the browser back after a sign-in
+ *
+ * Every page but the callback is for somebody signed in: signInGuard sends
+ * anybody else to the IAM, and back to the address they asked for — on each
+ * of a learner's pages (`canActivateChild`), and as the admin panel is entered
+ * (adminSignInGuard). Where the IAM does not require sign-in, a learner's
+ * pages are a visitor's too; the admin panel never is.
+ * The old addresses of the admin pages (/translations, /languages) lead to
+ * their new ones.
  *
  * A title is a translation key, or a word that is the same in every language
  * ("Kanji"); the title strategy words it and puts the app's name after it
  * (core/i18n/title.strategy.ts). The home page has none: the name alone. The
- * owner's pages are English, and so are their titles; leaving one with
- * unsaved changes asks first (unsavedChangesGuard).
+ * admin pages are English, and so are their titles ("Admin panel" put between
+ * a page's and the app's name); leaving one with unsaved
+ * changes asks first (unsavedChangesGuard).
  */
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
-  {
-    path: 'kanji',
-    title: 'Kanji',
-    canActivate: [whenReady],
-    loadChildren: () => import('./kanji/kanji.routes').then((m) => m.KANJI_ROUTES),
-  },
-  {
-    path: 'exam',
-    title: 'title.exam',
-    canActivate: [whenReady],
-    loadComponent: () => import('./exam/exam.component').then((m) => m.ExamComponent),
-  },
-  {
-    path: 'translations',
-    title: 'Translations',
-    canActivate: [whenReady, ownerOnly],
-    canDeactivate: [unsavedChangesGuard],
-    loadComponent: () => import('./owner/translations/translations.component').then((m) => m.TranslationsComponent),
-  },
-  {
-    path: 'languages',
-    title: 'Languages',
-    canActivate: [whenReady, ownerOnly],
-    canDeactivate: [unsavedChangesGuard],
-    loadComponent: () => import('./owner/languages/languages.component').then((m) => m.LanguagesComponent),
-  },
   { path: 'auth/callback', component: AuthCallbackComponent, title: 'title.signingIn' },
-  { path: '**', redirectTo: '' },
+  {
+    path: 'admin',
+    canActivate: [adminSignInGuard, whenReady, staffOnly],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'translations' },
+      {
+        path: 'translations',
+        title: 'Translations',
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => import('./admin/translations/translations.component').then((m) => m.TranslationsComponent),
+      },
+      {
+        path: 'languages',
+        title: 'Languages',
+        canActivate: [adminOnly],
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => import('./admin/languages/languages.component').then((m) => m.LanguagesComponent),
+      },
+      {
+        path: 'people',
+        title: 'People',
+        canActivate: [adminOnly],
+        loadComponent: () => import('./admin/people/people.component').then((m) => m.PeopleComponent),
+      },
+      {
+        path: 'migrations',
+        title: 'Migrations',
+        canActivate: [adminOnly],
+        loadComponent: () => import('./admin/migrations/migrations.component').then((m) => m.MigrationsComponent),
+      },
+      { path: '**', redirectTo: 'translations' },
+    ],
+  },
+  // Where the admin pages were before they had an area of their own.
+  { path: 'translations', pathMatch: 'full', redirectTo: '/admin/translations' },
+  { path: 'languages', pathMatch: 'full', redirectTo: '/admin/languages' },
+  {
+    path: '',
+    canActivateChild: [signInGuard],
+    children: [
+      { path: '', pathMatch: 'full', component: HomeComponent },
+      {
+        path: 'kanji',
+        title: 'Kanji',
+        canActivate: [whenReady],
+        loadChildren: () => import('./kanji/kanji.routes').then((m) => m.KANJI_ROUTES),
+      },
+      {
+        path: 'exam',
+        title: 'title.exam',
+        canActivate: [whenReady],
+        loadComponent: () => import('./exam/exam.component').then((m) => m.ExamComponent),
+      },
+      { path: '**', redirectTo: '' },
+    ],
+  },
 ];

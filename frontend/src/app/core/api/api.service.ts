@@ -4,18 +4,25 @@ import { firstValueFrom, Observable } from 'rxjs';
 import {
   ApiErrorBody,
   Attempt,
+  BroughtBack,
   Catalog,
   ExamMeta,
   ExamPaper,
   ExamResult,
   ExamSpec,
   ItemPatch,
+  MigrationsApplyResult,
+  MigrationsStatus,
+  Person,
   Progress,
   Settings,
   StateAnswer,
   Summary,
+  VisitorMove,
+  VisitorsCount,
 } from './api.types';
-import { LanguageChanges, NewLanguage, OwnerLanguage, TranslationChanges, TranslationGrid } from '../i18n/translation.model';
+import { CARRIES_VISITOR_KEY, issuedAs, VISITOR_KEY_HEADER } from '../auth/issued-as';
+import { LanguageChanges, NewLanguage, AdminLanguage, TranslationChanges, TranslationGrid } from '../i18n/translation.model';
 
 /**
  * What a failure is called: the word the server put in its answer; `offline`
@@ -50,10 +57,15 @@ export class ApiError extends Error {
   }
 }
 
+/** For a signed-in person only, whatever the page is shown as: what a visitor may never do (the data file, the admin panel, the move). */
+const AS_PERSON = issuedAs('person');
+
 /**
  * Every call the app makes to its backend, same-origin (/api/...). The token
- * of a sign-in is the interceptor's to add (core/auth/auth.interceptor.ts);
- * nothing here knows about it.
+ * of a sign-in — or a visitor's key — is the interceptor's to add
+ * (core/auth/auth.interceptor.ts), for whom the page is shown to as the call
+ * is issued; the calls only a person may make say so (AS_PERSON), and go with
+ * a token or not at all.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -120,42 +132,95 @@ export class ApiService {
     return this.call(this.http.get<Attempt[]>('/api/attempts'));
   }
 
-  /* --------------------------------------- the owner's words and languages */
-  // Only the owner may (the server's owner_middleware: ADMIN, or this computer).
+  /* ------------------------------------------------------- your own data */
+  // Every signed-in person, their own data only (backend/api/routes/me.php).
+  // The download is AuthService.fetch()'s (a file, saved from a Blob): see home/your-data.
 
-  languages(): Promise<OwnerLanguage[]> {
-    return this.call(this.http.get<{ languages: OwnerLanguage[] }>('/api/owner/languages')).then((r) => r.languages);
+  /**
+   * A data file's text, as it is, replaces all of this person's data (a copy
+   * of what was there is kept on the server first). 413 too_large {limit},
+   * 422 not_a_data_file, 422 several_people.
+   */
+  bringBack(text: string): Promise<BroughtBack> {
+    return this.call(this.http.put<BroughtBack>('/api/me/data', text, { headers: { 'Content-Type': 'application/json' }, context: AS_PERSON }));
   }
 
-  createLanguage(language: NewLanguage): Promise<OwnerLanguage> {
-    return this.call(this.http.post<{ language: OwnerLanguage }>('/api/owner/languages', language)).then((r) => r.language);
+  /* ------------------------------------------------------------ visitors */
+
+  /**
+   * After a sign-in: what this browser's visitor studied (`key`) moves into
+   * the signed-in person's account (core/auth/visitor-key.ts). The one request
+   * with both the token and the key. Repeatable: a key nobody has any more is
+   * 200 {found: false}; 422 bad_visitor_key, 503 visitor_move_retry.
+   */
+  moveVisitor(key: string): Promise<VisitorMove> {
+    return this.call(
+      this.http.post<VisitorMove>('/api/visitor/move', {}, { headers: { [VISITOR_KEY_HEADER]: key }, context: issuedAs('person').set(CARRIES_VISITOR_KEY, true) }),
+    );
   }
 
-  updateLanguage(code: string, changes: LanguageChanges): Promise<OwnerLanguage> {
-    return this.call(this.http.put<{ language: OwnerLanguage }>(`/api/owner/languages/${encodeURIComponent(code)}`, changes)).then((r) => r.language);
+  /* ------------------------------ the admin panel: words, languages, people, migrations */
+  // EDITOR and ADMIN: the words; ADMIN alone: the languages' changes, the people and the migrations
+  // (backend/api/middleware/staff.php). The pages only hide what the server refuses.
+
+  languages(): Promise<AdminLanguage[]> {
+    return this.call(this.http.get<{ languages: AdminLanguage[] }>('/api/admin/languages', { context: AS_PERSON })).then((r) => r.languages);
+  }
+
+  createLanguage(language: NewLanguage): Promise<AdminLanguage> {
+    return this.call(this.http.post<{ language: AdminLanguage }>('/api/admin/languages', language, { context: AS_PERSON })).then((r) => r.language);
+  }
+
+  updateLanguage(code: string, changes: LanguageChanges): Promise<AdminLanguage> {
+    return this.call(this.http.put<{ language: AdminLanguage }>(`/api/admin/languages/${encodeURIComponent(code)}`, changes, { context: AS_PERSON })).then((r) => r.language);
   }
 
   /** Answers the name of the copy of its strings the server made in backups/ first. */
   deleteLanguage(code: string): Promise<{ copy: string }> {
-    return this.call(this.http.delete<{ copy: string }>(`/api/owner/languages/${encodeURIComponent(code)}`));
+    return this.call(this.http.delete<{ copy: string }>(`/api/admin/languages/${encodeURIComponent(code)}`, { context: AS_PERSON }));
   }
 
   translationGrid(): Promise<TranslationGrid> {
-    return this.call(this.http.get<TranslationGrid>('/api/owner/translations'));
+    return this.call(this.http.get<TranslationGrid>('/api/admin/translations', { context: AS_PERSON }));
   }
 
   /** Only the changed cells; the server checks them all before it writes any, and answers the grid as it is now. */
   saveTranslations(values: TranslationChanges): Promise<TranslationGrid> {
-    return this.call(this.http.put<TranslationGrid>('/api/owner/translations', { values }));
+    return this.call(this.http.put<TranslationGrid>('/api/admin/translations', { values }, { context: AS_PERSON }));
   }
 
   /** A language's own strings, flat: fetched here, with the token, and saved by the page from a Blob. */
   exportTranslations(code: string): Promise<Record<string, string>> {
-    return this.call(this.http.get<Record<string, string>>(`/api/owner/translations/${encodeURIComponent(code)}/export`));
+    return this.call(this.http.get<Record<string, string>>(`/api/admin/translations/${encodeURIComponent(code)}/export`, { context: AS_PERSON }));
   }
 
   importTranslations(code: string, values: Record<string, string>): Promise<TranslationGrid> {
-    return this.call(this.http.put<TranslationGrid>(`/api/owner/translations/${encodeURIComponent(code)}/import`, values));
+    return this.call(this.http.put<TranslationGrid>(`/api/admin/translations/${encodeURIComponent(code)}/import`, values, { context: AS_PERSON }));
+  }
+
+  /** Everybody the site has, the latest seen first (ADMIN). */
+  people(): Promise<Person[]> {
+    return this.call(this.http.get<{ people: Person[] }>('/api/admin/people', { context: AS_PERSON })).then((r) => r.people);
+  }
+
+  /** All of this person's data goes, after a copy of it on the server: answers the copy's file name (ADMIN). */
+  deletePerson(id: number): Promise<{ deleted: number; copy: string }> {
+    return this.call(this.http.delete<{ deleted: number; copy: string }>(`/api/admin/people/${encodeURIComponent(String(id))}`, { context: AS_PERSON }));
+  }
+
+  /** How many visitors the site keeps now, the oldest seen when, and its limits (ADMIN): the People page's line. */
+  visitors(): Promise<VisitorsCount> {
+    return this.call(this.http.get<VisitorsCount>('/api/admin/visitors', { context: AS_PERSON }));
+  }
+
+  /** The migrations applied and pending (ADMIN): answers while one waits, as no other address does. */
+  migrations(): Promise<MigrationsStatus> {
+    return this.call(this.http.get<MigrationsStatus>('/api/admin/migrations', { context: AS_PERSON }));
+  }
+
+  /** Applies the pending ones that are whole, in order, after a raw copy of every table; stops at the first that fails (ADMIN; 409 busy). */
+  applyMigrations(): Promise<MigrationsApplyResult> {
+    return this.call(this.http.post<MigrationsApplyResult>('/api/admin/migrations/apply', {}, { context: AS_PERSON }));
   }
 
   /** The answer, or an ApiError: its status, its code and the server's answer. */

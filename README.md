@@ -12,9 +12,23 @@ Every word is spoken in two voices, female and male. The app itself speaks
 English and Slovak (see *Languages* below); the material stays as the
 course has it.
 
-It runs on your own computer with no sign-in, or as a website
-(https://japanese.anotoki.eu) where people sign in with their anotoki account and
-each has their own progress — see *The website* below.
+It runs on your own computer or as a website (https://japanese.anotoki.eu);
+either way people sign in with their anotoki account, and each has their own
+progress — see *The website* below. Open any page while signed out and the
+app sends you to the anotoki sign-in, and back to that page. (The sign-in on
+your computer goes through the development IAM, which must be running:
+`DEV.md`.) Once the anotoki IAM says this site does not require sign-in
+(and the database has migration 007, applied on the Migrations page), you may study
+without signing in too, as a visitor: what you study is kept for your browser
+for 30 days after your last visit, and moves into your account when you sign
+in (`docs/kb/sign-in.md`, *Visitors*).
+
+The bar at the top is the one every anotoki site has: the anotoki mark and
+"Japanese" (home), **Kanji** with the reviews due and **Exam**, then the
+language (**EN / SK**), a light / dark / your system's switch, and your menu
+(your name; your anotoki account; **Admin panel** if you may; **Sign out**). On a
+phone the links and your menu are in one menu button, with the reviews due
+on it.
 
 It replaced the earlier N4 Coach app on 2026-09-23. N4 Coach is still in the
 git history.
@@ -24,70 +38,63 @@ git history.
 You need:
 
 - **PHP 8.1 or newer** with the extensions `pdo_pgsql`, `mbstring` and `intl`
-  (and `curl` and `openssl`, to test the sign-in's address and to make audio);
+  (and `curl` and `openssl`, to test the sign-in's address and to make audio),
+  first on PATH where you start the backend, and **Composer** for its start
+  command;
 - **PostgreSQL 13 or newer**, running on this computer;
-- **Node.js** (20.19, 22.12, or 24 and newer): it builds the app, the first
-  time and again after an update.
+- **Node.js** (20.19, 22.12, or 24 and newer): it builds the app;
+- the anotoki IAM running beside it (`../anotoki-iam`), which everybody signs
+  in through (`DEV.md`).
 
-No web server of its own: PHP's built-in one serves the app.
+No web server of its own: PHP's built-in one serves the app. Two windows, the
+way every anotoki site runs on a computer:
 
-1. **Windows**: double-click `start.ps1`. **Mac/Linux**: run `./start.sh` in a
-   terminal. It finds a PHP that can run the app (even when an older PHP comes
-   first on PATH), builds the app when its sources changed (the first time
-   this downloads its packages and takes a minute or two), starts it and opens
-   http://127.0.0.1:8200. Ctrl+C stops it.
-2. **The first time** the browser opens the **setup page** instead
-   (http://127.0.0.1:8200/setup.php). It asks for the PostgreSQL server, port,
-   database, user and password — **Test connection** tries them without
-   saving anything —, whether people sign in (for your own copy: no sign-in),
-   your user id at the anotoki IAM (1 unless you know otherwise), and the time
-   zone. **Set up** saves the settings in `backend/config/` (not in git),
-   makes the database and its tables, builds the study content into it, and
-   imports your progress and exam history from the files the app used before
-   (`progress/`, `results/`, `reports/` — it only reads them). The page stays:
-   open it again any time to change the settings. It never shows the password;
-   left empty, the saved one stays.
-3. Or by hand, with that PHP: `npm run build:frontend` (builds the app), then
-   `php backend/server.php` (→ http://127.0.0.1:8200) - or `composer start` in
-   `backend/`, when that PHP is the first on PATH.
+1. In `backend/`: `composer start` (that is `php -S localhost:8200
+   router.php`) — the API on http://localhost:8200. Ctrl+C stops it.
+2. In `frontend/`: `npm start` — the app on http://localhost:4400, which
+   sends the backend's addresses on to 8200. Open it there: the IAM knows the
+   app at that address.
+3. **The first time**, open the **setup page**,
+   http://localhost:4400/setup.php. It asks for the PostgreSQL server, port,
+   database (`anotoki_japanese` unless you name another), user and password —
+   **Test connection** tries them without saving anything and says what Save
+   would do —, and the anotoki IAM people sign in through (on your computer
+   the development IAM, `http://localhost:4300`). Nothing else: who may
+   administer is a role at the IAM. **Save** writes the settings in
+   `backend/config/` (not in git), makes the database and its tables, and
+   builds the study content into it. The page stays: open it again any time to
+   change the settings. It never shows the password; left empty, the saved one
+   stays.
 
-The app only listens on this computer (127.0.0.1): other devices on your
-network can't reach it, and without sign-in it refuses to listen anywhere
-else.
+Nothing happens when the backend starts: the first page you open brings the
+database up to date (after a copy of every table), rebuilds the study content
+when it changed, and takes the day's backup. The backend also serves the last
+build of the app on 8200 (`npm run build` in `frontend/`).
 
-### Updating from the version before
+The app only listens on this computer (localhost): other devices on your
+network can't reach it.
 
-The version before this one ran from `server.php` at the top of the folder,
-on port 3000, and asked for its settings in the terminal. To update a
-computer that ran it:
+### Settings from an earlier version
 
-1. Get the new version (`git pull`) and start it as always, with `start.ps1`
-   (or `start.sh`). It builds the app, starts, and opens the setup page, with
-   the old settings from `src/config.local.php` filled in — the password too,
-   without showing it.
-2. Check them and press **Set up**. It takes a copy of every table first
-   (`backups/academy-before-migration-….raw.json`), brings the database up to
-   date (updates 002 and 003: every row gets your user id, 1), rebuilds the
-   study content, and saves the settings in `backend/config/`. Your progress,
-   answer log and exam history stay exactly as they were.
-3. If your user id at the anotoki IAM is not 1, type yours in the setup page:
-   your data moves to it (a backup is taken first).
-
-From then on the app is at http://127.0.0.1:8200, and `src/config.local.php`
-is not used any more: delete it whenever you like.
+A copy set up by an earlier version keeps working: what its setup page wrote
+besides the database and the IAM (the sign-in mode, your user id, the time
+zone) is simply not read any more. A copy that was set up without sign-in
+says "not set up yet": open the setup page and **Save** once, with the IAM.
+An old `src/config.local.php` at the top of the folder is not read either:
+delete it whenever you like.
 
 ### Not in git
 
 These stay on this computer only:
 
 - `backend/config/*.local.php` — your settings: the database, with the
-  password, the sign-in mode and the time zone (the setup page writes them).
-- `backups/` — copies of your study data (see *Your progress* below). Copy
-  the newest to a new computer to bring your progress along.
+  password, and the IAM (the setup page writes them).
+- `backend/storage/backups/` — copies of your study data (see *Your progress*
+  below). Copy the newest to a new computer to bring your progress along.
 - `books/` — the scanned course books (`textbook-1.pdf`, `workbook-1.pdf`,
   `textbook-2.pdf`, `workbook-2.pdf`, `answer-key.pdf`), and your notes. Only
   the PDF page tool needs them. Copy them in by hand.
-- `.env` — your Google Cloud key, only needed to make new audio (below).
+- `backend/.env` — your Google Cloud key, only needed to make new audio (below).
 
 ---
 
@@ -95,7 +102,7 @@ These stay on this computer only:
 
 The audio is made with **Google Cloud Text-to-Speech**, in two voices
 (`ja-JP-Neural2-B`, female, and `ja-JP-Neural2-C`, male). The clips are in git
-(`data/audio/`), so the app plays them on any computer, without a key. In
+(`backend/data/audio/`), so the app plays them on any computer, without a key. In
 lessons and reviews the two voices take turns; each exam listening question
 uses one of them.
 
@@ -106,11 +113,12 @@ You need a key only to make clips for new words (after adding vocabulary):
    tier.
 2. Under **APIs & Services → Credentials**, create an **API key**, and restrict
    it to the Cloud Text-to-Speech API.
-3. Put it in a file named `.env` in this folder (git ignores it):
+3. Put it in a file named `.env` in `backend/` (git ignores it):
    `GOOGLE_TTS_API_KEY=your-key`
-4. Run `npm run build:audio` (`php backend/tools/build-audio.php`). It only
-   sends the words that have no clip yet; `-- --dry-run` shows what it would
-   send, without a key. Restart the app afterwards.
+4. Run `node backend/tools/php.js backend/tools/build-audio.php` (or
+   `php backend/tools/build-audio.php` when the PHP first on PATH can run the
+   app). It only sends the words that have no clip yet; `--dry-run` shows what
+   it would send, without a key. The app's next page load picks the new clips up.
 
 ---
 
@@ -175,36 +183,49 @@ once you've answered. Lessons move with **←/→** or Enter.
 
 Saved in the PostgreSQL database named in your settings. Each answer is saved
 whole or not at all, and every answer is also written to a log that is never
-changed. The dashboard has a link to download your kanji progress.
+changed.
 
-Each day, when the app starts (or, if it runs overnight, at the first page you
-open the next day), it writes a copy of all the study data — kanji progress,
-the answer log and every exam attempt with its report, for everybody in the
-database — to `backups/academy-<date>.json` (the last 14 are kept), and it
-writes one before a full reset too. To go back to a copy:
+Days and review times follow your own time zone: the one your browser is in.
+An answer counts on the day it was given where you were; when you travel,
+"today" is the new place's day from the first page you open there.
+
+**Your data**, at the foot of the home page (the dashboard links to it), is
+yours to take away: all of it — kanji progress, the answer log, every exam
+attempt with its report — downloads as one file, and **Bring back a file**
+brings it back, here or on another copy of the app. The page first says what
+the file holds and asks; bringing it back replaces what you have (a copy of
+it is kept on the server first).
+
+Each day, at the first page you open, the app writes a copy of all the study
+data — kanji progress, the answer log and every exam attempt with its report,
+for everybody in the database — to
+`backend/storage/backups/academy-<date>.json` (the date is UTC's; the last 14
+are kept), and it writes one before a full reset, before a file is brought
+back and before an administrator deletes somebody's data too. To go back to a
+copy:
 
 ```bash
-php backend/manage.php --restore=backups/academy-2026-09-24.json
+php backend/manage.php --restore=backend/storage/backups/academy-2026-09-24.json
 ```
 
-It saves what is there now first. A copy from before 2026-09-27 (before
-sign-in) holds only your data and replaces only yours. A copy of everybody
+It saves what is there now first. A copy of one person's data (before their
+reset, an import or a delete) replaces only theirs. Copies from before
+2026-09-27 (version 1, before sign-in) are no longer read; every copy you have
+is newer. A copy of everybody
 also holds the app's words as you reworded them (*Languages* below); a
 restore leaves the words as they are, and
-`php backend/translations.php --import sk backups/academy-<date>.json` takes
-one language's strings back from it. Before a language is deleted its
-strings are copied to `backups/academy-before-language-delete-…json`.
-`php backend/manage.php --backup` writes a copy any time. (`npm run manage --
---backup` does the same with a PHP that can run the app.)
+`php backend/translations.php --import sk backend/storage/backups/academy-<date>.json`
+takes one language's strings back from it. Before a language is deleted its
+strings are copied to `backend/storage/backups/academy-before-language-delete-…json`.
+`php backend/manage.php --backup` writes a copy any time. (Where an older PHP
+comes first on PATH, `node backend/tools/php.js backend/manage.php --backup`
+finds one that can run the app.)
 
-In the database, your data belongs to your user id at the anotoki IAM: 1,
-unless you set another. If your id there is not 1, type it in the setup page,
-or run `php backend/manage.php --owner-id=N`: your data moves to it (backed up
-first).
+In the database, your data belongs to your user id at the anotoki IAM: 1.
 
 The files the app used before the database — `progress/`, `results/` and
-`reports/` — are kept in git as your history until 2026-09-24. The setup
-imported them once; the app doesn't change them any more.
+`reports/` — were deleted on 2026-10-04, by your decision: they were never
+imported into the database. Git keeps them.
 
 ---
 
@@ -224,16 +245,16 @@ recording again, **Enter** on the last question finishes.
 
 ## What's new
 
-The version number beside the name at the top of every page opens the list
-of what changed, release by release (`frontend/public/changelog.json`). A
-small dot on it means there is news you haven't opened yet.
+The foot of every page shows the version and **What's new**, which opens the
+list of what changed, release by release (`frontend/public/changelog.json`). A
+small dot beside it means there is news you haven't opened yet.
 
 ---
 
 ## Languages
 
-The app speaks English and Slovak: the small **EN / SK** button beside the
-version switches, and the choice is remembered in that browser. Without a
+The app speaks English and Slovak: the round **EN / SK** button in the top
+bar switches, and the choice is remembered in that browser. Without a
 choice it follows your account's language (on the website) or the
 browser's, and English when it has neither; `?lang=sk` in an address opens
 that tab in Slovak. The study material is never translated — the kanji, the
@@ -242,14 +263,24 @@ neither are the stage names (Apprentice … Burned), which are WaniKani's.
 The exam report stays English.
 
 The app's own words live in the database, so you can reword them in the
-browser: **Translations** (on your computer, a link at the foot of the home
-page; on the website, in the account menu, for the `ADMIN` role) shows every
+browser, with the IAM role `EDITOR` or `ADMIN`: **Admin panel** in your menu at
+the top right opens the admin panel (`/admin`, in English; the top bar there
+reads in English too, its links are the area's pages, and your menu leads
+back). **Translations** shows every
 string in every language, with a search, and saves the ones you changed.
-**Languages** (linked from there) adds a language — hidden until you tick
-its box —, renames, orders, hides or deletes one; English cannot be hidden
+**Languages** (`ADMIN` only) adds a language — hidden
+until you tick its box —, renames, orders, hides or deletes one; English cannot be hidden
 or deleted, Slovak cannot be deleted. Each language exports to a file and
 imports from one. Your computer and the website each keep their own
 strings: export from one and import into the other to carry a change over.
+**People** (`ADMIN` only) lists everybody who has signed in, with how far
+each has come, and deletes a person's data after asking (a copy of it is kept
+on the server first; their account stays).
+**Migrations** (`ADMIN` only) shows the database's migrations, applied and
+pending. A new version that brings one does not apply it by itself: until an
+`ADMIN` presses **Apply pending** there (the server keeps a copy of every
+table first), the app says it is not up to date, and offers an `ADMIN` the
+way to this page.
 A word that shows as its key (`home.intro`) has no string in the database:
 `php backend/translations.php --status` lists them.
 
@@ -259,58 +290,64 @@ A word that shows as its key (`home.intro`) has no string in the database:
 
 As a website, Japanese Academy asks everybody to sign in with their account at
 the anotoki IAM (https://iam.anotoki.eu), which every anotoki site shares, and
-keeps each person's progress, settings and exam history apart. Only accounts
-the owner gave a role in this app (`ADMIN` or `MEMBER`) get in. The account
-menu at the top right shows who is signed in, links to the account page, and
-signs out.
+keeps each person's progress, settings and exam history apart. Every account
+may study; the roles `EDITOR` (rewords the app's words) and `ADMIN` (also
+keeps the languages, sees the people and deletes a person's data, after a
+copy of it, and applies the database's updates on the Migrations page) open
+the admin panel. Your menu at the top right shows who is
+signed in (name, address, role), links to your anotoki account and (for those
+roles) the admin panel, and signs out — after the answers still on their way
+are saved, asking first when something would be lost (an exam not handed
+in).
 
 The owner's hosting has no shell, so everything goes up by FTP or SFTP:
 
-1. `npm run build:dist` → `dist/japanese-academy/`: exactly what to upload —
-   the built app in `public/`, and `backend/`, `data/` and `backups/` beside it.
+1. `node backend/tools/php.js backend/tools/build-dist.php` →
+   `dist/japanese-academy/`: exactly what to upload — the built app in
+   `public/`, and `backend/` beside it (with the study content and the clips in
+   `backend/data/`, and an empty `backend/storage/` for the backups).
 2. Upload it into the site's folder, and point the site's document root at
-   its `public/`. (`backend/`, `data/` and `backups/` stay off the web.)
+   its `public/`. (`backend/` stays off the web.)
 3. Open `https://<the site>/setup.php`: it writes a token into
    `backend/config/setup-token.local.php` — get that file by FTP and paste the
    token in — then asks for the database (made in the hosting panel) and the
-   IAM's address, each with a **Test connection** button, sets everything up,
-   can import your data from a backup file into your IAM user id, and deletes
-   itself.
+   IAM's address, each with a **Test connection** button, and nothing else;
+   **Save** sets everything up, and the page deletes itself.
 
 Later updates: build again, and upload over the old files. The first request
-afterwards applies new database changes (after a copy of every table) and
-rebuilds the study content. `docs/kb/hosting.md` has the whole map, and how to
-bring your data from your computer to the site.
+afterwards rebuilds the study content. A new database change (a migration)
+waits until an `ADMIN` presses **Apply pending** on the admin panel's
+Migrations page, which takes a copy of every table first; until then the app
+says it is not up to date. `docs/kb/hosting.md` has the whole map.
 
 ---
 
 ## Data
 
 ```
-data/source/
+backend/data/source/
   vocab-part1.tsv  vocab-part2.tsv     vocabulary index (J–E), transcribed
   kanji-part1.tsv  kanji-part2.tsv     the per-lesson kanji lists
   grammar-index-part1/2.tsv            grammar points by lesson
-data/vocab.json kanji.json grammar-index.json   (npm run build:data)
-data/audio.json audio/                          (npm run build:audio)
-data/authored-items-part1.php  -part2.php       hand-written exam items
+backend/data/vocab.json kanji.json grammar-index.json   (backend/tools/build-data.php)
+backend/data/audio.json audio/                          (backend/tools/build-audio.php)
+backend/data/authored-items-part1.php  -part2.php       hand-written exam items
 ```
 
 The books are page scans with no text layer, so the vocabulary, kanji and
 grammar data was transcribed from the page images. The counts check out
-against the books, but any typo will be in `data/source/*.tsv` — fix it there
-and run `npm run build:data` (and `npm run build:audio` if a word's spelling or
-reading changed). The next start of the app rebuilds the study content in the
-database.
+against the books, but any typo will be in `backend/data/source/*.tsv` — fix
+it there and run `node backend/tools/php.js backend/tools/build-data.php`
+(and `build-audio.php` the same way if a word's spelling or reading changed).
+The app's next page load rebuilds the study content in the database.
 
 ## Layout
 
 ```
-start.ps1 start.sh         one-click start: finds PHP and Node, builds the app, starts it, opens the browser
-backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL
-  server.php               the server on this computer (PHP's built-in web server): app + API on one address
-  setup.php                the setup page, /setup.php: settings, database, tables, content, your data
-  manage.php               command-line helpers: --check, --backup, --restore, --import, --owner-id
+backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL (backend/README.md)
+  router.php               PHP's built-in web server on this computer (composer start): API + built app
+  setup.php                the setup page, /setup.php: the database and the IAM, tables, content
+  manage.php               command-line helpers: --check, --sync, --backup, --restore
   translations.php         the app's own words from the command line: --status, --export, --import
   api/                     the HTTP side: the Slim app, its routes and middleware, the front controller
   src/                     the app itself: kanji SRS (srs/), exam, content, backups, sign-in, upkeep, the app's words
@@ -318,17 +355,18 @@ backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL
   migrations/              the database tables
   vendor/                  Composer's packages (Slim), committed: a website has no shell to install them
   public/                  index.php and .htaccess, for Apache on a website
+  data/                    what the study content is built from, and the audio
+  storage/                 the copies of your study data (backups/), the IAM's keys (not in git)
   tests/                   PHP unit and API tests
-  tools/                   data and audio builders, the website's upload (build-dist.php), the PDF page tool
-frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals)
-  src/app/                 home, kanji/, exam/, core/ (API, sign-in, changelog, i18n), owner/ (Translations,
-                           Languages), standin/ (sign in, not set up, a problem)
+  tools/                   data and audio builders, the website's upload (build-dist.php),
+                           php.js (finds a PHP 8.1+), the PDF page tool (pdf/, with its own package.json)
+frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
+  src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, i18n),
+                           admin/ (Translations, Languages, People), standin/ (sign in, not set up, a problem)
   public/                  favicon, changelog.json
   e2e/                     the browser suites (Edge, playwright-core)
-data/                      what the study content is built from, and the audio
+  scripts/                 ensure-build.mjs (builds when the sources changed), the catalog fixture
 docs/kb/                   knowledge base: architecture, data sources, SRS, exam, sign-in, hosting, testing
-backups/                   copies of your study data (not in git)
-progress/ results/ reports/  your history from before the database
 books/                     the scanned books (not in git)
 .claude/                   Claude Code: skills, review agents, rules
 ```

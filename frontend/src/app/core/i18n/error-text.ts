@@ -1,3 +1,4 @@
+import { ApiErrorBody } from '../api/api.types';
 import { TranslationParams } from './translation.service';
 
 /**
@@ -9,10 +10,14 @@ import { TranslationParams } from './translation.service';
  * already learned is no failure to a lesson) and falls back to this. Frames
  * take the answer as a whole sentence: "Could not save that: {reason}".
  *
- * The two owner pages are English and go on showing the server's sentence.
+ * The admin area is English and goes on showing the server's sentence
+ * (staff_only, admin_only, not_found are its codes).
  *
  * The key comes from a table and never from the code itself: a code nobody
- * listed is `error.unknown`. The tails are also in dynamic-keys.ts.
+ * listed is `error.unknown`. The tails are also in dynamic-keys.ts. The one
+ * code worded from more than itself is visitor_limit: which of a visitor's
+ * limits (`limit`, checked against its closed set) and its number (`max`),
+ * from the answer's body.
  */
 const BY_CODE = new Map<string, string>([
   // no answer at all
@@ -29,8 +34,15 @@ const BY_CODE = new Map<string, string>([
   // sign-in (auth_user())
   ['sign_in_required', 'error.sign_in_required'],
   ['invalid_token', 'error.invalid_token'],
-  ['no_access', 'error.no_access'],
-  ['this_computer_only', 'error.this_computer_only'],
+  // studying without signing in (backend/src/visitors.php); visitor_limit is worded from its body (VISITOR_LIMITS)
+  ['too_many_visitors', 'error.too_many_visitors'],
+  ['visitor_unknown', 'error.visitor_unknown'],
+  ['visitors_unavailable', 'error.visitors_unavailable'],
+  ['visitor_move_retry', 'error.visitor_move_retry'],
+  // your own data brought back (PUT /api/me/data, backend/src/me.php)
+  ['too_large', 'error.too_large'],
+  ['not_a_data_file', 'error.not_a_data_file'],
+  ['several_people', 'error.several_people'],
   // the server itself
   ['database_unavailable', 'error.database_unavailable'],
   ['server_error', 'error.server_error'],
@@ -40,10 +52,18 @@ const BY_CODE = new Map<string, string>([
   ['method_not_allowed', 'error.method_not_allowed'],
 ]);
 
-/** What errorKey() reads of a failure: an ApiError has both, and so does a StartProblem of the kind `server`. */
+/** A visitor's limits, as visitor_limit names them in `limit`: each worded as error.visitor_limit.<limit>. */
+const VISITOR_LIMITS: readonly string[] = ['attempts', 'answers'];
+
+/**
+ * What errorKey() reads of a failure: an ApiError has all three, and a
+ * StartProblem of the kind `server` the first two. The body only for the
+ * codes worded from more than themselves (visitor_limit).
+ */
 export interface Failure {
   status: number;
   code: string;
+  body?: ApiErrorBody;
 }
 
 /**
@@ -52,6 +72,10 @@ export interface Failure {
  * errorParams(), or the placeholder stays as written.
  */
 export function errorKey(error: Failure): string {
+  if (error.code === 'visitor_limit') {
+    const limit = error.body?.limit;
+    return typeof limit === 'string' && VISITOR_LIMITS.includes(limit) ? `error.visitor_limit.${limit}` : 'error.unknown';
+  }
   const byCode = BY_CODE.get(error.code);
   if (byCode) {
     return byCode;
@@ -61,7 +85,8 @@ export function errorKey(error: Failure): string {
 
 /** What errorKey()'s strings are filled with: `i18n.t(errorKey(error), errorParams(error))`. */
 export function errorParams(error: Failure): TranslationParams {
-  return { status: error.status };
+  const max = error.body?.max;
+  return typeof max === 'number' && Number.isFinite(max) ? { status: error.status, max } : { status: error.status };
 }
 
 /** An OAuth error code, or one of the SDK's own: a short word, nothing a sentence could hide in. */

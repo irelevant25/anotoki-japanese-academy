@@ -1,9 +1,10 @@
 /**
  * Finds the PHP that runs the app, and runs a PHP script with it, from the
- * repository's root — what the npm scripts use:
+ * repository's root — for the command line where an older php comes first on
+ * PATH (Git Bash's is 7.4 on the owner's computer), and for the browser suites:
  *
- *   node backend/tools/php.js backend/server.php       npm start
- *   node backend/tools/php.js backend/tests/run.php    npm test
+ *   node backend/tools/php.js backend/tests/run.php            the PHP tests
+ *   node backend/tools/php.js backend/manage.php --check       the helpers, the data and build tools
  *
  * The PHP is the first of ACADEMY_PHP, every php on PATH, and the usual install
  * folders that is PHP 8.1 or newer with pdo_pgsql, mbstring and intl. (Plain

@@ -4,8 +4,8 @@ import { provideTestTranslations } from '../../testing/test-translations';
 import { LANGUAGE_KEY, TranslationService } from '../translation.service';
 import { LanguageChooserComponent } from './language-chooser.component';
 
-const ENGLISH = { 'language.button': 'Language: {name}', 'language.notLoaded': 'The language could not be loaded. Try again.' };
-const SLOVAK = { 'language.button': 'Jazyk: {name}', 'language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.' };
+const ENGLISH = { 'language.button': 'Language: {name} ({code})', 'language.notLoaded': 'The language could not be loaded. Try again.' };
+const SLOVAK = { 'language.button': 'Jazyk: {name} ({code})', 'language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.' };
 
 describe('LanguageChooserComponent', () => {
   let fixture: ComponentFixture<LanguageChooserComponent>;
@@ -14,15 +14,19 @@ describe('LanguageChooserComponent', () => {
   let reached: string[];
   const onDocument = (event: KeyboardEvent): void => void reached.push(event.key);
 
-  const menu = () => host.querySelector<HTMLDetailsElement>('details.langmenu')!;
-  const summary = () => host.querySelector<HTMLElement>('summary')!;
-  const items = () => Array.from(host.querySelectorAll<HTMLButtonElement>('.umenu button'));
+  const button = () => host.querySelector<HTMLButtonElement>('button.switcher')!;
+  const items = () => Array.from(host.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'));
 
   /** A key pressed on an element, as the browser sends it: it bubbles. */
-  function press(on: HTMLElement, key: string): KeyboardEvent {
-    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  function press(on: HTMLElement, key: string, shiftKey = false): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true });
     on.dispatchEvent(event);
     return event;
+  }
+
+  async function open(): Promise<void> {
+    button().click();
+    await fixture.whenStable();
   }
 
   beforeEach(async () => {
@@ -43,19 +47,28 @@ describe('LanguageChooserComponent', () => {
     vi.restoreAllMocks();
   });
 
-  it('is one pill: the code in capitals, named with the language as its speakers write it', () => {
-    expect(summary().textContent?.trim()).toBe('SK');
-    expect(summary().getAttribute('aria-label')).toBe('Jazyk: Slovenčina');
-    expect(summary().getAttribute('title')).toBe('Jazyk: Slovenčina');
-    expect(menu().open).toBe(false);
+  it('is one round button: the code in capitals, named with the language as its speakers write it and the code it shows', () => {
+    expect(host.querySelectorAll('button')).toHaveLength(1);
+    expect(button().textContent?.trim()).toBe('SK');
+    // Label in Name: somebody who speaks to their computer says "click SK".
+    expect(button().getAttribute('aria-label')).toBe('Jazyk: Slovenčina (SK)');
+    expect(button().getAttribute('title')).toBe('Jazyk: Slovenčina (SK)');
+    expect(button().getAttribute('aria-haspopup')).toBe('menu');
+    expect(button().getAttribute('aria-expanded')).toBe('false');
+    expect(items()).toEqual([]);
   });
 
-  it('offers the languages, each in its own name and saying which language that is, the one in use marked', () => {
-    expect(items().map((item) => [item.textContent?.trim(), item.getAttribute('lang'), item.getAttribute('aria-current')])).toEqual([
-      ['English', 'en', null],
+  it('opens a menu of the languages, each in its own name and saying which language that is, the focus on the one in use', async () => {
+    await open();
+    expect(button().getAttribute('aria-expanded')).toBe('true');
+    const menu = host.querySelector('[role="menu"]')!;
+    expect(menu.id).toBe(button().getAttribute('aria-controls'));
+    expect(menu.getAttribute('aria-labelledby')).toBe(button().id);
+    expect(items().map((item) => [item.textContent?.trim(), item.getAttribute('lang'), item.getAttribute('aria-checked')])).toEqual([
+      ['English', 'en', 'false'],
       ['Slovenčina', 'sk', 'true'],
     ]);
-    expect(items().every((item) => item.type === 'button')).toBe(true);
+    expect(document.activeElement).toBe(items()[1]);
   });
 
   it('is not drawn while fewer than two languages are on offer', async () => {
@@ -65,14 +78,16 @@ describe('LanguageChooserComponent', () => {
     });
     const alone = TestBed.createComponent(LanguageChooserComponent);
     await alone.whenStable();
-    expect((alone.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+    expect((alone.nativeElement as HTMLElement).querySelector('button')).toBeNull();
     expect((alone.nativeElement as HTMLElement).textContent?.trim()).toBe('');
   });
 
-  it('keeps its keys to itself: nothing pressed in it reaches document, where Enter would submit a card or finish a paper', () => {
-    menu().open = true;
-    for (const key of ['Enter', ' ', 'f', 'F', 'r', '1', 'a', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Escape', 'Tab']) {
-      press(summary(), key);
+  it('keeps its keys to itself: nothing pressed on it or in it reaches document, where Enter would submit a card or finish a paper', async () => {
+    for (const key of ['Enter', ' ', 'f', 'r', '1', 'a', 'ArrowLeft', 'ArrowRight']) {
+      press(button(), key);
+    }
+    await open();
+    for (const key of ['Enter', ' ', 'f', 'F', 'r', '1', 'a', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Home', 'End']) {
       press(items()[0], key);
       press(items()[1], key);
     }
@@ -83,83 +98,95 @@ describe('LanguageChooserComponent', () => {
     expect(reached).toEqual(['Enter']);
   });
 
-  it('leaves Enter, Space and Tab to the browser: they open the menu, choose an item, move on', () => {
-    for (const key of ['Enter', ' ', 'Tab', 'f']) {
-      expect(press(summary(), key).defaultPrevented, key).toBe(false);
-      expect(press(items()[0], key).defaultPrevented, key).toBe(false);
-    }
-  });
-
-  it('moves with the arrows: from the pill to the language after or before the one in use, then round and round', () => {
-    summary().focus();
-    // Slovak is in use: the one after it is the first again.
-    const down = press(summary(), 'ArrowDown');
-    expect(down.defaultPrevented).toBe(true);
-    expect(menu().open).toBe(true);
-    expect(document.activeElement).toBe(items()[0]);
-
-    press(items()[0], 'ArrowDown');
+  it('moves with the arrows, round and round, and with Home and End', async () => {
+    await open();
     expect(document.activeElement).toBe(items()[1]);
-    press(items()[1], 'ArrowDown');
+    expect(press(items()[1], 'ArrowDown').defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(items()[0]);
     press(items()[0], 'ArrowUp');
     expect(document.activeElement).toBe(items()[1]);
-
-    menu().open = false;
-    summary().focus();
-    press(summary(), 'ArrowUp');
-    expect(menu().open).toBe(true);
+    press(items()[1], 'Home');
     expect(document.activeElement).toBe(items()[0]);
+    press(items()[0], 'End');
+    expect(document.activeElement).toBe(items()[1]);
+    // Enter and Space on an item are the browser's: they choose it.
+    expect(press(items()[1], 'Enter').defaultPrevented).toBe(false);
   });
 
-  it('closes on Escape pressed in it, and puts the focus back on the pill', () => {
-    menu().open = true;
-    items()[0].focus();
+  it('closes on Escape pressed in it, and on Escape pressed on its button, the focus back on the button', async () => {
+    await open();
     press(items()[0], 'Escape');
-    expect(menu().open).toBe(false);
-    expect(document.activeElement).toBe(summary());
-    expect(reached).toEqual([]);
+    await fixture.whenStable();
+    expect(items()).toEqual([]);
+    expect(document.activeElement).toBe(button());
+
+    await open();
+    button().focus();
+    press(button(), 'Escape');
+    await fixture.whenStable();
+    expect(items()).toEqual([]);
+    expect(reached, 'Escape is the chooser’s too').toEqual([]);
   });
 
-  it('closes on a click elsewhere and on Escape pressed elsewhere — and stays open for a click inside it', () => {
-    menu().open = true;
-    menu().querySelector<HTMLElement>('.umenu')!.click();
-    expect(menu().open).toBe(true);
+  it('closes on Tab and Shift+Tab, from the first and the last language, with the focus on its button — never on <body>', async () => {
+    for (const [which, shift] of [
+      [0, false],
+      [1, false],
+      [0, true],
+      [1, true],
+    ] as const) {
+      await open();
+      items()[which].focus();
+      const tab = press(items()[which], 'Tab', shift);
+      expect(tab.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(button());
+      await fixture.whenStable();
+      expect(items()).toEqual([]);
+      expect(button().getAttribute('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(button());
+    }
+  });
+
+  it('closes on a click elsewhere and on Escape pressed elsewhere — and stays open for a click inside it', async () => {
+    await open();
+    host.querySelector<HTMLElement>('[role="menu"]')!.click();
+    await fixture.whenStable();
+    expect(items()).toHaveLength(2);
 
     document.body.click();
-    expect(menu().open).toBe(false);
+    await fixture.whenStable();
+    expect(items()).toEqual([]);
 
-    menu().open = true;
-    press(document.body, 'Enter');
-    expect(menu().open).toBe(true);
-    press(document.body, 'Escape');
-    expect(menu().open).toBe(false);
+    await open();
+    document.body.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await fixture.whenStable();
+    expect(items()).toEqual([]);
   });
 
-  it('switches the language of the page, remembers it on this device, and closes', async () => {
-    menu().open = true;
+  it('switches the language of the page, remembers it on this device, and closes with the focus on its button', async () => {
+    await open();
     items()[0].click();
     await fixture.whenStable();
 
     expect(TestBed.inject(TranslationService).language()).toBe('en');
     expect(localStorage.getItem(LANGUAGE_KEY)).toBe('en');
-    expect(summary().textContent?.trim()).toBe('EN');
-    expect(summary().getAttribute('aria-label')).toBe('Language: English');
-    expect(items().map((item) => item.getAttribute('aria-current'))).toEqual(['true', null]);
-    expect(menu().open).toBe(false);
-    expect(document.activeElement).toBe(summary());
+    expect(button().textContent?.trim()).toBe('EN');
+    expect(button().getAttribute('aria-label')).toBe('Language: English (EN)');
+    expect(items()).toEqual([]);
+    expect(document.activeElement).toBe(button());
   });
 
   it('says so in the menu, and stays as it was, when the language could not be loaded', async () => {
     const i18n = TestBed.inject(TranslationService);
     vi.spyOn(i18n, 'setLanguage').mockResolvedValue(false);
-    menu().open = true;
+    await open();
     items()[0].click();
     await fixture.whenStable();
 
     expect(i18n.language()).toBe('sk');
-    expect(summary().textContent?.trim()).toBe('SK');
-    expect(menu().open).toBe(true);
+    expect(button().textContent?.trim()).toBe('SK');
+    expect(items()).toHaveLength(2);
     expect(host.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Jazyk sa nepodarilo načítať. Skús to znova.');
 
     // Closing the menu takes the message away with it.
@@ -174,33 +201,33 @@ describe('LanguageChooserComponent', () => {
     const slow = new Promise<boolean>((done) => (overtaken = done));
     const setLanguage = vi.spyOn(i18n, 'setLanguage').mockImplementation((code: string) => (code === 'en' ? slow : Promise.resolve(true)));
 
-    menu().open = true;
+    await open();
     items()[0].click();
     await fixture.whenStable();
-    expect(summary().getAttribute('aria-busy')).toBe('true');
-    expect(menu().open, 'usable while the language is on its way').toBe(true);
+    expect(button().getAttribute('aria-busy')).toBe('true');
+    expect(items(), 'usable while the language is on its way').toHaveLength(2);
 
     // A change of mind while English is on its way: back to Slovak, the language still on the page.
     items()[1].click();
     await fixture.whenStable();
     expect(setLanguage.mock.calls).toEqual([['en'], ['sk']]);
-    expect(summary().hasAttribute('aria-busy')).toBe(false);
-    expect(menu().open).toBe(false);
+    expect(button().hasAttribute('aria-busy')).toBe(false);
+    expect(items()).toEqual([]);
 
     // The first choice comes back as the service answers one that was overtaken.
     overtaken(false);
     await fixture.whenStable();
     expect(host.querySelector('[role="alert"]')).toBeNull();
-    expect(menu().open).toBe(false);
-    expect(summary().textContent?.trim()).toBe('SK');
+    expect(items()).toEqual([]);
+    expect(button().textContent?.trim()).toBe('SK');
   });
 
   it('choosing the language already on the page asks for nothing and closes', async () => {
     const setLanguage = vi.spyOn(TestBed.inject(TranslationService), 'setLanguage');
-    menu().open = true;
+    await open();
     items()[1].click();
     await fixture.whenStable();
     expect(setLanguage).not.toHaveBeenCalled();
-    expect(menu().open).toBe(false);
+    expect(items()).toEqual([]);
   });
 });

@@ -1,14 +1,14 @@
 <?php
 // The setup page on the owner's own computer: a copy of the app (the upload
 // built into a temp folder, served by PHP's built-in server) opened from this
-// computer, as the launcher opens it. No token, but a nonce the page's own
-// form echoes; it stays and can be run again, never showing the password; it
-// offers sign-in off. And the owner's computer after the move to backend/ +
-// frontend/: the settings of the version before (src/config.local.php) are
-// carried over, and a database in the shape of migration 001, with the
-// owner's data, is copied raw, migrated, and becomes their IAM user id's.
-// The "Test connection" buttons are tried against the database and a
-// stand-in IAM. (A website's setup, with its token, is tests/api/deploy.test.php's.)
+// computer, as composer start serves it. No token, but a nonce the page's own
+// form echoes; it asks for the database and the IAM and nothing else; it
+// stays and can be run again, showing what is saved and never the password.
+// "Test connection" answers in the family's words, tried against the
+// database and a stand-in IAM. A database in the shape of migration 001, with
+// the owner's data, is copied raw and migrated, every row as it was; settings
+// an earlier version wrote are ignored, and saving again writes the IAM alone.
+// (A website's setup, with its token, is tests/api/deploy.test.php's.)
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -42,13 +42,10 @@ function local_form(string $nonce, array $change = []): array
         'db_port' => (string) config('db.port'),
         'db_name' => db_name(),
         'db_user' => site()['role'],
-        'db_password' => '', // the earlier version's, carried over
-        'auth_mode' => 'none',
-        'issuer' => 'http://localhost:4300',
+        'db_password' => site()['password'],
+        'issuer' => 'https://iam.test',
         'client_id' => 'japanese-academy',
-        'user_id' => '1',
-        'timezone' => 'Europe/Bratislava',
-        'action' => 'install',
+        'action' => 'save',
     ];
 }
 
@@ -63,6 +60,21 @@ function owner_rows(PDO $pdo): array
     return $out;
 }
 
+/** The site's own database, as its user. */
+function site_pdo(): PDO
+{
+    return new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s', config('db.host'), config('db.port'), db_name()), site()['role'], site()['password'],
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+}
+
+/** Test connection for the database, with these fields changed. */
+function try_db(array $change = []): array
+{
+    $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-db'] + $change), [], jar());
+    assert_true(is_array($r['body']), $r['raw']);
+    return $r['body'];
+}
+
 before(function (): void {
     $GLOBALS['site'] = test_site();
 });
@@ -75,31 +87,7 @@ test('before it is set up, the API says so, and to this computer why', function 
     assert_same('backend/config/database.local.php is missing', $r['body']['reason'] ?? null);
 });
 
-// The owner's computer before the update: the settings of the version before, and a
-// database as migration 001 left it, with the owner's study data — made by the
-// site's own user, as the owner's PostgreSQL user made it back then.
-test('the earlier version’s computer: its settings and its database, as they were', function (): void {
-    @mkdir(site()['dir'] . '/src', 0777, true);
-    file_put_contents(site()['dir'] . '/src/config.local.php', "<?php\n// These settings were written by setup.php. Git ignores this file: never commit it.\n\nreturn "
-        . var_export(['db' => ['host' => (string) config('db.host'), 'port' => (int) config('db.port'), 'name' => db_name(),
-            'user' => site()['role'], 'password' => site()['password']], 'auth' => ['mode' => 'none']], true) . ";\n");
-    $pdo = new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s', config('db.host'), config('db.port'), db_name()), site()['role'], site()['password'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-    $pdo->exec('CREATE TABLE migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
-    $pdo->exec((string) file_get_contents(MIGRATIONS_DIR . '/001_init.sql'));
-    $pdo->exec("INSERT INTO migrations (name) VALUES ('001_init.sql')");
-    $pdo->exec("INSERT INTO srs_progress (item_id, stage, learned_at, next_review, meaning_correct, synonyms, extra_readings, meaning_note)
-                VALUES ('k:大', 4, '2026-09-23 10:05+02', '2026-09-26 10:00+02', 5, '[\"large\"]', '[]', 'arms spread — BIG')");
-    $pdo->exec("INSERT INTO srs_daily (day, lessons, reviews, reviews_correct) VALUES ('2026-09-23', 2, 0, 0)");
-    $pdo->exec("INSERT INTO srs_log (at, kind, item_id, details) VALUES ('2026-09-23 10:05+02', 'lesson', 'k:大', '{}')");
-    $pdo->exec("INSERT INTO exam_attempts (id, started_at, finished_at, candidate, seed, total, right_count, pct, grade, passed, attempt, report) VALUES
-                ('2026-09-22T11-09-21-059Z-exam-1', NULL, '2026-09-22 13:09+02', 'irelevant', 'exam-1', 38, 14, 36.8, 'F', false,
-                 '{\"id\":\"2026-09-22T11-09-21-059Z-exam-1\"}', '<!doctype html><title>the first report</title>')");
-    $GLOBALS['before'] = owner_rows($pdo);
-    assert_same(1, count($GLOBALS['before']['srs_progress']));
-});
-
-test('from this computer: no token, the earlier settings offered, sign-in off offered', function (): void {
+test('from this computer: no token; the database and the IAM, and nothing else', function (): void {
     $page = test_page(site()['base'], '/setup.php', [], jar());
     assert_same(200, $page['status']);
     assert_match('/Set up Japanese Academy/', $page['raw']);
@@ -107,10 +95,15 @@ test('from this computer: no token, the earlier settings offered, sign-in off of
     assert_false(is_file(site()['dir'] . '/backend/config/setup-token.local.php'), 'nor a token file');
     assert_match('/HttpOnly/i', implode(' ', $page['headers']['set-cookie'] ?? []), 'the nonce, in a cookie scripts cannot read');
     assert_match('/SameSite=Strict/i', implode(' ', $page['headers']['set-cookie'] ?? []), 'which no other site’s page sends');
-    assert_match('/value="none" checked/', $page['raw'], 'sign-in off, as the earlier version was');
-    assert_match('/The settings of the earlier version \(<code>src\/config\.local\.php<\/code>\) are filled in/', $page['raw']);
-    assert_match('/name="db_name" type="text" value="' . db_name() . '"/', $page['raw']);
-    assert_false(str_contains($page['raw'], site()['password']), 'its password is never shown');
+    preg_match_all('/<input[^>]* name="([a-z_]+)"/', $page['raw'], $m);
+    assert_same(['nonce', 'db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'issuer', 'client_id'], $m[1],
+        'no sign-in mode, no admin or owner id, no time zone, no backup');
+    foreach (['db_host' => 'localhost', 'db_port' => '5432', 'db_name' => 'anotoki_japanese', 'db_user' => 'postgres', 'issuer' => 'http://localhost:4300',
+        'client_id' => 'japanese-academy'] as $name => $value) {
+        assert_match('/name="' . $name . '" type="text" value="' . preg_quote($value, '/') . '"/', $page['raw'], "the default of $name");
+    }
+    assert_no_match('/enctype=|type="file"|type="radio"|<select/', $page['raw'], 'nothing to upload or choose');
+    assert_match('/<button type="submit" class="primary" name="action" value="save">Save<\/button>/', $page['raw'], 'Save: what the Test connection sentences say');
     assert_match("/script-src 'nonce-/", implode(' ', $page['headers']['content-security-policy'] ?? []), 'nothing but its own script runs');
     // under no-referrer a browser would send the page's own form with "Origin: null", which is refused
     assert_same(['same-origin'], $page['headers']['referrer-policy'] ?? null, 'its own form says where it comes from');
@@ -142,29 +135,60 @@ test('a form that did not come from the page itself is refused', function (): vo
     unlink(site()['dir'] . '/backend/config/setup-token.local.php');
 });
 
-test('Test connection: the database, with the earlier password, and an IAM', function (): void {
-    $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-db']), [], jar());
-    assert_same(true, $r['body']['ok'] ?? null, $r['raw']);
-    assert_match("/Connected to the database " . db_name() . ": Japanese Academy's tables are there, with 3 updates to apply \\(a copy of every table is taken first\\), holding study data\\./",
-        $r['body']['message']);
-    $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-db', 'db_name' => 'academy_test_nowhere_' . getmypid()]), [], jar());
-    assert_same(false, $r['body']['ok'] ?? null, 'a user who may not make databases');
-    assert_match('/there is no database academy_test_nowhere_\d+, and this user may not make one/', $r['body']['message']);
+test('Test connection, in the words every anotoki setup page uses: empty, updates to apply, a missing database, a wrong password, nothing there', function (): void {
+    $name = db_name();
+    assert_same(['ok' => true, 'message' => "Connected to the database \"$name\": it is empty - Save makes the tables."], try_db());
 
-    // a stand-in IAM on this computer: its discovery document and its keys
-    $port = test_free_port();
-    $issuer = "http://127.0.0.1:$port";
-    $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
-    $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", BACKEND . '/tests/tools/stand-in-iam.php'],
-        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']], $pipes, BACKEND,
-        ['STAND_IN_ISSUER' => $issuer, 'STAND_IN_JWKS' => test_iam()['jwks_file']] + getenv());
-    $GLOBALS['TEST_SERVERS'][] = static function () use ($proc): void {
-        proc_terminate($proc);
-        @proc_close($proc);
-    };
-    for ($i = 0; @fsockopen('127.0.0.1', $port) === false && $i < 100; $i++) {
-        usleep(50000);
+    // The owner's computer before the update: a database as migration 001 left it, with the owner's study
+    // data - made by the site's own user, as the owner's PostgreSQL user made it back then.
+    $pdo = site_pdo();
+    $pdo->exec('CREATE TABLE migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
+    $pdo->exec((string) file_get_contents(MIGRATIONS_DIR . '/001_init.sql'));
+    $pdo->exec("INSERT INTO migrations (name) VALUES ('001_init.sql')");
+    $pdo->exec("INSERT INTO srs_progress (item_id, stage, learned_at, next_review, meaning_correct, synonyms, extra_readings, meaning_note)
+                VALUES ('k:大', 4, '2026-09-23 10:05+02', '2026-09-26 10:00+02', 5, '[\"large\"]', '[]', 'arms spread — BIG')");
+    $pdo->exec("INSERT INTO srs_daily (day, lessons, reviews, reviews_correct) VALUES ('2026-09-23', 2, 0, 0)");
+    $pdo->exec("INSERT INTO srs_log (at, kind, item_id, details) VALUES ('2026-09-23 10:05+02', 'lesson', 'k:大', '{}')");
+    $pdo->exec("INSERT INTO exam_attempts (id, started_at, finished_at, candidate, seed, total, right_count, pct, grade, passed, attempt, report) VALUES
+                ('2026-09-22T11-09-21-059Z-exam-1', NULL, '2026-09-22 13:09+02', 'irelevant', 'exam-1', 38, 14, 36.8, 'F', false,
+                 '{\"id\":\"2026-09-22T11-09-21-059Z-exam-1\"}', '<!doctype html><title>the first report</title>')");
+    $GLOBALS['before'] = owner_rows($pdo);
+    assert_same(1, count($GLOBALS['before']['srs_progress']));
+    $pending = count(glob(MIGRATIONS_DIR . '/*.sql') ?: []) - 1;
+    assert_same(['ok' => true, 'message' => "Connected to the database \"$name\": $pending update(s) to apply - Save applies them."], try_db());
+
+    $nowhere = 'academy_test_nowhere_' . getmypid();
+    assert_same(['ok' => false, 'message' => "Connected to the server, but there is no database \"$nowhere\" and this user may not create one. Make it in the hosting panel first."],
+        try_db(['db_name' => $nowhere]), 'the site’s user may not make databases');
+    // the developer's own PostgreSQL user may: it is asked, nothing is made
+    $may = try_db(['db_name' => $nowhere, 'db_user' => (string) config('db.user'), 'db_password' => (string) config('db.password')]);
+    assert_same(['ok' => true, 'message' => "Connected to the server. The database \"$nowhere\" does not exist yet - Save creates it."], $may);
+    assert_false(db_exists($nowhere), 'Test connection makes nothing');
+
+    // a database that is there, which this user may not open
+    $closed = $name . '_closed';
+    db_server()->exec('CREATE DATABASE "' . $closed . '"');
+    db_server()->exec('COMMENT ON DATABASE "' . $closed . "\" IS 'academy test " . time() . "'");
+    try {
+        db_server()->exec('REVOKE CONNECT ON DATABASE "' . $closed . '" FROM PUBLIC');
+        $shut = try_db(['db_name' => $closed]);
+        assert_same(false, $shut['ok']);
+        assert_match('/^The server is there, but "' . site()['role'] . '" cannot open the database "' . $closed . '": permission denied for database/', $shut['message']);
+    } finally {
+        db_server()->exec('DROP DATABASE IF EXISTS "' . $closed . '" WITH (FORCE)');
     }
+    $wrong = try_db(['db_password' => 'not-the-password']);
+    assert_same(false, $wrong['ok']);
+    assert_match('/^Cannot connect: password authentication failed for user/', $wrong['message'], 'a wrong password opens nothing');
+    $none = try_db(['db_host' => '127.0.0.1', 'db_port' => (string) test_free_port()]);
+    assert_same(false, $none['ok']);
+    assert_match('/^Cannot connect: /', $none['message']);
+    assert_same(['ok' => false, 'message' => 'Fill in the database name (letters, digits and _) and its user.'], try_db(['db_name' => 'no-dashes']));
+});
+
+test('Test connection for the IAM, against a stand-in', function (): void {
+    $iam = stand_in_iam();
+    $issuer = $iam['base'];
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-iam', 'issuer' => $issuer]), [], jar());
     assert_same(['ok' => true, 'message' => "Reached the IAM at $issuer: it answers, and its signing keys are there (1)."], $r['body'], $r['raw']);
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce'], ['action' => 'test-iam', 'issuer' => "$issuer/elsewhere"]), [], jar());
@@ -174,63 +198,74 @@ test('Test connection: the database, with the earlier password, and an IAM', fun
     assert_match('/must be an https:\/\/ address/', $r['body']['message'] ?? '');
 });
 
-test('setting up the earlier version’s database: a raw copy, the migrations, and the owner’s rows as they were, now user 1’s', function (): void {
+test('Save: the database and the IAM in the settings, a raw copy, the migrations, the content, and the owner’s rows as they were, user 1’s', function (): void {
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce']), [], jar());
-    assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_match('/Backup before the update: backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
-    assert_match('/Applied the migrations: 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql\./', $r['raw']);
+    assert_match('/<h1>Saved<\/h1>/', $r['raw'], strip_tags($r['raw']));
+    assert_match('/Backup before the update: backend\/storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
+    assert_match('/Applied the migrations: 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql, 005_own_time_zone_and_words\.sql, 006_admin_panel_words\.sql, 007_visitors\.sql\./', $r['raw']);
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
-    assert_match('/no sign-in \(this computer only\)/', $r['raw']);
-    assert_match('/are not used any more: you may delete that file/', $r['raw'], 'the earlier settings: told they are done with');
+    assert_match('/sign-in through the IAM at https:\/\/iam\.test/', $r['raw']);
+    assert_match('/sign in with your anotoki account/', $r['raw']);
     assert_match('/This page stays/', $r['raw']);
     assert_true(is_file(site()['dir'] . '/backend/setup.php'), 'on this computer the setup page stays');
     assert_false(is_file(site()['dir'] . '/backend/storage/installed.lock'), 'and locks nothing');
 
     $config = site()['dir'] . '/backend/config';
-    assert_same(['mode' => 'none', 'local_user_id' => 1], require "$config/auth.local.php");
-    assert_same(site()['password'], (require "$config/database.local.php")['password'], 'the earlier password, carried over');
-    $pdo = new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s', config('db.host'), config('db.port'), db_name()), site()['role'], site()['password'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], require "$config/auth.local.php", 'the IAM alone');
+    assert_same(site()['password'], (require "$config/database.local.php")['password']);
+    assert_same(['auth.local.php', 'database.local.php'], array_map('basename', glob("$config/*.local.php") ?: []), 'nothing else: no app.local.php');
+    $pdo = site_pdo();
     assert_same($GLOBALS['before'], owner_rows($pdo), 'every row as it was');
     foreach (USER_TABLES as $table) {
         $ids = array_map('intval', array_column($pdo->query("SELECT DISTINCT user_id FROM $table")->fetchAll(PDO::FETCH_ASSOC), 'user_id'));
         assert_true($ids === [] || $ids === [1], "$table: the owner's, user 1");
     }
-    assert_same('src/config.local.php', substr(str_replace('\\', '/', (string) realpath(site()['dir'] . '/src/config.local.php')), -20), 'the earlier file is left where it was');
+    assert_same(['ok' => true, 'message' => 'Connected to the database "' . db_name() . '": it is up to date.'], try_db());
 
-    // and the app: without sign-in, the owner's
-    assert_same(['mode' => 'none'], call(site()['base'], 'GET', '/api/auth/config')['body']);
-    assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress')['body']['items']['k:大']['stage'] ?? null);
+    // and the app: the owner signs in as user 1, their id at the IAM, and finds their data
+    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], call(site()['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    assert_same(401, call(site()['base'], 'GET', '/api/kanji/progress', null, no_token())['status'], 'nobody without a token, from this computer too');
+    assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress', null, test_bearer(test_token(1)))['body']['items']['k:大']['stage'] ?? null);
 });
 
-test('run again: what is set, never the password; and the owner’s data to their IAM user id', function (): void {
+test('an earlier version’s settings: the sign-in mode, the owner id and the time zone are ignored; saving again writes the IAM alone', function (): void {
+    $config = site()['dir'] . '/backend/config';
+    $old = "<?php\n// Written by the setup page.\n\nreturn " . var_export(['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1], true) . ";\n";
+    file_put_contents("$config/auth.local.php", $old);
+    file_put_contents("$config/app.local.php", "<?php\n// Written by the setup page.\n\nreturn ['timezone' => 'Europe/Bratislava'];\n");
+    assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress', null, test_bearer(test_token(1)))['body']['items']['k:大']['stage'] ?? null,
+        'such a copy keeps working as it is');
+
     $page = test_page(site()['base'], '/setup.php', [], jar());
     assert_match('/This copy is set up already/', $page['raw']);
-    assert_true(str_contains($page['raw'], '<em id="pw-saved">(saved: leave empty to keep it)</em>'), 'a password is saved: left empty, it stays');
+    assert_match('/name="issuer" type="text" value="https:\/\/iam\.test"/', $page['raw'], 'what is saved, on this computer');
+    assert_match('/name="db_name" type="text" value="' . db_name() . '"/', $page['raw']);
+    assert_true(str_contains($page['raw'], '(saved: leave empty to keep it)'), 'a password is saved: left empty, it stays');
     assert_false(str_contains($page['raw'], site()['password']), 'the password is never shown');
-    assert_no_match('/earlier version \(<code>/', $page['raw'], 'its own settings now, not the earlier ones');
-    // The same copy asked as a website is: nothing of what is set before the token is proven.
+    $r = test_form(site()['base'], '/setup.php', local_form(nonce_of($page['raw']), ['db_password' => '']), [], jar());
+    assert_match('/<h1>Saved<\/h1>/', $r['raw'], strip_tags($r['raw']));
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], require "$config/auth.local.php", 'the old keys are gone from it');
+    assert_same(site()['password'], (require "$config/database.local.php")['password'], 'the password stays as it was');
+    assert_same(['timezone' => 'Europe/Bratislava'], require "$config/app.local.php", 'and app.local.php is left alone: the setup page never writes it (the owner\'s optional file), and its old timezone is ignored');
+
+    // A copy set up without sign-in is not set up: it says why, and saving here sets it up again.
+    file_put_contents("$config/auth.local.php", "<?php\nreturn ['mode' => 'none', 'local_user_id' => 1];\n");
+    $r = call(site()['base'], 'GET', '/api/kanji/summary');
+    assert_same([503, 'not_set_up', 'sign-in without the IAM is gone: open /setup.php and save'], [$r['status'], $r['body']['code'] ?? null, $r['body']['reason'] ?? null]);
+    $page = test_page(site()['base'], '/setup.php', [], jar());
+    assert_match('/name="issuer" type="text" value="http:\/\/localhost:4300"/', $page['raw'], 'no IAM saved: the development IAM');
+    $r = test_form(site()['base'], '/setup.php', local_form(nonce_of($page['raw']), ['db_password' => '']), [], jar());
+    assert_match('/<h1>Saved<\/h1>/', $r['raw'], strip_tags($r['raw']));
+    assert_same(200, call(site()['base'], 'GET', '/api/kanji/summary')['status']);
+});
+
+test('run again, asked as a website is: the token, and nothing of what is saved', function (): void {
     $website = test_page(site()['base'], '/setup.php', ['Host: academy.example.test']);
     assert_match('/name="token"/', $website['raw']);
-    foreach ([db_name(), site()['role'], '<em id="pw-saved">(saved', 'type="password" placeholder="unchanged"'] as $set) {
+    foreach ([db_name(), site()['role'], 'iam.test', '(saved', 'placeholder="unchanged"'] as $set) {
         assert_false(str_contains($website['raw'], $set), "$set: not to whoever opens the page");
     }
     unlink(site()['dir'] . '/backend/config/setup-token.local.php');
-
-    $r = test_form(site()['base'], '/setup.php', local_form(nonce_of($page['raw']), ['user_id' => '7']), [], jar());
-    assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_match('/Backup first: backups\/academy-before-owner-change-/', $r['raw'], strip_tags($r['raw']));
-    assert_match("/Your data \\(user 1\\) is now user 7(&#039;|')s: /", $r['raw']);
-    assert_same(['mode' => 'none', 'local_user_id' => 7], require site()['dir'] . '/backend/config/auth.local.php');
-    assert_same(site()['password'], (require site()['dir'] . '/backend/config/database.local.php')['password'], 'the password stays as it was');
-    assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress')['body']['items']['k:大']['stage'] ?? null, 'the app is user 7, with the data');
-
-    // sign-in on, for developing against the IAM: the mode, the IAM and the client id
-    $r = test_form(site()['base'], '/setup.php', local_form(nonce_of($page['raw']), ['user_id' => '7', 'auth_mode' => 'iam', 'issuer' => 'https://iam.test']), [], jar());
-    assert_match('/sign-in through https:\/\/iam\.test/', $r['raw'], strip_tags($r['raw']));
-    assert_same(['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 7], require site()['dir'] . '/backend/config/auth.local.php');
-    assert_same(401, call(site()['base'], 'GET', '/api/kanji/progress')['status'], 'and now it wants a sign-in');
-    assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress', null, test_bearer(test_token(7)))['body']['items']['k:大']['stage'] ?? null);
 });
 
 after(function (): void {

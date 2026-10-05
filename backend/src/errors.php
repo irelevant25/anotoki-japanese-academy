@@ -19,14 +19,17 @@ final class HttpError extends RuntimeException
     public ?string $errorCode;
     /** Why, for the owner on their own computer (error_reason()), or null: a website never says. */
     public ?string $detail;
+    /** More of the answer, for every caller alike: a number the page needs to word it (the 413's limit). */
+    public array $fields;
 
-    public function __construct(int $status, string $message, array $headers = [], ?string $errorCode = null, ?string $detail = null)
+    public function __construct(int $status, string $message, array $headers = [], ?string $errorCode = null, ?string $detail = null, array $fields = [])
     {
         parent::__construct($message);
         $this->status = $status;
         $this->headers = $headers;
         $this->errorCode = $errorCode;
         $this->detail = $detail;
+        $this->fields = $fields;
     }
 }
 
@@ -34,7 +37,9 @@ final class HttpError extends RuntimeException
  * Why a request failed, for the answer's "detail": the exception's message
  * under PHP's built-in server (this computer), null anywhere else. A website
  * says no more than a sentence; its error log has the rest (a database error
- * names the user and the host).
+ * names the user and the host). The one exception is the Migrations page's
+ * Apply (upkeep_apply()): its administrator reads why a file failed, in
+ * PostgreSQL's words, on a website too.
  */
 function error_reason(Throwable $e, string $sapi = PHP_SAPI): ?string
 {

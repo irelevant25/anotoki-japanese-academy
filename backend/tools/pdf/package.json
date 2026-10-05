@@ -1,0 +1,13 @@
+{
+  "name": "japanese-academy-pdf-pages",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Page images of the scanned course books in books/ (pages.js; the academy-pdf skill). Its one package, sharp, scales and crops the pages.",
+  "type": "commonjs",
+  "scripts": {
+    "pages": "node pages.js"
+  },
+  "dependencies": {
+    "sharp": "^0.35.4"
+  }
+}

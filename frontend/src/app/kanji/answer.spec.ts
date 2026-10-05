@@ -1,5 +1,5 @@
 // Typed-answer checking for the kanji SRS, against the real catalog: the one
-// the backend builds from data/ (scripts/catalog-fixture.mjs writes it before
+// the backend builds from backend/data/ (scripts/catalog-fixture.mjs writes it before
 // every run).
 import fixture from '../../testing/catalog.fixture.json';
 import { DYNAMIC_KEYS } from '../core/i18n/dynamic-keys';

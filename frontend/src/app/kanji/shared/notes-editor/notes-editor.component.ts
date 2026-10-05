@@ -4,6 +4,7 @@ import { CatalogItem } from '../../../core/api/api.types';
 import { errorKey, errorParams } from '../../../core/i18n/error-text';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TranslationService } from '../../../core/i18n/translation.service';
+import { SavesInFlight } from '../../../core/saves-in-flight.service';
 import { KanjiStateService } from '../../kanji-state.service';
 
 type NotePart = 'meaning' | 'reading';
@@ -19,6 +20,8 @@ interface NoteField {
   value: string;
   status: WritableSignal<NoteStatus>;
   timer: ReturnType<typeof setTimeout> | null;
+  /** Lets go of the save waiting in SavesInFlight (its timer), or null when none waits. */
+  release: (() => void) | null;
 }
 
 /** The words of each note, as keys: the template words them. */
@@ -27,7 +30,12 @@ const WORDS: Record<NotePart, { label: string; placeholder: string }> = {
   reading: { label: 'notes.readingLabel', placeholder: 'notes.readingPlaceholder' },
 };
 
-/** The learner's own mnemonics for an item: saved as they type (a moment after they stop), and when they leave the field. */
+/**
+ * The learner's own mnemonics for an item: saved as they type (a moment after
+ * they stop), and when they leave the field. A note waiting for its moment,
+ * and one on its way, are known to SavesInFlight: signing out sends the first
+ * at once and waits for both.
+ */
 @Component({
   selector: 'app-notes-editor',
   imports: [TranslatePipe],
@@ -39,6 +47,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly kanji = inject(KanjiStateService);
   private readonly i18n = inject(TranslationService);
+  private readonly saves = inject(SavesInFlight);
 
   readonly item = input.required<CatalogItem>();
   readonly parts = input<NotePart[]>(['meaning', 'reading']);
@@ -56,6 +65,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
       value: notes[part] || '',
       status: signal<NoteStatus>(''),
       timer: null,
+      release: null,
     }));
   }
 
@@ -75,6 +85,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
       clearTimeout(field.timer);
     }
     field.timer = setTimeout(() => void this.save(field), 700);
+    field.release ??= this.saves.hold(() => void this.save(field));
   }
 
   left(field: NoteField): void {
@@ -111,9 +122,11 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
       clearTimeout(field.timer);
       field.timer = null;
     }
+    field.release?.();
+    field.release = null;
     const id = this.item().id;
     try {
-      const r = await this.api.item(id, { notes: { [field.part]: field.value } });
+      const r = await this.saves.track(this.api.item(id, { notes: { [field.part]: field.value } }));
       this.kanji.setItemState(id, r.state);
       field.status.set('saved');
     } catch (e) {

@@ -1,40 +1,44 @@
 <?php
 /**
  * The setup page, /setup.php: how a copy of Japanese Academy is set up, on
- * the owner's computer, a developer's, or a website. It writes this copy's
- * settings (backend/config/*.local.php, which the app requires), and builds the
- * database: makes it if it is missing and the user may, applies the migrations
- * (after a raw copy of every table when it holds study data), builds the study
- * content, and brings data in — the owner's JSON files of the first version,
- * once, or a backup from their computer, into their IAM user id.
+ * the owner's computer, a developer's, or a website. It asks for two things,
+ * the database and the anotoki IAM people sign in through, and writes them as
+ * this copy's settings (backend/config/database.local.php and auth.local.php,
+ * which the app requires). Then it builds the database: makes it if it is
+ * missing and the user may, applies the migrations (after a raw copy of every
+ * table when it holds study data), and builds the study content. Nothing
+ * else: who may administer is a role at the IAM, the time of day is the
+ * server's own, and everybody's data is their own to bring.
  *
  * Two ways, told apart by where the request comes from:
  *
- *   this computer   PHP's built-in server (php backend/server.php, the launchers),
+ *   this computer   PHP's built-in server (composer start: backend/router.php),
  *                   a request straight from 127.0.0.1 or localhost
  *                   (auth_from_this_computer()). No token: a nonce in a cookie
  *                   and in the form (SameSite=Strict) keeps other sites' pages
  *                   from sending it. It stays, and can be run again: it shows
- *                   what is set, never the password (left empty, the saved one
- *                   stays). It offers sign-in off (auth mode none) for the
- *                   owner's own copy, or through an IAM — the development IAM
- *                   at http://localhost:4300 by default.
+ *                   what is saved, never the password (left empty, the saved one
+ *                   stays). The IAM is the development IAM at
+ *                   http://localhost:4300 by default.
  *   a website       first, proof of owning the server: a token it writes into
  *                   backend/config/setup-token.local.php, which only FTP reaches
- *                   (it is never shown here). Sign-in through the IAM only. When
- *                   done it writes backend/storage/installed.lock, then deletes
- *                   the token file and itself; with the lock there it refuses to
- *                   run (and deletes itself if it is uploaded again). To run it
- *                   again on purpose, delete the lock and upload it again.
+ *                   (it is never shown here). It shows nothing of what is saved,
+ *                   not even after the token (an empty password still keeps the
+ *                   saved one). When done it writes backend/storage/installed.lock,
+ *                   then deletes the token file and itself; with the lock there
+ *                   it refuses to run (and deletes itself if it is uploaded
+ *                   again). To run it again on purpose, delete the lock and
+ *                   upload it again.
  *
  * "Test connection" buttons try the database and the IAM (its
- * {issuer}/.well-known/openid-configuration) without sending the whole form.
+ * {issuer}/.well-known/openid-configuration and keys) without saving anything,
+ * and answer in the words every anotoki site's setup page uses.
  *
- * The owner's computer, after the move to backend/ + frontend/: the settings of
- * the version before (src/config.local.php) are offered, their password
- * included (never shown), and the setup brings the database up to date — a raw
- * copy of every table, migrations 002 and 003 (the owner's rows become user
- * 1's, their IAM user id), the content — without changing a row otherwise.
+ * Settings an earlier version wrote (auth.local.php's mode and local_user_id,
+ * app.local.php's time zone) are left as they are and ignored by the app;
+ * saving here writes auth.local.php afresh, with the IAM alone. This file
+ * stays parseable by PHP 7.4, so a host with an old PHP gets a sentence
+ * saying so rather than a blank page.
  */
 
 declare(strict_types=1);
@@ -79,8 +83,8 @@ function setup_page(string $heading, string $body, string $tone = 'plain', strin
 
 /**
  * The app's own colours, light and dark, in a page that stands alone. The
- * color-scheme lets the browser draw its own parts of the form (the select's
- * list, the file button, the radios) in the same theme.
+ * color-scheme lets the browser draw its own parts of the form in the same
+ * theme.
  */
 const SETUP_CSS = ':root{color-scheme:light dark;--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--soft:#efede8;--accent:#3a5f8a;'
     . '--accent-ink:#fff;--good:#2e7d5b;--bad:#b4453c;--kanji-text:#b53b25}'
@@ -96,17 +100,15 @@ const SETUP_CSS = ':root{color-scheme:light dark;--bg:#f6f5f2;--card:#fff;--ink:
     . 'p,li{color:var(--muted)}li{margin:4px 0}b{color:var(--ink)}code{font-size:.9em;overflow-wrap:anywhere}'
     . '.row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.field{display:block;margin:12px 0 0}'
     . '.lbl{display:block;font-size:13px;font-weight:600;margin-bottom:6px}.lbl em{font-weight:400;color:var(--muted);font-style:normal}'
-    . 'input[type=text],input[type=password],input[type=file],select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;'
-    . 'background:var(--bg);color:var(--ink);font:inherit;font-size:15px}input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}'
-    . '.choice{display:flex;gap:9px;align-items:flex-start;margin:10px 0 0;color:var(--ink);font-size:15px}.choice input{margin-top:6px}'
-    . 'input[type=radio],input[type=checkbox]{accent-color:var(--accent)}'
+    . 'input[type=text],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;'
+    . 'background:var(--bg);color:var(--ink);font:inherit;font-size:15px}input:focus{outline:2px solid var(--accent);outline-offset:-1px}'
     . '.note{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:10px 12px;color:var(--ink)}'
     . '.err{color:var(--bad);background:var(--soft);border-radius:8px;padding:8px 12px}.ok{color:var(--good)}'
     . 'button,.btn{font:inherit;cursor:pointer;border-radius:8px}'
     . '.primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);padding:11px 22px;font-weight:600;font-size:15px;text-decoration:none;display:inline-block}'
     . '.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:7px 14px;font-size:14px}.ghost:hover{border-color:var(--accent);color:var(--accent)}'
     . '.test{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}.result{font-size:14px;color:var(--muted)}'
-    . '.result.good{color:var(--good)}.result.bad{color:var(--bad)}.actions{margin-top:24px}.hide{display:none}'
+    . '.result.good{color:var(--good)}.result.bad{color:var(--bad)}.actions{margin-top:24px}'
     . '@media (max-width:560px){.row{grid-template-columns:1fr}}';
 
 // Before the app loads: it needs all of these, and a new host may lack one.
@@ -178,46 +180,11 @@ function setup_cleanup(): bool
     return @unlink(__FILE__);
 }
 
-/**
- * The settings of the version before backend/ + frontend/ (src/config.local.php,
- * which stays where it was on the owner's computer), if they are still there.
- */
-function setup_legacy(): ?array
-{
-    $file = ROOT . '/src/config.local.php';
-    if (!is_file($file)) {
-        return null;
-    }
-    try {
-        $old = require $file;
-    } catch (Throwable $e) {
-        return null;
-    }
-    if (!is_array($old) || !is_array($old['db'] ?? null)) {
-        return null;
-    }
-    $auth = is_array($old['auth'] ?? null) ? $old['auth'] : [];
-    return [
-        'db' => [
-            'host' => (string) ($old['db']['host'] ?? 'localhost'),
-            'port' => (int) ($old['db']['port'] ?? 5432),
-            'name' => (string) ($old['db']['name'] ?? 'japanese_academy'), // the old default
-            'user' => (string) ($old['db']['user'] ?? 'postgres'),
-            'password' => (string) ($old['db']['password'] ?? ''),
-        ],
-        'mode' => in_array($auth['mode'] ?? null, ['none', 'iam'], true) ? $auth['mode'] : null,
-        'issuer' => is_string($auth['issuer'] ?? null) ? $auth['issuer'] : null,
-        'client_id' => is_string($auth['client_id'] ?? null) ? $auth['client_id'] : null,
-        'local_user_id' => is_int($auth['local_user_id'] ?? null) ? $auth['local_user_id'] : null,
-        'timezone' => is_string($old['timezone'] ?? null) ? $old['timezone'] : null,
-    ];
-}
-
-/** A JSON answer to one of the page's buttons ($more: what else it hands the page), and the end of the request. */
-function setup_json(bool $ok, string $message, array $more = []): void
+/** A JSON answer to one of the page's buttons, and the end of the request. */
+function setup_json(bool $ok, string $message): void
 {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_text(['ok' => $ok, 'message' => $message] + $more);
+    echo json_text(['ok' => $ok, 'message' => $message]);
     exit;
 }
 
@@ -251,41 +218,43 @@ function setup_pdo(array $db, string $name): PDO
     return new PDO($dsn, $db['user'], $db['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 }
 
-/** "Test connection" for the database: can these settings reach it, and what is in it? */
+/**
+ * "Test connection" for the database, in the family's words (every anotoki
+ * site's setup page says the same): can these settings reach it, and what
+ * would Save do there? Changes nothing.
+ *
+ * @return array{0: bool, 1: string}
+ */
 function setup_try_db(array $db): array
 {
+    $name = $db['name'];
     try {
-        $pdo = setup_pdo($db, $db['name']);
+        $pdo = setup_pdo($db, $name);
+        $tables = (int) $pdo->query("SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")->fetchColumn();
+        $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
+        $applied = $pdo->query("SELECT to_regclass('migrations') IS NOT NULL")->fetchColumn()
+            ? array_column($pdo->query('SELECT name FROM migrations')->fetchAll(), 'name')
+            : [];
+        $pending = count(array_diff($files, $applied));
+        return [true, "Connected to the database \"$name\": "
+            . ($tables === 0 ? 'it is empty - Save makes the tables.' : ($pending > 0 ? "$pending update(s) to apply - Save applies them." : 'it is up to date.'))];
     } catch (PDOException $e) {
-        if (!db_missing_error($e)) {
-            return [false, 'Cannot connect with these settings: ' . setup_db_reason($e)];
-        }
-        try {
-            $server = setup_pdo($db, 'postgres');
-            $may = (bool) $server->query('SELECT rolcreatedb OR rolsuper FROM pg_roles WHERE rolname = current_user')->fetchColumn();
-        } catch (PDOException $e2) {
-            return [false, "There is no database {$db['name']} there, and the server's own database would not let this user in either. "
-                . 'Make the database in your hosting panel, then try again.'];
-        }
-        return [$may, $may
-            ? "Connected to the server. There is no database {$db['name']} yet: setting up makes it."
-            : "Connected to the server, but there is no database {$db['name']}, and this user may not make one. Make it in your hosting panel first."];
+        $first = $e;
     }
-    $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    if (!$pdo->query("SELECT to_regclass('migrations') IS NOT NULL")->fetchColumn()) {
-        $tables = (int) $pdo->query("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")->fetchColumn();
-        return [true, "Connected to the database {$db['name']}. " . ($tables
-            ? 'It holds ' . setup_count($tables, 'table') . " of something else, but none of Japanese Academy's: setting up adds them beside those."
-            : 'It is empty: setting up makes its tables.')];
+    try {
+        $server = setup_pdo($db, 'postgres');
+        $exists = $server->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
+        $exists->execute([$name]);
+        if ($exists->fetchColumn()) {
+            return [false, "The server is there, but \"{$db['user']}\" cannot open the database \"$name\": " . setup_db_reason($first)];
+        }
+        $create = (bool) $server->query('SELECT rolcreatedb OR rolsuper FROM pg_roles WHERE rolname = current_user')->fetchColumn();
+        return $create
+            ? [true, "Connected to the server. The database \"$name\" does not exist yet - Save creates it."]
+            : [false, "Connected to the server, but there is no database \"$name\" and this user may not create one. Make it in the hosting panel first."];
+    } catch (PDOException $e) {
+        return [false, 'Cannot connect: ' . setup_db_reason($first)];
     }
-    $applied = array_column($pdo->query('SELECT name FROM migrations')->fetchAll(), 'name');
-    $pending = count(array_diff($files, $applied));
-    $people = $pdo->query("SELECT to_regclass('srs_progress') IS NOT NULL")->fetchColumn()
-        ? (int) $pdo->query('SELECT count(*) FROM (SELECT 1 FROM srs_progress UNION SELECT 1 FROM exam_attempts) t')->fetchColumn()
-        : 0;
-    return [true, "Connected to the database {$db['name']}: Japanese Academy's tables are there"
-        . ($pending ? ', with ' . setup_count($pending, 'update') . ' to apply (a copy of every table is taken first)' : ', up to date')
-        . ($people ? ', holding study data.' : ', with no study data yet.')];
 }
 
 /** Is this an address an IAM may have: https://, or http:// on this computer (the development IAM)? */
@@ -394,50 +363,32 @@ function setup_proven(?string $token, string $nonce): ?string
     return null;
 }
 
-// ── What is set now, what the form says ────────────────────────────────────────
+// ── What is saved now, what the form says ──────────────────────────────────────
 
-$saved = ['database' => config_read_file('database'), 'auth' => config_read_file('auth'), 'app' => config_read_file('app')];
-$legacy = $saved['database'] === null && SETUP_LOCAL ? setup_legacy() : null;
-$savedDb = $saved['database'] ?? ($legacy['db'] ?? null);
-$savedAuth = $saved['auth'] ?? [];
+$savedDb = config_read_file('database');
+$savedAuth = config_read_file('auth') ?? [];
 $hasPassword = is_string($savedDb['password'] ?? null) && $savedDb['password'] !== '';
-// the backups of study data: not the raw copies, nor the strings of a deleted language
-$serverBackups = array_values(array_filter(
-    array_map('basename', glob(backup_dir() . '/academy-*.json') ?: []),
-    static fn (string $f): bool => !str_ends_with($f, '.raw.json') && !str_starts_with($f, TRANSLATIONS_COPY_PREFIX)
-));
-/** The form's fields as this copy has them set (or the version before had them): never the password. */
-$fromSaved = array_map('strval', array_filter([
+// What is saved is shown to this computer only. A website's setup page is
+// anybody's to open, and one uploaded again would show its database's name
+// and user and its IAM to whoever came first.
+$fromSaved = SETUP_LOCAL ? array_map('strval', array_filter([
     'db_host' => $savedDb['host'] ?? null,
     'db_port' => $savedDb['port'] ?? null,
     'db_name' => $savedDb['name'] ?? null,
     'db_user' => $savedDb['user'] ?? null,
-    'issuer' => $savedAuth['issuer'] ?? ($legacy['issuer'] ?? null),
-    'client_id' => $savedAuth['client_id'] ?? ($legacy['client_id'] ?? null),
-    'user_id' => $savedAuth['local_user_id'] ?? ($legacy['local_user_id'] ?? null),
-    'timezone' => $saved['app']['timezone'] ?? ($legacy['timezone'] ?? null),
-], 'is_scalar'));
+    'issuer' => $savedAuth['issuer'] ?? null,
+    'client_id' => $savedAuth['client_id'] ?? null,
+], 'is_scalar')) : [];
 // Only a form proves anything: the token (a website), or this page's nonce (here).
 $refused = $method === 'POST' ? setup_proven($token, $nonce) : 'Nothing was sent.';
-// What is set already, and the files in backups/, are shown to this computer,
-// and on a website only once the token is proven: until then the page is
-// anybody's to open, and a site whose setup page was uploaded again has its
-// database's name and user, its IAM and its people's backups there. (The
-// token's own button, test-token, hands them over.)
-$showSaved = SETUP_LOCAL || $refused === null;
 $old = array_replace([
     'db_host' => 'localhost',
     'db_port' => '5432',
-    'db_name' => 'japanese_academy',
+    'db_name' => 'anotoki_japanese',
     'db_user' => SETUP_LOCAL ? 'postgres' : '',
     'issuer' => SETUP_LOCAL ? 'http://localhost:4300' : '',
     'client_id' => 'japanese-academy',
-    'user_id' => '1',
-    'timezone' => app_computer_timezone(),
-], $showSaved ? $fromSaved : []) + [
-    'auth_mode' => SETUP_LOCAL ? (string) ($savedAuth['mode'] ?? ($legacy['mode'] ?? 'none')) : 'iam',
-    'backup_file' => '',
-];
+], $fromSaved);
 $errors = [];
 
 /** The form's database settings, with the saved password when none was typed. */
@@ -466,30 +417,20 @@ function setup_db_errors(array $in): array
     return $errors;
 }
 
-if ($method === 'POST' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-    // PHP drops a whole form that is bigger than post_max_size: the backup, most likely
-    $errors[] = 'The form was bigger than this server takes (' . ini_get('post_max_size') . '). '
-        . 'Put the backup in the backups/ folder by FTP instead, and choose it below.';
-} elseif ($method === 'POST') {
+if ($method === 'POST') {
     foreach (array_keys($old) as $key) {
         if (array_key_exists($key, $_POST)) {
             $old[$key] = trim((string) $_POST[$key]);
         }
     }
-    if (!SETUP_LOCAL) {
-        $old['auth_mode'] = 'iam';
-    }
-    $action = (string) ($_POST['action'] ?? 'install');
+    $action = (string) ($_POST['action'] ?? 'save');
 
     if ($action === 'test-db' || $action === 'test-iam' || $action === 'test-token') {
         if ($refused !== null) {
             setup_json(false, $refused);
         }
         if ($action === 'test-token') {
-            // the token proven: what is set already (never the password), and the files in backups/
-            setup_json(true, 'That is the token.' . ($fromSaved ? ' What is set already is filled in.' : '')
-                . ($serverBackups ? ' ' . setup_count(count($serverBackups), 'file') . ' in backups/ to choose from.' : ''),
-                ['saved' => (object) $fromSaved, 'passwordSaved' => $hasPassword, 'backups' => $serverBackups]);
+            setup_json(true, 'That is the token.');
         }
         if ($action === 'test-db') {
             $problems = setup_db_errors($old);
@@ -507,43 +448,11 @@ if ($method === 'POST' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
         $errors[] = $refused;
     }
     $errors = array_merge($errors, setup_db_errors($old));
-    if (!in_array($old['auth_mode'], SETUP_LOCAL ? ['none', 'iam'] : ['iam'], true)) {
-        $errors[] = 'Choose how people sign in.';
-    }
-    if ($old['auth_mode'] === 'iam' && !setup_issuer_ok(rtrim($old['issuer'], '/'))) {
+    if (!setup_issuer_ok(rtrim($old['issuer'], '/'))) {
         $errors[] = 'The IAM\'s address must be an https:// address, like https://iam.anotoki.eu (or http://localhost:4300 for the development IAM).';
     }
-    if ($old['auth_mode'] === 'iam' && !preg_match('/^[a-z0-9-]{2,64}$/D', $old['client_id'])) {
+    if (!preg_match('/^[a-z0-9-]{2,64}$/D', $old['client_id'])) {
         $errors[] = 'The client id is letters, digits and - (japanese-academy).';
-    }
-    if (!ctype_digit($old['user_id']) || (int) $old['user_id'] < 1 || strlen($old['user_id']) > 18) {
-        $errors[] = 'Your IAM user id is a whole number (the owner\'s is usually 1).';
-    }
-    if (!in_array($old['timezone'], DateTimeZone::listIdentifiers(), true)) {
-        $errors[] = 'That is not a time zone; they look like Europe/Bratislava.';
-    }
-
-    // The backup: sent with the form, or put in backups/ by FTP (for one bigger than the host takes).
-    $backupPath = null;
-    $from = '';
-    $upload = $_FILES['backup'] ?? null;
-    $uploadError = is_array($upload) ? (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE;
-    if ($uploadError === UPLOAD_ERR_OK && is_uploaded_file((string) $upload['tmp_name'])) {
-        $backupPath = (string) $upload['tmp_name'];
-        $from = 'the file ' . basename((string) $upload['name']);
-    } elseif ($uploadError === UPLOAD_ERR_INI_SIZE || $uploadError === UPLOAD_ERR_FORM_SIZE) {
-        $errors[] = 'That backup is bigger than this server takes with a form (' . ini_get('upload_max_filesize') . '). '
-            . 'Put it in the backups/ folder by FTP instead, and choose it below.';
-    } elseif ($uploadError !== UPLOAD_ERR_NO_FILE) {
-        $errors[] = 'The backup file did not arrive whole. Send the form again.';
-    } elseif ($old['backup_file'] !== '' && $refused === null) {
-        // (only once the form is the owner's: "no such file" would tell anybody else which files there are)
-        if (!in_array($old['backup_file'], $serverBackups, true)) {
-            $errors[] = 'There is no such file in backups/.';
-        } else {
-            $backupPath = backup_dir() . '/' . $old['backup_file'];
-            $from = 'backups/' . $old['backup_file'];
-        }
     }
 
     if (!$errors) {
@@ -551,16 +460,12 @@ if ($method === 'POST' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
             @set_time_limit(300); // the study content takes seconds to build
         }
         try {
-            // read before anything is changed: a wrong file changes nothing
-            $backup = $backupPath !== null ? backup_read($backupPath) : null;
-            if ($backup !== null) {
-                backup_person_in($backup, (int) $old['user_id']);
-            }
-            $log = setup_run($old, setup_db_from_form($old, $savedDb), $savedAuth, $legacy, $backup, $from);
+            $log = setup_run($old, setup_db_from_form($old, $savedDb));
             $result = '<ul><li>' . implode('</li><li>', array_map('setup_h', $log)) . '</li></ul>';
+            $signIn = '<p>Open the app and sign in with your anotoki account at ' . setup_h(rtrim($old['issuer'], '/')) . '.'
+                . ' Your data comes in from the app itself, each person their own.</p>';
             if (SETUP_LOCAL) {
-                setup_page('Set up', $result
-                    . ($legacy !== null ? '<p>The settings of the earlier version, in <code>src/config.local.php</code>, are not used any more: you may delete that file.</p>' : '')
+                setup_page('Saved', $result . $signIn
                     . '<p>This page stays: open it again to change the settings.</p>'
                     . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>', 'good');
             }
@@ -575,8 +480,8 @@ if ($method === 'POST' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
                 . ($gone ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code>.</p>'
                     : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand:'
                     . ' they could not be removed.' . ($locked ? ' (The lock stops the setup page meanwhile.)' : '') . '</p>')
-                . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>'
-                . '<p>Sign in with your account at ' . setup_h(rtrim($old['issuer'], '/')) . '. Only people with a role in this app at the IAM get in.</p>', 'good');
+                . $signIn
+                . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>', 'good');
         } catch (Throwable $e) {
             $errors[] = $e->getMessage();
         }
@@ -589,25 +494,16 @@ if ($method === 'POST' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
  * the database connected, so a wrong password writes nothing; sending the form
  * again does the rest.
  */
-function setup_run(array $in, array $db, array $savedAuth, ?array $legacy, ?array $backup, string $from): array
+function setup_run(array $in, array $db): array
 {
     $log = [];
     setup_connect($db);
     $log[] = "Connected to the database {$db['name']} on {$db['host']}:{$db['port']}.";
 
-    $userId = (int) $in['user_id'];
-    // whose the data is so far: the settings' owner, or the earlier version's, or user 1 (migration 002)
-    $formerOwner = (int) ($savedAuth['local_user_id'] ?? ($legacy['local_user_id'] ?? 1));
-    $auth = $in['auth_mode'] === 'none'
-        ? ['mode' => 'none', 'local_user_id' => $userId]
-        : ['mode' => 'iam', 'issuer' => rtrim($in['issuer'], '/'), 'client_id' => $in['client_id'], 'local_user_id' => $userId];
-    // the owner's data stays where it is until it has moved (below)
+    $issuer = rtrim($in['issuer'], '/');
     config_write('database', $db);
-    config_write('auth', ['local_user_id' => $formerOwner] + $auth);
-    config_write('app', ['timezone' => $in['timezone']]);
-    date_default_timezone_set(app_timezone());
-    $log[] = 'Saved the settings in backend/config/: ' . ($auth['mode'] === 'none'
-        ? 'no sign-in (this computer only)' : 'sign-in through ' . $auth['issuer']) . ", time zone {$in['timezone']}.";
+    config_write('auth', ['issuer' => $issuer, 'client_id' => $in['client_id']]);
+    $log[] = "Saved the settings in backend/config/: the database, and sign-in through the IAM at $issuer.";
 
     foreach ([BACKEND . '/storage', BACKEND . '/storage/cache', backup_dir()] as $dir) {
         if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
@@ -619,7 +515,7 @@ function setup_run(array $in, array $db, array $savedAuth, ?array $legacy, ?arra
     // taken without this version's queries (they may expect the new tables).
     $migrated = upkeep_migrate();
     if ($migrated['backup']) {
-        $log[] = 'Backup before the update: backups/' . basename($migrated['backup']) . '.';
+        $log[] = 'Backup before the update: backend/storage/backups/' . basename($migrated['backup']) . '.';
     }
     $log[] = $migrated['applied'] ? 'Applied the migrations: ' . implode(', ', $migrated['applied']) . '.' : 'The tables were up to date already.';
     if ($waiting = db_pending_migrations()) {
@@ -632,67 +528,16 @@ function setup_run(array $in, array $db, array $savedAuth, ?array $legacy, ?arra
             . " ({$synced['seconds']} s)."
         : 'The study content was up to date already.';
 
-    // The owner's data under their IAM user id, when it is not the one it had
-    // (on this computer: a website's people are the IAM's, and its import names
-    // its user id itself).
-    if (SETUP_LOCAL && $userId !== $formerOwner && users_has_rows($formerOwner)) {
-        $moved = owner_change($formerOwner, $userId);
-        if ($moved['backup']) {
-            $log[] = 'Backup first: backups/' . basename($moved['backup']) . '.';
-        }
-        $log[] = $moved['message'];
-    }
-    config_write('auth', $auth);
-
-    if ($backup !== null) {
-        $c = backup_import_person($backup, $userId, $from);
-        $log[] = "Imported your data into user $userId: " . setup_count((int) $c['items'], 'kanji item') . ', ' . setup_count((int) $c['days'], 'day') . ', '
-            . setup_count((int) $c['log'], 'answer') . ', ' . setup_count((int) $c['attempts'], 'exam attempt') . '.';
-    } elseif (SETUP_LOCAL && !config_is_test_db($db['name'])) {
-        $log[] = setup_first_import($userId);
-    }
-
     // Sign-in needs the IAM's keys: can this server fetch them?
-    if ($auth['mode'] === 'iam') {
-        if (auth_jwks_file() !== null) {
-            $log[] = 'The IAM\'s keys come from a file (auth.jwks_file, a test database\'s): nothing to fetch.';
-        } elseif (anotoki_iam_http_get($auth['issuer'] . '/.well-known/jwks.json', 5) !== null) {
-            $log[] = 'Reached the IAM: its keys are there, so people can sign in.';
-        } else {
-            $log[] = 'Warning: this server could not reach ' . $auth['issuer'] . ' just now, and signing in needs it. '
-                . 'Check the address (and that the IAM runs), or ask the host whether the site may make HTTPS requests.';
-        }
+    if (auth_jwks_file() !== null) {
+        $log[] = 'The IAM\'s keys come from a file (auth.jwks_file, a test database\'s): nothing to fetch.';
+    } elseif (anotoki_iam_http_get($issuer . '/.well-known/jwks.json', 5) !== null) {
+        $log[] = 'Reached the IAM: its keys are there, so people can sign in.';
+    } else {
+        $log[] = 'Warning: this server could not reach ' . $issuer . ' just now, and signing in needs it. '
+            . 'Check the address (and that the IAM runs), or ask the host whether the site may make HTTPS requests.';
     }
     return $log;
-}
-
-/**
- * The owner's study history from the JSON files the first version kept
- * (progress/, results/, reports/), the first time, into an owner with no study
- * data yet — unless there are backups, which are newer than those files.
- */
-function setup_first_import(int $owner): string
-{
-    if (learner_has_data_of($owner) || legacy_imported($owner)) {
-        return 'Your study data is in the database.';
-    }
-    // The backups a restore takes: not the raw copies, the strings of a deleted language, nor somebody else's before-reset copy.
-    $backups = array_values(array_filter(glob(backup_dir() . '/academy-*.json') ?: [], static fn (string $f): bool => !str_ends_with($f, '.raw.json')
-        && !str_starts_with(basename($f), TRANSLATIONS_COPY_PREFIX)
-        && (!preg_match('/^academy-before-reset-user-(\d+)-/', basename($f), $m) || (int) $m[1] === $owner)));
-    if ($backups) {
-        // the newest by time, not by name (academy-before-reset-… would sort after academy-2026-…)
-        usort($backups, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
-        return 'The database holds no study data of yours, but there are backups. To bring back the newest: php backend/manage.php --restore='
-            . str_replace('\\', '/', $backups[0]);
-    }
-    $r = legacy_import(ROOT, $owner);
-    if (isset($r['skipped'])) {
-        return 'No study history to import (' . $r['skipped'] . ').';
-    }
-    return "Imported your study history from {$r['from']}: " . setup_count((int) $r['items'], 'kanji item') . ', ' . setup_count((int) $r['days'], 'day') . ', '
-        . setup_count((int) $r['log'], 'answer') . ', ' . setup_count((int) $r['attempts'], 'exam attempt') . ' (' . number_format((int) $r['reports']) . ' with a report)'
-        . ($r['problems'] ? '; left out: ' . implode('; ', $r['problems']) : '') . '. The files themselves are unchanged.';
 }
 
 // ── The form ──────────────────────────────────────────────────────────────────
@@ -701,21 +546,13 @@ $field = static function (string $name, string $label, string $type = 'text', st
     return '<label class="field"><span class="lbl">' . $label . '</span><input id="' . $name . '" name="' . $name . '" type="' . $type . '"'
         . ($type === 'text' ? ' value="' . setup_h($old[$name] ?? '') . '"' : '') . ' ' . $extra . '></label>';
 };
-$choices = '<option value="">none</option>';
-foreach ($showSaved ? $serverBackups : [] as $file) {
-    $choices .= '<option' . ($old['backup_file'] === $file ? ' selected' : '') . '>' . setup_h($file) . '</option>';
-}
-$radio = static function (string $value, string $label, string $note) use ($old): string {
-    return '<label class="choice"><input type="radio" name="auth_mode" value="' . $value . '"' . ($old['auth_mode'] === $value ? ' checked' : '')
-        . '><span><b>' . $label . '</b><br><span class="result">' . $note . '</span></span></label>';
-};
+$passwordSaved = SETUP_LOCAL && $hasPassword;
 
 $intro = SETUP_LOCAL
-    ? '<p>This sets up Japanese Academy on this computer: the settings, the database with its tables and the study content, and your data.'
+    ? '<p>This sets up Japanese Academy on this computer: the database with its tables and the study content, and the anotoki IAM people sign in through.'
         . ' It stays here: open it again any time to change the settings.</p>'
-        . ($legacy !== null ? '<p class="note">The settings of the earlier version (<code>src/config.local.php</code>) are filled in, its password too (not shown). Check them and set up.</p>' : '')
-        . ($saved['database'] !== null ? '<p class="note">This copy is set up already. Change what you need and send the form again; the password stays as it is unless you type a new one.</p>' : '')
-    : '<p>This sets up the site: the settings, the tables and the study content, and your data if you bring it.'
+        . ($savedDb !== null ? '<p class="note">This copy is set up already. Change what you need and save again; the password stays as it is unless you type a new one.</p>' : '')
+    : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.'
         . ' Make the database in your hosting panel first.</p>'
         . '<p class="note">A token was written to <code>backend/config/setup-token.local.php</code>. Open that file by FTP or SFTP,'
         . ' copy the token, and paste it below: that is how the setup page knows it is you.</p>';
@@ -723,8 +560,10 @@ $intro = SETUP_LOCAL
 setup_page(
     'Set up Japanese Academy',
     $intro
-    . implode('', array_map(static fn (string $e): string => '<p class="err" role="alert">' . setup_h($e) . '</p>', $errors))
-    . '<form id="setup" method="post" enctype="multipart/form-data" autocomplete="off">'
+    . implode('', array_map(static function (string $e): string {
+        return '<p class="err" role="alert">' . setup_h($e) . '</p>';
+    }, $errors))
+    . '<form id="setup" method="post" autocomplete="off">'
     . (SETUP_LOCAL ? '<input type="hidden" name="nonce" value="' . setup_h($nonce) . '">'
         : $field('token', 'Token', 'password', 'required placeholder="paste the token here"')
             . '<div class="test"><button type="button" class="ghost" data-test="token">Check</button><span class="result" id="token-result" role="status"></span></div>')
@@ -732,55 +571,31 @@ setup_page(
     . '<div class="row"><div>' . $field('db_host', 'Server', 'text', 'required') . '</div><div>' . $field('db_port', 'Port', 'text', 'required inputmode="numeric"') . '</div></div>'
     . $field('db_name', 'Database', 'text', 'required')
     . '<div class="row"><div>' . $field('db_user', 'User', 'text', 'required') . '</div><div>'
-    . $field('db_password', 'Password <em id="pw-saved">' . ($showSaved && $hasPassword ? '(saved: leave empty to keep it)' : '') . '</em>', 'password',
-        $showSaved && $hasPassword ? 'placeholder="unchanged"' : '') . '</div></div>'
+    . $field('db_password', 'Password <em>' . ($passwordSaved ? '(saved: leave empty to keep it)' : '') . '</em>', 'password',
+        $passwordSaved ? 'placeholder="unchanged"' : '') . '</div></div>'
     . '<div class="test"><button type="button" class="ghost" data-test="db">Test connection</button><span class="result" id="db-result" role="status"></span></div>'
-    . '<h2>Sign-in</h2>'
-    . (SETUP_LOCAL
-        ? $radio('none', 'No sign-in', 'For your own copy: it is simply yours, and only this computer can open it.')
-            . $radio('iam', 'Sign in through the anotoki IAM', 'Each person has their own progress. For developing against the IAM, which then must be running.')
-        : '<p>People sign in through the anotoki IAM; each has their own progress.</p><input type="hidden" name="auth_mode" value="iam">')
-    . '<div id="iam-fields"><div class="row"><div>' . $field('issuer', 'The IAM\'s address', 'text', SETUP_LOCAL ? '' : 'placeholder="https://iam.anotoki.eu"') . '</div><div>'
-    . $field('client_id', 'Client id', 'text') . '</div></div>'
-    . '<div class="test"><button type="button" class="ghost" data-test="iam">Test connection</button><span class="result" id="iam-result" role="status"></span></div></div>'
-    . '<h2>You</h2>'
-    . $field('user_id', 'Your IAM user id <em>(the IAM\'s admin console lists it; the owner\'s is usually 1)</em>', 'text', 'required inputmode="numeric"')
-    . $field('timezone', 'Time zone <em>(review times and days follow it, for everybody)</em>', 'text', 'required')
-    . '<h2>Your data <em>(if you bring it)</em></h2>'
-    . '<p>A backup from your computer: <code>backups/academy-….json</code>. Send it here, or, if it is big, put it in this site\'s'
-    . ' <code>backups/</code> folder by FTP and choose it' . (SETUP_LOCAL ? '' : ' (the list shows once the token is in)')
-    . '. It goes into your IAM user id, which must have no study data yet.</p>'
-    . '<label class="field"><span class="lbl">Backup file</span><input id="backup" name="backup" type="file" accept=".json,application/json"></label>'
-    . '<label class="field"><span class="lbl">Or a file in backups/</span><select id="backup_file" name="backup_file">' . $choices . '</select></label>'
-    . '<div class="actions"><button type="submit" class="primary" name="action" value="install">Set up</button></div>'
+    . '<h2>Sign-in (the anotoki IAM)</h2>'
+    . '<p>Everybody signs in with their anotoki account, and has their own progress. Who may reword the app\'s words, or more, is their role there.</p>'
+    . '<div class="row"><div>' . $field('issuer', 'The IAM\'s address', 'text', 'required' . (SETUP_LOCAL ? '' : ' placeholder="https://iam.anotoki.eu"')) . '</div><div>'
+    . $field('client_id', 'Client id', 'text', 'required') . '</div></div>'
+    . '<div class="test"><button type="button" class="ghost" data-test="iam">Test connection</button><span class="result" id="iam-result" role="status"></span></div>'
+    . '<div class="actions"><button type="submit" class="primary" name="action" value="save">Save</button></div>'
     . '</form>',
     'plain',
-    // The buttons try the settings without sending the form. The token's, pressed
-    // by itself once one is pasted (or the field is left), and by Enter in the
-    // field, which would otherwise send the whole form, brings what is saved:
-    // into the fields nobody typed in, and the files of backups/ into the list.
-    // The browser knows the owner's time zone best.
+    // The buttons try the settings without sending the form. The token's is
+    // pressed by itself once one is pasted (or the field is left), and by Enter
+    // in the field, which would otherwise send the whole form.
     '(function(){var form=document.getElementById("setup");'
-    . 'form.addEventListener("input",function(e){if(e.target&&e.target.name){e.target.dataset.edited="1";}});'
-    . 'function fill(b){var saved=b.saved||{};Object.keys(saved).forEach(function(k){var f=form.elements.namedItem(k);'
-    . 'if(f&&f.type==="text"&&!f.dataset.edited){f.value=saved[k];}});'
-    . 'if(b.passwordSaved){document.getElementById("pw-saved").textContent="(saved: leave empty to keep it)";document.getElementById("db_password").placeholder="unchanged";}'
-    . 'if(b.backups){var s=document.getElementById("backup_file"),was=s.value;s.length=1;b.backups.forEach(function(n){s.add(new Option(n,n,false,n===was));});}}'
     . 'document.querySelectorAll("[data-test]").forEach(function(button){button.addEventListener("click",function(){'
     . 'var out=document.getElementById(button.dataset.test+"-result");out.textContent="Trying…";out.className="result";'
-    . 'var data=new FormData(form);data.set("action","test-"+button.dataset.test);data.delete("backup");button.disabled=true;'
+    . 'var data=new FormData(form);data.set("action","test-"+button.dataset.test);button.disabled=true;'
     . 'fetch(location.pathname,{method:"POST",body:data,credentials:"same-origin"}).then(function(r){return r.json();})'
-    . '.then(function(b){out.textContent=b.message;out.className="result "+(b.ok?"good":"bad");if(b.ok){fill(b);}})'
+    . '.then(function(b){out.textContent=b.message;out.className="result "+(b.ok?"good":"bad");})'
     . '.catch(function(e){out.textContent="The setup page did not answer: "+e.message;out.className="result bad";})'
     . '.then(function(){button.disabled=false;});});});'
     . 'var token=document.getElementById("token");'
     . 'if(token){var check=function(){if(token.value.trim()){document.querySelector("[data-test=token]").click();}};'
     . 'token.addEventListener("change",check);token.addEventListener("paste",function(){setTimeout(check,0);});'
     . 'token.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();check();}});}'
-    . 'var modes=document.querySelectorAll("input[name=auth_mode][type=radio]"),iam=document.getElementById("iam-fields");'
-    . 'function show(){var on=document.querySelector("input[name=auth_mode]:checked");iam.classList.toggle("hide",!!on&&on.value==="none");}'
-    . 'modes.forEach(function(m){m.addEventListener("change",show);});show();'
-    . ($method === 'POST' || ($showSaved && isset($fromSaved['timezone'])) ? ''
-        : 'try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){document.getElementById("timezone").value=tz;}}catch(e){}')
     . '})();'
 );

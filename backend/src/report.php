@@ -21,20 +21,52 @@ function report_duration(float $ms): string
     return $h ? "{$h}h {$m}m {$sec}s" : ($m ? "{$m}m {$sec}s" : "{$sec}s");
 }
 
-/** Date and time in this computer's locale, as the browser's toLocaleString() shows them. */
+/**
+ * Date and time in this computer's locale, as the browser's toLocaleString()
+ * shows them, in the time zone in force: the person's own, on their request.
+ * Never throws for the zone: one ICU does not know (time_zone_known() keeps
+ * them out, but PHP's zone may come from elsewhere) is dated at its offset
+ * from UTC at that moment, as PHP knows it (report_icu_zone()).
+ */
 function report_when(int $ms, bool $withTime = true): string
+{
+    return report_format($ms, $withTime, date_default_timezone_get());
+}
+
+/** report_when() in the time zone $zone (any name: one ICU does not know is taken at its offset, else UTC). */
+function report_format(int $ms, bool $withTime, string $zone): string
 {
     static $formatters = [];
     $skeleton = $withTime ? 'yMdjms' : 'yMd';
-    $formatters[$skeleton] ??= new IntlDateFormatter(
+    $zone = report_icu_zone($zone, $ms);
+    $formatters["$skeleton $zone"] ??= new IntlDateFormatter(
         Locale::getDefault(),
         IntlDateFormatter::NONE,
         IntlDateFormatter::NONE,
-        date_default_timezone_get(),
+        $zone,
         null,
         (new IntlDatePatternGenerator(Locale::getDefault()))->getBestPattern($skeleton)
     );
-    return (string) $formatters[$skeleton]->format((int) floor($ms / 1000));
+    return (string) $formatters["$skeleton $zone"]->format((int) floor($ms / 1000));
+}
+
+/**
+ * A name ICU knows for the time zone $zone at the moment $ms: $zone itself
+ * when ICU knows it; else its offset from UTC then, as PHP's zone data has
+ * it ('GMT-03:00'); else 'UTC' (a name neither knows).
+ */
+function report_icu_zone(string $zone, int $ms): string
+{
+    if (time_zone_icu_knows($zone)) {
+        return $zone;
+    }
+    try {
+        $offset = (new DateTimeZone($zone))->getOffset(new DateTimeImmutable('@' . (int) floor($ms / 1000)));
+    } catch (Exception $e) {
+        return 'UTC';
+    }
+    $minutes = intdiv(abs($offset), 60);
+    return sprintf('GMT%s%02d:%02d', $offset < 0 ? '-' : '+', intdiv($minutes, 60), $minutes % 60);
 }
 
 /** "Part 1 — L3–L6" — what the paper actually covered. */

@@ -1,13 +1,35 @@
-import { ApplicationRef, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
+import { ApplicationRef, ChangeDetectionStrategy, Component, inject, Injectable, Provider, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApiService } from '../core/api/api.service';
-import { Attempt, ExamMeta, Summary } from '../core/api/api.types';
+import { Attempt, BroughtBack, ExamMeta, Summary, VisitorMove } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
+import { VisitorKey } from '../core/auth/visitor-key';
+import { SavesInFlight } from '../core/saves-in-flight.service';
+import { authStandIn } from '../core/testing/auth-states';
 import { TranslationService } from '../core/i18n/translation.service';
 import { provideTestTranslations } from '../core/testing/test-translations';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { HomeComponent } from './home.component';
+import { YourDataComponent } from './your-data/your-data.component';
+
+/** Where the stand-in for Your data says it is there: the card has a spec of its own (your-data.component.spec.ts). */
+@Injectable({ providedIn: 'root' })
+class YourDataStubHolder {
+  last: YourDataStubComponent | null = null;
+}
+
+@Component({ selector: 'app-your-data', changeDetection: ChangeDetectionStrategy.OnPush, template: '' })
+class YourDataStubComponent {
+  readonly brought = output<BroughtBack>();
+  constructor() {
+    inject(YourDataStubHolder).last = this;
+  }
+}
+
+// Every test of this file draws the page with the stand-in (after each reset too: a test that draws twice resets in between).
+const standIn = () => TestBed.overrideComponent(HomeComponent, { remove: { imports: [YourDataComponent] }, add: { imports: [YourDataStubComponent] } });
+beforeEach(standIn);
 
 // The page's strings as the migration seeds them (the plural families whole: English `.few` is `.other`).
 const ENGLISH: Record<string, string> = {
@@ -47,6 +69,14 @@ const ENGLISH: Record<string, string> = {
   'time.inDays.one': 'in 1 day',
   'time.inDays.few': 'in {count} days',
   'time.inDays.other': 'in {count} days',
+  'visitor.notice.one': 'You are studying without signing in. What you study is kept for this browser for {count} day after your last visit. Sign in to keep it in your account.',
+  'visitor.notice.few': 'You are studying without signing in. What you study is kept for this browser for {count} days after your last visit. Sign in to keep it in your account.',
+  'visitor.notice.other': 'You are studying without signing in. What you study is kept for this browser for {count} days after your last visit. Sign in to keep it in your account.',
+  'visitor.lost': 'What this browser studied without signing in is no longer here: it was deleted after a long time unused, or moved into an account.',
+  'visitor.moved': 'What you studied without signing in is now in your account. Kanji and words: {items}, exam attempts: {attempts}.',
+  'visitor.movedKept': 'Kanji and words that were in your account already: {kept}. Your own progress stays for them.',
+  'signIn.button': 'Sign in',
+  'common.close': 'Close',
 };
 const SLOVAK: Record<string, string> = {
   'home.intro': 'Nauč sa kanji z kurzu – aj slovíčka, ktoré sa nimi píšu. Potom si celý kurz over skúškou.',
@@ -109,6 +139,7 @@ function summary(over: Partial<Summary> = {}): Summary {
     groups: groups({ apprentice: 3, guru: 2 }),
     forecastHours: [],
     forecastDays: [],
+    forecastDates: [],
     byLesson: {},
     today: { lessons: 0, reviews: 0, reviewsCorrect: 0, practice: 0, practiceCorrect: 0 },
     history: [],
@@ -149,6 +180,8 @@ async function draw(served: Served, language: 'en' | 'sk' = 'en', extra: Provide
         },
       },
       { provide: KanjiStateService, useValue: { setSummary: vi.fn() } },
+      // A page shown to a person, unless the test says otherwise.
+      { provide: AuthService, useValue: authStandIn('ready') },
       ...extra,
     ],
   });
@@ -210,6 +243,7 @@ describe('HomeComponent: in English, as it read before it had strings', () => {
     expect([text(el, '#eLast'), text(el, '#eWhen')]).toEqual(['32.5%', `Not passed · ${written('en-GB', '2026-09-22T14:05:09.000Z')}`]);
 
     TestBed.resetTestingModule();
+    standIn();
     const never = new Promise<never>(() => undefined);
     TestBed.configureTestingModule({
       providers: [
@@ -234,10 +268,13 @@ describe('HomeComponent: in English, as it read before it had strings', () => {
   it('the kanji note: reviews waiting, else when the next one comes, else the first lessons — and a load that failed', async () => {
     expect(text(await draw({ summary: summary({ reviewsDue: 0, nextReviewAt: Date.now() + 3 * 3_600_000 + 90_000 }) }), '#kNext')).toBe('Next review in 3 h.');
     TestBed.resetTestingModule();
+    standIn();
     expect(text(await draw({ summary: summary({ reviewsDue: 0, nextReviewAt: Date.now() + 2 * 86_400_000 + 90_000 }) }), '#kNext')).toBe('Next review in 2 days.');
     TestBed.resetTestingModule();
+    standIn();
     expect(text(await draw({ summary: summary({ reviewsDue: 0, nextReviewAt: null, learned: 0 }) }), '#kNext')).toBe('Start with your first lessons.');
     TestBed.resetTestingModule();
+    standIn();
     const failed = await draw({ summary: new Error('Something went wrong on the server.') });
     expect(text(failed, '#kNext')).toBe('Could not load kanji progress.');
     expect(failed.textContent, 'the server’s own sentence is never shown').not.toContain('Something went wrong');
@@ -247,6 +284,7 @@ describe('HomeComponent: in English, as it read before it had strings', () => {
     const none = await draw({ attempts: [] });
     expect([text(none, '#eLast'), text(none, '#eCount'), label(none, 'eCount'), text(none, '#eWhen')]).toEqual(['—', '0', 'attempts', 'No attempts yet.']);
     TestBed.resetTestingModule();
+    standIn();
     const failed = await draw({ attempts: new Error('The database is not reachable.') });
     expect(text(failed, '#eWhen')).toBe('Could not load exam history.');
     expect(failed.textContent).not.toContain('not reachable');
@@ -282,6 +320,7 @@ describe('HomeComponent: in Slovak', () => {
     ];
     for (const [n, reviews, lessons, attempts] of forms) {
       TestBed.resetTestingModule();
+    standIn();
       const el = await draw({ summary: summary({ reviewsDue: n, lessonsAvailable: n }), attempts: Array.from({ length: n }, (_, i) => attempt({ id: `a${i}` })) }, 'sk');
       expect([text(el, '#kDue'), label(el, 'kDue')], `${n}`).toEqual([String(n), reviews]);
       expect([text(el, '#kLessons'), label(el, 'kLessons')], `${n}`).toEqual([String(n), lessons]);
@@ -323,19 +362,110 @@ describe('HomeComponent: in Slovak', () => {
   });
 });
 
-describe("HomeComponent: the way to the owner's pages", () => {
-  const as = (mode: 'none' | 'iam', isOwner: boolean): Provider => ({ provide: AuthService, useValue: { mode: signal(mode), user: signal(null), isOwner: signal(isOwner) } });
+describe('HomeComponent: Your data at its foot', () => {
+  it('has the card, and no way to the admin area of its own (that is the top bar’s)', async () => {
+    const el = await draw({});
+    expect(el.querySelector('app-your-data')).not.toBeNull();
+    expect(el.querySelector('a[href="/translations"], a[href^="/admin"]')).toBeNull();
+  });
 
-  it("is a small English link at the foot on the owner's computer, and nowhere else", async () => {
-    const link = (await draw({}, 'sk', [as('none', true)])).querySelector('#ownerTranslations');
-    expect(link?.textContent?.trim()).toBe('Translations');
-    expect(link?.getAttribute('lang')).toBe('en');
-    expect(link?.getAttribute('href')).toBe('/translations');
+  it('asks again where each part stands once a file has replaced the learner’s data', async () => {
+    let asked = 0;
+    const el = await draw({}, 'en', [
+      {
+        provide: ApiService,
+        useValue: {
+          summary: () => (asked++, Promise.resolve(summary({ reviewsDue: asked === 1 ? 1 : 9 }))),
+          meta: () => Promise.resolve(META),
+          attempts: () => Promise.resolve([]),
+        },
+      },
+    ]);
+    expect(text(el, '#kDue')).toBe('1');
+    TestBed.inject(YourDataStubHolder).last!.brought.emit({ items: 9, days: 1, log: 9, attempts: 0, reports: 0, copy: true });
+    await vi.waitFor(async () => {
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(text(el, '#kDue')).toBe('9');
+    });
+  });
+});
 
-    // On a website the owner has the account menu; nobody else has a way in at all.
-    TestBed.resetTestingModule();
-    expect((await draw({}, 'en', [as('iam', true)])).querySelector('#ownerTranslations')).toBeNull();
-    TestBed.resetTestingModule();
-    expect((await draw({}, 'en', [as('iam', false)])).querySelector('#ownerTranslations')).toBeNull();
+describe('HomeComponent: somebody studying without signing in (visiting)', () => {
+  it('the notice at the top — the server’s days, the form they take — with Sign in; no Your data (a visitor’s study has no file)', async () => {
+    const auth = authStandIn('visiting');
+    auth.visitorKeepDays.set(30);
+    const el = await draw({}, 'en', [{ provide: AuthService, useValue: auth }]);
+    expect(text(el, '#visitorNotice p')).toBe(
+      'You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.',
+    );
+    expect(el.querySelector('app-your-data')).toBeNull();
+    expect(el.querySelector('main')?.firstElementChild?.tagName.toLowerCase(), 'above everything else').toBe('app-visitor-notice');
+
+    auth.visitorKeepDays.set(1);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(text(el, '#visitorNotice p')).toContain('for 1 day after');
+  });
+
+  it('Sign in waits for the saves on their way first — the one that brings the key included — then goes to the IAM', async () => {
+    const auth = authStandIn('visiting');
+    const el = await draw({}, 'en', [{ provide: AuthService, useValue: auth }]);
+    let saved!: () => void;
+    TestBed.inject(SavesInFlight).track(new Promise<void>((resolve) => (saved = resolve)));
+    el.querySelector<HTMLButtonElement>('#visitorSignIn')!.click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(auth.logins, 'not while an answer is on its way').toEqual([]);
+    expect(el.querySelector<HTMLButtonElement>('#visitorSignIn')!.disabled).toBe(true);
+    saved();
+    await vi.waitFor(() => expect(auth.logins).toEqual(['en']));
+  });
+
+  it('Sign in with an exam paper open asks first, in the words of signing in — and stays when told to', async () => {
+    const auth = authStandIn('visiting');
+    const el = await draw({}, 'en', [{ provide: AuthService, useValue: auth }]);
+    TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
+    const asked: string[] = [];
+    vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
+    el.querySelector<HTMLButtonElement>('#visitorSignIn')!.click();
+    await vi.waitFor(() => expect(asked).toEqual(['signIn.examOpen']));
+    expect(auth.logins).toEqual([]);
+    vi.restoreAllMocks();
+  });
+
+  it('once, after a sign-in moved what this browser studied: how much, and what the account had already — each note closes', async () => {
+    const el = await draw({});
+    const visitor = TestBed.inject(VisitorKey);
+    const move: VisitorMove = { found: true, items: 12, kept: 3, attempts: 2, answers: 140 };
+    visitor.moved.set(move);
+    visitor.lost.set(true);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(text(el, '#visitorMoved p')).toBe(
+      'What you studied without signing in is now in your account. Kanji and words: 12, exam attempts: 2. Kanji and words that were in your account already: 3. Your own progress stays for them.',
+    );
+    expect(text(el, '#visitorLost p')).toBe(ENGLISH['visitor.lost']);
+    expect(el.querySelector('#visitorNotice'), 'a person’s page: no notice').toBeNull();
+    el.querySelector<HTMLButtonElement>('#visitorMoved button')!.click();
+    el.querySelector<HTMLButtonElement>('#visitorLost button')!.click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect([el.querySelector('#visitorMoved'), el.querySelector('#visitorLost'), visitor.moved(), visitor.lost()]).toEqual([null, null, null, false]);
+  });
+
+  it('a move that finished after the page was drawn: where each part stands is asked again', async () => {
+    let asked = 0;
+    const el = await draw({}, 'en', [
+      {
+        provide: ApiService,
+        useValue: {
+          summary: () => (asked++, Promise.resolve(summary({ reviewsDue: asked === 1 ? 1 : 4 }))),
+          meta: () => Promise.resolve(META),
+          attempts: () => Promise.resolve([]),
+        },
+      },
+    ]);
+    expect(text(el, '#kDue')).toBe('1');
+    TestBed.inject(VisitorKey).moves.update((n) => n + 1);
+    await vi.waitFor(async () => {
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(text(el, '#kDue')).toBe('4');
+    });
   });
 });

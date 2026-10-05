@@ -1,6 +1,6 @@
 ---
 name: academy-data
-description: Change Japanese Academy's study data safely. Fix a typo, or add or correct a word, kanji, reading or meaning in data/source/*.tsv, rebuild data/*.json, check the invariants, and keep everybody's SRS progress when an item id changes. Use for any edit under data/ or to backend/tools/build-data.php / backend/tools/build-audio.php.
+description: Change Japanese Academy's study data safely. Fix a typo, or add or correct a word, kanji, reading or meaning in backend/data/source/*.tsv, rebuild backend/data/*.json, check the invariants, and keep everybody's SRS progress when an item id changes. Use for any edit under backend/data/ or to backend/tools/build-data.php / backend/tools/build-audio.php.
 ---
 
 # Changing the study data
@@ -12,16 +12,16 @@ Sources, page maps, formats and known quirks:
 
 | Want to change | Edit | Then |
 |---|---|---|
-| a word's kana, kanji, English, verb class or lesson | `data/source/vocab-part1.tsv` (Greetings–L12) or `vocab-part2.tsv` (L13–23) | `npm run build:data` |
-| a kanji's readings, meaning or example compounds | `data/source/kanji-part1.tsv` / `kanji-part2.tsv` | `npm run build:data` |
-| grammar index | `data/source/grammar-index-part1.tsv` / `-part2.tsv` | `npm run build:data` |
-| audio | nothing by hand: the clips come from Google Cloud Text-to-Speech | `npm run build:audio` (key in `.env`) after words change; `-- --dry-run` first to see what it would send |
-| hand-written exam questions | `data/authored-items*.php` | see the `academy-exam-items` skill |
+| a word's kana, kanji, English, verb class or lesson | `backend/data/source/vocab-part1.tsv` (Greetings–L12) or `vocab-part2.tsv` (L13–23) | `node backend/tools/php.js backend/tools/build-data.php` |
+| a kanji's readings, meaning or example compounds | `backend/data/source/kanji-part1.tsv` / `kanji-part2.tsv` | `node backend/tools/php.js backend/tools/build-data.php` |
+| grammar index | `backend/data/source/grammar-index-part1.tsv` / `-part2.tsv` | `node backend/tools/php.js backend/tools/build-data.php` |
+| audio | nothing by hand: the clips come from Google Cloud Text-to-Speech | `node backend/tools/php.js backend/tools/build-audio.php` (key in `.env`) after words change; `--dry-run` first to see what it would send |
+| hand-written exam questions | `backend/data/authored-items*.php` | see the `academy-exam-items` skill |
 | how items become SRS items (merging, glosses) | `backend/src/srs/catalog.php` | code change: `academy-code-reviewer` |
 
-Never edit `data/vocab.json`, `kanji.json`, `grammar-index.json` or
+Never edit `backend/data/vocab.json`, `kanji.json`, `grammar-index.json` or
 `audio.json` by hand. The build overwrites them. The same goes for the
-`srs_items` and `exam_questions` tables: the server rebuilds them from `data/`
+`srs_items` and `exam_questions` tables: the server rebuilds them from `backend/data/`
 when it starts.
 
 ## Steps
@@ -37,7 +37,7 @@ when it starts.
    Check the structure:
    ```bash
    # from the repository root
-   for f in data/source/*.tsv; do echo "$f: $(awk -F'\t' '{print NF}' "$f" | sort | uniq -c | tr '\n' ' ')"; done
+   for f in backend/data/source/*.tsv; do echo "$f: $(awk -F'\t' '{print NF}' "$f" | sort | uniq -c | tr '\n' ' ')"; done
    ```
    Each file must show a single field count (vocab 4, kanji 7, grammar 3).
 3. **Keep the conventions:**
@@ -46,13 +46,16 @@ when it starts.
    - Verb classes are `[u]`, `[ru]`, `[irr.]` inside the English field.
    - Lesson tags look like `会L7` or `読L9-II`.
    - Compounds are `word(reading)=english`, separated by `;`.
-4. **Rebuild and test:** `npm run build:data`, then `npm test`. The catalog
+4. **Rebuild and test:** `node backend/tools/php.js backend/tools/build-data.php`,
+   then the PHP tests (`node backend/tools/php.js backend/tests/run.php`) and
+   `npm test` in `frontend/`. The catalog
    tests check kanji numbering 1–317, per-lesson totals and unique ids, and the
    frontend's `answer.spec.ts` that every item is answerable with its own
    answers.
-5. **Restart the owner's server** (`academy-run`). At its start it sees that
-   `data/` changed and rebuilds the catalog and the question bank in the
-   database (a few seconds).
+5. **Nothing to restart.** The app's next request sees that `backend/data/`
+   changed and rebuilds the catalog and the question bank in the database (a
+   few seconds; `node backend/tools/php.js backend/manage.php --check` says
+   whether it is still waiting).
 6. **Run the `academy-data-auditor` agent** on the rows you changed. Give it the
    file, the rows and the page you used.
 
@@ -74,8 +77,7 @@ several people's, and needs the same move there).
 2. If it prints an empty array, you're done.
 3. If it has progress:
    - Tell the owner, and do the rest only with their go-ahead.
-   - Take a backup: `php backend/manage.php --backup` (or
-     `npm run manage -- --backup`).
+   - Take a backup: `node backend/tools/php.js backend/manage.php --backup`.
    - Move the rows and their log lines to the new key, for everybody, in one
      transaction:
      ```bash

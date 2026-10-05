@@ -77,70 +77,35 @@ function reporter() {
 }
 
 /**
- * The anotoki IAM as a browser context sees it, answered by the test: its
- * sign-in sends the browser straight back with a code, its token endpoint
- * hands out the test IAM's tokens for `person` ({ sub, name, roles }), its
- * sign-out comes straight back. The test IAM's address (https://iam.test)
- * exists nowhere, so nothing leaves this computer, and a request nobody
- * answers here fails loudly. Returns what the IAM was asked, for checks
- * ('GET /api/oidc/userinfo', and ' +bearer' after one that came with a token).
+ * Text on the page that looks like a key of the app's words ("yourData.title",
+ * "topbar.phoneMenuDue.one"): a key with no string shows as itself, on
+ * purpose, so this is what a missing string looks like - whether the bundle
+ * knows the key or not. Text nodes and the attributes a person reads or hears
+ * (aria-label, title, placeholder, alt), shown or not yet shown; the admin
+ * area (main.admin), which lists the keys, and a file's name ("notes.json")
+ * aside.
  */
-async function emulateIam(context, person) {
-  const { IAM, iamToken } = require('./helpers');
-  const asked = [];
-  let nonce = null;
-  await context.route(`${IAM.issuer}/**`, async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    asked.push(`${request.method()} ${url.pathname}${request.headers().authorization ? ' +bearer' : ''}`);
-    const cors = { 'access-control-allow-origin': request.headers().origin || '*', 'cache-control': 'no-store' };
-    const claims = { roles: person.roles || ['MEMBER'], name: person.name };
-    switch (url.pathname) {
-      case '/.well-known/openid-configuration':
-        return route.fulfill({
-          headers: cors,
-          json: {
-            issuer: IAM.issuer,
-            authorization_endpoint: `${IAM.issuer}/api/oidc/authorize`,
-            token_endpoint: `${IAM.issuer}/api/oidc/token`,
-            end_session_endpoint: `${IAM.issuer}/api/oidc/logout`,
-            revocation_endpoint: `${IAM.issuer}/api/oidc/revoke`,
-            userinfo_endpoint: `${IAM.issuer}/api/oidc/userinfo`,
-          },
-        });
-      case '/api/oidc/authorize': {
-        nonce = url.searchParams.get('nonce');
-        const back = new URL(url.searchParams.get('redirect_uri'));
-        back.searchParams.set('code', 'test-code');
-        back.searchParams.set('state', url.searchParams.get('state'));
-        back.searchParams.set('iss', IAM.issuer);
-        return route.fulfill({ status: 302, headers: { location: back.toString() } });
-      }
-      case '/api/oidc/token':
-        return route.fulfill({
-          headers: cors,
-          json: {
-            access_token: iamToken(person.sub, claims),
-            token_type: 'Bearer',
-            expires_in: 3600,
-            refresh_token: 'iam_rt_test',
-            id_token: iamToken(person.sub, { ...claims, typ: 'JWT', nonce }),
-            scope: 'openid profile email',
-          },
-        });
-      case '/api/oidc/logout':
-        return route.fulfill({ status: 302, headers: { location: url.searchParams.get('post_logout_redirect_uri') || '/' } });
-      case '/api/oidc/revoke':
-        return route.fulfill({ headers: cors, json: {} });
-      case '/api/oidc/userinfo':
-        return route.fulfill({ headers: cors, json: { sub: String(person.sub) } });
-      default:
-        return route.fulfill({ status: 404, headers: cors, body: '' });
+function keyShaped(page) {
+  return page.evaluate(() => {
+    const KEY = /^[a-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9_-]*)+$/;
+    const FILE = /\.(json|js|css|html|png|svg|pdf|mp3)$/;
+    const out = [];
+    const where = (el) => `<${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}>`;
+    const check = (raw, el, what) => {
+      const text = (raw || '').replace(/\s+/g, ' ').trim();
+      if (KEY.test(text) && !FILE.test(text) && !el.closest('main.admin, script, style')) out.push(`a key ${what} ${where(el)}: ${text}`);
+    };
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement) check(node.textContent, node.parentElement, 'in');
     }
+    for (const attr of ['aria-label', 'title', 'placeholder', 'alt']) {
+      for (const el of document.querySelectorAll(`[${attr}]`)) check(el.getAttribute(attr), el, `in ${attr} of`);
+    }
+    return [...new Set(out)];
   });
-  return asked;
 }
 
 const SHOTS = path.join(__dirname, 'shots');
 
-module.exports = { launch, newContext, watch, reporter, findBrowser, emulateIam, SHOTS };
+module.exports = { launch, newContext, watch, reporter, findBrowser, keyShaped, SHOTS };

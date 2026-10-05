@@ -51,7 +51,7 @@ function cat_clean_gloss(?string $s): string
 }
 
 /**
- * @param array $content ['kanji' => data/kanji.json, 'vocab' => data/vocab.json, 'audio' => data/audio.json]
+ * @param array $content ['kanji' => backend/data/kanji.json, 'vocab' => backend/data/vocab.json, 'audio' => backend/data/audio.json]
  * @return array{items: list<array>, lessons: list<int>}
  */
 function catalog_build(array $content): array

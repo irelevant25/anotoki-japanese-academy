@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.2",
+    "date": "2026-10-04",
+    "changes": {
+      "added": [
+        "The app speaks Slovak too: choose the language at the top of the page",
+        "Your data, at the foot of the home page: download all your progress and exam history as a file, and bring it back from one",
+        "A light and a dark look, or your system's: the switch at the top of the page",
+        "Where the site allows it, you can study without signing in: your progress and exams are kept for this browser for 30 days after your last visit, and they move into your account when you sign in",
+        "For administrators: the admin panel, from your menu: the app's words and its languages, the people, and a Migrations page to see and apply the updates of the database"
+      ],
+      "updated": [
+        "Unless the site lets you study without signing in, you sign in with your anotoki account: the app takes you to the sign-in and back to the page you opened",
+        "Days and review times follow your own time zone, the one your browser is in",
+        "One top bar, as on the other anotoki sites; on a phone the links are in its menu, and the reviews due are on its button",
+        "The version and What's new are at the foot of the page",
+        "An update of the database waits for an administrator to apply it; until then the app says it is not up to date"
+      ]
+    }
+  },
+  {
     "version": "0.1",
     "date": "2026-09-29",
     "changes": {

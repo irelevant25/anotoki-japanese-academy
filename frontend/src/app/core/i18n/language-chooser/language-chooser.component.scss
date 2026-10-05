@@ -1,66 +1,120 @@
-// The menu's looks are the app's (styles/_base.scss: .umenu), as the account
-// menu's are; what is the chooser's own is the pill and where the menu hangs.
+// The anotoki family's chooser: a round button 40 wide and no wider (on a 360
+// px phone the theme switch and the menu button stand beside it), and a menu
+// hung from its left edge, so there is always room to its right and it never
+// leaves a narrow screen.
 :host {
-  display: flex;
-  align-items: center;
-}
-.langmenu {
   position: relative;
+  display: inline-flex;
+  flex: none;
 }
-// A pill like the version beside it, forty wide and no wider: on a phone the
-// bar also carries the navigation and the account menu.
-summary {
-  list-style: none;
-  display: grid;
-  place-items: center;
+
+.switcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
-  padding: 1px 0;
+  height: 40px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  user-select: none;
 }
-summary::-webkit-details-marker {
-  display: none;
+
+.switcher:hover {
+  background: var(--soft);
 }
-summary:hover,
-.langmenu[open] summary {
+
+.switcher[aria-expanded='true'] {
   border-color: var(--accent);
+}
+
+.switcher[aria-busy='true'] {
+  color: var(--muted);
+}
+
+.switcher:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  animation: menu-in 140ms ease-out;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--soft);
+}
+
+.menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.menu-item[aria-checked='true'] {
+  color: var(--accent-soft-ink);
+}
+
+.menu-item app-icon {
   color: var(--accent);
 }
-summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+
+.menu-label {
+  overflow-wrap: anywhere;
 }
-summary[aria-busy='true'] {
-  opacity: 0.6;
-}
-// A finger needs more than the small pill a mouse is happy with; the top bar
-// is 52px high, so 44 still fits inside it.
-@media (pointer: coarse) {
-  summary {
-    width: 44px;
-    min-height: 44px;
-    font-size: 13px;
-  }
-}
-// The pill stands at the left of the bar, so the menu hangs from its left
-// edge: there is always room to its right, and it never leaves a narrow screen.
-.umenu {
-  left: 0;
-  right: auto;
-  width: max-content;
-  min-width: 150px;
-  max-width: calc(100vw - 32px);
-}
-.umenu button[aria-current='true'] {
-  font-weight: 700;
-}
-.umenu .err {
+
+.err {
   max-width: 220px;
   margin: 4px 8px 6px;
   font-size: 13px;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
 }

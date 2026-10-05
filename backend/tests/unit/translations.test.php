@@ -362,6 +362,88 @@ test('migration 004 makes and fills its own three tables, and touches no other',
     assert_match('/\bDO \$\$/', $code, 'and it ends with a check that fails it loudly');
 });
 
+/** The keys migration 005 deletes, every one of them: what nothing asks for any more. */
+const MIGRATION_005_DELETED_KEYS = ['error.no_access', 'error.this_computer_only', 'account.signedInAs', 'account.userId'];
+
+test('migration 005 in 004\'s form: one column added to users, the three translation tables written, rewords only of the seeded words, deletes only of the listed keys, a check at its end', function (): void {
+    $file = '005_own_time_zone_and_words.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 005 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 005') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 005"/', $sql, 'and says so at its top');
+    }
+
+    // What it does, statement by statement (the strings emptied, the check taken out).
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code, $checks), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    $added = 0;
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        if (preg_match('/^ALTER TABLE users ADD COLUMN time_zone varchar\(64\)( CHECK \(time_zone <> \'\'\))?$/', $statement)) {
+            $added++;
+            continue;
+        }
+        $allowed = preg_match('/^COMMENT ON COLUMN users\.time_zone IS \'\'$/', $statement)
+            || preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
+            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement)
+            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement)
+            || preg_match('/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/', $statement);
+        assert_true((bool) $allowed, "not in 005's form: $statement");
+    }
+    assert_same(1, $added, 'users gains its one column, time_zone, and nothing else changes in a table of anybody\'s');
+
+    // The keys it deletes are exactly the list: a rewording the owner made goes with a deleted key.
+    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', (string) preg_replace('/--[^\n]*/', '', $sql), $deletes);
+    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+    assert_same(in_order(MIGRATION_005_DELETED_KEYS), in_order($names[1]), 'the keys it deletes');
+
+    // The check: the column, as the app keeps it.
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', (string) preg_replace('/--[^\n]*/', '', $sql), $check);
+    assert_match("/table_name = 'users' AND column_name = 'time_zone'/", $check[0] ?? '', 'the check looks at the column');
+    assert_match("/character_maximum_length = 64/", $check[0] ?? '', 'of its size');
+    assert_match("/RAISE EXCEPTION '005_own_time_zone_and_words: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+});
+
+test('migration 006 in 004\'s form: keys and strings written, rewords only of the seeded words, no table and no other row touched, a check at its end', function (): void {
+    $file = '006_admin_panel_words.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 006 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 006') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 006"/', $sql, 'and says so at its top');
+    }
+
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        $allowed = preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
+            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement)
+            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
+        assert_true((bool) $allowed, "not in 004's form: $statement");
+    }
+
+    // Each reword is of the text 004 or 005 wrote, and the check names that text: the owner's own wording stays.
+    preg_match_all("/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)';$/m", $sql, $rewords, PREG_SET_ORDER);
+    assert_same(4, count($rewords), 'two keys, in English and Slovak');
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $sql, $check);
+    foreach ($rewords as [, , $key, $language, $old]) {
+        assert_true(str_contains($check[0] ?? '', "('$key', '$language', '$old')"), "$key ($language): the check looks for the old text");
+    }
+    assert_match("/RAISE EXCEPTION '006_admin_panel_words: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+    test_db();
+    assert_same(['Admin panel', 'Administrátorský panel'], [translations_of('en')['topbar.admin'] ?? null, translations_of('sk')['topbar.admin'] ?? null]);
+});
+
 /* -------------------------------------------------- the rules a string keeps */
 
 test('a language code: two small letters, or two and two; and nothing else reaches a query', function (): void {
@@ -576,18 +658,32 @@ test('every string the migrations wrote passes the checks a save makes, as it is
     assert_same($stored, $checked, 'every string comes back as it is kept');
 });
 
-test('the problem page\'s own English is the seeded English, word for word', function (): void {
+/**
+ * The frontend's files that keep English for what they draw while there may be no strings (keptWord()),
+ * in a `const ENGLISH` map, and how many entries each has at least.
+ */
+const KEPT_ENGLISH_FILES = [
+    'standin/problem/problem.component.ts' => 5,
+    'standin/sign-in/sign-in.component.ts' => 2,
+    'top-bar/top-bar.component.ts' => 15,
+    'ui/theme-toggle/theme-toggle.component.ts' => 5,
+    'core/i18n/language-chooser/language-chooser.component.ts' => 2,
+];
+
+test('the English kept for a page drawn with no strings (the problem page, the Sign in card, the top bar) is the seeded English, word for word', function (): void {
     // It is what a start that failed shows while the browser kept no strings; reworded in one place only,
     // the page would say one thing before the strings come and another after.
     test_db();
-    $source = (string) file_get_contents(translation_keys_frontend_root() . '/standin/problem/problem.component.ts');
-    assert_true(preg_match('/const ENGLISH[^=]*=\s*\{(.*?)\n\};/s', $source, $map) === 1, 'the page keeps its English in ENGLISH');
-    preg_match_all('/\'([a-z_.]+)\':\s*(?:\'((?:[^\'\\\\]|\\\\.)*)\'|"((?:[^"\\\\]|\\\\.)*)")/', $map[1], $entries, PREG_SET_ORDER);
-    assert_true(count($entries) >= 5, 'the entries are read');
     $seeded = translations_of(TRANSLATION_FALLBACK);
-    foreach ($entries as $entry) {
-        $english = stripcslashes(($entry[3] ?? '') !== '' ? $entry[3] : $entry[2]);
-        assert_same($seeded[$entry[1]] ?? null, $english, $entry[1]);
+    foreach (KEPT_ENGLISH_FILES as $file => $least) {
+        $source = (string) file_get_contents(translation_keys_frontend_root() . '/' . $file);
+        assert_true(preg_match('/const ENGLISH[^=]*=\s*\{(.*?)\n\};/s', $source, $map) === 1, "$file keeps its English in ENGLISH");
+        preg_match_all('/\'([a-z][A-Za-z0-9_.-]*)\':\s*(?:\'((?:[^\'\\\\]|\\\\.)*)\'|"((?:[^"\\\\]|\\\\.)*)")/', $map[1], $entries, PREG_SET_ORDER);
+        assert_true(count($entries) >= $least, "$file: the entries are read");
+        foreach ($entries as $entry) {
+            $english = stripcslashes(($entry[3] ?? '') !== '' ? $entry[3] : $entry[2]);
+            assert_same($seeded[$entry[1]] ?? null, $english, "$file: {$entry[1]}");
+        }
     }
 });
 

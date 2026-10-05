@@ -68,6 +68,11 @@ export function fmtWeekday(w: Wording, ts: number): string {
   return new Date(ts).toLocaleDateString(w.locale(), { weekday: 'short' });
 }
 
+/** Thu / št: the day of the week of a date the server names ('2026-09-24', the learner's own), whatever zone the browser is in. */
+export function fmtWeekdayOf(w: Wording, date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(w.locale(), { weekday: 'short', timeZone: 'UTC' });
+}
+
 /** Thu 14:00 / št 14:00: the day of the week and the clock. */
 export function fmtWeekdayClock(w: Wording, ts: number): string {
   return new Date(ts).toLocaleString(w.locale(), { weekday: 'short', hour: '2-digit', minute: '2-digit' });

@@ -6,7 +6,7 @@
  * pulls out directly (no decoding), crops to the printed page and scales.
  *
  *   node backend/tools/pdf/pages.js <book> <pages> [--sheet] [--width 1150] [--book-page]
- *   (or: npm run pdf:pages -- <book> <pages> …)
+ *   (its one package, sharp, once: npm --prefix backend/tools/pdf ci)
  *
  *   <book>    textbook-1 | workbook-1 | textbook-2 | workbook-2 | answer-key
  *   <pages>   12 | 357-372 | 10,12,20

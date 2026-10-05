@@ -1,7 +1,7 @@
 /**
  * The production build of the app, made only when its sources changed since
- * the last one: what the launchers (start.ps1, start.sh), the browser suites
- * and backend/tools/build-dist.php run before they need the build.
+ * the last one: what the browser suites and backend/tools/build-dist.php run
+ * before they need the build.
  *
  *   node frontend/scripts/ensure-build.mjs            build when needed (npm ci first, when
  *                                                     node_modules/ is missing or older than the lock)

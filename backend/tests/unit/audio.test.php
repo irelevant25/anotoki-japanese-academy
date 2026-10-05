@@ -1,6 +1,6 @@
 <?php
 // What a word is spoken as, and the audio builder, with a fake voice in temp
-// folders: nothing is sent to Google and data/audio is never touched.
+// folders: nothing is sent to Google and backend/data/audio is never touched.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php';

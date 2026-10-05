@@ -20,6 +20,7 @@ import { errorKey, errorParams } from '../core/i18n/error-text';
 import { LocalDatePipe } from '../core/i18n/local-date.pipe';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { TranslationService } from '../core/i18n/translation.service';
+import { SavesInFlight } from '../core/saves-in-flight.service';
 import { materialLang } from '../kanji/answer';
 
 type Screen = 'setup' | 'test' | 'result';
@@ -93,6 +94,12 @@ const KEYS: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2,
 })
 export class ExamComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
+  /**
+   * Where signing out learns of a paper open and not handed in (it would be
+   * lost: the question signOut.examOpen), and of one on its way to be scored.
+   */
+  private readonly saves = inject(SavesInFlight);
+  private readonly unwatch = this.saves.watch(() => (this.screen() === 'test' && !this.quitting() ? 'signOut.examOpen' : null));
   readonly privateLinks = inject(PrivateLinksService);
   readonly i18n = inject(TranslationService);
 
@@ -206,6 +213,7 @@ export class ExamComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unwatch();
     this.stopClock();
     this.audioRef().nativeElement.pause();
   }
@@ -504,13 +512,13 @@ export class ExamComponent implements OnInit, OnDestroy {
     }
     let res: ExamResult;
     try {
-      res = await this.api.submit({
+      res = await this.saves.track(this.api.submit({
         // the spec echoed verbatim, so the server rebuilds this very paper
         spec: exam.spec,
         startedAt: this.startedAt,
         meta: { candidate: this.candidate().trim() },
         responses: this.answers(),
-      });
+      }));
     } catch (e) {
       // The browser's own dialog: worded now, from the failure's code. The
       // reason the server gives the owner's own computer follows, as it came.

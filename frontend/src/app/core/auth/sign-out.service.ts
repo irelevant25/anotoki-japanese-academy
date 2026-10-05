@@ -1,0 +1,56 @@
+import { inject, Injectable, signal } from '@angular/core';
+import { TranslationService } from '../i18n/translation.service';
+import { SavesInFlight } from '../saves-in-flight.service';
+import { AuthService } from './auth.service';
+
+/**
+ * Signing out, for whatever offers it (the person's menu of the top bar). It
+ * does not let anything the learner did go unsaved without asking:
+ *
+ *   1. the saves on their way — a lesson's, a review's or practice's answers,
+ *      a note being typed — are sent and waited for (`waiting`: the button
+ *      shows a spinner and `signOut.saving`);
+ *   2. when one of them failed (`signOut.notSaved`), or a session still holds
+ *      an answer whose save failed before and that nothing has shown yet (the
+ *      same question: kanji/session watches for it), or an exam paper is open
+ *      and not handed in (`signOut.examOpen`), the learner is asked first, in
+ *      the language on the page — the browser's own dialog, worded the moment
+ *      it is raised (as a session's "End now?" is);
+ *   3. then the IAM ends the session everywhere and sends the browser back to
+ *      the app, which sends it on to the IAM's sign-in.
+ *
+ * Unsaved strings of the admin area are AdminDrafts' to ask about: it holds
+ * them for the tab, and the browser's "Leave site?" comes as the page goes.
+ */
+@Injectable({ providedIn: 'root' })
+export class SignOutService {
+  private readonly auth = inject(AuthService);
+  private readonly saves = inject(SavesInFlight);
+  private readonly i18n = inject(TranslationService);
+
+  private readonly waitingSignal = signal(false);
+  /** Waiting for the saves on their way: the button that signs out shows it. */
+  readonly waiting = this.waitingSignal.asReadonly();
+
+  /** Answers false when the learner chose to stay (or a sign-out is already under way), true once the IAM has been asked. */
+  async signOut(): Promise<boolean> {
+    if (this.waitingSignal()) {
+      return false;
+    }
+    this.waitingSignal.set(true);
+    try {
+      const failed = await this.saves.settle();
+      // Each question once: a session's failed answer can be both one that failed meanwhile and one it reports.
+      const lost = [...new Set([...(failed > 0 ? ['signOut.notSaved'] : []), ...this.saves.losses()])];
+      for (const key of lost) {
+        if (!confirm(this.i18n.t(key))) {
+          return false;
+        }
+      }
+      await this.auth.logout();
+      return true;
+    } finally {
+      this.waitingSignal.set(false);
+    }
+  }
+}

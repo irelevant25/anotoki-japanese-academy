@@ -13,11 +13,14 @@
  *   POST /settings       { batchSize?, lessonTypes?, autoplay? }
  *   POST /reset-item     { id }
  *   POST /reset          { confirm: "RESET" }
- *   GET  /export         download your progress (the shape of the old progress/kanji.json)
  *
- * Each handler takes the user id of the person asking (the API's person()
- * middleware gets it from src/auth.php) and returns [status, body]; its route
- * in backend/api/routes/kanji.php sends it.
+ * Each handler takes the user id of the person asking (the API's
+ * learner_middleware() gets it: a signed-in person's from src/auth.php, a
+ * visitor's - negative - from src/visitors.php, or 0 for nobody yet, which
+ * matches no row: an empty learner) and returns [status, body]; its route in
+ * backend/api/routes/kanji.php sends it. A save by nobody never runs with 0:
+ * the middleware makes a visitor for it first, and the resets answer nobody
+ * at once.
  */
 
 declare(strict_types=1);
@@ -120,6 +123,14 @@ function kanji_summarize(int $uid, ?int $now = null): array
         }
     }
 
+    // Each forecast day by the person's date it stands for: day i is the 24 hours from startOfToday + i * 24 h,
+    // and its middle is on that date even next to a change of summer time (a 23- or 25-hour day moves the
+    // start an hour, never the middle). The page names the days from these, never from steps of its own.
+    $forecastDates = [];
+    for ($i = 0; $i < 7; $i++) {
+        $forecastDates[] = local_date($startOfToday + $i * 24 * HOUR_MS + 12 * HOUR_MS);
+    }
+
     $daily = store_daily($uid);
     $history = [];
     foreach (array_slice($daily, -14, null, true) as $date => $counts) {
@@ -136,6 +147,7 @@ function kanji_summarize(int $uid, ?int $now = null): array
         'groups' => $groups,
         'forecastHours' => $forecastHours,
         'forecastDays' => $forecastDays,
+        'forecastDates' => $forecastDates,
         'byLesson' => (object) $byLesson,
         'today' => $daily[local_date($now)] ?? ['lessons' => 0, 'reviews' => 0, 'reviewsCorrect' => 0, 'practice' => 0, 'practiceCorrect' => 0],
         'history' => $history,
@@ -182,6 +194,7 @@ function kanji_learn(int $uid, array $b): array
         return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it): array {
+        users_hold($uid); // an import or a delete of their data first, if one is under way
         $st = store_item($uid, $it['id'], true);
         if (srs_is_learned($st)) {
             return [409, ['error' => 'Already learned.', 'code' => 'already_learned', 'state' => $st]];
@@ -218,6 +231,7 @@ function kanji_review(int $uid, array $b): array
         return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
+        users_hold($uid);
         $now = now_ms();
         $st = store_item($uid, $it['id'], true);
         // A minute's grace for clock edges; anything else means a double submit.
@@ -241,6 +255,7 @@ function kanji_practice(int $uid, array $b): array
         return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
+        users_hold($uid);
         $st = store_item($uid, $it['id'], true);
         if (!srs_is_learned($st)) {
             return [409, ['error' => 'Only learned items can be practised.', 'code' => 'not_learned']];
@@ -263,6 +278,7 @@ function kanji_edit_item(int $uid, array $b): array
         return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
     return db_tx(static function () use ($uid, $it, $b): array {
+        users_hold($uid);
         $st = array_merge(srs_blank(), store_item($uid, $it['id'], true) ?? []);
 
         if (is_array($b['notes'] ?? null)) {
@@ -301,6 +317,7 @@ function kanji_edit_item(int $uid, array $b): array
 function kanji_settings(int $uid, array $b): array
 {
     return db_tx(static function () use ($uid, $b): array {
+        users_hold($uid);
         $s = store_settings($uid);
         if (($b['batchSize'] ?? null) !== null) {
             $n = js_number($b['batchSize']);
@@ -323,7 +340,11 @@ function kanji_reset_item(int $uid, array $b): array
     if (!$it) {
         return [404, ['error' => 'No such item.', 'code' => 'no_such_item']];
     }
+    if ($uid === 0) {
+        return [200, ['state' => srs_blank()]]; // nobody yet: nothing to reset, and no visitor made for it
+    }
     return db_tx(static function () use ($uid, $it): array {
+        users_hold($uid);
         $old = store_item($uid, $it['id'], true);
         // Keep what the learner wrote; forget the schedule.
         $state = array_merge(srs_blank(), [
@@ -341,6 +362,9 @@ function kanji_reset(int $uid, array $b): array
 {
     if (($b['confirm'] ?? null) !== 'RESET') {
         return [400, ['error' => 'Send { confirm: "RESET" } to erase all kanji progress.']];
+    }
+    if ($uid === 0) {
+        return [200, ['ok' => true]]; // nobody yet: nothing to reset, and no visitor made for it
     }
     store_reset($uid);
     return [200, ['ok' => true]];

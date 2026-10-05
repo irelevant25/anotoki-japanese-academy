@@ -68,7 +68,7 @@ test('scoring: perfect, zero, and the 70% boundary', function (): void {
     assert_true(count(array_unique(array_column($r['body']['review'], 'sectionId'))) > 5, 'a paper of many sections');
     // Nothing of it is stored: the rows are made for the answer and sent once. A stored
     // attempt keeps what it always kept — each response's section as its id, no name.
-    $stored = json_decode((string) db_value('SELECT attempt FROM exam_attempts WHERE user_id = ? AND id = ?', [auth_local_user_id(), $r['body']['id']]), true);
+    $stored = json_decode((string) db_value('SELECT attempt FROM exam_attempts WHERE user_id = ? AND id = ?', [TEST_USER, $r['body']['id']]), true);
     assert_false(array_key_exists('review', $stored), 'an attempt is stored without the review rows');
     assert_same(array_column($r['body']['review'], 'sectionId'), array_column($stored['responses'], 'section'), 'its responses hold the ids');
     assert_same([], array_column($stored['responses'], 'sectionId'), 'under the name they always had');
@@ -112,7 +112,7 @@ test('report and history', function (): void {
     assert_same(404, api('GET', '/report/no-such-report')['status']);
 });
 
-test('clips stream from data/audio, and nothing else does', function (): void {
+test('clips stream from backend/data/audio, and nothing else does', function (): void {
     $ex = api('POST', '/api/exam', ['size' => 40, 'sections' => ['listening-word'], 'seed' => 'audio'])['body'];
     $clip = array_values(array_filter(array_column($ex['questions'], 'audio')))[0];
     $r = api('GET', "/audio/$clip");
@@ -124,7 +124,7 @@ test('clips stream from data/audio, and nothing else does', function (): void {
     assert_same(substr(file_get_contents(AUDIO_CLIPS . "/$clip"), 10, 10), $part['raw']);
     assert_same(404, api('GET', '/audio/nope.mp3')['status']);
     assert_same(404, api('GET', '/audio/0123456789abcdef.mp3')['status'], 'a well-formed name with no file');
-    assert_same(404, api('GET', '/audio/..%2Fvocab.json')['status'], 'no way out of data/audio');
+    assert_same(404, api('GET', '/audio/..%2Fvocab.json')['status'], 'no way out of backend/data/audio');
     $head = call($GLOBALS['app']['base'], 'HEAD', "/audio/$clip");
     assert_same([200, '', (string) filesize(AUDIO_CLIPS . "/$clip")], [$head['status'], $head['raw'], $head['headers']['content-length'] ?? null], 'HEAD: the headers alone');
 });
@@ -145,7 +145,8 @@ test('the pages are the built app’s: its files as they are, a page’s address
     assert_same('not_found', api('GET', '/api/nothing')['body']['code'] ?? null);
     assert_same(200, api('GET', '/api/meta/')['status'], 'a trailing slash is the same address');
     // nothing of the backend, and nothing of Apache's, is ever sent
-    foreach (['/server.php', '/backend/server.php', '/backend/config/config.php', '/src/config.local.php', '/index.php', '/.htaccess', '/../data/vocab.json'] as $url) {
+    foreach (['/router.php', '/backend/router.php', '/backend/config/config.php', '/src/config.local.php', '/index.php', '/.htaccess',
+        '/data/vocab.json', '/backend/data/vocab.json', '/../backend/data/vocab.json', '/backend/storage/backups/academy-2026-10-01.json'] as $url) {
         assert_same(404, api('GET', $url)['status'], $url);
     }
     assert_same([], server_problems($GLOBALS['app']), 'no PHP warnings or errors on the server');
@@ -155,13 +156,13 @@ test('without a built app, the pages say how to build it; the API answers all th
     $bare = start_app(['frontend' => sys_get_temp_dir() . '/academy-test-no-such-build']);
     $page = call($bare['base'], 'GET', '/kanji');
     assert_same(503, $page['status']);
-    assert_match('/npm run build:frontend/', $page['raw']);
+    assert_match('~npm run build</code> in <code>frontend/~', $page['raw']);
     assert_same(200, call($bare['base'], 'GET', '/api/kanji/summary')['status']);
 });
 
-test('without sign-in the browser is told so, and no token is needed', function (): void {
-    assert_same(['mode' => 'none'], api('GET', '/api/auth/config')['body']);
-    $health = api('GET', '/api/health')['body'];
-    assert_same('none', $health['auth']);
+test('the browser is told where to sign in, and health needs no token', function (): void {
+    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    $health = call($GLOBALS['app']['base'], 'GET', '/api/health', null, no_token())['body'];
+    assert_false(isset($health['auth']), 'there is one way to sign in: health names none');
     assert_same(true, $health['contentCurrent']);
 });

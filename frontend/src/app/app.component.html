@@ -1,32 +1,19 @@
-<header class="topnav">
-  <div class="in">
-    <div class="brandline">
-      <a class="brand" routerLink="/" [attr.aria-current]="section() === 'home' ? 'page' : null"
-        ><span class="mark" lang="ja">日</span><span class="full">Japanese </span><b>Academy</b></a
-      >
-      <app-version />
-      <app-language-chooser />
-    </div>
-    @if (auth.state() === 'ready') {
-      <nav>
-        <a routerLink="/kanji" [attr.aria-current]="section() === 'kanji' ? 'page' : null"
-          >Kanji@if (due()) {<span class="badge" id="navDue">{{ due() }}</span>}</a
-        >
-        <a routerLink="/exam" [attr.aria-current]="section() === 'exam' ? 'page' : null">{{ exam() }}</a>
-      </nav>
-      @if (auth.user()) {
-        <app-account-menu />
-      }
-    }
-  </div>
-</header>
+<app-top-bar />
 
 @switch (auth.state()) {
   @case ('ready') {
     <router-outlet />
   }
+  @case ('visiting') {
+    <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor; a sign-in that came back without one is said above it. -->
+    <app-sign-in-failed />
+    <router-outlet />
+  }
   @case ('signed-out') {
-    <app-sign-in />
+    <!-- On the way to the IAM (signInGuard) nothing is drawn; the card only after a failed sign-in, or a session that ended here. -->
+    @if (auth.showSignIn()) {
+      <app-sign-in />
+    }
   }
   @case ('not-set-up') {
     <app-not-set-up />
@@ -35,3 +22,7 @@
     <app-problem />
   }
 }
+
+<footer class="foot">
+  <app-version />
+</footer>

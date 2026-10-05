@@ -2,10 +2,8 @@
 // The owner's requirement: nothing in the repository names the course the data
 // was transcribed from. The name is spelt with character codes here, so this
 // file doesn't contain it either. Checked: every file git would publish (so
-// books/ and the rest of .gitignore are left out), except the owner's study
-// history in progress/, results/ and reports/, which tests never read; the code
-// that writes it is checked here. Commit messages are not files: keep them
-// clean by hand.
+// books/ and the rest of .gitignore are left out). Commit messages are not
+// files: keep them clean by hand.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php';
@@ -20,9 +18,6 @@ test('no file, and no file name, names the source of the data', function (): voi
     $found = [];
     $checked = 0;
     foreach (array_unique(array_filter(explode("\0", $out))) as $rel) {
-        if (preg_match('~^(progress|results|reports)/~', $rel)) {
-            continue;
-        }
         if (preg_match($name, $rel)) {
             $found[] = "$rel (file name)";
         }

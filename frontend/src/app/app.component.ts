@@ -1,81 +1,58 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, OnInit, signal, untracked } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { filter } from 'rxjs';
-import { AccountMenuComponent } from './core/auth/account-menu/account-menu.component';
+import { ChangeDetectionStrategy, Component, effect, inject, untracked } from '@angular/core';
+import { Router, RouterOutlet } from '@angular/router';
+import { AdminDrafts } from './admin/admin-drafts.service';
 import { AuthService } from './core/auth/auth.service';
 import { AppVersionComponent } from './core/changelog/app-version.component';
-import { LanguageChooserComponent } from './core/i18n/language-chooser/language-chooser.component';
-import { TranslationService } from './core/i18n/translation.service';
-import { KanjiStateService } from './kanji/kanji-state.service';
-import { OwnerDrafts } from './owner/owner-drafts.service';
-import { keptWord } from './standin/kept-word';
 import { NotSetUpComponent } from './standin/not-set-up/not-set-up.component';
 import { ProblemComponent } from './standin/problem/problem.component';
+import { SignInFailedComponent } from './standin/sign-in-failed/sign-in-failed.component';
 import { SignInComponent } from './standin/sign-in/sign-in.component';
+import { TopBarComponent } from './top-bar/top-bar.component';
 
 /**
- * The page around every screen: the top bar (the version beside the app's name,
- * the reviews due, and who is signed in), then the screen of the address — or,
- * while the app cannot be used, the page that says why (signed out, not set up
- * yet, a server that does not answer).
+ * The page around every screen: the anotoki family's top bar
+ * (top-bar/top-bar.component.ts), then the screen of the address — or, while
+ * the app cannot be used, the page that says why (not set up yet, a server
+ * that does not answer), or the Sign in card (a sign-in that came back
+ * without one, or a session that ended while the page was open). Nobody
+ * signed in otherwise, signInGuard has sent the browser to the IAM, and
+ * nothing is drawn under the bar — unless the IAM does not require sign-in
+ * here: then the screen is a visitor's (state visiting), with a sign-in that
+ * came back without one said above it (standin/sign-in-failed). At the foot, the version and what is new
+ * in it (core/changelog/app-version.component.ts).
  *
- * The top bar's Kanji and Exam show only while the app can be used: following
- * one loads its section, and the kanji screens ask the API for data on the
- * way, which nobody signed out, or a copy not set up, can have.
- *
- * The bar is drawn in every state, so its own word has its English here too
- * (standin/kept-word.ts). "Kanji" is a term and the app's name a name: both
- * are the same in every language.
+ * The bar and the foot are drawn in every state, so their words have their
+ * English in the code too (standin/kept-word.ts).
  */
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet, AccountMenuComponent, AppVersionComponent, LanguageChooserComponent, SignInComponent, NotSetUpComponent, ProblemComponent],
+  imports: [RouterOutlet, TopBarComponent, AppVersionComponent, SignInComponent, SignInFailedComponent, NotSetUpComponent, ProblemComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   readonly auth = inject(AuthService);
-  private readonly kanji = inject(KanjiStateService);
   private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly i18n = inject(TranslationService);
   /**
-   * Made here, once the sign-in has settled, so the owner's unsaved words are
-   * asked about when the tab is closed, whichever page is showing.
+   * Made here, once the sign-in has settled, so the admin area's unsaved words
+   * are asked about when the tab is closed, whichever page is showing.
    */
-  private readonly ownerDrafts = inject(OwnerDrafts);
-
-  /** The link to the exam, in the language on the page. */
-  readonly exam = computed(() => keptWord(this.i18n, 'topbar.exam', 'Exam'));
-
-  private readonly url = signal(location.pathname);
-  /** The part of the app the address is in: its link in the top bar is marked. */
-  readonly section = computed(() => {
-    const path = this.url().split(/[?#]/)[0];
-    return path.startsWith('/kanji') ? 'kanji' : path.startsWith('/exam') ? 'exam' : path === '/' ? 'home' : '';
-  });
-  readonly due = this.kanji.reviewsDue;
+  private readonly adminDrafts = inject(AdminDrafts);
 
   constructor() {
-    // The router's first navigation, once the app can be used: at once without
-    // sign-in or with a session, else when somebody signs in (in another tab).
+    // The router's first navigation, once the start has settled the sign-in:
+    // signed in or visiting, the page itself; signed out, its guard sends the browser to
+    // the IAM, and back to this address (or lets it through to the Sign in
+    // card after a sign-in that failed). Not while the app is not set up or
+    // could not start: the boot pages are drawn then, and nothing is loaded.
     let started = false;
     effect(() => {
-      if (this.auth.state() === 'ready' && !started) {
+      const state = this.auth.state();
+      if ((state === 'ready' || state === 'visiting' || state === 'signed-out') && !started) {
         started = true;
         untracked(() => this.router.initialNavigation());
       }
     });
-  }
-
-  ngOnInit(): void {
-    this.router.events
-      .pipe(
-        filter((e) => e instanceof NavigationEnd),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((e) => this.url.set((e as NavigationEnd).urlAfterRedirects));
   }
 }

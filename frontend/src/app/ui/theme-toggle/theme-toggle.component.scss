@@ -1,0 +1,43 @@
+:host {
+  display: inline-flex;
+  flex: none;
+}
+
+// Three round icons in one pill, 102 by 40 as in the anotoki family's bar.
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.segment:hover {
+  color: var(--ink);
+}
+
+.segment[aria-checked='true'] {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

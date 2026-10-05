@@ -1,13 +1,19 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../core/api/api.types';
+import { AuthService } from '../../core/auth/auth.service';
+import { SignOutService } from '../../core/auth/sign-out.service';
 import { AudioService } from '../../core/audio.service';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { drawnFoot } from '../../core/testing/foot-controls';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { SessionResult } from './session-engine';
+import { TopBarComponent } from '../../top-bar/top-bar.component';
 import { SessionComponent } from './session.component';
+import { derivedFromState } from '../../core/testing/auth-states';
 
 const ENGLISH: Record<string, string> = {
   'session.mode.lesson': 'Lesson quiz',
@@ -49,6 +55,7 @@ const ENGLISH: Record<string, string> = {
   'error.offline': 'The server does not answer.',
   'error.not_learned': 'Only learned items can be practised.',
   'error.unknown': 'Something went wrong.',
+  'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them. Sign out anyway?',
 };
 
 const SLOVAK: Record<string, string> = {
@@ -333,6 +340,69 @@ describe('SessionComponent', () => {
     expect(results[0].done[0].error?.code).toBe('not_due');
   });
 
+  it('an answer whose save failed before Sign out, shown nowhere yet: signing out asks first; once the summary has it, not', async () => {
+    const logout = vi.fn(() => Promise.resolve());
+    TestBed.configureTestingModule({
+      providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
+    });
+    const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    api.review.mockImplementation((id: string) =>
+      id === WORD.id ? Promise.reject(new ApiError('the server does not answer', 0, {})) : Promise.resolve({ state: STATE, from: 1, to: 2 }),
+    );
+    await start([WORD, ONE], { mode: 'review' });
+    await answer('university');
+    await enter();
+    await answer('だいがく');
+    await enter(); // 大学 done: its save goes out and fails; the next card is shown, as designed
+    await settle();
+    expect(text('.s-count')).toBe('1 done · 1 left');
+    expect(feedback().textContent, 'the card says nothing of it').toBe('');
+
+    // Long after the failure, with nothing on its way: still asked.
+    const signOut = TestBed.inject(SignOutService);
+    expect(await signOut.signOut(), 'Cancel: still signed in').toBe(false);
+    expect(asked.mock.calls).toEqual([[ENGLISH['signOut.notSaved']]]);
+    expect(logout).not.toHaveBeenCalled();
+
+    // The session ends: its summary says what failed, and a sign-out has nothing more to ask.
+    await answer('one');
+    await enter();
+    await answer('いち');
+    await enter();
+    await settle();
+    expect(results.length).toBe(1);
+    expect(results[0].done.find((entry) => entry.it.id === WORD.id)?.error?.status).toBe(0);
+    asked.mockClear();
+    expect(await signOut.signOut()).toBe(true);
+    expect(asked).not.toHaveBeenCalled();
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed answer that fails while Sign out waits, and that the session reports too: asked once', async () => {
+    const logout = vi.fn(() => Promise.resolve());
+    TestBed.configureTestingModule({
+      providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
+    });
+    const asked = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let fail: () => void = () => undefined;
+    api.review.mockImplementation((id: string) =>
+      id === WORD.id
+        ? new Promise((_, reject) => (fail = () => reject(new ApiError('the server does not answer', 0, {}))))
+        : Promise.resolve({ state: STATE, from: 1, to: 2 }),
+    );
+    await start([WORD, ONE], { mode: 'review' });
+    await answer('university');
+    await enter();
+    await answer('だいがく');
+    await enter();
+    const done = TestBed.inject(SignOutService).signOut();
+    await Promise.resolve();
+    fail();
+    expect(await done).toBe(true);
+    expect(asked).toHaveBeenCalledTimes(1);
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
   it('asks before losing a half-answered item, in the browser’s own dialog, worded when it is raised', async () => {
     const asked: string[] = [];
     vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
@@ -368,5 +438,71 @@ describe('SessionComponent', () => {
     expect(feedback().textContent).toBe('The answer: on: いち、いつ  ·  kun: ひと');
     expect(marked()).toEqual([['on: いち、いつ  ·  kun: ひと', 'ja']]);
     expect(text('.s-type')).toBe('Kanji');
+  });
+  it('Enter, Space and F on every control of the top bar and the foot never reach the review: nothing checked, nothing answered', async () => {
+    // The bar as the app draws it over a review: somebody signed in, Kanji and Exam, the language, the theme, the person's menu.
+    const user = { sub: '7', preferred_username: 'hana', email: null, email_verified: false, locale: null, roles: ['EDITOR'] };
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: AuthService,
+          useValue: {
+            state: signal('ready'),
+            ...derivedFromState(signal('ready')),
+            loginRequired: signal(true),
+            user: signal(user),
+            showSignIn: signal(false),
+            displayName: signal('hana'),
+            isAdmin: signal(false),
+            isStaff: signal(true),
+            accountUrl: () => 'https://iam.example.test/account',
+            login: vi.fn(),
+            logout: vi.fn(),
+          },
+        },
+      ],
+    });
+    await start([WORD], { mode: 'review' });
+    answerField().value = 'university';
+    const bar = TestBed.createComponent(TopBarComponent);
+    document.body.appendChild(bar.nativeElement);
+    // A second component of the TestBed takes the first one's root out of the page: the session listens only while it is in one.
+    document.body.appendChild(host);
+    await bar.whenStable();
+    const top = bar.nativeElement as HTMLElement;
+    const controls = [
+      top.querySelector<HTMLElement>('app-brand a')!,
+      ...Array.from(top.querySelectorAll<HTMLElement>('.topbar-nav a')),
+      top.querySelector<HTMLElement>('#langButton')!,
+      ...Array.from(top.querySelectorAll<HTMLElement>('[role="radio"]')),
+      top.querySelector<HTMLElement>('#userButton')!,
+    ];
+    expect(controls).toHaveLength(8);
+    expect(controls.every((control) => control !== null)).toBe(true);
+    // The foot under the page: What's new, and the news it opens (its Close, its lines).
+    const foot = await drawnFoot();
+    document.body.appendChild(host);
+
+    for (const control of [...controls, ...foot.controls]) {
+      for (const key of ['Enter', ' ', 'f', 'F', 'ArrowRight']) {
+        control.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      }
+    }
+    await fixture.whenStable();
+    await settle();
+    expect(feedback().textContent, 'the answer typed is not checked').toBe('');
+    expect(q('.session').classList.contains('is-correct')).toBe(false);
+    expect(api.review).not.toHaveBeenCalled();
+    expect(text('.s-count')).toBe('0 done · 1 left');
+
+    // Enter anywhere else is the review's: the answer is checked.
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(q('.session').classList.contains('is-correct'), 'checked').toBe(true);
+
+    foot.remove();
+    bar.destroy();
+    (bar.nativeElement as HTMLElement).remove();
   });
 });

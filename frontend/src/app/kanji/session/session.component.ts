@@ -21,6 +21,7 @@ import { pct } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslationParams, TranslationService } from '../../core/i18n/translation.service';
+import { SavesInFlight } from '../../core/saves-in-flight.service';
 import { canonReading, CheckKind, checkMeaning, checkReading, materialLang } from '../answer';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemDetailsComponent } from '../shared/item-details/item-details.component';
@@ -79,6 +80,8 @@ export interface Feedback {
 })
 export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly api = inject(ApiService);
+  /** Where signing out learns of the answers still on their way (core/auth/sign-out.service.ts). */
+  private readonly saves = inject(SavesInFlight);
   private readonly kanji = inject(KanjiStateService);
   private readonly audio = inject(AudioService);
   private readonly i18n = inject(TranslationService);
@@ -100,6 +103,16 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   private busy = false;
   private finished = false;
   private destroyed = false;
+  /** The result handed over: from then on its summary says what failed. */
+  private reported = false;
+  /**
+   * An answer whose save failed is said only on the summary, drawn when the
+   * session ends: until then signing out would lose it without a word. So the
+   * session tells the sign-out (`signOut.notSaved`), however long ago it failed.
+   */
+  private readonly unwatch = this.saves.watch(() =>
+    !this.reported && this.engine?.done.some((entry) => entry.error) ? 'signOut.notSaved' : null,
+  );
 
   readonly cfg = computed(() => MODES[this.mode()]);
   readonly card = signal<CatalogItem | null>(null);
@@ -139,6 +152,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.unwatch();
     this.bindKana(false);
   }
 
@@ -276,7 +290,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     const typed = e.typed;
     const meaning = e.part === 'meaning';
     try {
-      const r = await this.api.item(it.id, meaning ? { addSynonym: typed } : { addReading: canonReading(typed) });
+      const r = await this.saves.track(this.api.item(it.id, meaning ? { addSynonym: typed } : { addReading: canonReading(typed) }));
       this.kanji.setItemState(it.id, r.state);
       e.accept();
       this.verdict.set('correct');
@@ -308,7 +322,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Saved in the background: the next card never waits for the server. */
+  /** Saved in the background: the next card never waits for the server (and a sign-out waits for it: SavesInFlight). */
   private save(entry: DoneEntry): void {
     const mode = this.mode();
     const wrong = entry.wrongM + entry.wrongR;
@@ -319,7 +333,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
           ? this.api.review(entry.it.id, entry.wrongM, entry.wrongR)
           : this.api.practice(entry.it.id, wrong === 0, wrong);
     this.pending.push(
-      call.then(
+      this.saves.track(call).then(
         (r) => {
           this.kanji.setItemState(entry.it.id, r.state);
           entry.from = r.from;
@@ -357,6 +371,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.destroyed) {
         return;
       }
+      this.reported = true;
       this.done.emit({ mode: this.mode(), done: e.done, answered: e.answered, right: e.right, unfinished: e.halfAnswered(), early });
     });
   }

@@ -1,0 +1,65 @@
+<main class="wrap wide admin" lang="en">
+  <h1 class="page">People</h1>
+  <p class="intro muted">
+    Everybody who has signed in here, the latest first. Deleting a person's data takes their progress, their answers and their exam attempts; the
+    server keeps a copy first, and their account stays.
+  </p>
+  @if (visitorsLine(); as line) {
+    <p class="small muted" id="visitors">{{ line }}</p>
+  }
+
+  @if (loadError(); as message) {
+    <p class="err" role="alert">Could not load the people: {{ message }}</p>
+  }
+  <p class="status" role="status">{{ done() }}</p>
+  <p class="err" role="alert">{{ failed() }}</p>
+
+  @if (people(); as list) {
+    @if (list.length) {
+      <div class="scroll">
+        <table class="data" id="people">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">First seen</th>
+              <th scope="col">Last seen</th>
+              <th scope="col">Time zone</th>
+              <th scope="col">Learned</th>
+              <th scope="col">Exam</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (person of list; track person.id) {
+              <tr [attr.data-id]="person.id">
+                <td class="who">
+                  <b>{{ name(person) }}</b>
+                  @if (isYou(person)) {
+                    <span class="tag">you</span>
+                  }
+                  <span class="small muted id">#{{ person.id }}</span>
+                  <!-- Under the name, not in a column of its own: the one action is never off the screen, at 390 px too. -->
+                  <div class="row-action">
+                    <button type="button" class="link danger" [disabled]="deleting() !== null" (click)="remove(person)">
+                      {{ deleting() === person.id ? 'Deleting…' : 'Delete data' }}
+                    </button>
+                  </div>
+                </td>
+                <td class="when">{{ when(person.createdAt) }}</td>
+                <td class="when">{{ when(person.lastSeenAt) }}</td>
+                <td class="zone"><code>{{ person.timeZone || '—' }}</code></td>
+                <td class="count">{{ items(person) }}</td>
+                <td class="count">{{ attempts(person) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">Nobody has signed in yet.</p>
+    }
+  } @else if (!loadError()) {
+    <p class="muted">Loading…</p>
+  }
+
+  <app-admin-confirm />
+</main>

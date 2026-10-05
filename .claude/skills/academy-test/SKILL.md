@@ -5,60 +5,70 @@ description: Run and read the Japanese Academy tests (PHP unit and API tests, si
 
 # Testing Japanese Academy
 
-Run everything from the repository root. Every suite uses throwaway databases
+Run everything from the repository's top folder. It has no package of its
+own (since 2026-10-04): the PHP tests run through `backend/tools/php.js`,
+which finds a PHP 8.1+ (Git Bash's `php` is 7.4 on the owner's computer), the
+Angular ones in `frontend/`, and the browser suites against the production
+build, made first by `node frontend/scripts/ensure-build.mjs` (it builds only
+when the sources changed). Every suite uses throwaway databases
 (`academy_test_…`, copied from `academy_test_template`), settings of its own
-and temp folders. None touches the owner's database or `backups/`, none reads
-`progress/`, `results/` or `reports/`, none needs the owner's server, and none
+and temp folders. None touches the owner's database or
+`backend/storage/backups/`, none needs the owner's server, and none
 asks an IAM: sign-in is tested with a key pair and tokens of the run's own.
 PostgreSQL must be running, and this copy set up (the throwaway databases are
 made with the server, user and password of `backend/config/database.local.php`).
 
 ## Choosing the suites
 
+Below, **the PHP tests** are `node backend/tools/php.js backend/tests/run.php`
+(~25 s), **the frontend tests** `(cd frontend && npm test)` (~15 s), and each
+browser suite runs after `node frontend/scripts/ensure-build.mjs`.
+
 | What changed | Run |
 |---|---|
-| anything | `npm test` (~40 s: `test:backend` + `test:frontend`) |
-| `frontend/src/**`, or anything a page renders | also `npm run test:browser` (~2 min) and `npm run screens`, then check the shots (`academy-ui-check`) |
-| sign-in (`backend/src/auth.php`, `users.php`, `frontend/src/app/core/auth/`), the routes or middleware | `npm test` (`backend/tests/api/auth.test.php`, `auth.interceptor.spec.ts` above all) and `npm run test:browser` (its sign-in part) |
-| the setup page, `backend/config/`, `backend/src/owner.php` | `npm test` (`setup.test.php`, `deploy.test.php`) and `npm run test:setup` |
-| Apache's files, `build-dist.php`, `backend/src/upkeep.php`, `backend/api/front.php` | `npm test` (`deploy.test.php`, `upkeep.test.php`, `exam-api.test.php` for the pages); for `.htaccess`, consider a real Apache (`docs/kb/environment.md`) |
-| `data/source/**`, `backend/tools/build-*.php` | first `npm run build:data` (or `npm run build:audio`), then `npm test` |
-| `backend/src/conjugate.php`, `backend/src/generate.php`, `data/authored-items*.php`, `frontend/src/app/kanji/answer.ts` | `npm test`, then the `academy-japanese-reviewer` agent |
-| `backend/migrations/` | `npm test` (the template takes the new migration — none without its last line, `-- end of NNN`, which `upkeep.test.php` checks; `migration.test.php` shows how to test one on old data), then `php backend/manage.php --check`. After an edit of a migration not committed yet: `php backend/tests/tools/testdb.php template --fresh` first, or the template keeps the old file |
-| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php`, `backend/api/routes/translations.php`, the owner pages | `npm test` (`backend/tests/unit/translations.test.php` holds every key the frontend asks for to the database), `npm run test:browser` (the chooser by keys, the owner's pages), `npm run screens` (the Slovak pass and the room); `php backend/translations.php --status` on a set-up copy |
-| tests only | the changed file, then `npm test` |
+| anything in `backend/` | the PHP tests |
+| `frontend/src/**`, or anything a page renders | the frontend tests and the PHP tests (the key test), `node frontend/e2e/run.js` (~3 min) and `node frontend/e2e/screens.js`, then check the shots (`academy-ui-check`) |
+| sign-in (`backend/src/auth.php`, `access.php`, `users.php`, `visitors.php`, `frontend/src/app/core/auth/`), the routes or middleware | the PHP tests (`backend/tests/api/auth.test.php`, `access.test.php` and `visitors.test.php` above all; the visitors' tests switch sign-in off with `test_access(false)`, and `start_app(['app' => ['visitors' => [...]]])` sets their limits), the frontend tests (`auth.interceptor.spec.ts`) and `node frontend/e2e/run.js` (its sign-in, sign-out, token, admin-area and visitors parts) and `node frontend/e2e/setup.js` (signing in on a set-up copy) |
+| the setup page, `backend/config/` | the PHP tests (`setup.test.php`, `deploy.test.php`) and `node frontend/e2e/setup.js` |
+| Apache's files, `build-dist.php`, `backend/router.php`, `backend/src/upkeep.php`, `backend/api/front.php` | the PHP tests (`deploy.test.php`, `upkeep.test.php`, `exam-api.test.php` for the pages); for `.htaccess`, consider a real Apache (`docs/kb/environment.md`) |
+| `backend/data/source/**`, `backend/tools/build-*.php` | first `node backend/tools/php.js backend/tools/build-data.php` (or `node backend/tools/php.js backend/tools/build-audio.php`), then the PHP tests and the frontend tests (`answer.spec.ts` checks the whole catalog) |
+| `backend/src/conjugate.php`, `backend/src/generate.php`, `backend/data/authored-items*.php`, `frontend/src/app/kanji/answer.ts` | the PHP tests (and the frontend tests for `answer.ts`), then the `academy-japanese-reviewer` agent |
+| `backend/migrations/` | the PHP tests (the template takes the new migration — a draft without its last line `-- end of NNN` too (the tests name the drafts, `ACADEMY_MIGRATION_DRAFTS`; only the newest may be one, which `upkeep.test.php` checks, and the template is made afresh when a draft changed); `migration.test.php` shows how to test one on old data), then `node backend/tools/php.js backend/manage.php --check`. After an edit of a migration not committed yet: `node backend/tools/php.js backend/tests/tools/testdb.php template --fresh` first, or the template keeps the old file |
+| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php`, `backend/api/routes/translations.php`, the admin panel | the PHP tests (`backend/tests/unit/translations.test.php` holds every key the frontend asks for to the database), `node frontend/e2e/run.js` (the chooser by keys, the admin panel, its Slovak pass), `node frontend/e2e/screens.js` (the Slovak pass, key-shaped text, the room); `node backend/tools/php.js backend/translations.php --status` on a set-up copy |
+| tests only | the changed file, then its whole suite |
 
-Narrower runs while you iterate (the npm scripts find a PHP 8 themselves; by
-hand see `docs/kb/environment.md`):
+Narrower runs while you iterate:
 
 ```bash
-npm run test:backend -- backend/tests/unit/srs.test.php backend/tests/api/kanji-api.test.php
-npm run test:backend -- backend/tests/api/auth.test.php backend/tests/api/setup.test.php
-npm run test:frontend                  # all the Angular specs (a few seconds once built)
-npm run screens -- kanji-review        # only screens whose name contains this (all five variants)
-npm run screens -- room                # only the top bar's measurements
+node backend/tools/php.js backend/tests/run.php backend/tests/unit/srs.test.php backend/tests/api/kanji-api.test.php
+node backend/tools/php.js backend/tests/run.php backend/tests/api/auth.test.php backend/tests/api/setup.test.php
+(cd frontend && npm test)                  # all the Angular specs (a few seconds once built)
+node frontend/e2e/screens.js kanji-review        # only screens whose name contains this (all five variants)
+node frontend/e2e/screens.js room                # only the top bar's measurements
 ```
 
-Always finish with the full `npm test`.
+Always finish with the full PHP tests, and the full frontend tests when
+`frontend/` changed.
 
 ## Reading the output
 
-- `npm run test:backend` runs `php backend/tests/run.php`: one `▶ file` block
+- The PHP tests print one `▶ file` block
   per test file with `✔`/`✖` lines, then `ℹ tests N` / `ℹ pass N` /
   `ℹ fail N`. A failure prints the assertion's message, expected and actual,
-  and the test file's line. `npm run test:frontend` first prints
+  and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
-  `Tests` lines. Report the real numbers of both (at the last count 169
-  backend tests; 472 frontend tests in 39 files — `docs/kb/testing.md`).
-- `academy_test_template: updated (3 s)` at the start means `data/`, a
+  `Tests` lines. Report the real numbers of both (at the last count 235
+  backend tests, one of them the CRLF-only failure; 623 frontend tests in 46
+  files; 173 browser checks in `run.js`, 41 in `setup.js` — `docs/kb/testing.md`).
+- `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.
-- `npm run test:browser` prints each step, then `BROWSER SUITE PASSED` or
-  `N FAILURE(S)`; `npm run test:setup` ends `SETUP SUITE PASSED`.
-  `npm run screens` ends with `no overflow, no page errors` or a `PROBLEMS:`
+- `node frontend/e2e/run.js` prints each step, then `BROWSER SUITE PASSED` or
+  `N FAILURE(S)`; `node frontend/e2e/setup.js` ends `SETUP SUITE PASSED`.
+  `node frontend/e2e/screens.js` ends with `no overflow, no key-shaped text, the bar in one row, no page errors` or a `PROBLEMS:`
   list — the Slovak pass's too (a key on the page, English left on a Slovak
   page) and the room's (a piece of the top bar off the screen, overlapping or
-  cut short). All exit with 1 on any problem. They start with
-  `The app is built, and current.` or a build.
+  cut short). All exit with 1 on any problem. `ensure-build.mjs` before them
+  prints `The app is built, and current.` or builds.
 - A console warning fails a browser suite: `[i18n] no string for '…'` is a key
   the page asks for that has no string in the database.
 - These are expected and not failures:
@@ -76,7 +86,8 @@ Always finish with the full `npm test`.
   sign-in tests).
 - `The tests make their databases on the PostgreSQL server of
   backend/config/database.local.php, and there is none` means this copy is not
-  set up: start it and open `/setup.php` (`DEV.md`).
+  set up: start it (`composer start` in `backend/`) and open `/setup.php`
+  (`DEV.md`).
 - `Could not prepare the test database` means PostgreSQL isn't reachable with
   those settings.
 - A failing test is information. Work out whether the code or the expectation
@@ -90,20 +101,20 @@ What each file covers is in `docs/kb/testing.md`.
 - **PHP unit or API:** `backend/tests/unit/<area>.test.php` or
   `backend/tests/api/<area>.test.php`, starting with
   `require __DIR__ . '/../lib.php';` — before anything else, so the app loads
-  with a throwaway database and sign-in off. Then:
+  with a throwaway database, signing in through the test IAM. Then:
   ```php
   test('what it pins down', function (): void {
       assert_same($expected, $actual, 'message');   // strict ===
   });
-  // API: the real server on this file's database, without sign-in: every request is the owner
+  // API: the real server on this file's database; call() goes as TEST_USER (1, no role)
   $GLOBALS['app'] = null;
   before(function (): void { $GLOBALS['app'] = start_app(); });
   // call($GLOBALS['app']['base'], 'POST', '/api/kanji/learn', ['id' => 'k:大']) → ['status', 'body', 'raw', 'headers']
   // make an item due: db_exec('UPDATE srs_progress SET next_review = academy_time(?) WHERE user_id = ? AND item_id = ?',
-  //     [now_ms() - 1000, auth_local_user_id(), $id])
+  //     [now_ms() - 1000, TEST_USER, $id])
   ```
-  With sign-in: `start_app(test_iam_env())`, and
-  `call($base, 'GET', '/api/kanji/progress', null, test_bearer(test_token(501, ['MEMBER'])))`.
+  As somebody else: `call($base, 'GET', '/api/admin/translations', null, test_bearer(test_token(501, ['EDITOR'])))`;
+  as nobody: `call($base, 'GET', '/api/kanji/progress', null, no_token())`.
   `test_token($id, $roles, $claims, $typ)` makes any token: an expired one
   (`['exp' => time() - 3600]`), one for another app (`['aud' => 'genshin']`), an
   ID token (`$typ = 'JWT'`). A built site as a host serves it: `test_site()`
@@ -127,12 +138,19 @@ What each file covers is in `docs/kb/testing.md`.
   The helpers in `frontend/e2e/browser.js` are `launch`, `newContext(browser,
   opts)` (every context through it: locale `'en-GB'` unless `opts` says
   otherwise), `watch` (page errors, errors and warnings the app logged,
-  failed requests), `emulateIam(context, person)` (the IAM's sign-in, token
-  and sign-out, answered in the browser) and the reporter; `startApp({ auth })` from
-  `frontend/e2e/helpers.js` (after `isolate()`) gives `base`, `owner`,
-  `makeDue(ids, agoMs, userId)` and `sql(query, ...params)`, and may run twice
-  (without and with sign-in, one database). `iamToken()` and `iamSession()`
-  sign requests and browser contexts in. Seed state through the API or `sql`,
+  failed requests), `keyShaped(page)` (text that looks like a key) and the
+  reporter; `startApp()` from `frontend/e2e/helpers.js` (after `isolate()`)
+  starts the run's stand-in IAM and gives `base`, `api(url, person, {method,
+  body, zone})` (a fetch with that person's token), `backups`,
+  `makeDue(ids, agoMs, userId)` and `sql(query, ...params)`. A browser signs
+  in the real way (open a page: the stand-in signs in whom `iamState({ user:
+  {id, username, roles} })` named, or refuses with `deny: true`) or at once
+  (`plant(context, { sub, name, roles }, lang)`); `iamToken()` signs a
+  request. People hold `MEMBER` (`{ sub, name, roles: ['MEMBER'] }`; with
+  `ADMIN` or `EDITOR` beside it for the admin panel). For visitors (sign-in
+  not required): `startApp({ applicationTtl: 1 })`, then
+  `app.signInRequired(false)`, and `app.signInRequired(true)` again before
+  the suite goes on. Give each test person its own id. Seed state through the API or `sql`,
   wait for what Angular draws after a key or click, find buttons with
   `getByRole`, and call `page.goto('about:blank')` before reopening the same
   URL. A test that switches to Slovak switches back before the suite goes on

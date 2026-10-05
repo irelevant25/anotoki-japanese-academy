@@ -1,7 +1,8 @@
 import { DOCUMENT, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { errorCode } from '../api/api.service';
 import { ApiErrorBody } from '../api/api.types';
-import { AuthService, isNotSetUp } from '../auth/auth.service';
+import { AuthService, isNotSetUp, timeZoneHeaders } from '../auth/auth.service';
+import { readStorage, writeStorage } from '../storage';
 import { SiteLanguage, TranslationBundle } from './translation.model';
 
 /** What everything falls back to: the server merges English underneath every bundle. */
@@ -127,7 +128,7 @@ export class BundleRefused extends Error {
 
 /**
  * The app's own words: which language the pages are read in, and the strings
- * for it. They live in the database (the owner's Translations page edits them)
+ * for it. They live in the database (the admin area's Translations page edits them)
  * and arrive as one bundle — GET /api/translations/{code}, the same for
  * everybody, asked for with plain fetch(): no token goes with it, and neither
  * interceptor touches it.
@@ -166,21 +167,33 @@ export class TranslationService {
   private readonly languagesSignal = signal<SiteLanguage[]>([]);
   /** The chosen language's strings, English merged underneath. Null: no bundle yet. A Map, so `has('constructor')` is false. */
   private readonly values = signal<ReadonlyMap<string, string> | null>(null);
+  /** English itself, which the bundle of every other language carries beside it. Null: the bundle is English (or there is none). */
+  private readonly englishValues = signal<ReadonlyMap<string, string> | null>(null);
+  /** The page is in the admin area (/admin…), which reads in English whatever the reader chose (noteAddress()). */
+  private readonly adminArea = signal(isAdminAddress(this.document.defaultView?.location?.pathname ?? '/'));
 
   /**
-   * The language on the page. A plain signal: it changes only once the bundle
-   * of that language is in memory (init(), setLanguage()), never by itself
-   * when a token or the address changes — a page is never in a language it has
-   * no strings for.
+   * The language the reader reads the app in: what the chooser shows, and what
+   * the IAM's pages are opened in. A plain signal: it changes only once the
+   * bundle of that language is in memory (init(), setLanguage()), never by
+   * itself when a token or the address changes — a page is never in a
+   * language it has no strings for.
    */
   readonly language = this.languageSignal.asReadonly();
-  /** The languages on offer, in the order the owner set. Empty until a bundle came. */
+  /**
+   * The language the page is in: the reader's, except in the admin area, which
+   * is English for everybody — its own words are written in its templates,
+   * and what it shares with the learner's pages (the top bar, the footer, the
+   * "What's new" dialog) answers in English there, with no case of its own.
+   */
+  readonly pageLanguage = computed(() => (this.adminArea() && this.englishValues() !== null ? FALLBACK_LANGUAGE : this.languageSignal()));
+  /** The languages on offer, in the order the administrator set. Empty until a bundle came. */
   readonly languages = this.languagesSignal.asReadonly();
   /** A bundle is in memory — from the cache or from the server. */
   readonly ready = computed(() => this.values() !== null);
   /** What `Intl` is given for dates and numbers in the language on the page. */
   readonly locale = computed(() => {
-    const code = this.languageSignal();
+    const code = this.pageLanguage();
     return Object.hasOwn(LOCALES, code) ? LOCALES[code] : code;
   });
 
@@ -211,7 +224,7 @@ export class TranslationService {
   constructor() {
     // Honest for a screen reader, and for the browser's own hyphenation and spelling.
     effect(() => {
-      this.document.documentElement.lang = this.languageSignal();
+      this.document.documentElement.lang = this.pageLanguage();
     });
     // Somebody signed in, out or was refreshed — in this tab or another: the
     // token's `locale` may be another one now (followToken()).
@@ -243,7 +256,7 @@ export class TranslationService {
    * the language writes numbers: 11,523 in English, 11 523 in Slovak.
    */
   plural(key: string, count: number, params?: TranslationParams): string {
-    const form = `${key}.${pluralRules(this.languageSignal()).select(count)}`;
+    const form = `${key}.${pluralRules(this.pageLanguage()).select(count)}`;
     return this.t(this.has(form) ? form : `${key}.other`, { ...params, count: this.number(count) });
   }
 
@@ -332,7 +345,7 @@ export class TranslationService {
 
   /**
    * The strings again, from the server: for whoever has just changed them, or
-   * the languages on offer (the owner's Translations and Languages pages, after
+   * the languages on offer (the admin area's Translations and Languages pages, after
    * a save). Asks for the bundle of the language on the page and settles
    * against the list that comes with it — so a language hidden or offered a
    * moment ago is followed — then puts the answer in force and in the cache.
@@ -362,6 +375,20 @@ export class TranslationService {
    * no more often than somebody clicks.
    */
   navigated(): void {
+    this.askAgainIfBehind();
+  }
+
+  /**
+   * Where the page is now, said by the title strategy after every navigation
+   * (with the address it was given): in the admin area the page reads in
+   * English (pageLanguage), anywhere else in the reader's language. Only the
+   * words change — the reader's choice stays as it was.
+   */
+  noteAddress(url: string): void {
+    this.adminArea.set(isAdminAddress(url));
+  }
+
+  private askAgainIfBehind(): void {
     if (this.started && !this.fresh && this.out === 0 && this.canAsk()) {
       void this.again().catch((error: unknown) => console.error('[i18n] the strings could not be asked for again', error));
     }
@@ -375,11 +402,13 @@ export class TranslationService {
    * the first page is drawn. Never rejects.
    *
    * By what the app can show (AuthService.state()):
-   *   ready, signed-out    the bundle is asked for. Signed out is a state of
-   *                        its own here, in which the server answers — and it
-   *                        turns ready without a page load when somebody signs
-   *                        in in another tab, so the strings must be in memory
-   *                        by then.
+   *   ready, visiting,     the bundle is asked for. Visiting (nobody signed
+   *   signed-out           in, where the IAM does not require it) is the app
+   *                        itself. Signed out is a state of its own here, in
+   *                        which the server answers — and it turns ready
+   *                        without a page load when somebody signs in in
+   *                        another tab, so the strings must be in memory by
+   *                        then.
    *   not-set-up, problem  nothing is requested: the cached bundle is taken
    *                        when there is one — in whatever language it is in —
    *                        and the stand-in pages word themselves otherwise.
@@ -426,10 +455,10 @@ export class TranslationService {
     await this.counted(this.firstLoad(turn, candidates, first));
   }
 
-  /** The server can be asked for the strings: the app itself is shown, or its Sign in page. */
+  /** The server can be asked for the strings: the app itself is shown (to a person or a visitor), or its Sign in page. */
   private canAsk(): boolean {
     const state = this.auth.state();
-    return state === 'ready' || state === 'signed-out';
+    return state === 'ready' || state === 'visiting' || state === 'signed-out';
   }
 
   /**
@@ -531,14 +560,21 @@ export class TranslationService {
    *   not_set_up      the copy has no settings, or its database no tables: the
    *                   page that points at /setup.php — a database without its
    *                   tables says so here first.
-   *   any other 503   (not_up_to_date: an upload still arriving, or a migration
-   *                   that failed; database_unavailable) the problem page, with
-   *                   the reason the server gives the owner's own computer.
+   *   any other 503   (not_up_to_date: a database update waiting for an
+   *                   administrator, or still being uploaded;
+   *                   database_unavailable) the problem page, with the reason
+   *                   the server gives the owner's own computer.
    *
    * The second only as the app starts, or while no bundle is in memory (the
    * page would be in keys): once the app runs with its words, a choice of
    * language that meets a 503 just fails, as any other lost answer — a lesson
    * or a paper somebody is in the middle of is not taken away over it.
+   *
+   * And never for an administrator in the admin panel while an update waits
+   * (not_up_to_date): the Migrations page, where they apply it, answers then,
+   * and the panel is English, written in its pages, with no strings needed
+   * (the bar's own English: standin/kept-word.ts). The problem page links an
+   * administrator there.
    */
   private refused(refusal: BundleRefused, atStart: boolean): void {
     if (refusal.status !== 503) {
@@ -547,6 +583,9 @@ export class TranslationService {
     const body = refusal.body;
     if (isNotSetUp(refusal.status, body)) {
       this.auth.notSetUp((body as ApiErrorBody).reason);
+      return;
+    }
+    if (errorCode(refusal.status, body) === 'not_up_to_date' && this.adminArea() && this.auth.isAdmin()) {
       return;
     }
     if (atStart || !this.ready()) {
@@ -566,7 +605,8 @@ export class TranslationService {
    * own so the tests' stand-in answers without HTTP.
    */
   protected async fetchBundle(code: string): Promise<unknown> {
-    const response = await fetch(`/api/translations/${encodeURIComponent(code)}`, { headers: { Accept: 'application/json' } });
+    // The reader's time zone goes with it, as with every request to this site's API (the words do not depend on it).
+    const response = await fetch(`/api/translations/${encodeURIComponent(code)}`, { headers: { Accept: 'application/json', ...timeZoneHeaders() } });
     if (!response.ok) {
       throw new BundleRefused(response.status, await response.json().catch(() => null));
     }
@@ -589,6 +629,7 @@ export class TranslationService {
    */
   private put(bundle: TranslationBundle, keep = true): void {
     this.values.set(new Map(Object.entries(bundle.values)));
+    this.englishValues.set(bundle.english ? new Map(Object.entries(bundle.english)) : null);
     this.languagesSignal.set(bundle.languages);
     this.languageSignal.set(bundle.language);
     this.fresh = keep;
@@ -597,8 +638,10 @@ export class TranslationService {
     }
   }
 
+  /** The strings the page reads: the reader's language, or English in the admin area (pageLanguage). */
   private strings(): ReadonlyMap<string, string> {
-    return this.values() ?? NO_STRINGS;
+    const english = this.adminArea() ? this.englishValues() : null;
+    return english ?? this.values() ?? NO_STRINGS;
   }
 
   private candidates(): LanguageCandidate[] {
@@ -726,6 +769,11 @@ export class TranslationService {
 
 const NO_STRINGS: ReadonlyMap<string, string> = new Map();
 
+/** An address of the admin area (/admin, /admin/translations, /admin?x): English for everybody. */
+export function isAdminAddress(url: string): boolean {
+  return /^\/admin(?:[/?#]|$)/.test(url);
+}
+
 const PLURAL_RULES = new Map<string, Intl.PluralRules>();
 
 /** The plural rules of a language: only ever asked with a code that passed the pattern. */
@@ -808,32 +856,7 @@ function bundleFrom(raw: unknown): TranslationBundle | null {
   return english ? { language, languages, values, english } : null;
 }
 
-/**
- * localStorage that never throws. It can be missing or refuse writes — a
- * private window, storage switched off, a full quota — and nothing kept in it
- * here is worth breaking a page over. A read that fails is "nothing stored".
- */
-function readStorage(key: string): string | null {
-  try {
-    return globalThis.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: string | null): void {
-  try {
-    if (value === null) {
-      globalThis.localStorage?.removeItem(key);
-    } else {
-      globalThis.localStorage?.setItem(key, value);
-    }
-  } catch {
-    // Nothing to do: the value just will not survive a reload.
-  }
-}
-
-/** sessionStorage, the same way. */
+/** sessionStorage, the way core/storage.ts reads localStorage: never throwing. */
 function readTab(key: string): string | null {
   try {
     return globalThis.sessionStorage?.getItem(key) ?? null;

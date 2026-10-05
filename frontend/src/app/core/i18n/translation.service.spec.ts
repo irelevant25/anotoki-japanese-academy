@@ -111,9 +111,11 @@ describe('TranslationService', () => {
   const server = vi.fn<(code: string) => Promise<unknown>>();
   const state = signal<AppState>('ready');
   const user = signal<{ locale: string | null } | null>(null);
+  const admin = signal(false);
   const auth = {
     state,
     user,
+    isAdmin: admin,
     notSetUp: vi.fn((reason?: string | null) => {
       void reason;
       state.set('not-set-up');
@@ -157,6 +159,7 @@ describe('TranslationService', () => {
     }) as unknown as typeof fetch;
     state.set('ready');
     user.set(null);
+    admin.set(false);
     auth.notSetUp.mockClear();
     auth.cannotStart.mockClear();
     warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -467,6 +470,35 @@ describe('TranslationService', () => {
       service().navigated();
       await settled();
       expect(auth.cannotStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('an administrator in the admin panel while a database update waits: the panel starts, in its English, to apply it — nobody else, nowhere else', async () => {
+      server.mockResolvedValue(NOT_UP_TO_DATE);
+      history.replaceState(null, '', '/admin/migrations');
+      admin.set(true);
+      await service().init();
+      expect(auth.cannotStart).not.toHaveBeenCalled();
+      expect(state()).toBe('ready');
+      expect(service().ready()).toBe(false);
+      service().navigated(); // asked again at the next navigation: still not stopped
+      await settled();
+      expect(auth.cannotStart).not.toHaveBeenCalled();
+
+      for (const [address, isAdmin, refusal] of [
+        ['/admin/migrations', false, NOT_UP_TO_DATE], // an editor
+        ['/', true, NOT_UP_TO_DATE], // an administrator on a learner's page: the page links them there
+        ['/admin/migrations', true, new Refusal(503, { error: 'The database is not reachable.', code: 'database_unavailable' })],
+      ] as [string, boolean, Refusal][]) {
+        TestBed.resetTestingModule();
+        configure();
+        auth.cannotStart.mockClear();
+        state.set('ready');
+        history.replaceState(null, '', address);
+        admin.set(isAdmin);
+        server.mockResolvedValue(refusal);
+        await service().init();
+        expect(auth.cannotStart, `${address}, admin ${isAdmin}`).toHaveBeenCalledTimes(1);
+      }
     });
 
     it('any other refusal is a lost answer like being offline: the keys, after the one retry', async () => {
@@ -1085,5 +1117,44 @@ describe('TranslationService: wording', () => {
     await expect(i18n.reload()).resolves.toBeUndefined();
     expect(i18n.language()).toBe('sk');
     expect(i18n.t('common.close')).toBe('Zavrieť');
+  });
+
+  it('reads in English in the admin area, whatever the reader chose — and in their language again outside it', () => {
+    const i18n = slovak();
+    i18n.noteAddress('/admin/translations?key=home');
+    TestBed.tick();
+    expect(i18n.t('common.close')).toBe('Close');
+    expect(i18n.plural('home.items', 3)).toBe('3 items');
+    expect(i18n.has('common.close')).toBe(true);
+    expect(i18n.pageLanguage()).toBe('en');
+    expect(i18n.locale()).toBe('en-GB');
+    expect(document.documentElement.lang).toBe('en');
+    // The reader's own choice stays: the chooser and the IAM's pages go by it.
+    expect(i18n.language()).toBe('sk');
+
+    i18n.noteAddress('/kanji/administration');
+    TestBed.tick();
+    expect(i18n.t('common.close')).toBe('Zavrieť');
+    expect(i18n.plural('home.items', 3)).toBe('3 položky');
+    expect(i18n.pageLanguage()).toBe('sk');
+    expect(document.documentElement.lang).toBe('sk');
+
+    // "/admin" itself, and only the admin area: an address that merely begins with the word is not it.
+    for (const [url, admin] of [
+      ['/admin', true],
+      ['/admin#people', true],
+      ['/administration', false],
+      ['/', false],
+    ] as const) {
+      i18n.noteAddress(url);
+      expect(i18n.pageLanguage(), url).toBe(admin ? 'en' : 'sk');
+    }
+  });
+
+  it('an English reader’s admin area is simply English', () => {
+    const i18n = english();
+    i18n.noteAddress('/admin');
+    expect(i18n.t('common.close')).toBe('Close');
+    expect(i18n.pageLanguage()).toBe('en');
   });
 });

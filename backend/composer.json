@@ -15,7 +15,7 @@
     "scripts": {
         "start": [
             "Composer\\Config::disableProcessTimeout",
-            "php server.php"
+            "php -S localhost:8200 router.php"
         ]
     },
     "scripts-descriptions": {

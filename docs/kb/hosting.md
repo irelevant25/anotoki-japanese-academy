@@ -10,10 +10,10 @@ meant for `https://japanese.anotoki.eu`, with sign-in through the anotoki IAM
 
 | On this computer | On a hosted site |
 |---|---|
-| `php backend/server.php`: PHP's built-in server, `server.php` as its router | Apache, the site's document root at `public/` (the built app, `index.php`, `.htaccess`): `.htaccess` sends `/api`, `/audio`, `/report` and `/setup.php` to `index.php`, and serves the app's files itself |
+| `composer start` in `backend/`: PHP's built-in server, `router.php` as its router | Apache, the site's document root at `public/` (the built app, `index.php`, `.htaccess`): `.htaccess` sends `/api`, `/audio`, `/report` and `/setup.php` to `index.php`, and serves the app's files itself |
 | both hand the request to the same front controller, `backend/api/front.php`, and the same Slim app | |
-| the start-time work when the server starts: migrations, content rebuild, the day's backup | the same work, lazily: the first request after an upload applies new migrations (a raw copy of every table first) and rebuilds the study content (`backend/src/upkeep.php`); the day's first page load takes the day's backup |
-| auth mode `none` (the owner's computer), or `iam` for a developer | auth mode `iam`: the setup page writes it, and offers nothing else |
+| the start-time work, lazily: nothing at start; the first request after the files changed rebuilds the study content, and a new migration waits for an ADMIN's Apply on the admin panel's Migrations page (a raw copy of every table first); the day's first page load takes the day's backup | the same, after an upload (`backend/src/upkeep.php`) |
+| sign-in through the development IAM (`http://localhost:4300`) | sign-in through `https://iam.anotoki.eu`: the one way there is, on both |
 | the setup page without a token (this computer) | the setup page with a token, which deletes itself when done |
 | Composer's packages from `backend/vendor/` (committed) | the same folder, uploaded: there is no shell to install them |
 
@@ -31,9 +31,9 @@ site that was never set up answers 503 `{"code": "not_set_up"}` (the app shows
 its "not set up yet" page, pointing at `/setup.php`) instead of being set up by
 a passing request. Without its settings the site says so at once; with them
 but with its database missing or without tables, `/api/auth/config` still
-answers (it needs the settings only), so the app starts — on a website with
-its Sign in page — and the first address with data answers `not_set_up`, which
-puts up the same page.
+answers (it needs the settings only: a database it cannot reach just means sign-in is required), so the app starts — a signed-out
+visitor goes to the IAM and back — and the first address with data answers
+`not_set_up`, which puts up the same page.
 
 **Every migration ends with the line `-- end of NNN`**, its own number
 (`001_init.sql`, from before the rule, is exempt). An FTP upload writes a
@@ -45,7 +45,7 @@ changes the stamp, and a request then applies it.
 The raw copy of every table is taken once per upload: a migration that fails
 rolls back, every request answers 503 "The database could not be brought up
 to date with the upload" (the details go to the error log), and each tries it
-again, without another full copy each time. `backups/.before-migration.json`
+again, without another full copy each time. `backend/storage/backups/.before-migration.json`
 notes the stamp and the pending migrations the last copy was taken with;
 while both are the same, the tries are of the same files on the same tables
 (nobody can study while a migration fails), and the copy is still what the
@@ -75,35 +75,42 @@ It sets no `DirectoryIndex` and no `Options`: a host that does not allow those
 in `.htaccess` would answer 500 for the whole site.
 
 On a hosted site, errors reach the browser as a sentence only (the error log
-has the details: a database error names the user and the host), and
+has the details: a database error names the user and the host) - except why
+the Migrations page's Apply stopped, which its ADMIN reads in PostgreSQL's
+own words, as on the IAM's page (and the log has it too) - and
 `/api/health` leaves out the database's name, the backup folder and the owner.
 
-## The build — `npm run build:dist`
+## The build — `backend/tools/build-dist.php`
 
-`php backend/tools/build-dist.php` assembles exactly what to upload, in
+`php backend/tools/build-dist.php` (on this computer, from the top folder:
+`node backend/tools/php.js backend/tools/build-dist.php`) assembles exactly what to upload, in
 `dist/japanese-academy/` (gitignored). It builds the frontend first when its
 sources changed (`frontend/scripts/ensure-build.mjs`; `--frontend=DIR` takes
-an app built elsewhere instead).
+an app built elsewhere instead). It refuses to build (or list) while any
+migration but 001 lacks its last line `-- end of NNN`, and names it: such a
+draft would wait on the site, and the study content with it.
+`--allow-draft=NAMES` is for the tests alone (`test_build()` in
+`backend/tests/lib.php` passes the drafts the tests apply).
 
 | Folder | What | On the host |
 |---|---|---|
 | `public/` | the built Angular app, `index.php` (the front controller) and `.htaccess` | **the document root**: point the (sub)domain here |
-| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`, and an empty `storage/` for the IAM's keys and the setup page's lock (writable by PHP) | beside `public/` |
-| `data/` | what the study content is built from (the `data/` files of `CONTENT_FILES`), and the clips `data/audio/*.mp3` | beside `public/` |
-| `backups/` | empty: the daily copies go here | beside `public/`, writable by PHP |
+| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`; `data/`: what the study content is built from (the `backend/data/` files of `CONTENT_FILES`) and the clips `data/audio/*.mp3`; and an empty `storage/` (writable by PHP) for the daily copies (`storage/backups/`), the IAM's keys and the setup page's lock | beside `public/` |
 
-`backend/`, `backend/storage/`, `data/` and `backups/` each get a `.htaccess`
+Nothing else goes up beside `public/` (until 2026-10-04 the upload had
+`data/` and `backups/` there too; see *Updates* for the one-time move on a
+site that has them). `backend/` and `backend/storage/` each get a `.htaccess`
 that refuses every request, in case the document root ends up above `public/`
-after all. Left out: the tests and tools, `backend/server.php`,
-`backend/manage.php` and `backend/translations.php` (they need a shell; a
-site's words are reworded on its Translations page), `backend/public/` (it became
-`public/`), the frontend's sources, `docs/`, `books/`, `progress/`,
-`results/`, `reports/`, backups, `.env`, every `*.local.php`,
-`node_modules/`, `.claude/`, the launchers, `data/source/`,
-`grammar-index.json`. The build checks the result against that list again,
-checks that what a site needs is there, and parses every PHP file.
+after all. Left out: the tests and tools, `backend/router.php`,
+`backend/manage.php` and `backend/translations.php` (they need a shell or a
+computer; a site's words are reworded on its Translations page),
+`backend/public/` (it became `public/`), the frontend's sources, `docs/`,
+`books/`, backups, `.env`, every `*.local.php`, `node_modules/`, `.claude/`,
+`backend/data/source/`, `grammar-index.json`. The build checks the result
+against that list again (anything outside `public/` and `backend/` is
+refused), checks that what a site needs is there, and parses every PHP file.
 
-- `--no-audio` leaves out `data/audio/`: for an update when no clip changed
+- `--no-audio` leaves out `backend/data/audio/`: for an update when no clip changed
   (an upload never deletes the clips already on the host).
 - `--list` prints what would go in, copying nothing.
 - `--out=DIR` builds elsewhere; DIR is emptied only if it is empty or an
@@ -112,7 +119,7 @@ checks that what a site needs is there, and parses every PHP file.
 ## The first install
 
 1. In the hosting panel, make a PostgreSQL database and a user that owns it.
-2. `npm run build:dist`, then upload `dist/japanese-academy/` into the site's
+2. Build (above), then upload `dist/japanese-academy/` into the site's
    folder, and set the site's document root to its `public/`. Where the panel
    cannot do that - the owner's hosting serves each subdomain from its own
    folder, `sub/<name>/`, as it is - put this `.htaccess` at the top of the
@@ -126,8 +133,8 @@ checks that what a site needs is there, and parses every PHP file.
 
    Every request is then served from `public/`, whose own `.htaccess` routes
    it, and the backend's addresses stay `/api/...`: `front.php` reads the
-   address the browser asked for, which a rewrite leaves alone. `backend/`,
-   `data/` and `backups/` refuse requests by themselves as well. The build
+   address the browser asked for, which a rewrite leaves alone. `backend/`
+   refuses requests by itself as well. The build
    leaves this file out and an update never deletes it, so it is written once,
    by hand; japanese.anotoki.eu runs this way.
 3. Open `https://japanese.anotoki.eu/setup.php`. It writes a random token into
@@ -136,107 +143,242 @@ checks that what a site needs is there, and parses every PHP file.
    it: that is how the setup page knows it is the owner. The page never shows
    it.) Pasted, the token is checked at once (its **Check** button, pressed by
    itself; so it is when the field is left, and Enter in the field presses it
-   rather than send the form; spaces around the token don't count); once it is
-   right, the page fills in what is set already — on a site set up before —
-   and lists the files in `backups/`. Until then it shows none of it: anybody
-   can open the page. The token file is written aside and renamed, and a form
-   without the token never passes, whatever the file holds.
-4. Fill in the database, and press its **Test connection**: it says whether it
-   connects and what the database holds. Then the IAM's address
+   rather than send the form; spaces around the token don't count). The
+   page never shows what is saved, before the token or after: anybody can
+   open it. The token file is written aside and renamed, and a form without
+   the token never passes, whatever the file holds.
+4. Fill in the database (the name `anotoki_japanese` and the port 5432 are
+   filled in), and press its **Test connection**: it says, in the words every
+   anotoki site's setup page uses, whether it connects and what **Save** would
+   do there (make the tables, apply N updates, create the database, or nothing:
+   up to date). Then the IAM's address
    (`https://iam.anotoki.eu`) and the client id (`japanese-academy`), and its
    **Test connection**: the IAM's discovery document must name that address,
    and its keys must be readable from the server. The buttons send the form's
    fields with the token, and change nothing.
-5. The time zone (the browser fills in its own; review times and days follow
-   it, for everybody), and your IAM user id (the IAM's admin console lists it
-   under Users; the owner's is usually 1).
-6. Optionally, your data: a backup file from your computer (below), sent with
-   the form, or — when it is bigger than the host accepts in a form — put in
-   the site's `backups/` folder by FTP first and chosen from the list (it
-   shows once the token is in). It goes into that user id, which must have no
-   study data yet.
-7. **Set up**. It connects (and makes the database only if it is missing and
-   the user may), writes `backend/config/database.local.php`,
-   `auth.local.php` (`mode iam`, the issuer, the client id) and
-   `app.local.php` (readable by their owner only), applies the migrations,
-   builds the study content (a few seconds), imports the backup, checks that
-   the server can fetch the IAM's keys, writes
+   That is all it asks: no sign-in mode, no owner id (who may administer is a
+   role at the IAM), no time zone, no backup (each person brings their own
+   data in the app).
+5. **Save**. It connects (and makes the database only if it is missing and
+   the user may), writes `backend/config/database.local.php` and
+   `auth.local.php` (the issuer, the client id; readable by their owner
+   only), applies the migrations, builds the study content (a few seconds),
+   checks that the server can fetch the IAM's keys, writes
    `backend/storage/installed.lock`, and deletes the token file and itself.
 
 With the lock there, the setup page refuses to run again (and removes itself
-if it was uploaded again). To run it on purpose — say, to import a backup
-after all — delete `backend/storage/installed.lock` and upload
-`backend/setup.php` again; its settings fill in once the token is in (the
-password stays as saved when left empty). Run again on a site in use, it
-takes the same raw copy of every table as a request would before it applies
-any new migration, and it stops (to be sent again) while a migration is not
+if it was uploaded again). To run it on purpose, delete
+`backend/storage/installed.lock` and upload `backend/setup.php` again; fill in
+the settings again (it shows none of the saved ones; the password stays as
+saved when left empty). Run again on a site in use, it
+takes the same raw copy of every table as the Migrations page's Apply does
+before it applies any new migration, under the same lock (never at the same
+moment as an Apply), and it stops (to be sent again) while a migration is not
 whole yet. A request that names a host other than 127.0.0.1 or localhost
 always gets this way, even under PHP's built-in server.
 
 ## Updates
 
-`npm run build:dist` (or `-- --no-audio`) and upload over the old files. The
-upload never touches `backend/config/*.local.php`, `backend/storage/` or
-`backups/` on the host, which the build doesn't contain. The first request
-afterwards applies new migrations (after a raw copy of every table in
-`backups/`) and rebuilds the study content if `data/` or its builders changed.
-`backend/setup.php` may be left out of an update; uploaded, it only removes
-itself.
+Build (or with `--no-audio`) and upload over the old files. The
+upload never touches `backend/config/*.local.php` or `backend/storage/` on
+the host, which the build doesn't contain (but its `.htaccess`). An update
+with a new migration: once it is all there, the site says it is not up to
+date (503 `not_up_to_date`; the problem page, with a link for an `ADMIN`)
+until an `ADMIN` opens the admin panel's **Migrations** page and presses
+**Apply pending** — after a raw copy of every table in
+`backend/storage/backups/`, each file rolled back whole if it fails, which
+stops the run there and names it. The first request after that (or after an
+update without one) rebuilds the study content if `backend/data/` or its
+builders changed. `backend/setup.php` may be left out of an update;
+uploaded, it only removes itself.
+
+### The one-time move of `data/` and `backups/` (the update of 2026-10)
+
+A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
+and `backend/`; this version reads the study content from `backend/data/`
+and keeps the backups in `backend/storage/backups/`. Update it in this
+order, so the old code never runs against moved files, and so no backup is
+lost:
+
+1. **Upload the build** made with `--no-audio` (it brings the content files,
+   `backend/data/*.json` and the hand-written items, so the new code finds
+   them; the 4,000 clips are already on the server). The first request
+   rebuilds the study content from the new paths; only the clips 404 for the
+   few minutes until step 2.
+2. **Move the clips on the server**: rename (move) `data/audio/` to
+   `backend/data/audio/` in the FTP client, a server-side move, nothing sent
+   again.
+3. **Move the backups**: every file of `backups/` into
+   `backend/storage/backups/` (make that folder if the upload did not),
+   `.before-migration.json` included (a dotfile: make the FTP client show
+   hidden files). Download a copy of them first, and check the count after.
+   The site may have written into the new folder since step 1 (the day's
+   copy, a raw copy and its note): a file of the same name already there is
+   the newer one, keep it and drop the old.
+4. **Delete the old folders**: the root `data/` (by then only its
+   `.htaccess`, `vocab.json` and the rest of the old content files) and the
+   empty `backups/`.
+5. **Open the site**, sign in as an `ADMIN`, apply the migrations of this
+   version on the Migrations page (after a raw copy of every table), then
+   check the home page and an answer: the content is current
+   (`/api/health` says `contentCurrent: true`).
+
+Only then IAM migration 007 (it removes the role `MEMBER`; this version
+already welcomes a token with no role).
+
+**The IAM's "Sign-in required" switch (IAM migration 010).** IAM 010 gives
+every account `MEMBER` again; this site takes a token with it as an ordinary
+learner, so the two may go live in either order. The site reads the switch
+from the IAM (`GET {issuer}/api/public/applications/japanese-academy`, an
+outbound HTTPS request like the one for the keys, at most once a minute,
+waiting at most 2 s; [sign-in.md](sign-in.md), *Is sign-in required here?*)
+and keeps the answer in `backend/storage/cache/`, which must stay writable by
+PHP (otherwise it asks on every request and says so in the error log). Before
+IAM 010 that address is a 404, which means "required": nothing changes. And
+while the database cannot keep visitors (migration 007 not applied yet: it
+waits for an ADMIN's Apply after the upload) the site requires sign-in
+whatever the switch says (*Visitors on the site*, below).
 
 Mid-upload, a request can see new code with old files or the other way round;
 it fails, and a later one does the work once everything is there. A migration
 that is only half there waits for its last line (above). A paper started
 before the content changed can't be submitted afterwards (409), as on this
-computer after a restart. A browser that still has the old app open loads the
+computer after a data change. A browser that still has the old app open loads the
 new one at its next page load (`index.html` is never cached).
 
 **The app's words (migration 004, and every later one with strings).** 004
 makes the three translation tables and fills them; it changes no study table.
-On a site it is applied like any migration: by the first request after the
-upload, under the upkeep lock, after the raw copy of every table. While its
+On a site it is applied like any migration: by an `ADMIN`'s Apply on the
+Migrations page, under the upkeep lock, after the raw copy of every table. While its
 file is still arriving (no `-- end of 004` yet) the bundle of words,
 `/api/translations/{code}`, answers 503 `not_up_to_date` and logs nothing,
 and a page that starts then shows the problem page ("The database is not up
-to date with the uploaded version of the app yet. Try again in a moment; …");
-a reload once the upload is whole
-shows the app. Strings the owner reworded
+to date with this version of the app yet: …"); once the upload is whole it
+waits for the Apply like any migration. Strings the owner reworded
 on the site survive later migrations — a migration's insert steps aside for
 a row that is there —, but the site and this computer each hold their own
 strings: export the site's languages (the Translations page) before an upload
 that changes strings, all the same, and carry a change from one copy to the
 other by export and import.
 
-## Moving the owner's data to the site
+## Visitors on the site
 
-The owner's real data is in their computer's database. There:
+**The update that brings them** (2026-10-05): upload, then an `ADMIN` applies
+**006 and 007** on the Migrations page (006 too when the site has not got it
+yet; the page lists what waits, in order, and takes the raw copy first). 007
+adds the visitors' columns and their words and changes no row of anybody's.
+Nothing else changes that day: the site requires sign-in until IAM 010 is
+live **and** the owner unticks "Sign-in required" for Japanese Academy in the
+IAM (the two in either order; before IAM 010 the IAM's answer is a 404,
+which means required).
 
-1. Update the repository and run `start.ps1`: it opens the setup page, which
-   takes a raw copy of every table, applies migrations 002 and 003 (the data
-   becomes user 1's) and keeps auth mode `none` (README, *Updating from the
-   version before*).
-2. `php backend/manage.php --backup` writes `backups/academy-manual-<time>.json`.
-   (A daily backup from before the update, format version 1, works as well.)
-3. Give that file to the website's setup page (step 6 above), with the owner's
-   IAM user id at `iam.anotoki.eu`.
+Once migration 007 is applied and the owner turns "Sign-in required" off for
+Japanese Academy in the IAM, people may study without signing in
+([sign-in.md](sign-in.md), *Visitors*). Nothing to set up for it: every
+number has a default. To change one, put a `backend/config/app.local.php` on
+the site by FTP (optional, gitignored, never written by the setup page; a
+copy from before 2026-10-04 may still hold an old `'timezone'`, which is
+ignored):
 
-If the owner's id at the hosted IAM is not 1, give the same id in the setup
-page on the computer (or run `php backend/manage.php --owner-id=N` there), so
-both copies agree.
+```php
+<?php
+return [
+    'visitors' => [
+        'keep_days' => 30,                 // unseen this long: deleted with all of their data
+        'max' => 300,                      // visitors at once; full, NEW visitors get 429 too_many_visitors
+        'new_per_hour_per_address' => 10,  // an IPv6 address counts by its /64
+        'new_per_hour' => 60,              // from all addresses
+        'max_attempts' => 10,              // exam attempts one visitor keeps
+        'max_answers' => 20000,            // lines of one visitor's answer log
+    ],
+    // Behind Cloudflare's proxy every request comes from Cloudflare: list its
+    // ranges (https://www.cloudflare.com/ips/) so the visitor's own address
+    // (CF-Connecting-IP) is counted, not Cloudflare's. Nothing else trusts a header.
+    'client_address' => [
+        'trusted_proxies' => ['173.245.48.0/20', '…'],
+        // 'client_ip_header' => 'CF-Connecting-IP',
+    ],
+];
+```
+
+`backend/storage/cache/` holds the visitors' address secret
+(`visitor-address.key`, made the first time; losing it only restarts the
+hour's counts) and the sweep's stamp: it must stay writable by PHP, as for
+the IAM's keys. Under Apache an `X-Visitor-Key` header reaches PHP as it is
+(no rewrite needed, unlike `Authorization`); check it once on the host when
+the switch is first turned off (a visitor's second page shows their progress).
+A signed-in person's request always leaves the browser with its token - it
+never sends one of theirs without it (docs/kb/sign-in.md, *Visitors in the
+browser*) - but the server only sees what the host passes on. A host that
+dropped `Authorization` answers them 401 only while sign-in is required;
+**with the switch off it makes each signed-in save a new visitor's** (200 and
+an `X-Visitor-Key`), kept under a key nobody holds and swept after 30 days.
+The browser refuses such an answer (a person's request answered with a key
+fails as `server_error`: the page says it was not saved, the key is not
+kept), so nothing is lost silently - but nothing is saved either. Check it
+once on the host with the switch off: sign in, answer one lesson card; the
+answer (the browser's network tab) carries no `X-Visitor-Key`, no error is
+shown, and the item shows in the account after a reload.
+
+**How much room.** Measured on 2026-10-05: an exam attempt of 100 questions
+is about 25 KB of attempt and 67 KB of report (about 18 KB stored, as
+PostgreSQL compresses them), the largest paper (1,200 questions) 258 KB and
+611 KB (about 130 KB stored); a line of the answer log about 120 bytes. So
+one visitor at both caps keeps at most about 4 MB on disk (10 of the largest
+attempts, 20,000 answers, their items), and 300 of them about 1.2 GB - a
+worst case nobody reaches by studying, but somebody could on purpose. Lower
+`max_attempts`, `max_answers` or `max` when the host's database is small.
+
+**Watching it.** `GET /api/admin/visitors` (ADMIN; a line on the People page:
+"Visitors (not signed in): N, the oldest seen …") says how many visitors there are and the longest unseen;
+`manage.php --check` counts them. Somebody who makes visitors from many
+addresses (10 an hour from each) can fill the 300 in hours, and they then
+stay for their 30 days: new visitors are refused (people who sign in never
+are) until the sweep deletes them. There is no earlier sweep of visitors who
+never came back (the notice promises 30 days); if it happens, lower
+`keep_days` or raise `max` for a while, or require sign-in again (the
+visitors' keys then open nothing, and their data waits for its 30 days).
+
+## Moving somebody's data to the site
+
+The setup page brings nobody's data in any more. Each person's data is under
+their IAM user id; the owner's is user 1, on their computer and at
+`iam.anotoki.eu` alike. Each person moves their own: on the computer they
+download their data file (`GET /api/me/data`), on the site they bring it
+back (`PUT /api/me/data`), which replaces what they have there after a copy
+of it in the site's backups ([architecture.md](architecture.md), *Your own
+data*; the pages for it come with the frontend's change). A file of another
+copy of the app may carry another user id: it goes into the account of
+whoever brings it.
+
+How big a file the site takes is a 24th of PHP's `memory_limit` (at most
+16 MiB): about 5.3 MiB with the usual 128 MB. A bigger one is refused with
+413 `too_large` and the limit, and changes nothing; raising `memory_limit` in
+the hosting panel raises it. `post_max_size` does not count (the file is the
+body of a PUT, not a form). The owner's whole backup was 117 KB on 2026-10-01.
+
+A backup goes back on a computer with `php backend/manage.php
+--restore=FILE` (a backup of everybody, or a copy of some people's data
+alone, which replaces only theirs). Version 1 files, from before user ids,
+are no longer read: every backup there is is version 2.
 
 ## Backups on the site
 
-The same files as on this computer, in the site's `backups/`: the day's copy
-(of everybody's data, taken at the first page load of a day; the last 14
-kept), one before somebody's reset (of that person's data alone,
-`academy-before-reset-user-<id>-<time>.json`; their last 14 kept), a raw
+The same files as on this computer, in the site's `backend/storage/backups/`: the day's copy
+(of everybody's data, taken at the first page load of a UTC day; the last 14
+kept; every date and time in a backup's name is UTC), one of a person's data
+alone before their reset, before they bring a file back and before an
+administrator deletes their data, and before what they studied without
+signing in moves into their account (`academy-before-reset-user-<id>-<time>.json`,
+`…-before-import-…`, `…-before-delete-…`, `…-before-move-…`; their last 14 of
+each kept; never a visitor's data, which is in no backup), a raw
 copy before a migration, and the strings of a language the owner deleted
 (`academy-before-language-delete-<code>-<time>.json`). A copy of everybody
 also holds the app's words as the owner reworded them (`translations`); a
 restore passes them over, and on a computer `php backend/translations.php
 --import <code> <file>` takes a language's strings from it. Download them by
 FTP now and then: they are the only copy outside the host's database. There is no restore on the site; a backup
-restores on a computer with `php backend/manage.php --restore=FILE`, or goes
-back to the site through the setup page's import (one person at a time).
+restores on a computer with `php backend/manage.php --restore=FILE`.
 
 ## If something is wrong
 
@@ -246,11 +388,14 @@ back to the site through the setup page's import (one person at a time).
 | every API request is 401 while signed in | the `Authorization` header does not reach PHP: the host dropped both `.htaccess` lines |
 | "Sign in again" right after signing in | the server cannot fetch the IAM's keys (outbound HTTPS blocked?), or the issuer or client id in `backend/config/auth.local.php` is not the IAM's |
 | the app says "not set up yet" at once | the setup page has not run: `backend/config/*.local.php` are missing |
-| the app says "not set up yet" after the Sign in page, at the first screen with data | the settings are there, but the database they name is missing or has no tables (made again in the panel, say): run the setup page again |
-| 503 "could not be brought up to date with the upload" (the page: the database is not up to date, and a reload does not help) | a new migration fails: the error log names it and says why (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Every request tries it again; upload the fixed file |
-| a new migration is not applied, and nothing says why | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
-| right after an upload the page says the database is not up to date with the uploaded version yet, then a reload shows the app | migration 004 (the app's words) was still arriving: the bundle answers 503 `not_up_to_date` until it is whole |
+| the app says "not set up yet" after signing in, at the first screen with data | the settings are there, but the database they name is missing or has no tables (made again in the panel, say): run the setup page again |
+| the page says the database is not up to date with this version of the app yet | a new migration waits for an `ADMIN`: sign in as one, follow **Open the Migrations page**, and **Apply pending** |
+| Apply says "Stopped at NNN_….sql" | that migration failed and was rolled back whole (the ones before it stay applied); the box under it says why, in PostgreSQL's own words, and the error log has it too (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Upload the fixed file and Apply again; the raw copy is taken again only when the files changed |
+| Apply says the database is being brought up to date already (409) | another Apply, the setup page or `manage.php` held the lock for longer than Apply waits for it (10 s; the requests that look while a migration waits hold it only for a moment): let that one finish, then Apply again |
+| Apply says "Applied - one still waits" | the files before it are applied; the one named has no last line yet (still uploading): upload it whole, then Apply again |
+| a new migration is listed as "not whole yet", and Apply stays off | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
 | the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
-| the API answers 403 "Sign-in is off here" | `backend/config/auth.local.php` says auth mode `none`: a website needs `iam` |
+| the app says "not set up yet", and to this computer "sign-in without the IAM is gone" | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone: run the setup page and save |
 | the app shows, `/api/...` answers 404 | `mod_rewrite` is off, or the document root is not `public/` |
+| right after the update of 2026-10 the listening questions are silent and `/audio/...` answers 404 | the clips are still in the old `data/audio/`: move them to `backend/data/audio/` (*Updates*, the one-time move) |
 | a page's address (`/kanji/reviews`) answers 404 on reload | `mod_rewrite` is off: the app's own addresses need the `index.html` rewrite |

@@ -8,8 +8,12 @@
  * Losing weeks of SRS history would be the worst thing this app could do, so:
  *   - every answer is saved in one transaction: the item, the day's count and
  *     the log line land together or not at all
- *   - srs_log gets every answer and every reset, and is never rewritten
- *   - a copy of everything goes to backups/ once a day, when the server
+ *   - srs_log gets every answer and every reset, and a person's lines are
+ *     never rewritten. The one change: a visitor's lines (somebody who
+ *     studied without signing in, a negative user id) become the person's
+ *     when they sign in - all but the visitor's resets of what the person
+ *     kept (visitors_move() in src/visitors.php)
+ *   - a copy of everything goes to backend/storage/backups/ once a day, when the server
  *     starts, and before a full reset (src/backup.php)
  *
  * The item records have the shape srs_blank() gives them — the shape the
@@ -258,12 +262,17 @@ function store_export(int $uid): array
 
 /**
  * A full reset of one person's progress: every item and day count goes, the
- * settings and the log stay. Their data is backed up first.
+ * settings and the log stay. Their data is backed up first - a person's: a
+ * visitor (a negative id, src/visitors.php) has no data file, and their reset
+ * takes no copy.
  */
 function store_reset(int $uid): void
 {
-    backup_before_reset($uid);
+    if ($uid > 0) {
+        backup_before_reset($uid);
+    }
     db_tx(static function () use ($uid): void {
+        users_hold($uid);
         db_exec('DELETE FROM srs_progress WHERE user_id = ?', [$uid]);
         db_exec('DELETE FROM srs_daily WHERE user_id = ?', [$uid]);
         db_exec('INSERT INTO srs_settings (user_id) VALUES (?) ON CONFLICT (user_id) DO UPDATE SET created_at = now(), updated_at = now()', [$uid]);

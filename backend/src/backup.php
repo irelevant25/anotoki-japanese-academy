@@ -2,38 +2,43 @@
 /**
  * The study data outside the database, and back in.
  *
- * Backups, in backups/ at the repository's root (gitignored; on a hosted site
- * the site's backups/, beside public/):
- *   academy-2026-09-24.json                the day's copy, taken when the server starts or at the
- *                                          day's first page load (the last 14 are kept)
+ * Backups, in backend/storage/backups/ (gitignored; on a hosted site the
+ * same folder of the upload, outside the document root). Every date and time
+ * in a name is UTC, whoever's request wrote it:
+ *   academy-2026-09-24.json                the day's copy, taken at the day's first page load
+ *                                          (the last 14 are kept)
  *   academy-before-reset-user-<id>-<time>.json   before somebody's full reset of their kanji
  *                                          progress: that person's data alone (their last 14 are kept)
+ *   academy-before-import-user-<id>-<time>.json  before somebody brings their data back from a
+ *                                          file (src/me.php): what it replaces (their last 14 kept)
+ *   academy-before-delete-user-<id>-<time>.json  before an administrator deletes somebody's
+ *                                          data (src/people.php): all of it (their last 14 kept)
+ *   academy-before-move-user-<id>-<time>.json    before what somebody studied without signing in
+ *                                          moves into their account (src/visitors.php): theirs as it
+ *                                          was (their last 14 kept)
  *   academy-before-restore-<time>.json     before manage.php --restore replaces everything
- *   academy-before-owner-change-<time>.json   before the owner's data gets a new user id
- *                                          (manage.php --owner-id, or the setup page)
  *   academy-manual-<time>.json             php backend/manage.php --backup
  *   academy-before-migration-<time>.raw.json   every table as it was, before a migration
  *                                          is applied (see backup_write_raw())
- *   academy-before-language-delete-<code>-<time>.json   a language's own strings, before the owner
- *                                          deletes it (translations_copy() in src/translations.php):
- *                                          a flat {key: text}, not a backup of anybody's data
+ *   academy-before-language-delete-<code>-<time>.json   a language's own strings, before an
+ *                                          administrator deletes it (translations_copy() in
+ *                                          src/translations.php): a flat {key: text}, not a backup
+ *                                          of anybody's data
  * Each .json holds everything the database knows, per person: their kanji
- * progress, their answer log, every exam attempt with its report — of
- * everybody, or (a before-reset copy, "everybody": false) of the people it
- * names. php backend/manage.php --restore=<file> puts it back. This is format
- * version 2; version 1, from before people had user ids, held the owner's data
- * alone, and restores into the owner's account (auth.local_user_id).
+ * progress, their answer log, every exam attempt with its report, their time
+ * zone — of everybody, or (a copy of somebody's data alone, "everybody":
+ * false) of the people it names. Never a visitor's (src/visitors.php): a copy
+ * of everybody holds people alone, and its restore deletes the visitors.
+ * php backend/manage.php --restore=<file> puts
+ * it back. This is format version 2, the format of a person's own data file
+ * too (GET /api/me/data). Version 1, from before people had user ids, is no
+ * longer read: every backup there is is version 2.
  *
- * A copy of everybody also holds the app's own words, as the owner reworded
- * them: "translations", {languages, values: {code: {key: text}}}. They are the
- * site's, not anybody's study data: backup_read() and a restore pass them
- * over, and php backend/translations.php --import <code> <file> puts a
+ * A copy of everybody also holds the app's own words, as reworded in the
+ * admin area: "translations", {languages, values: {code: {key: text}}}. They
+ * are the site's, not anybody's study data: backup_read() and a restore pass
+ * them over, and php backend/translations.php --import <code> <file> puts a
  * language's strings back from such a file.
- *
- * The import: the JSON files the app kept before it used a database
- * (progress/kanji.json, progress/kanji-log.jsonl, results/*.json,
- * reports/*.html). The setup page reads them once, into the owner's account in
- * an empty database. They are only read, never changed.
  */
 
 declare(strict_types=1);
@@ -43,7 +48,7 @@ const BACKUP_VERSION = 2;
 const DAILY_BACKUP = '/^academy-\d{4}-\d{2}-\d{2}\.json$/D';
 
 /**
- * Where the backups go: backups/ at the repository's root. A throwaway
+ * Where the backups go: backend/storage/backups/. A throwaway
  * database of the tests (academy_test_…) keeps its copies elsewhere — the
  * folder its settings name (app.backups_dir), or one in the temp folder: they
  * must never pass for yours — a throwaway day's copy would stand in for your
@@ -57,14 +62,23 @@ function backup_dir(): string
             ? str_replace('\\', '/', app_path($dir))
             : str_replace('\\', '/', sys_get_temp_dir()) . '/academy-backups-' . db_name();
     }
-    return str_replace('\\', '/', ROOT) . '/backups';
+    return str_replace('\\', '/', BACKEND) . '/storage/backups';
 }
 
-/** Is there anybody's study data in the database? */
-function learner_has_data(): bool
+/**
+ * Is there anybody's study data in the database? People's only, unless
+ * $visitorsToo: a visitor's (user_id < 0, src/visitors.php) is in no backup,
+ * so it never makes a day's copy that would hold nobody and push a real one
+ * out of the last 14 - but it is in the raw copy before a migration
+ * (upkeep_copy_before(), which asks with $visitorsToo). Before migration 007
+ * there are no visitors, and before 002 no user_id to ask by: every row is
+ * somebody's.
+ */
+function learner_has_data(bool $visitorsToo = false): bool
 {
-    return (bool) db_value('SELECT EXISTS (SELECT 1 FROM srs_progress) OR EXISTS (SELECT 1 FROM srs_daily)
-        OR EXISTS (SELECT 1 FROM srs_log) OR EXISTS (SELECT 1 FROM exam_attempts)');
+    $whose = !$visitorsToo && visitors_ready() ? ' WHERE user_id > 0' : '';
+    return (bool) db_value("SELECT EXISTS (SELECT 1 FROM srs_progress$whose) OR EXISTS (SELECT 1 FROM srs_daily$whose)
+        OR EXISTS (SELECT 1 FROM srs_log$whose) OR EXISTS (SELECT 1 FROM exam_attempts$whose)");
 }
 
 /** Has this person any study data here? (Settings alone are none.) */
@@ -77,7 +91,7 @@ function learner_has_data_of(int $uid): bool
     );
 }
 
-/** One person's data, in the shape a version-1 backup held the owner's. */
+/** One person's study data: their kanji progress (with their settings and day counts), answer log and exam attempts. */
 function backup_person(int $uid): array
 {
     return ['kanji' => store_export($uid), 'log' => store_log_all($uid), 'attempts' => exam_attempts_all($uid)];
@@ -87,9 +101,9 @@ function backup_person(int $uid): array
  * Everything the database knows about everybody, in one document — or, given
  * $only (user ids), about those people alone: 'everybody' says which, and a
  * restore of the second kind replaces only their data. A copy of everybody
- * also holds 'translations', the app's own words as the owner reworded them
+ * also holds 'translations', the app's own words as reworded in the admin area
  * (translations_backup()): the format stays version 2, and older files stay
- * valid without it.
+ * valid without it (or without a person's timeZone).
  */
 function backup_data(?array $only = null): array
 {
@@ -97,7 +111,7 @@ function backup_data(?array $only = null): array
         $people = users_all();
         if ($only !== null) {
             $known = array_column($people, null, 'id');
-            $people = array_map(static fn (int $id): array => $known[$id] ?? ['id' => $id, 'username' => null, 'createdAt' => null, 'lastSeenAt' => null], $only);
+            $people = array_map(static fn (int $id): array => $known[$id] ?? ['id' => $id, 'username' => null, 'createdAt' => null, 'lastSeenAt' => null, 'timeZone' => null], $only);
         }
         $data = [
             'format' => BACKUP_FORMAT,
@@ -117,6 +131,8 @@ function backup_data(?array $only = null): array
  * Writes a backup and returns its path. 'daily' names it after today;
  * anything else is a label with the time: academy-manual-20260924-143512-123.json.
  * One of some people alone ($only) names them: academy-before-reset-user-7-….json.
+ * The date and the time are UTC's. A name already taken (two copies in the
+ * same millisecond) gets -2, -3 …: a copy never replaces another.
  * Written aside first, so a cut-off write never looks like a finished backup.
  */
 function backup_write(string $label, ?array $only = null): string
@@ -126,23 +142,42 @@ function backup_write(string $label, ?array $only = null): string
         throw new RuntimeException("Cannot create the backup folder $dir");
     }
     $now = now_ms();
-    $name = $label === 'daily'
-        ? 'academy-' . local_date($now) . '.json'
-        : 'academy-' . $label . ($only !== null ? '-user-' . implode('-', $only) : '') . '-' . local_time($now)->format('Ymd-His-v') . '.json';
-    $file = "$dir/$name";
+    if ($label === 'daily') {
+        $file = "$dir/academy-" . utc_date($now) . '.json';
+    } else {
+        $stem = "$dir/academy-$label" . ($only !== null ? '-user-' . implode('-', $only) : '') . '-' . utc_stamp($now);
+        $file = "$stem.json";
+        for ($n = 2; is_file($file); $n++) {
+            $file = "$stem-$n.json";
+        }
+    }
     file_put_atomic($file, json_text(backup_data($only)) . "\n");
     return $file;
 }
 
 /**
  * Before somebody's full reset: their data alone. A reset changes nobody
- * else's, and a copy of everybody's at every reset would fill backups/ as
+ * else's, and a copy of everybody's at every reset would fill the backups as
  * people come and go. Their last BACKUPS_KEEP copies are kept.
  */
 function backup_before_reset(int $uid): string
 {
-    $file = backup_write('before-reset', [$uid]);
-    $theirs = glob(backup_dir() . "/academy-before-reset-user-$uid-*.json") ?: [];
+    return backup_person_copy('before-reset', $uid);
+}
+
+/**
+ * A copy of one person's data alone, before something replaces or deletes it
+ * ($label: before-reset, before-import, before-delete, before-move), keeping
+ * their last BACKUPS_KEEP copies of that kind. Returns its path. Never of a
+ * visitor's: a visitor has no data file (src/visitors.php).
+ */
+function backup_person_copy(string $label, int $uid): string
+{
+    if ($uid < 1) {
+        throw new RuntimeException("A copy of a person's data, and $uid is no person.");
+    }
+    $file = backup_write($label, [$uid]);
+    $theirs = glob(backup_dir() . "/academy-$label-user-$uid-*.json") ?: [];
     sort($theirs); // the time in the name sorts as it reads
     foreach (array_slice($theirs, 0, max(0, count($theirs) - BACKUPS_KEEP)) as $old) {
         @unlink($old);
@@ -166,25 +201,26 @@ function backup_write_raw(string $label): string
     foreach (db_all("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name") as $t) {
         $name = $t['table_name'];
         if (in_array($name, ['srs_items', 'exam_questions', 'content_state'], true)) {
-            continue; // the study content: rebuilt from data/
+            continue; // the study content: rebuilt from backend/data/
         }
         $tables[$name] = json_decode((string) db_value('SELECT coalesce(json_agg(t), \'[]\') FROM "' . str_replace('"', '""', $name) . '" t'), true);
     }
     $now = now_ms();
-    $file = "$dir/academy-$label-" . local_time($now)->format('Ymd-His-v') . '.raw.json';
+    $file = "$dir/academy-$label-" . utc_stamp($now) . '.raw.json';
     file_put_atomic($file, json_text(['format' => 'japanese-academy-tables', 'takenAt' => iso_time($now), 'database' => db_name(), 'tables' => $tables]) . "\n");
     return $file;
 }
 
 /**
  * The day's backup, if the database holds anything and today has none yet.
- * Keeps the last BACKUPS_KEEP daily copies. Runs when the server
- * starts, and at the first page load of a new day (for a server left running
- * overnight, and on a hosted site) — never inside an answer.
+ * The day is UTC's, whoever's page load it is: a person's own zone would let
+ * somebody far east take tomorrow's copy today. Keeps the last BACKUPS_KEEP
+ * daily copies. Runs at the first page load of a new day — never inside an
+ * answer.
  */
 function backup_daily(): ?string
 {
-    $file = backup_dir() . '/academy-' . local_date() . '.json';
+    $file = backup_dir() . '/academy-' . utc_date() . '.json';
     if (is_file($file) || !learner_has_data()) {
         return null;
     }
@@ -197,7 +233,7 @@ function backup_daily(): ?string
     return $file;
 }
 
-/** A backup file, checked to be one: version 1 (the owner's data) or 2 (everybody's). */
+/** A backup file, checked to be one: version 2 (everybody's data, or some people's). */
 function backup_read(string $file): array
 {
     $data = read_json($file);
@@ -205,29 +241,25 @@ function backup_read(string $file): array
         throw new RuntimeException("$file is not a Japanese Academy backup.");
     }
     $version = $data['version'] ?? null;
-    if ($version !== 1 && $version !== BACKUP_VERSION) {
+    if ($version !== BACKUP_VERSION) {
         throw new RuntimeException("$file is a backup of another version of Japanese Academy (format " . js_string($version) . ').');
     }
-    if ($version === BACKUP_VERSION && !is_array($data['users'] ?? null)) {
+    if (!is_array($data['users'] ?? null)) {
         throw new RuntimeException("$file is not a Japanese Academy backup (it lists no people).");
     }
-    if ($version === BACKUP_VERSION && !array_filter($data['users'], 'is_array')) {
+    if (!array_filter($data['users'], 'is_array')) {
         throw new RuntimeException("$file holds nobody's data: there is nothing in it to restore or import.");
     }
     return $data;
 }
 
 /**
- * One person's data out of a backup (the setup page's import): all of a
- * version-1 file; from a version-2 file its only person, or the one with the
- * user id $pick when it holds several.
+ * One person's data out of a backup (an import into one account): its only
+ * person, or the one with the user id $pick when it holds several.
  */
 function backup_person_in(array $data, ?int $pick = null): array
 {
-    if (($data['version'] ?? null) === 1) {
-        return $data;
-    }
-    $people = array_values(array_filter($data['users'] ?? [], 'is_array'));
+    $people = array_values(array_filter(is_array($data['users'] ?? null) ? $data['users'] : [], 'is_array'));
     if (count($people) === 1) {
         return $people[0];
     }
@@ -244,21 +276,15 @@ function backup_person_in(array $data, ?int $pick = null): array
 }
 
 /**
- * Puts a backup back (manage.php --restore), in one transaction. A version-2
- * file of everybody is the whole database: everybody's study data is replaced
- * by the file's. One of some people alone (a before-reset copy) replaces
- * their data and nobody else's, as does a version-1 file, which is the
- * owner's (auth.local_user_id). A file that holds nobody is refused before
- * anything is deleted. Returns the counts, with 'people'.
+ * Puts a backup back (manage.php --restore), in one transaction. A file of
+ * everybody is the whole database: everybody's study data is replaced by the
+ * file's. One of some people alone (a copy before a reset, an import or a
+ * delete) replaces their data and nobody else's. A file that holds nobody is
+ * refused before anything is deleted. Returns the counts, with 'people'.
  */
 function backup_restore(array $data): array
 {
     return db_tx(static function () use ($data): array {
-        if (($data['version'] ?? null) === 1) {
-            $owner = auth_local_user_id();
-            users_ensure($owner);
-            return ['people' => 1] + learner_import($owner, $data, true);
-        }
         $people = array_values(array_filter(is_array($data['users'] ?? null) ? $data['users'] : [], 'is_array'));
         if (!$people) {
             throw new RuntimeException('That backup holds nobody\'s data, so nothing was restored.');
@@ -269,6 +295,9 @@ function backup_restore(array $data): array
             foreach ($tables as $table) {
                 db_exec("DELETE FROM $table");
             }
+            // The visitors go too (src/visitors.php): a backup holds none, and what they studied went above.
+            db_exec('DELETE FROM imports WHERE user_id < 0');
+            db_exec('DELETE FROM users WHERE id < 0');
         }
         $counts = ['people' => 0, 'items' => 0, 'days' => 0, 'log' => 0, 'attempts' => 0, 'reports' => 0];
         foreach ($people as $person) {
@@ -289,6 +318,10 @@ function backup_restore(array $data): array
                     $id,
                 ]
             );
+            $zone = time_zone_known($person['timeZone'] ?? null);
+            if ($zone !== null) {
+                users_set_time_zone($id, $zone);
+            }
             foreach (learner_import($id, $person) as $key => $n) {
                 $counts[$key] += $n;
             }
@@ -325,72 +358,13 @@ function file_put_atomic(string $file, string $content): void
     }
 }
 
-/* ------------------------------------------------------------ the old files */
-
-/**
- * The files the app kept before it used a database, under $root, as a
- * backup's data. 'problems' lists what could not be read and was left out.
- */
-function legacy_read(string $root): array
-{
-    $data = ['kanji' => null, 'log' => [], 'attempts' => [], 'problems' => []];
-
-    $kanji = "$root/progress/kanji.json";
-    if (is_file($kanji)) {
-        // an unreadable progress file stops the import: better nothing than half
-        $data['kanji'] = read_json($kanji);
-        if (!is_array($data['kanji'])) {
-            throw new RuntimeException("$kanji is not a progress file.");
-        }
-    }
-
-    $log = "$root/progress/kanji-log.jsonl";
-    if (is_file($log)) {
-        foreach (file($log, FILE_IGNORE_NEW_LINES) as $i => $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            $e = json_decode($line, true);
-            if (!is_array($e) || !is_string($e['kind'] ?? null) || !is_numeric($e['t'] ?? null)) {
-                $data['problems'][] = 'progress/kanji-log.jsonl line ' . ($i + 1) . ': not a log line';
-                continue;
-            }
-            $data['log'][] = $e;
-        }
-    }
-
-    $results = glob("$root/results/*.json") ?: [];
-    sort($results);
-    $matched = [];
-    foreach ($results as $file) {
-        $id = basename($file, '.json');
-        try {
-            $attempt = read_json($file);
-        } catch (Throwable $e) {
-            $data['problems'][] = "results/$id.json: unreadable";
-            continue;
-        }
-        if (!is_array($attempt) || ms_from_iso($attempt['finishedAt'] ?? null) === null || !is_array($attempt['summary'] ?? null)) {
-            $data['problems'][] = "results/$id.json: not an exam attempt";
-            continue;
-        }
-        $attempt['id'] = $id;
-        $report = "$root/reports/$id.html";
-        $data['attempts'][] = ['attempt' => $attempt, 'report' => is_file($report) ? file_get_contents($report) : null];
-        $matched[$id] = true;
-    }
-    foreach (glob("$root/reports/*.html") ?: [] as $file) {
-        if (!isset($matched[basename($file, '.html')])) {
-            $data['problems'][] = 'reports/' . basename($file) . ': no attempt in results/ to go with it';
-        }
-    }
-    return $data;
-}
-
 /* ------------------------------------------------------------------ import */
 
+/** How many lines of an answer log go into the database in one statement. */
+const LEARNER_IMPORT_CHUNK = 2000;
+
 /**
- * Puts one person's study data — from a backup, or the old files — into the
+ * Puts one person's study data — from a backup — into the
  * database as user $uid's, in one transaction. $replace empties their data
  * first (a restore); without it they must not have any yet, so nothing is
  * ever counted twice. Their users row must exist.
@@ -439,7 +413,17 @@ function learner_import(int $uid, array $data, bool $replace = false): array
             );
         }
 
+        // The log in its order, LEARNER_IMPORT_CHUNK lines to a statement: a long one
+        // is never held twice over in memory (an import's file may be as big as
+        // memory allows, me_import_limit()).
         $rows = [];
+        $insert = static function (array $rows) use ($uid): void {
+            db_exec(
+                'INSERT INTO srs_log (user_id, at, kind, item_id, details)
+                 SELECT ?::bigint, academy_time((r->>0)::bigint), r->>1, r->>2, r->3 FROM json_array_elements(?::json) WITH ORDINALITY AS t(r, n) ORDER BY n',
+                [$uid, json_text($rows)]
+            );
+        };
         foreach (is_array($data['log'] ?? null) ? $data['log'] : [] as $e) {
             if (!is_array($e) || !is_string($e['kind'] ?? null) || !is_numeric($e['t'] ?? null)) {
                 continue;
@@ -447,14 +431,14 @@ function learner_import(int $uid, array $data, bool $replace = false): array
             $details = $e;
             unset($details['t'], $details['kind'], $details['id']);
             $rows[] = [(int) $e['t'], $e['kind'], isset($e['id']) ? js_string($e['id']) : null, $details ?: new stdClass()];
+            $counts['log']++;
+            if (count($rows) === LEARNER_IMPORT_CHUNK) {
+                $insert($rows);
+                $rows = [];
+            }
         }
         if ($rows) {
-            db_exec(
-                'INSERT INTO srs_log (user_id, at, kind, item_id, details)
-                 SELECT ?::bigint, academy_time((r->>0)::bigint), r->>1, r->>2, r->3 FROM json_array_elements(?::json) WITH ORDINALITY AS t(r, n) ORDER BY n',
-                [$uid, json_text($rows)]
-            );
-            $counts['log'] = count($rows);
+            $insert($rows);
         }
 
         foreach (is_array($data['attempts'] ?? null) ? $data['attempts'] : [] as $a) {
@@ -465,59 +449,6 @@ function learner_import(int $uid, array $data, bool $replace = false): array
             $counts['attempts']++;
             $counts['reports'] += is_string($a['report'] ?? null) ? 1 : 0;
         }
-        return $counts;
-    });
-}
-
-/** Has the setup page imported the old files into this person's account already? */
-function legacy_imported(int $uid): bool
-{
-    return (bool) db_value("SELECT EXISTS (SELECT 1 FROM imports WHERE source = 'json-files' AND user_id = ?)", [$uid]);
-}
-
-/**
- * The first-run import of progress/, results/ and reports/ under $root into
- * user $uid's account (the owner's): only when they have no study data yet,
- * and only once. Returns what was imported, or a reason it wasn't.
- */
-function legacy_import(string $root, int $uid): array
-{
-    if (legacy_imported($uid)) {
-        return ['skipped' => 'already imported'];
-    }
-    // before reading any file: somebody who has study data here needs none of them
-    if (learner_has_data_of($uid)) {
-        return ['skipped' => 'the database already holds study data'];
-    }
-    $data = legacy_read($root);
-    if (!$data['kanji'] && !$data['log'] && !$data['attempts']) {
-        return ['skipped' => 'no progress/, results/ or reports/ files to import'];
-    }
-    return db_tx(static function () use ($data, $root, $uid): array {
-        users_ensure($uid);
-        $counts = learner_import($uid, $data);
-        $summary = $counts + ['from' => str_replace('\\', '/', $root), 'problems' => $data['problems']];
-        db_exec("INSERT INTO imports (user_id, source, summary) VALUES (?, 'json-files', ?::jsonb)", [$uid, json_text($summary)]);
-        return $summary;
-    });
-}
-
-/**
- * One person's data from a backup file into user $uid's account, who has no
- * study data yet (the setup page: the owner's data, brought from their
- * computer to the hosted site). Recorded in imports.
- */
-function backup_import_person(array $data, int $uid, string $from): array
-{
-    $person = backup_person_in($data, $uid);
-    return db_tx(static function () use ($person, $uid, $from): array {
-        users_ensure($uid);
-        $counts = learner_import($uid, $person);
-        db_exec(
-            "INSERT INTO imports (user_id, source, summary) VALUES (?, 'backup', ?::jsonb)
-             ON CONFLICT (user_id, source) DO UPDATE SET imported_at = now(), summary = EXCLUDED.summary",
-            [$uid, json_text($counts + ['from' => $from])]
-        );
         return $counts;
     });
 }

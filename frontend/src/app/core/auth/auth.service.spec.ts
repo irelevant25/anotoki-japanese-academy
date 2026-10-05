@@ -13,18 +13,18 @@ function server(status: number, body: unknown): typeof fetch {
  * Returns where the SDK keeps the session.
  */
 function website(clientId: string): string {
-  globalThis.fetch = server(200, { mode: 'iam', issuer: 'https://iam.test', clientId });
+  globalThis.fetch = server(200, { issuer: 'https://iam.test', clientId });
   return `anotoki-auth:${clientId}`;
 }
 
-/** A signed-in session as the SDK keeps it, for IAM user `sub`, with a token good for an hour. */
-function session(sub: string, token = `token-of-${sub}`): string {
+/** A signed-in session as the SDK keeps it, for IAM user `sub`, with a token good for an hour (and this site's roles). */
+function session(sub: string, token = `token-of-${sub}`, roles: string[] = []): string {
   return JSON.stringify({
     access_token: token,
     access_expires_at: Date.now() + 3_600_000,
     refresh_token: `refresh-of-${sub}`,
     id_token: null,
-    user: { sub, preferred_username: `user-${sub}`, email: null, email_verified: false, locale: null, roles: ['MEMBER'] },
+    user: { sub, preferred_username: `user-${sub}`, email: null, email_verified: false, locale: null, roles },
     updated_at: Date.now(),
   });
 }
@@ -48,24 +48,41 @@ describe('AuthService: what the app can show', () => {
     vi.restoreAllMocks();
   });
 
-  it('without sign-in (auth mode none): the app, and no token for anything', async () => {
-    globalThis.fetch = server(200, { mode: 'none' });
+  it('the settings are the IAM’s address and the client id, asked for with the reader’s time zone; no mode', async () => {
+    const asked = server(200, { issuer: 'https://iam.test', clientId: 'japanese-academy' });
+    globalThis.fetch = asked;
     const auth = TestBed.inject(AuthService);
     await auth.init();
-    expect(auth.state()).toBe('ready');
-    expect(auth.mode()).toBe('none');
-    expect(auth.signsIn()).toBe(false);
-    expect(await auth.token()).toBeNull();
-    expect(auth.user()).toBeNull();
+    expect(auth.accountUrl()).toBe('https://iam.test/account');
+    const init = (asked as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).get('X-Time-Zone')).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
   });
 
-  it('a website with nobody signed in: the Sign in page', async () => {
-    globalThis.fetch = server(200, { mode: 'iam', issuer: 'https://iam.test', clientId: 'japanese-academy' });
+  it('nobody signed in: signed out, no token, and no Sign in card — the guard sends the browser to the IAM', async () => {
+    const key = website('academy-test-nobody');
+    localStorage.removeItem(key);
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('signed-out');
-    expect(auth.signsIn()).toBe(true);
-    expect(auth.accountUrl()).toBe('https://iam.test/account');
+    expect(await auth.token()).toBeNull();
+    expect(auth.user()).toBeNull();
+    expect(auth.showSignIn(), 'on the way to the IAM, nothing is drawn').toBe(false);
+  });
+
+  it('the roles from the IAM: EDITOR is staff, ADMIN is staff and admin, anything else (a stale MEMBER) a learner', async () => {
+    const key = website('academy-test-roles');
+    localStorage.setItem(key, session('7', 'token-of-7', ['member']));
+    const auth = TestBed.inject(AuthService);
+    vi.spyOn(auth, 'reload').mockImplementation(() => undefined);
+    await auth.init();
+    expect([auth.isStaff(), auth.isAdmin()]).toEqual([false, false]);
+
+    otherTab(key, session('7', 'token-of-7', ['editor']));
+    expect(auth.roles()).toEqual(['EDITOR']);
+    expect([auth.isStaff(), auth.isAdmin()]).toEqual([true, false]);
+
+    otherTab(key, session('7', 'token-of-7', ['ADMIN']));
+    expect([auth.isStaff(), auth.isAdmin()]).toEqual([true, true]);
   });
 
   it('not set up yet: the page that says so, and why', async () => {
@@ -89,12 +106,12 @@ describe('AuthService: what the app can show', () => {
     expect(auth.state()).toBe('problem');
     expect(auth.problem()).toEqual({ kind: 'offline' });
 
-    // Opened through another host name or a tunnel, without sign-in: the server's own code for it.
-    globalThis.fetch = server(403, { error: 'Sign-in is off here (auth mode none), and that only works on your own computer.', code: 'this_computer_only' });
+    // A refusal with a code of the server's own.
+    globalThis.fetch = server(403, { error: 'Forbidden.', code: 'forbidden' });
     const refused = TestBed.runInInjectionContext(() => new AuthService());
     await refused.init();
     expect(refused.state()).toBe('problem');
-    expect(refused.problem()).toEqual({ kind: 'server', status: 403, code: 'this_computer_only', detail: null });
+    expect(refused.problem()).toEqual({ kind: 'server', status: 403, code: 'forbidden', detail: null });
   });
 
   it('a failure with the reason the server gives the owner’s own computer: kept as the detail', async () => {
@@ -118,7 +135,7 @@ describe('AuthService: what the app can show', () => {
   });
 
   it('a sign-in that cannot start (settings the IAM’s SDK refuses): the kind signIn, with the SDK’s own message as the detail', async () => {
-    globalThis.fetch = server(200, { mode: 'iam', issuer: '', clientId: 'japanese-academy' });
+    globalThis.fetch = server(200, { issuer: '', clientId: 'japanese-academy' });
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('problem');
@@ -128,7 +145,7 @@ describe('AuthService: what the app can show', () => {
   });
 
   it('cannotStart(): the problem page for whoever finds out the app cannot go on — but not set up stays not set up', async () => {
-    globalThis.fetch = server(200, { mode: 'none' });
+    localStorage.setItem(website('academy-test-cannot'), session('7'));
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('ready');
@@ -144,12 +161,12 @@ describe('AuthService: what the app can show', () => {
   });
 
   it('not set up after all (a database missing), said by a later answer: the page that says so', async () => {
-    globalThis.fetch = server(200, { mode: 'none' });
+    localStorage.setItem(website('academy-test-later'), session('7'));
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('ready');
     globalThis.fetch = server(503, { error: 'Japanese Academy is not set up yet. Open /setup.php to set it up.', code: 'not_set_up', setup: '/setup.php' });
-    const r = await auth.fetch('/api/kanji/export');
+    const r = await auth.fetch('/api/me/data');
     expect(r.status).toBe(503);
     expect(auth.state()).toBe('not-set-up');
     expect(auth.notSetUpReason()).toBeNull();
@@ -183,8 +200,10 @@ describe('AuthService: what the app can show', () => {
 
     otherTab(key, null);
     expect(auth.state()).toBe('signed-out');
+    expect(auth.showSignIn(), 'the app was open: the Sign in card stands in for it').toBe(true);
     otherTab(key, session('7'));
     expect(auth.state()).toBe('ready');
+    expect(auth.showSignIn()).toBe(false);
     expect(reload).not.toHaveBeenCalled();
 
     otherTab(key, null);
@@ -220,25 +239,153 @@ describe('AuthService: what the app can show', () => {
     expect(auth.notSetUpReason()).toBe('the database academy_x does not exist');
   });
 
-  it('its own fetch() (reports, the progress download) sends no token of somebody else either', async () => {
+  it('its own fetch() (reports, the data file) sends the token and the time zone to this site, and no token of somebody else', async () => {
     const key = website('academy-test-fetch');
     localStorage.setItem(key, session('7'));
     const auth = TestBed.inject(AuthService);
     const reload = vi.spyOn(auth, 'reload').mockImplementation(() => undefined);
     await auth.init();
     const sent: (string | null)[] = [];
+    const zones: (string | null)[] = [];
     globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       sent.push(new Headers(init?.headers).get('Authorization'));
+      zones.push(new Headers(init?.headers).get('X-Time-Zone'));
       return Promise.resolve(new Response('{}', { status: sent.length === 1 ? 200 : 401 }));
     }) as unknown as typeof fetch;
 
     expect((await auth.fetch('/report/x')).status).toBe(200);
     expect(sent).toEqual(['Bearer token-of-7']);
+    expect(zones).toEqual([Intl.DateTimeFormat().resolvedOptions().timeZone]);
 
     otherTab(key, session('8'));
     expect(reload).toHaveBeenCalledTimes(1);
-    expect((await auth.fetch('/report/x')).status).toBe(401);
-    expect(sent, 'without a token, and not tried again with theirs').toEqual(['Bearer token-of-7', null]);
+    const refused = await auth.fetch('/report/x');
+    expect([refused.status, (await refused.json()).code]).toEqual([401, 'sign_in_required']);
+    expect(sent, 'never sent: not as theirs, and not without a token').toEqual(['Bearer token-of-7']);
+  });
+
+  it('its own fetch() of a person’s never carries a visitor’s key, whatever it is handed', async () => {
+    const key = website('academy-test-fetch-no-key');
+    localStorage.setItem(key, session('7'));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    let headers = new Headers();
+    globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      headers = new Headers(init?.headers);
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }) as unknown as typeof fetch;
+    await auth.fetch('/report/x', { headers: { 'X-Visitor-Key': 'k'.repeat(43) } }, 'v'.repeat(43));
+    expect([headers.get('Authorization'), headers.get('X-Visitor-Key')]).toEqual(['Bearer token-of-7', null]);
+  });
+});
+
+describe('AuthService: visitors, where the IAM does not require sign-in here', () => {
+  const realFetch = globalThis.fetch;
+
+  /** A website whose server relays the IAM's switch (and the days a visitor is kept), with nobody signed in. */
+  function relaying(clientId: string, extra: Record<string, unknown>): string {
+    globalThis.fetch = server(200, { issuer: 'https://iam.test', clientId, ...extra });
+    localStorage.removeItem(`anotoki-auth:${clientId}`);
+    return `anotoki-auth:${clientId}`;
+  }
+
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
+  });
+
+  it('a server that says nothing of it requires sign-in (signed out, on the way to the IAM); only false lets visitors in', async () => {
+    relaying('academy-test-v-silent', {});
+    const silent = TestBed.inject(AuthService);
+    await silent.init();
+    expect([silent.loginRequired(), silent.state(), silent.visitorKeepDays()]).toEqual([true, 'signed-out', 30]);
+
+    relaying('academy-test-v-true', { loginRequired: true, visitorKeepDays: 30 });
+    const required = TestBed.runInInjectionContext(() => new AuthService());
+    await required.init();
+    expect([required.loginRequired(), required.state()]).toEqual([true, 'signed-out']);
+
+    relaying('academy-test-v-garbage', { loginRequired: 'false', visitorKeepDays: -3 });
+    const garbage = TestBed.runInInjectionContext(() => new AuthService());
+    await garbage.init();
+    expect([garbage.loginRequired(), garbage.state(), garbage.visitorKeepDays()]).toEqual([true, 'signed-out', 30]);
+  });
+
+  it('nobody signed in, sign-in not required: visiting — the app itself, for a visitor; no Sign in card; nobody’s name or roles', async () => {
+    relaying('academy-test-v-off', { loginRequired: false, visitorKeepDays: 14 });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect([auth.state(), auth.visiting(), auth.usable(), auth.signedIn()]).toEqual(['visiting', true, true, false]);
+    expect([auth.loginRequired(), auth.visitorKeepDays()]).toEqual([false, 14]);
+    expect(auth.showSignIn()).toBe(false);
+    expect([auth.user(), auth.isStaff(), auth.caller()]).toEqual([null, false, 'visitor']);
+  });
+
+  it('a sign-in in another tab while visiting: a fresh page (it moves the visitor’s study in) — nothing loaded as the visitor stays on it', async () => {
+    const key = relaying('academy-test-v-in', { loginRequired: false });
+    const auth = TestBed.inject(AuthService);
+    const reload = vi.spyOn(auth, 'reload').mockImplementation(() => undefined);
+    await auth.init();
+    otherTab(key, session('7'));
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(auth.state(), 'never ready for a person on a page loaded for a visitor').toBe('visiting');
+  });
+
+  it('a person’s page whose session ends never turns into a visitor’s: the Sign in card, as when sign-in is required', async () => {
+    const key = relaying('academy-test-v-person', { loginRequired: false });
+    localStorage.setItem(key, session('7'));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect([auth.state(), auth.caller()]).toEqual(['ready', 'person']);
+    otherTab(key, null);
+    expect([auth.state(), auth.showSignIn(), auth.caller()]).toEqual(['signed-out', true, 'person']);
+  });
+
+  it('signInRequiredNow() (a visitor refused with 401 sign_in_required: the switch turned on): the Sign in card from now on', async () => {
+    const key = relaying('academy-test-v-now', { loginRequired: false });
+    const auth = TestBed.inject(AuthService);
+    const reload = vi.spyOn(auth, 'reload').mockImplementation(() => undefined);
+    await auth.init();
+    auth.signInRequiredNow();
+    expect([auth.loginRequired(), auth.state(), auth.showSignIn()]).toEqual([true, 'signed-out', true]);
+    auth.refused();
+    expect(auth.state(), 'not a visitor again').toBe('signed-out');
+    otherTab(key, session('7'));
+    expect(reload, 'a page shown to a visitor loads again for a person').toHaveBeenCalledTimes(1);
+  });
+
+  it('a sign-in that came back without one (access_denied: e.g. MEMBER taken away here) while visiting: kept for the page to say — never swallowed', async () => {
+    const clientId = 'academy-test-v-denied';
+    const state = `state-${clientId}`;
+    sessionStorage.setItem(`anotoki-auth:${clientId}:login:${state}`, JSON.stringify({ verifier: 'v', nonce: 'n', returnTo: '/exam', createdAt: Date.now() }));
+    history.replaceState(null, '', `/auth/callback?error=access_denied&error_description=No&state=${state}`);
+    relaying(clientId, { loginRequired: false });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    expect([auth.state(), auth.signInError(), auth.askedFor()]).toEqual(['visiting', { code: 'access_denied' }, '/exam']);
+  });
+
+  it('its own fetch() for a visitor: the key it is handed and the time zone, never a token; a 401 sign_in_required says the switch turned on', async () => {
+    relaying('academy-test-v-fetch', { loginRequired: false });
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    const sent: Headers[] = [];
+    let status = 200;
+    globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push(new Headers(init?.headers));
+      return Promise.resolve(new Response(JSON.stringify(status === 401 ? { code: 'sign_in_required' } : {}), { status }));
+    }) as unknown as typeof fetch;
+
+    await auth.fetch('/report/x', { headers: { Authorization: 'Bearer stray' } }, 'k'.repeat(43));
+    expect([sent[0].get('Authorization'), sent[0].get('X-Visitor-Key'), sent[0].has('X-Time-Zone')]).toEqual([null, 'k'.repeat(43), true]);
+    await auth.fetch('/report/x');
+    expect(sent[1].has('X-Visitor-Key'), 'no key held: nobody').toBe(false);
+
+    status = 401;
+    expect((await auth.fetch('/report/x', {}, 'k'.repeat(43))).status).toBe(401);
+    expect([auth.loginRequired(), auth.state()]).toEqual([true, 'signed-out']);
   });
 });
 
@@ -250,9 +397,9 @@ describe('AuthService: a sign-in that came back without one', () => {
    * sign-in this page started (its state waiting in sessionStorage, as the SDK
    * keeps it): the real SDK finishes that callback.
    */
-  async function comeBack(clientId: string, error: string, description: string): Promise<AuthService> {
+  async function comeBack(clientId: string, error: string, description: string, returnTo = '/'): Promise<AuthService> {
     const state = `state-${clientId}`;
-    sessionStorage.setItem(`anotoki-auth:${clientId}:login:${state}`, JSON.stringify({ verifier: 'v', nonce: 'n', returnTo: '/', createdAt: Date.now() }));
+    sessionStorage.setItem(`anotoki-auth:${clientId}:login:${state}`, JSON.stringify({ verifier: 'v', nonce: 'n', returnTo, createdAt: Date.now() }));
     history.replaceState(null, '', `/auth/callback?error=${error}&error_description=${encodeURIComponent(description)}&state=${state}`);
     website(clientId);
     const auth = TestBed.inject(AuthService);
@@ -266,11 +413,23 @@ describe('AuthService: a sign-in that came back without one', () => {
     history.replaceState(null, '', '/');
   });
 
-  it('keeps the code, and nothing of the IAM’s English sentence: the Sign in page words it', async () => {
+  it('keeps the code, and nothing of the IAM’s English sentence: the Sign in card words it', async () => {
     const auth = await comeBack('academy-test-denied', 'access_denied', 'This account cannot use Japanese Academy');
     expect(auth.state()).toBe('signed-out');
     expect(auth.signInError()).toEqual({ code: 'access_denied' });
+    expect(auth.showSignIn(), 'the card, not a trip round to the IAM and back for ever').toBe(true);
     expect(JSON.stringify(auth.signInError())).not.toContain('cannot use');
+  });
+
+  it('keeps the address the refused sign-in started from: the card’s Sign in (login() with no address) goes back there, not to /', async () => {
+    const auth = await comeBack('academy-test-deep', 'access_denied', 'No', '/exam?part=2');
+    expect(auth.askedFor()).toBe('/exam?part=2');
+    // The router, refused by the page's whenReady, puts / back in the address bar.
+    history.replaceState(null, '', '/');
+    const login = vi.fn(() => Promise.resolve());
+    (auth as unknown as { sdk: { login: typeof login } }).sdk.login = login;
+    expect(await auth.login('sk')).toBe(true);
+    expect(login.mock.calls).toEqual([[{ returnTo: '/exam?part=2', uiLocales: 'sk' }]]);
   });
 
   it('any other failure: its code too', async () => {
@@ -283,6 +442,7 @@ describe('AuthService: a sign-in that came back without one', () => {
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.signInError()).toBeNull();
+    expect(auth.askedFor()).toBeNull();
   });
 });
 
@@ -303,7 +463,7 @@ describe('AuthService: what it hands to the pages', () => {
     return JSON.stringify(kept);
   }
 
-  it('the name to show: the one in the IAM, else the address, else nothing — the account menu words that', async () => {
+  it('the name to show: the one in the IAM, else the address, else nothing — the top bar words that', async () => {
     const auth = TestBed.inject(AuthService);
     expect(auth.displayName(), 'nobody signed in').toBe('');
 
@@ -330,10 +490,32 @@ describe('AuthService: what it hands to the pages', () => {
     const login = vi.fn(() => Promise.resolve());
     (auth as unknown as { sdk: { login: typeof login } }).sdk.login = login;
 
-    await auth.login('sk');
+    expect(await auth.login('sk')).toBe(true);
     await auth.login();
     await auth.login('');
-    expect(login.mock.calls).toEqual([[{ returnTo: '/kanji/reviews?x=1#top', uiLocales: 'sk' }], [{ returnTo: '/kanji/reviews?x=1#top' }], [{ returnTo: '/kanji/reviews?x=1#top' }]]);
+    await auth.login('sk', '/exam');
+    expect(login.mock.calls).toEqual([
+      [{ returnTo: '/kanji/reviews?x=1#top', uiLocales: 'sk' }],
+      [{ returnTo: '/kanji/reviews?x=1#top' }],
+      [{ returnTo: '/kanji/reviews?x=1#top' }],
+      [{ returnTo: '/exam', uiLocales: 'sk' }],
+    ]);
     history.replaceState(null, '', '/');
+  });
+
+  it('a sign-in that cannot start (the browser refuses the storage): false, and the code for the Sign in card', async () => {
+    website('academy-test-no-storage');
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const refused = Object.assign(new Error('This browser will not let the site remember the sign-in in progress'), { code: 'storage_unavailable' });
+    (auth as unknown as { sdk: { login: () => Promise<void> } }).sdk.login = () => Promise.reject(refused);
+    expect(await auth.login('en')).toBe(false);
+    expect(auth.signInError()).toEqual({ code: 'storage_unavailable' });
+    expect(auth.showSignIn()).toBe(true);
+
+    (auth as unknown as { sdk: { login: () => Promise<void> } }).sdk.login = () => Promise.reject(new Error('no code'));
+    await auth.login();
+    expect(auth.signInError()).toEqual({ code: 'could_not_start' });
   });
 });

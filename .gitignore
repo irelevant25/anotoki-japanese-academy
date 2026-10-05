@@ -3,10 +3,10 @@ node_modules/
 # Claude Code's personal settings (the rest of .claude/ is shared)
 .claude/settings.local.json
 
-# Secrets and this copy's own settings: the text-to-speech API key (see
-# README), and backend/config/*.local.php — the database with its password,
-# the sign-in mode, the IAM, the time zone — which the setup page writes, and
-# on a website its token file too. The app requires them; git never sees them.
+# Secrets and this copy's own settings: the text-to-speech API key
+# (backend/.env, see README), and backend/config/*.local.php — the database
+# with its password and the IAM — which the setup page writes, and on a
+# website its token file too. The app requires them; git never sees them.
 .env
 backend/config/*.local.php
 # ...and what config_put() writes before it renames it into place
@@ -18,25 +18,21 @@ backend/config/*.tmp
 src/config.local.php
 src/*.local.php
 
-# Copies of your study data from the database (see README)
-backups/
-
-# What the backend writes for itself: the IAM's keys, cached (auth mode iam),
-# and on a website the setup page's lock. (storage/ at the root is the same,
-# from before backend/.)
+# What the backend writes for itself: the copies of the study data
+# (storage/backups/, see README), the IAM's keys, cached, and on a website the
+# setup page's lock.
 backend/storage/*
 !backend/storage/.gitkeep
-/storage/
 
-# The upload for a hosted site (npm run build:dist)
+# The upload for a hosted site (backend/tools/build-dist.php)
 dist/
 
-# The frontend's build, its dependencies and caches (npm run build:frontend)
+# The frontend's build, its dependencies and caches (npm run build in frontend/)
 frontend/dist/
 frontend/.angular/
 frontend/out-tsc/
 # The catalog the unit tests check the answer checking against, built by PHP
-# from data/ before every run (frontend/scripts/catalog-fixture.mjs)
+# from backend/data/ before every run (frontend/scripts/catalog-fixture.mjs)
 frontend/src/testing/catalog.fixture.json
 
 # Screenshots written by the browser tests
@@ -49,8 +45,5 @@ temp/
 # to publish. They stay on this computer only; copy them by hand to a new one.
 books/
 
-# The app's own daily copies and half-written saves. Git already keeps the
-# history of progress/, results/ and reports/.
-progress/backups/
-progress/*.tmp
-data/*.tmp
+# What the data builders write aside before they rename it into place
+backend/data/*.tmp

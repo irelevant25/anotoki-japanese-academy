@@ -28,8 +28,13 @@ export const DYNAMIC_KEYS: Record<string, readonly string[]> = {
     'paper_mismatch',
     'sign_in_required',
     'invalid_token',
-    'no_access',
-    'this_computer_only',
+    'too_many_visitors',
+    'visitor_unknown',
+    'visitors_unavailable',
+    'visitor_move_retry',
+    'too_large',
+    'not_a_data_file',
+    'several_people',
     'database_unavailable',
     'server_error',
     'not_up_to_date',
@@ -37,6 +42,8 @@ export const DYNAMIC_KEYS: Record<string, readonly string[]> = {
     'not_found',
     'method_not_allowed',
   ],
+  // visitor_limit, worded by the limit its answer names (`limit`, VISITOR_LIMITS in error-text.ts).
+  'error.visitor_limit.': ['attempts', 'answers'],
   // The exam's sections, by the ids the server sends (SECTIONS in backend/src/generate.php): meta.sections[].id, a question's
   // `section`, a breakdown's `key`, a review row's `sectionId`.
   'exam.section.': [

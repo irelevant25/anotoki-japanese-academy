@@ -1,0 +1,52 @@
+:host {
+  display: block;
+}
+
+// A card of its own above the page's: the text, and its button beside it (under it on a phone).
+.note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.note p {
+  flex: 1 1 18rem;
+  margin: 0;
+  line-height: 1.45;
+}
+
+// Studying without signing in: the one that stays, marked in the colour of the sections the bar marks.
+.note.visiting {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent-soft-ink);
+}
+
+.note.moved {
+  border-color: var(--good);
+}
+
+.note button {
+  flex: none;
+}
+
+// Sign in and Close ring in the accent, which reads on the notice's colour and on a card, light and dark (a browser's
+// own dark ring vanishes there).
+.note button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+// A finger needs more than the small button a mouse is happy with.
+@media (pointer: coarse) {
+  .note button {
+    min-height: 44px;
+    padding: 0 18px;
+  }
+}

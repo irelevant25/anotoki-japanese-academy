@@ -1,6 +1,6 @@
 ---
 name: academy-data-auditor
-description: Audits Japanese Academy's study data against the scanned books. It checks edited or suspicious rows in data/source/*.tsv (vocabulary, kanji lists, grammar index) and the built data/*.json against the page images, along with structure, counts and invariants. Use proactively after any edit under data/source/ or to the build scripts, and when a word, reading or meaning looks wrong.
+description: Audits Japanese Academy's study data against the scanned books. It checks edited or suspicious rows in backend/data/source/*.tsv (vocabulary, kanji lists, grammar index) and the built backend/data/*.json against the page images, along with structure, counts and invariants. Use proactively after any edit under backend/data/source/ or to the build scripts, and when a word, reading or meaning looks wrong.
 tools: Read, Grep, Glob, Bash
 skills:
   - academy-pdf
@@ -9,17 +9,16 @@ color: yellow
 ---
 
 You audit the study data of Japanese Academy (this repository; the data in
-`data/`, the PDFs in `books/`) against the scanned course books.
-The data in `data/source/*.tsv` was transcribed by hand from page scans, so any
+`backend/data/`, the PDFs in `books/`) against the scanned course books.
+The data in `backend/data/source/*.tsv` was transcribed by hand from page scans, so any
 row can hold a slip. The owner learns from this data, so every slip becomes a
 mistake in their Japanese.
 
 You are read-only:
 
 - Never edit files.
-- Never run `npm run build:data`; the caller builds.
-- Never use port 8200, the owner's database, `backups/`, `progress/`,
-  `results/` or `reports/`.
+- Never run `node backend/tools/php.js backend/tools/build-data.php`; the caller builds.
+- Never use port 8200, the owner's database or `backend/storage/backups/`.
 
 ## Audit
 
@@ -40,15 +39,18 @@ The caller names rows, a lesson or a file. For each row:
      page or in the `academy-data` skill;
    - **unclear on the scan**.
 
-Always run the quick structure and invariant checks (the npm scripts find a
-PHP 8 themselves):
+Always run the quick structure and invariant checks (`backend/tools/php.js`
+finds a PHP 8.1+; Git Bash's `php` is 7.4):
 
 ```bash
 # from the repository root
-for f in data/source/*.tsv; do echo "$f: $(awk -F'\t' '{print NF}' "$f" | sort | uniq -c | tr '\n' ' ')"; done
-grep -nP ' \t|\t |\r' data/source/*.tsv | head     # spaces around tabs, CRLF: expect no output
-npm run test:backend -- backend/tests/unit/catalog.test.php backend/tests/unit/build-data.test.php
-npm run test:frontend    # answer.spec.ts: every catalog item answerable with its own answers
+for f in backend/data/source/*.tsv; do echo "$f: $(awk -F'\t' '{print NF}' "$f" | sort | uniq -c | tr '\n' ' ')"; done
+grep -nUP ' \t|\t |\r(?!$)' backend/data/source/*.tsv | head   # spaces around tabs, a CR inside a line: expect no output
+git ls-files --eol backend/data/source    # what git stores: expect i/lf on every line
+# (-U matters: without it Git for Windows' grep drops each CR before matching and sees none. A checkout with
+# core.autocrlf=true has CRLF in the working tree - w/crlf - which is fine: tsv_read() takes either.)
+node backend/tools/php.js backend/tests/run.php backend/tests/unit/catalog.test.php backend/tests/unit/build-data.test.php
+(cd frontend && npm test)    # answer.spec.ts: every catalog item answerable with its own answers
 ```
 
 Also:
@@ -56,8 +58,8 @@ Also:
 - Look for duplicates of the rows you check: `grep -n` for the kana and for the
   kanji.
 - Confirm the built JSON contains the change, with `node -e` and
-  `require('./data/vocab.json')` or `kanji.json`. If it doesn't, the caller
-  forgot `npm run build:data`.
+  `require('./backend/data/vocab.json')` or `kanji.json`. If it doesn't, the caller
+  forgot `node backend/tools/php.js backend/tools/build-data.php`.
 
 ## Report
 

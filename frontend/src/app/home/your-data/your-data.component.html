@@ -1,0 +1,58 @@
+<section class="yourdata" id="your-data" aria-labelledby="your-data-title">
+  <h2 id="your-data-title">{{ 'yourData.title' | translate }}</h2>
+  <p class="muted">{{ 'yourData.intro' | translate }}</p>
+  @if (zone) {
+    <p class="small muted" id="yourZone">{{ 'yourData.timeZone' | translate: { zone } }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="primary" id="downloadData" [disabled]="downloading()" [attr.aria-busy]="downloading()" (click)="download()">
+      @if (downloading()) {
+        <span class="spinner" aria-hidden="true"></span>{{ 'yourData.downloading' | translate }}
+      } @else {
+        {{ 'yourData.download' | translate }}
+      }
+    </button>
+    <button type="button" class="ghost" id="bringBack" [disabled]="bringing()" [attr.aria-busy]="bringing()" (click)="choose()">
+      @if (bringing()) {
+        <span class="spinner" aria-hidden="true"></span>{{ 'yourData.bringing' | translate }}
+      } @else {
+        {{ 'yourData.bringBack' | translate }}
+      }
+    </button>
+    <input #file type="file" accept=".json,application/json" hidden (change)="chosen($event)" />
+  </div>
+  <p class="small muted">{{ 'yourData.bringBackNote' | translate }}</p>
+
+  <p class="err" role="alert" id="yourDataError">{{ downloadFailedText() }}{{ refusalText() }}</p>
+  @if (done(); as counts) {
+    <p class="ok" role="status" id="yourDataDone">
+      {{ 'yourData.done' | translate }}
+      @if (counts.copy) {
+        {{ 'yourData.copyKept' | translate }}
+      }
+    </p>
+  }
+
+  <dialog #confirm class="confirm" aria-labelledby="your-data-confirm-title" (cancel)="cancelled($event)" (keydown)="keys($event)">
+    @if (holds(); as file) {
+      <h2 id="your-data-confirm-title">{{ 'yourData.confirmTitle' | translate }}</h2>
+      <p>{{ 'yourData.confirmText' | translate }}</p>
+      <ul class="holds">
+        <li><b class="filename">{{ file.name }}</b></li>
+        @if (takenAt()) {
+          <li>{{ 'yourData.fileTaken' | translate: { when: takenAt() } }}</li>
+        }
+        @if (file.username) {
+          <li>{{ 'yourData.fileAccount' | translate: { name: file.username } }}</li>
+        }
+        <li>{{ 'yourData.fileItems' | translate: { n: file.items } }}</li>
+        <li>{{ 'yourData.fileAttempts' | translate: { n: file.attempts } }}</li>
+      </ul>
+      <div class="actions">
+        <button type="button" class="ghost" #keepMine id="keepMine" autofocus [disabled]="bringing()" (click)="cancel()">{{ 'yourData.cancel' | translate }}</button>
+        <button type="button" class="primary danger" id="replaceMine" [disabled]="bringing()" (click)="replace()">{{ 'yourData.replace' | translate }}</button>
+      </div>
+    }
+  </dialog>
+</section>

@@ -1,0 +1,17 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  [attr.width]="size()"
+  [attr.height]="size()"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+>
+  @for (d of paths(); track $index) {
+    <path [attr.d]="d" />
+  }
+</svg>

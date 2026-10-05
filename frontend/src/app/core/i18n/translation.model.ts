@@ -1,6 +1,6 @@
 /**
  * The app's own words as the server sends them (backend/src/translations.php):
- * the bundle every page starts with, and what the owner's Languages and
+ * the bundle every page starts with, and what the admin area's Languages and
  * Translations pages read and write.
  */
 
@@ -30,8 +30,8 @@ export interface TranslationBundle {
   english?: Record<string, string>;
 }
 
-/** A language as the owner's pages see it: the hidden ones too. */
-export interface OwnerLanguage extends SiteLanguage {
+/** A language as the admin pages see it: the hidden ones too. */
+export interface AdminLanguage extends SiteLanguage {
   /** Offered to the people who use the app. */
   enabled: boolean;
   sortOrder: number;
@@ -47,7 +47,7 @@ export interface NewLanguage {
   enabled?: boolean;
 }
 
-/** What PUT /api/owner/languages/{code} may change. */
+/** What PUT /api/admin/languages/{code} may change. */
 export interface LanguageChanges {
   name?: string;
   nativeName?: string;
@@ -63,9 +63,9 @@ export interface TranslationKeyRow {
   values: Record<string, string>;
 }
 
-/** GET and PUT /api/owner/translations: every language and every key, ordered by name. */
+/** GET and PUT /api/admin/translations: every language and every key, ordered by name. */
 export interface TranslationGrid {
-  languages: OwnerLanguage[];
+  languages: AdminLanguage[];
   keys: TranslationKeyRow[];
 }
 

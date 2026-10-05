@@ -33,7 +33,10 @@ function db_connect(?string $name = null, bool $persistent = false): PDO
         PDO::ATTR_EMULATE_PREPARES => false,
         PDO::ATTR_PERSISTENT => $persistent,
     ]);
-    $pdo->exec('SET TIME ZONE ' . $pdo->quote(date_default_timezone_get()));
+    // UTC, whoever's request opened it: the web server keeps a connection for the
+    // next request, which may be somebody else's. No query reads the session's
+    // zone anyway: times go through academy_time() / academy_ms(), days are dates.
+    $pdo->exec("SET TIME ZONE 'UTC'");
     return $pdo;
 }
 
@@ -164,6 +167,12 @@ function db_create(?string $name = null, ?string $template = null): bool
  * running half of it would leave the tables half changed. 001_init.sql is
  * from before this rule, and is whole as it is. Read once, so what is checked
  * is what runs.
+ *
+ * The same rule keeps a migration that is still being written - a draft, in
+ * backend/migrations/ without its last line - away from every real database:
+ * anybody's server applies it only once that line is there. The tests alone
+ * may apply a draft they name (db_migration_drafts_allowed()), so they run on
+ * the tables it makes.
  */
 function db_migration_sql(string $name): ?string
 {
@@ -171,11 +180,32 @@ function db_migration_sql(string $name): ?string
     if (!is_string($sql)) {
         return null;
     }
-    if ($name === '001_init.sql') {
+    if ($name === '001_init.sql' || db_migration_whole($name, $sql)) {
         return $sql;
     }
+    return db_migration_drafts_allowed(db_name(), $name) ? $sql : null;
+}
+
+/** Does this migration's text end with its own last line, "-- end of NNN"? */
+function db_migration_whole(string $name, string $sql): bool
+{
     $lines = preg_split('/\R/', rtrim($sql));
-    return end($lines) === '-- end of ' . substr($name, 0, 3) ? $sql : null;
+    return end($lines) === '-- end of ' . substr($name, 0, 3);
+}
+
+/**
+ * May migration $name, without its last line (a draft), be applied to
+ * $database? Only to a throwaway database of the tests (academy_test_…,
+ * their template included), and only when ACADEMY_MIGRATION_DRAFTS names
+ * that file (names, comma-separated): tests/lib.php and tests/tools/testdb.php
+ * name the drafts backend/migrations/ holds. Never to anybody's own database,
+ * whatever the environment says; and a file a test makes half on purpose
+ * (to see it wait) is no draft anybody named.
+ */
+function db_migration_drafts_allowed(string $database, string $name): bool
+{
+    $named = array_filter(array_map('trim', explode(',', (string) getenv('ACADEMY_MIGRATION_DRAFTS'))));
+    return in_array($name, $named, true) && preg_match('/^academy_test_[a-z0-9_]+$/D', $database) === 1;
 }
 
 /** The pending migrations that can run now: in order, up to the first that is not whole yet. */
@@ -197,14 +227,14 @@ function db_migrations_ready(): array
  * ones after it. Returns the names just applied. One that fails rolls back and
  * throws a PDOException that names it ("backend/migrations/004_….sql: …"):
  * PostgreSQL's message alone would not say which file to fix.
+ *
+ * The tests' databases come here (tests/tools/testdb.php); the app itself
+ * applies through backend/src/upkeep.php, under its lock and after a copy.
  */
 function db_migrate(): array
 {
     $pdo = db();
-    $pdo->exec('CREATE TABLE IF NOT EXISTS migrations (
-        name       text PRIMARY KEY,
-        applied_at timestamptz NOT NULL DEFAULT now()
-    )');
+    db_migrations_table();
     $applied = [];
     foreach (db_pending_migrations() as $name) {
         $sql = db_migration_sql($name);
@@ -222,6 +252,15 @@ function db_migrate(): array
         $applied[] = $name;
     }
     return $applied;
+}
+
+/** The table that lists the migrations applied, made on a new database before the first of them runs. */
+function db_migrations_table(): void
+{
+    db()->exec('CREATE TABLE IF NOT EXISTS migrations (
+        name       text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+    )');
 }
 
 /** Migrations not yet applied (all of them for a database without the table). */

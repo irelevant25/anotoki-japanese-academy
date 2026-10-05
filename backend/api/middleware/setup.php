@@ -9,10 +9,16 @@
  *                         pointing at /setup.php. There is nothing to fall
  *                         back on.
  *   upkeep_middleware()   the start-time work a hosted site has no start for:
- *                         new migrations and a content rebuild on the first
- *                         request after an upload (src/upkeep.php); every other
- *                         request pays one stamp check. A database without its
- *                         tables is 503 not_set_up too: the setup page's job.
+ *                         a content rebuild on the first request after an
+ *                         upload (src/upkeep.php); every other request pays
+ *                         one stamp check. While a migration waits for an
+ *                         administrator's Apply, 503 not_up_to_date. A
+ *                         database without its tables is 503 not_set_up too:
+ *                         the setup page's job.
+ *   tables_middleware()   instead of upkeep_middleware(), for the Migrations
+ *                         page's own addresses (routes/migrations.php), which
+ *                         must answer while a migration waits: only that the
+ *                         database has its tables (else 503 not_set_up).
  */
 
 declare(strict_types=1);
@@ -41,6 +47,14 @@ function upkeep_middleware(): callable
 {
     return static function (Request $request, RequestHandler $handler): Response {
         upkeep_run();
+        return $handler->handle($request);
+    };
+}
+
+function tables_middleware(): callable
+{
+    return static function (Request $request, RequestHandler $handler): Response {
+        upkeep_stored_stamp();
         return $handler->handle($request);
     };
 }

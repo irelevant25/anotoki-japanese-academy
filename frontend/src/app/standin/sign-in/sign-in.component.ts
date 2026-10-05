@@ -12,7 +12,7 @@ interface Said {
 
 /** The two sentences in English, for a page drawn with no strings (keptWord()): the same text as the seeded English. */
 const ENGLISH: Record<string, string> = {
-  'signIn.notCompleted': 'Signing in was not completed. If you did not mean to stop it, this account may have no access to Japanese Academy.',
+  'signIn.notCompleted': 'Signing in was not completed. Try again.',
   'signIn.failed': 'Signing in did not work. Try again. ({code})',
 };
 
@@ -21,11 +21,25 @@ function said(code: string): Said {
 }
 
 /**
- * Signed out, on a website: this page stands in for the app. One button goes
- * to the IAM, which tells who may use the app. (Straight to the IAM would sign
- * a person back in the moment they signed out: docs/kb/decisions.md.) A
- * sign-in that came back without one says so from its code, in the reader's
- * language — never in the IAM's or its SDK's own English sentence
+ * A sign-in that came back without one (or could not start), worded from its
+ * code in the language on the page — the English above when there are no
+ * strings. Here and on a visitor's page (standin/sign-in-failed): call it from
+ * a computed() or a template, so it follows the language.
+ */
+export function signInFailureWords(i18n: TranslationService, code: string): string {
+  const { key, params }: Said = said(code);
+  return keptWord(i18n, key, ENGLISH[key], params);
+}
+
+/**
+ * The Sign in card, standing in for the app when nobody is signed in and the
+ * browser cannot just go to the IAM: a sign-in came back without one
+ * (refused, cancelled) or could not start — sent straight back, the browser
+ * would go round for ever — or the session ended while the page was open (a
+ * sign-out in another tab, the IAM's idle limit). Any other time signInGuard
+ * sends the browser to the IAM before anything is drawn. One button goes to
+ * the IAM. The failure is said from its code, in the reader's language —
+ * never in the IAM's or its SDK's own English sentence
  * (core/i18n/error-text.ts).
  */
 @Component({
@@ -49,26 +63,18 @@ export class SignInComponent {
     button: keptWord(this.i18n, 'signIn.button', 'Sign in'),
   }));
 
-  private readonly failure = signal<Said | null>(this.cameBackWith());
-  /** Worded here, so it follows the language when that changes. */
+  /** The failure, from the sign-in's own record (it came back without one, or could not start): worded here, so it follows the language. */
   readonly error = computed(() => {
-    const failure = this.failure();
-    return failure ? keptWord(this.i18n, failure.key, ENGLISH[failure.key], failure.params) : '';
+    const failure = this.auth.signInError();
+    return failure ? signInFailureWords(this.i18n, failure.code) : '';
   });
 
   async signIn(): Promise<void> {
     this.busy.set(true);
-    try {
-      // The IAM's pages open in the language read here — when one was settled: an `en` nobody chose would override the IAM's own choice.
-      await this.auth.login(this.i18n.ready() ? this.i18n.language() : undefined);
-    } catch {
+    // The IAM's pages open in the language read here — when one was settled: an `en` nobody chose would override the IAM's own choice.
+    // False: it could not start, and signInError now says why (the card words it).
+    if (!(await this.auth.login(this.i18n.ready() ? this.i18n.language() : undefined))) {
       this.busy.set(false);
-      this.failure.set(said('could_not_start'));
     }
-  }
-
-  private cameBackWith(): Said | null {
-    const failure = this.auth.signInError();
-    return failure ? said(failure.code) : null;
   }
 }

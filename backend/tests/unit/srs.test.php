@@ -82,5 +82,5 @@ test('the autumn’s repeated hour floors to its first occurrence', function ():
     // 02:30 CET, the second time the clock shows 02:30 on 2026-10-25
     $t = ms_of(new DateTimeImmutable('2026-10-25T01:30:00Z'));
     assert_same(ms_of(new DateTimeImmutable('2026-10-25T00:00:00Z')), srs_floor_hour($t), '02:00 CEST, as the browser-era app did it');
-    date_default_timezone_set(app_timezone());
+    date_default_timezone_set('UTC');
 });

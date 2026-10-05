@@ -2,7 +2,7 @@
 /**
  * One request, whichever server received it:
  *
- *   backend/server.php          PHP's built-in web server: this computer and the tests
+ *   backend/router.php          PHP's built-in web server: this computer and the tests
  *   public/index.php            Apache's front controller on a hosted site (the upload's;
  *                               its source is backend/public/). public/.htaccess sends it
  *                               /api, /audio, /report and /setup.php, and Apache sends the
@@ -38,6 +38,7 @@ function academy_front(string $frontend): void
     if (preg_match('~^/(api|audio|report)(/|$)~', $decoded)) {
         require_once __DIR__ . '/app.php';
         academy_app()->run();
+        after_response_run(); // what a request left for after its answer: the visitors' sweep (src/after.php)
         return;
     }
     front_file($frontend, $method, $decoded);
@@ -132,8 +133,8 @@ function front_not_built(): void
     header('Cache-Control: no-store');
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         . '<title>Japanese Academy</title></head><body style="font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">'
-        . '<h1>Japanese Academy</h1><p>The app has not been built yet. The launcher (<code>start.ps1</code> or <code>start.sh</code>)'
-        . ' builds it; by hand, run <code>npm run build:frontend</code> and reload this page.</p>'
+        . '<h1>Japanese Academy</h1><p>The app has not been built yet: run <code>npm run build</code> in <code>frontend/</code>'
+        . ' (or <code>node frontend/scripts/ensure-build.mjs</code>, which builds only when its sources changed) and reload this page.</p>'
         . '<p>While you work on it, the development server at <a href="http://localhost:4400">http://localhost:4400</a> shows it instead.</p>'
         . '</body></html>';
 }

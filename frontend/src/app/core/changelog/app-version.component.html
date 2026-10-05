@@ -1,6 +1,10 @@
 @if (changelog.version()) {
-  <button type="button" class="version" id="version" [title]="words().title" (click)="open()">
-    v{{ changelog.version() }}@if (changelog.unseen()) {<span class="dot" [title]="words().unseen"></span>}
-  </button>
+  <p class="foot-line">
+    <span class="version" id="version">v{{ changelog.version() }}</span>
+    <span class="sep" aria-hidden="true">·</span>
+    <button type="button" class="whats-new" id="whatsNew" (click)="open()">
+      <span class="label">{{ words().title }}@if (changelog.unseen()) {<span class="dot" [title]="words().unseen"></span>}</span>
+    </button>
+  </p>
 }
 <app-changelog-dialog />

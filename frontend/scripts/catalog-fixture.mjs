@@ -1,5 +1,5 @@
 /**
- * The catalog the backend builds from data/ (backend/src/srs/catalog.php), as
+ * The catalog the backend builds from backend/data/ (backend/src/srs/catalog.php), as
  * a file the unit tests read: every item must accept its own printed answers
  * (src/app/kanji/answer.spec.ts). Written before every `npm test` run, into
  * src/testing/catalog.fixture.json (gitignored), with a PHP that can run the

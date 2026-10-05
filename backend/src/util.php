@@ -20,7 +20,10 @@ function now_ms(): int
     return (int) floor(microtime(true) * 1000);
 }
 
-/** A moment in this computer's time zone. */
+/**
+ * A moment in the time zone in force: the person's own on their request
+ * (person_middleware()), else UTC (src/bootstrap.php).
+ */
 function local_time(int $ms): DateTimeImmutable
 {
     $sec = intdiv($ms, 1000) - ($ms % 1000 < 0 ? 1 : 0);
@@ -48,10 +51,51 @@ function local_wall_ms(string $wall): int
     return local_time($earlier)->format('Y-m-d H:i:s') === local_time($ms)->format('Y-m-d H:i:s') ? $earlier : $ms;
 }
 
-/** 2026-09-24: the day in this computer's time zone (the daily counters are kept per day). */
+/** 2026-09-24: the day in the time zone in force (the daily counters are kept per day, in the person's own). */
 function local_date(?int $ms = null): string
 {
     return local_time($ms ?? now_ms())->format('Y-m-d');
+}
+
+/** 2026-09-24: the day in UTC, whoever's request it is: the site's own housekeeping (the day of the daily backup). */
+function utc_date(?int $ms = null): string
+{
+    return local_time($ms ?? now_ms())->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d');
+}
+
+/** 20260924-143512-123: a moment in UTC, for the names of the backups. */
+function utc_stamp(int $ms): string
+{
+    return local_time($ms)->setTimezone(new DateTimeZone('UTC'))->format('Ymd-His-v');
+}
+
+/** The longest time zone name kept (users.time_zone is varchar(64)). */
+const TIME_ZONE_MAX = 64;
+
+/**
+ * $name when it is a time zone PHP knows by its IANA name ('Europe/Bratislava',
+ * 'Asia/Kolkata', 'UTC'; the old aliases too, as a browser may still give one),
+ * written exactly so, and ICU knows it too; null for anything else (a header
+ * that names none, an offset, a path). ICU's zones are not PHP's: each comes
+ * with its own copy of the zone data, and a host's ICU may be older than its
+ * PHP (ICU 77.1 has no America/Coyhaique, which PHP 8.5's data has). A report
+ * is dated through ICU (report_when()), so a zone only PHP knows is no zone.
+ */
+function time_zone_known($name): ?string
+{
+    static $known = null;
+    if (!is_string($name) || $name === '' || strlen($name) > TIME_ZONE_MAX) {
+        return null;
+    }
+    $known ??= array_flip(DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC));
+    return isset($known[$name]) && time_zone_icu_knows($name) ? $name : null;
+}
+
+/** Does ICU (intl) know the time zone $name? A name it does not know comes back as 'Etc/Unknown'. */
+function time_zone_icu_knows(string $name): bool
+{
+    $zone = IntlTimeZone::createTimeZone($name);
+    return $zone instanceof IntlTimeZone && $zone->getID() !== 'Etc/Unknown';
 }
 
 /** 2026-09-24T08:15:02.123Z, as JavaScript's toISOString() writes it. */

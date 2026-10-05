@@ -1,6 +1,7 @@
-// The pieces every page shares: the page itself, the top bar, panels, fields,
-// chips and buttons, the sign-in page and the account menu, the footer and
-// the dialog. Colours only from the tokens.
+// The pieces every page shares: the page itself, panels, fields, chips and
+// buttons, tables, the admin pages' tags, the sign-in page and the spinner.
+// The top bar, the foot and the dialog have their own styles. Colours only
+// from the tokens.
 
 * {
   box-sizing: border-box;
@@ -31,78 +32,6 @@ a {
 }
 .jp {
   font-family: var(--jp-sans);
-}
-
-/* ---------------------------------------------------------------- nav */
-.topnav {
-  background: var(--card);
-  border-bottom: 1px solid var(--line);
-}
-.topnav .in {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 0 16px;
-  height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
-// The app's name and its version (app-version) as one piece: the bar's wide
-// gap is for what sits apart, like the navigation.
-.brandline {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.brand {
-  color: var(--ink);
-  text-decoration: none;
-  font-size: 16px;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-.brand b {
-  font-weight: 700;
-}
-.brand .mark {
-  font-family: var(--jp-serif);
-  font-weight: 700;
-  margin-right: 6px;
-  color: var(--kanji-text);
-}
-.topnav nav {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-.topnav nav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 7px 12px;
-  border-radius: 7px;
-}
-.topnav nav a:hover {
-  color: var(--ink);
-  background: var(--soft);
-}
-.topnav nav a[aria-current='page'] {
-  color: var(--ink);
-  background: var(--soft);
-}
-.topnav .badge {
-  display: inline-block;
-  min-width: 20px;
-  padding: 0 6px;
-  margin-left: 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  background: var(--kanji);
-  color: var(--item-ink);
-  font-weight: 700;
 }
 
 /* -------------------------------------------------------------- panels */
@@ -310,7 +239,7 @@ kbd {
 }
 
 /* -------------------------------------------------------------- tables */
-/* the exam's past attempts, the owner's languages and words */
+/* the exam's past attempts, the admin area's languages, words and people */
 table.data {
   width: 100%;
   border-collapse: collapse;
@@ -330,23 +259,18 @@ table.data td {
   font-size: 14px;
 }
 
-/* ------------------------------------------------- the owner's pages */
-/* Translations and Languages (owner/): English, the owner's only */
-.owner .crumbs {
-  display: flex;
-  gap: 8px;
-  margin: 0 0 4px;
-}
-.owner .intro {
+/* ------------------------------------------------- the admin pages */
+/* Translations, Languages and People (admin/): English, for EDITOR and ADMIN */
+.admin .intro {
   max-width: 70ch;
   margin: 0 0 18px;
 }
-.owner code {
+.admin code {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-.owner .tag {
+.admin .tag {
   display: inline-block;
   margin-left: 6px;
   padding: 0 7px;
@@ -357,12 +281,12 @@ table.data td {
   color: var(--muted);
   vertical-align: 1px;
 }
-.owner .ghost:disabled,
-.owner .link:disabled {
+.admin .ghost:disabled,
+.admin .link:disabled {
   opacity: 0.45;
   cursor: default;
 }
-.owner .err:empty {
+.admin .err:empty {
   display: none;
 }
 
@@ -389,131 +313,25 @@ table.data td {
   display: none;
 }
 
-/* who is signed in, top right */
-.usermenu {
-  position: relative;
-  flex: 0 0 auto;
-}
-.usermenu summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 8px 4px 4px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.usermenu summary::-webkit-details-marker {
-  display: none;
-}
-.usermenu summary:hover,
-.usermenu[open] summary {
-  background: var(--soft);
-}
-.usermenu summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.avatar {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+/* Waiting for something on its way (a sign-out for the saves, a data file): a small ring in the text's colour. */
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.45em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 14px;
-  font-weight: 700;
+  vertical-align: -0.1em;
+  animation: spin 0.8s linear infinite;
 }
-.uname {
-  max-width: 14ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.umenu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 30;
-  width: 230px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.umenu .who {
-  margin: 0 0 6px;
-  padding: 6px 8px 10px;
-  border-bottom: 1px solid var(--line);
-  font-size: 13px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-.umenu .who b {
-  color: var(--ink);
-}
-.umenu .uid {
-  white-space: nowrap;
-}
-.umenu a,
-.umenu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 9px 8px;
-  border-radius: 7px;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  text-decoration: none;
-  cursor: pointer;
-}
-.umenu a:hover,
-.umenu button:hover {
-  background: var(--soft);
-}
-
-@media (max-width: 560px) {
-  .topnav .in {
-    gap: 10px;
-  }
-  .brandline {
-    gap: 6px;
-  }
-  .brand .full {
-    display: none;
-  }
-  .topnav nav a {
-    padding: 7px 9px;
-  }
-  .uname {
-    display: none;
-  }
-  .usermenu summary {
-    padding: 4px;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
-
-// Phones: the mark stands for the name, so the version, the language chooser,
-// both sections with the reviews due, and the account menu still fit on one
-// line. (Up to 370px before the chooser came; with it the bar needs the room
-// of "Academy" on every phone.)
-@media (max-width: 440px) {
-  .brand b {
-    display: none;
-  }
-  .brand .mark {
-    margin-right: 0;
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
   }
 }

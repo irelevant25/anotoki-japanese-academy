@@ -5,17 +5,19 @@
  * started for the API tests.
  *
  * Isolation: before the app is loaded, this file gives the test settings of
- * its own — a folder of the three settings files the app requires
+ * its own — a folder of the settings files the app reads
  * (tests/tools/test-config.php), named by ACADEMY_CONFIG_DIR — for a
  * throwaway database (academy_test_<…>, copied from academy_test_template) and
  * a temp folder for backups. It refuses to go on if the app was loaded first.
- * No test can reach your database or backups/, and none reads progress/,
- * results/ or reports/. The database, the folders and the settings are
+ * No test can reach your database or backend/storage/backups/. The database, the folders and the settings are
  * removed when the file's tests end; ACADEMY_KEEP_TEMP=1 keeps them for a look.
  *
- * Sign-in is off (auth mode none) in these settings. The sign-in tests start
- * servers in mode iam (start_app(test_iam_env())) and sign their own tokens
- * with a test key (test_token()): no IAM is ever asked.
+ * Sign-in is the app's one way, the IAM, through the test IAM: a key pair made
+ * for the file (test_iam()), whose public half the settings name as the IAM's
+ * keys, so the file signs its own tokens (test_token()) and no IAM is ever
+ * asked; whether the IAM requires sign-in here comes from a file of the
+ * test's too (test_access()). call() sends a token of TEST_USER, a person with no role, unless a
+ * test sends its own or none (no_token()).
  *
  * tests/run.php runs every test file (php backend/tests/run.php [file…]).
  */
@@ -30,6 +32,13 @@ if (defined('ROOT')) {
 }
 
 require __DIR__ . '/tools/test-config.php';
+
+// A migration still being written (without its last line) is applied to the
+// tests' throwaway databases, as testdb.php applies it to their template:
+// the tests run on the tables it makes, and every server they start, the app
+// as a website included, does the same (db_migration_drafts_allowed(): only
+// the drafts named here, and never to a database that is not academy_test_…).
+putenv('ACADEMY_MIGRATION_DRAFTS=' . implode(',', test_config_migration_drafts()));
 
 /** A throwaway database's name: a test database, never the template or the real one. */
 function test_db_name_ok(string $name): bool
@@ -47,10 +56,15 @@ function test_db_name_ok(string $name): bool
         $backups = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-' . getmypid() . '-' . bin2hex(random_bytes(3));
     }
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-config-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    test_config_write($dir, $name, 'none', null, $backups);
+    // the test IAM's keys: written by test_iam() once the IAM's SDK is loaded, before any token is checked
+    $jwks = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-jwks-' . getmypid() . '-' . bin2hex(random_bytes(3)) . '.json';
+    // the IAM's answer whether sign-in is required: none until test_access() writes one (the IAM out of reach: required)
+    $application = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-application-' . getmypid() . '-' . bin2hex(random_bytes(3)) . '.json';
+    test_config_write($dir, $name, $jwks, $backups, null, 'https://iam.test', ['application_file' => $application]);
     putenv("ACADEMY_CONFIG_DIR=$dir");
     putenv('ACADEMY_JWKS_FILE');
-    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups];
+    putenv('ACADEMY_APPLICATION_FILE');
+    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups, 'jwks' => $jwks, 'application' => $application];
 })();
 
 require __DIR__ . '/../src/bootstrap.php';
@@ -249,6 +263,7 @@ function test_cleanup(): void
     if (isset($GLOBALS['TEST_IAM'])) {
         @unlink($GLOBALS['TEST_IAM']['jwks_file']);
     }
+    @unlink($GLOBALS['TEST_CONFIG']['application']);
     if (getenv('ACADEMY_KEEP_TEMP')) {
         return;
     }
@@ -287,16 +302,20 @@ function test_free_port(): int
 
 /* ---------------------------------------------------------------- sign-in */
 
+/** The person every call() is, unless a test says otherwise: an account with no role here, a learner. */
+const TEST_USER = 1;
+
 /**
- * The test IAM: a key pair made for this file, its public half as a JWKS file.
- * A server started with test_iam_env() checks tokens against that file
- * instead of asking an IAM, so test_token() can sign whatever a test needs.
+ * The test IAM: a key pair made for this file, its public half as the JWKS
+ * file the settings name (auth.jwks_file). The servers of this file check
+ * tokens against that file instead of asking an IAM, so test_token() can sign
+ * whatever a test needs.
  */
 function test_iam(): array
 {
     if (!isset($GLOBALS['TEST_IAM'])) {
         $pair = anotoki_iam_test_keypair('academy-test');
-        $file = str_replace('\\', '/', (string) tempnam(sys_get_temp_dir(), 'academy-jwks-'));
+        $file = $GLOBALS['TEST_CONFIG']['jwks'];
         file_put_contents($file, json_encode($pair['jwks']));
         // an issuer that exists nowhere: a request that should not happen fails loudly
         $GLOBALS['TEST_IAM'] = ['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'pair' => $pair, 'jwks_file' => $file];
@@ -304,22 +323,33 @@ function test_iam(): array
     return $GLOBALS['TEST_IAM'];
 }
 
-/** What start_app() needs for a server that signs people in (auth mode iam) through the test IAM. */
-function test_iam_env(): array
-{
-    return ['auth' => 'iam'];
-}
-
 /**
- * An access token of the test IAM for user $id, with these roles in this app;
- * $extra replaces claims (an expired exp, another aud …). $typ 'JWT' makes it
- * an ID token's type.
+ * An access token of the test IAM for user $id, with these roles in this app
+ * (none: a learner; 'EDITOR', 'ADMIN'); $extra replaces claims (an expired
+ * exp, another aud …). $typ 'JWT' makes it an ID token's type.
  */
-function test_token(int $id, array $roles = ['MEMBER'], array $extra = [], string $typ = 'at+jwt'): string
+function test_token(int $id, array $roles = [], array $extra = [], string $typ = 'at+jwt'): string
 {
     $iam = test_iam();
     $claims = anotoki_iam_test_claims(['issuer' => $iam['issuer'], 'client_id' => $iam['client_id']], $id, $roles, $extra);
     return anotoki_iam_test_sign($claims, $iam['pair']['private_pem'], $iam['pair']['kid'], $typ);
+}
+
+/**
+ * What the test IAM says about this site, for every server of this file that
+ * has no stand-in IAM (and the app's functions in the test process): whether
+ * sign-in is required here - the file auth.application_file names, read on
+ * every request. null: no answer at all (the IAM out of reach), which is
+ * where every file starts.
+ */
+function test_access(?bool $loginRequired): void
+{
+    $file = $GLOBALS['TEST_CONFIG']['application'];
+    if ($loginRequired === null) {
+        @unlink($file);
+        return;
+    }
+    file_put_contents($file, json_encode(['client_id' => 'japanese-academy', 'name' => 'Japanese Academy', 'login_required' => $loginRequired]));
 }
 
 /** The header that sends a token. */
@@ -328,17 +358,69 @@ function test_bearer(string $token): array
     return ["Authorization: Bearer $token"];
 }
 
+/** The header that sends no token at all: call() then sends none of its own (curl drops an empty header). */
+function no_token(): array
+{
+    return ['Authorization:'];
+}
+
 /**
- * Settings of their own for a server of this file: the same database and
- * backup folder, auth mode $auth; with $frontend, a built app of the test's
- * own. Returns the folder, removed when the file's tests end.
+ * Settings of their own for a server of this file: the same database, backup
+ * folder and test IAM's keys; with $frontend, a built app of the test's own;
+ * with $issuer, the address of a stand-in IAM, which it then asks whether
+ * sign-in is required (else test_access() says); $auth adds to its
+ * auth.local.php ('application_ttl' …), $app to its app.local.php ('visitors'
+ * => [...], 'client_address' => [...]). Returns the folder, removed when the
+ * file's tests end.
  */
-function test_server_config(string $auth, ?string $frontend = null): string
+function test_server_config(?string $frontend = null, string $issuer = 'https://iam.test', array $auth = [], array $app = []): string
 {
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-config-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    test_config_write($dir, db_name(), $auth, $auth === 'iam' ? test_iam()['jwks_file'] : null, backup_dir(), $frontend);
+    if ($issuer === 'https://iam.test') {
+        $auth += ['application_file' => $GLOBALS['TEST_CONFIG']['application']];
+    }
+    test_config_write($dir, db_name(), test_iam()['jwks_file'], backup_dir(), $frontend, $issuer, $auth, $app);
     $GLOBALS['TEST_CONFIG_DIRS'][] = $dir;
     return $dir;
+}
+
+/**
+ * The stand-in IAM (tests/tools/stand-in-iam.php) on a free port, signing with
+ * the test IAM's key: authorize, token, logout as the browser SDK uses them.
+ * $state is merged into its state.json first (who signs in, deny …). Stopped
+ * and removed when the file's tests end.
+ *
+ * @return array{base: string, dir: string}
+ */
+function stand_in_iam(array $state = []): array
+{
+    $iam = test_iam();
+    $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-iam-' . getmypid() . '-' . bin2hex(random_bytes(3));
+    mkdir($dir, 0700, true);
+    file_put_contents("$dir/jwks.json", json_encode($iam['pair']['jwks']));
+    file_put_contents("$dir/key.json", json_encode(['kid' => $iam['pair']['kid'], 'private_pem' => $iam['pair']['private_pem']]));
+    if ($state) {
+        file_put_contents("$dir/state.json", json_encode($state));
+    }
+    $port = test_free_port();
+    $base = "http://127.0.0.1:$port";
+    $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", BACKEND . '/tests/tools/stand-in-iam.php'],
+        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']], $pipes, BACKEND,
+        ['STAND_IN_ISSUER' => $base, 'STAND_IN_DIR' => $dir] + getenv());
+    $GLOBALS['TEST_SERVERS'][] = static function () use ($proc, $dir): void {
+        proc_terminate($proc);
+        @proc_close($proc);
+        array_map('unlink', glob("$dir/*") ?: []);
+        @rmdir($dir);
+    };
+    for ($i = 0; @file_get_contents("$base/.well-known/openid-configuration") === false; $i++) {
+        if ($i > 100) {
+            throw new RuntimeException('The stand-in IAM did not start.');
+        }
+        usleep(50000);
+    }
+    return ['base' => $base, 'dir' => $dir];
 }
 
 /* ----------------------------------------------------------------- the app */
@@ -363,22 +445,31 @@ function test_frontend(): string
 }
 
 /**
- * The real server (php backend/server.php as PHP's built-in server runs it) on
+ * The real server (backend/router.php as PHP's built-in server runs it) on
  * a free port, against this file's database and backup folder. Checks it says
- * so before any test talks to it. $how: ['auth' => 'iam'] (test_iam_env()) for
- * a server in auth mode iam; ['frontend' => DIR] for another built app than
- * test_frontend(); ['env' => [...]] sets its environment (settings of its own,
- * ACADEMY_CONFIG_DIR, perhaps not whole: then only that it answers is checked).
+ * so before any test talks to it. It signs people in through the test IAM
+ * (test_token()). $how: ['frontend' => DIR] for another built app than
+ * test_frontend(); ['issuer' => URL] for a stand-in IAM's tokens and its answer
+ * whether sign-in is required (stand_in_iam()); ['auth' => [...]] adds to its
+ * auth.local.php (test_server_config()), ['app' => [...]] to its app.local.php
+ * (the visitors' limits, the trusted proxies);
+ * ['env' => [...]] sets its environment (settings of its own,
+ * ACADEMY_CONFIG_DIR, perhaps not whole: then only that it answers is checked);
+ * ['ini' => ['memory_limit' => '48M', …]] PHP's own settings, as a host's php.ini
+ * would have them.
  *
- * @return array{base: string, log: string}
+ * @return array{base: string, log: string, config?: string} config: its settings folder (and DIR/cache, its cache)
  */
 function start_app(array $how = []): array
 {
+    $ini = [];
+    foreach ($how['ini'] ?? [] as $setting => $value) {
+        array_push($ini, '-d', "$setting=$value");
+    }
     test_db();
-    $auth = (string) ($how['auth'] ?? 'none');
     $frontend = array_key_exists('frontend', $how) ? (string) $how['frontend'] : test_frontend();
     $own = isset($how['env']['ACADEMY_CONFIG_DIR']);
-    $env = ($how['env'] ?? []) + ['ACADEMY_CONFIG_DIR' => $own ? '' : test_server_config($auth, $frontend)] + getenv();
+    $env = ($how['env'] ?? []) + ['ACADEMY_CONFIG_DIR' => $own ? '' : test_server_config($frontend, (string) ($how['issuer'] ?? 'https://iam.test'), $how['auth'] ?? [], $how['app'] ?? [])] + getenv();
     unset($env['ACADEMY_JWKS_FILE']);
     $port = test_free_port();
     // The built-in server logs every request: to a file, as a pipe nobody reads would fill up and stall it.
@@ -388,7 +479,7 @@ function start_app(array $how = []): array
     $log = tempnam(sys_get_temp_dir(), 'academy-server-');
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
     $proc = proc_open(
-        [PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", '-t', BACKEND, BACKEND . '/server.php'],
+        array_merge([PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'opcache.enable=0'], $ini, ['-S', "127.0.0.1:$port", '-t', BACKEND, BACKEND . '/router.php']),
         [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $log, 'a']],
         $pipes,
         ROOT,
@@ -417,10 +508,7 @@ function start_app(array $how = []): array
             if (($health['database'] ?? null) !== db_name() || ($health['backups'] ?? null) !== str_replace('\\', '/', backup_dir())) {
                 throw new RuntimeException('The server uses ' . ($health['database'] ?? '?') . ' / ' . ($health['backups'] ?? '?') . ", not this test's database and folder.");
             }
-            if (($health['auth'] ?? null) !== $auth) {
-                throw new RuntimeException('The server runs in auth mode ' . ($health['auth'] ?? '?') . ', not the one this test asked for.');
-            }
-            return ['base' => $base, 'log' => $log];
+            return ['base' => $base, 'log' => $log, 'config' => $env['ACADEMY_CONFIG_DIR']];
         }
         usleep(50000);
     }
@@ -455,6 +543,7 @@ function test_site(): array
     $env = getenv();
     unset($env['ACADEMY_CONFIG_DIR']); // the site's own settings, in its backend/config/
     $env['ACADEMY_JWKS_FILE'] = test_iam()['jwks_file'];
+    $env['ACADEMY_APPLICATION_FILE'] = $GLOBALS['TEST_CONFIG']['application']; // never the issuer its setup page names
     $port = test_free_port();
     $log = (string) tempnam(sys_get_temp_dir(), 'academy-site-');
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
@@ -509,14 +598,27 @@ function test_site_backups(): string
     return str_replace('\\', '/', sys_get_temp_dir()) . '/academy-backups-' . db_name();
 }
 
-/** backend/tools/build-dist.php with these options; its output. */
+/**
+ * backend/tools/build-dist.php with these options; its output. The build
+ * refuses while a migration is a draft: the drafts the tests apply
+ * (test_config_migration_drafts()) are allowed, so a site of the tests gets
+ * what their databases get.
+ */
 function test_build(string $options): string
 {
-    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/tools/build-dist.php') . " $options 2>&1", $out, $code);
+    exec(test_build_command($options) . ' 2>&1', $out, $code);
     if ($code !== 0) {
         throw new RuntimeException('The build failed: ' . implode("\n", $out));
     }
     return implode("\n", $out);
+}
+
+/** The command line of test_build(); $allowDrafts false: the build as the owner runs it. */
+function test_build_command(string $options, bool $allowDrafts = true): string
+{
+    $drafts = $allowDrafts ? test_config_migration_drafts() : [];
+    return escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/tools/build-dist.php') . " $options"
+        . ($drafts ? ' --allow-draft=' . escapeshellarg(implode(',', $drafts)) : '');
 }
 
 /**
@@ -566,7 +668,9 @@ function server_problems(array $app): array
 }
 
 /**
- * An HTTP request with JSON in and out.
+ * An HTTP request with JSON in and out, as TEST_USER (a token of the test IAM)
+ * unless $headers carry an Authorization of their own: another person's
+ * token, or none at all (no_token()).
  *
  * @return array{status: int, body: mixed, raw: string, headers: array<string, string>}
  */
@@ -574,6 +678,9 @@ function call(string $base, string $method, string $url, $body = null, array $he
 {
     $ch = curl_init($base . $url);
     $h = $headers;
+    if (!array_filter($headers, static fn (string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
+        $h = array_merge($h, test_bearer(test_token(TEST_USER)));
+    }
     if ($body !== null) {
         $h[] = 'Content-Type: application/json';
     }
@@ -601,5 +708,59 @@ function call(string $base, string $method, string $url, $body = null, array $he
         'body' => json_last_error() === JSON_ERROR_NONE ? $decoded : $raw,
         'raw' => (string) $raw,
         'headers' => $responseHeaders,
+    ];
+}
+
+/**
+ * A request sent and left to go on, for the tests of who waits for whom:
+ * 'waits' says whether it stays unanswered because it waits for a lock in the
+ * database (another connection of the test holds one), 'answer' waits for its
+ * answer ({status, body}). As call(): TEST_USER unless $headers say otherwise.
+ *
+ * @return array{waits: callable, answer: callable}
+ */
+function test_begin(string $base, string $method, string $url, $body = null, array $headers = []): array
+{
+    if (!array_filter($headers, static fn (string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
+        $headers = array_merge($headers, test_bearer(test_token(TEST_USER)));
+    }
+    $curl = curl_init($base . $url);
+    $headers = array_merge($headers, ['Expect:'], $body === null ? [] : ['Content-Type: application/json']);
+    curl_setopt_array($curl, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $headers, CURLOPT_TIMEOUT => 30]);
+    if ($body !== null) {
+        curl_setopt($curl, CURLOPT_POSTFIELDS, is_string($body) ? $body : json_text($body));
+    }
+    $multi = curl_multi_init();
+    curl_multi_add_handle($multi, $curl);
+    $answered = static function () use ($multi): bool {
+        curl_multi_exec($multi, $running);
+        if ($running > 0 && curl_multi_select($multi, 0.05) === -1) {
+            usleep(20000);
+        }
+        return $running === 0;
+    };
+    $answer = null;
+    return [
+        'waits' => static function () use ($answered): bool {
+            for ($until = microtime(true) + 10; microtime(true) < $until;) {
+                if ($answered()) {
+                    return false;
+                }
+                if ((int) db_value("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'") > 0) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        'answer' => static function () use ($answered, $multi, $curl, &$answer): array {
+            if ($answer === null) {
+                for ($until = microtime(true) + 35; !$answered() && microtime(true) < $until;) {
+                    // until it is answered (or its own 30 seconds are over)
+                }
+                $answer = ['status' => (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'body' => json_decode((string) curl_multi_getcontent($curl), true)];
+                curl_multi_remove_handle($multi, $curl);
+            }
+            return $answer;
+        },
     ];
 }

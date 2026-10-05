@@ -1,0 +1,189 @@
+<header class="topbar" [class.is-phone]="phone()" (keydown)="keydown($event)">
+  <div class="topbar-inner">
+    @if (area() === 'admin') {
+      <!-- The admin panel's own words are English, written here (as in its pages): the anotoki family's name for it. -->
+      <app-brand [showName]="!narrow()" [area]="narrow() ? 'admin panel' : 'Japanese admin panel'" link="/admin" linkLabel="anotoki Japanese admin panel: home" />
+    } @else {
+      <app-brand [showName]="!phone()" area="Japanese" link="/" [linkLabel]="words().home" [current]="isHome()" />
+    }
+
+    @if (!phone() && links().length) {
+      <nav class="topbar-nav" [attr.aria-label]="words().sections">
+        @for (link of links(); track link.id) {
+          <a
+            class="topbar-link"
+            [id]="'nav-' + link.id"
+            [routerLink]="link.path"
+            [class.is-active]="inSection(link)"
+            [attr.aria-current]="isPage(link) ? 'page' : null"
+            [attr.lang]="link.key ? null : 'en'"
+          >
+            {{ words().links[link.id] }}
+            @if (link.due && due()) {
+              <span class="badge" id="navDue">{{ due() }}</span>
+            }
+          </a>
+        }
+      </nav>
+    }
+
+    <div class="topbar-actions">
+      @if (chooser()) {
+        <app-language-chooser />
+      }
+      <app-theme-toggle />
+
+      @if (phone()) {
+        @if (menuButton()) {
+          <div class="phone-menu">
+            <button
+              #phoneButton
+              type="button"
+              class="menu-button"
+              id="menuButton"
+              aria-haspopup="menu"
+              aria-controls="topbar-menu"
+              [attr.aria-expanded]="openMenu() === 'phone'"
+              [attr.aria-label]="words().phoneMenu"
+              (click)="toggleMenu('phone')"
+            >
+              <app-icon [name]="openMenu() === 'phone' ? 'x' : 'menu'" [size]="20" />
+              @if (phoneDue()) {
+                <span class="badge on-button" id="menuDue" aria-hidden="true">{{ phoneDue() }}</span>
+              }
+            </button>
+
+            @if (openMenu() === 'phone') {
+              <div #menu id="topbar-menu" class="menu" role="menu" [attr.aria-label]="words().phoneMenu" (keydown)="menuKeydown($event)">
+                @for (link of links(); track link.id) {
+                  <a
+                    role="menuitem"
+                    class="menu-item menu-link"
+                    [routerLink]="link.path"
+                    [class.is-active]="inSection(link)"
+                    [attr.aria-current]="isPage(link) ? 'page' : null"
+                    [attr.lang]="link.key ? null : 'en'"
+                    (click)="closeMenu(false)"
+                  >
+                    {{ words().links[link.id] }}
+                    @if (link.due && due()) {
+                      <span class="badge">{{ due() }}</span>
+                    }
+                  </a>
+                }
+                @if (links().length) {
+                  <div class="menu-sep" role="separator"></div>
+                }
+                @if (person()) {
+                  <ng-container [ngTemplateOutlet]="accountItems" />
+                } @else if (signedOut()) {
+                  <button
+                    role="menuitem"
+                    type="button"
+                    class="menu-item"
+                    id="signInItem"
+                    [disabled]="signInFlow.waiting()"
+                    [attr.aria-busy]="signInFlow.waiting()"
+                    (click)="signIn()"
+                  >
+                    @if (signInFlow.waiting()) {
+                      <span class="spinner" aria-hidden="true"></span>
+                      {{ words().saving }}
+                    } @else {
+                      <app-icon name="logIn" [size]="17" />
+                      {{ words().signIn }}
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      } @else if (person()) {
+        <div class="user-menu">
+          <button
+            #accountButton
+            type="button"
+            class="user-button"
+            id="userButton"
+            aria-haspopup="menu"
+            aria-controls="user-menu"
+            [attr.aria-expanded]="openMenu() === 'account'"
+            [attr.aria-label]="words().menuButton"
+            (click)="toggleMenu('account')"
+          >
+            <span class="avatar" aria-hidden="true">{{ initial() }}</span>
+            <span class="user-name">{{ name() }}</span>
+            <app-icon name="chevronDown" [size]="16" />
+          </button>
+
+          @if (openMenu() === 'account') {
+            <div #menu id="user-menu" class="menu" role="menu" [attr.aria-label]="words().menu" (keydown)="menuKeydown($event)">
+              <ng-container [ngTemplateOutlet]="accountItems" />
+            </div>
+          }
+        </div>
+      } @else if (signedOut()) {
+        <button
+          type="button"
+          class="primary sm sign-in"
+          id="signInButton"
+          [disabled]="signInFlow.waiting()"
+          [attr.aria-busy]="signInFlow.waiting()"
+          (click)="signIn()"
+        >
+          @if (signInFlow.waiting()) {
+            <span class="spinner" aria-hidden="true"></span>
+            {{ words().saving }}
+          } @else {
+            <app-icon name="logIn" [size]="16" />
+            {{ words().signIn }}
+          }
+        </button>
+      }
+    </div>
+  </div>
+</header>
+
+<!-- The person's menu: on its own button on a desktop, after the links in the phone's menu. -->
+<ng-template #accountItems>
+  <div class="menu-head" role="none">
+    <span class="menu-name">{{ name() }}</span>
+    @if (email()) {
+      <span class="menu-email">{{ email() }}</span>
+    }
+    @if (words().role) {
+      <span class="menu-role">{{ words().role }}</span>
+    }
+  </div>
+  @if (auth.accountUrl(); as url) {
+    <a role="menuitem" class="menu-item" id="accountLink" [href]="url" target="_blank" rel="noopener" (click)="closeMenu(false)">
+      <app-icon name="user" [size]="17" />
+      {{ words().account }}
+      <app-icon class="menu-external" name="externalLink" [size]="14" />
+    </a>
+  }
+  @if (auth.isStaff()) {
+    @if (area() === 'admin') {
+      <a role="menuitem" class="menu-item" id="backLink" routerLink="/" lang="en" (click)="closeMenu(false)">
+        <app-icon name="arrowLeft" [size]="17" />
+        Back to Japanese Academy
+      </a>
+    } @else {
+      <a role="menuitem" class="menu-item" id="adminLink" routerLink="/admin" (click)="closeMenu(false)">
+        <app-icon name="shield" [size]="17" />
+        {{ words().admin }}
+      </a>
+    }
+  }
+  <div class="menu-sep" role="separator"></div>
+  <button role="menuitem" type="button" class="menu-item" id="signOut" [disabled]="signOut.waiting()" [attr.aria-busy]="signOut.waiting()" (click)="logout()">
+    @if (signOut.waiting()) {
+      <span class="spinner" aria-hidden="true"></span>
+      {{ words().saving }}
+    } @else {
+      <app-icon name="logOut" [size]="17" />
+      {{ words().signOut }}
+    }
+  </button>
+</ng-template>

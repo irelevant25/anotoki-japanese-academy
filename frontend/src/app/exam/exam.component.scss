@@ -41,9 +41,10 @@
 }
 
 /* ------------------------------------------------------------- test */
+/* the paper's progress sticks under the app's own bar, which sticks too */
 .topbar {
   position: sticky;
-  top: 0;
+  top: var(--topbar-height);
   z-index: 5;
   background: var(--bg);
   border-bottom: 1px solid var(--line);

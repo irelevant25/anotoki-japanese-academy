@@ -13,12 +13,10 @@ const ENGLISH: Record<string, string> = {
   'error.offline': 'The server does not answer.',
   'error.http': 'The server answered with an error ({status}).',
   'error.unknown': 'Something went wrong.',
-  'error.this_computer_only':
-    'Sign-in is off here (auth mode none), and that only works on your own computer: through php backend/server.php, opened at 127.0.0.1 or localhost, with no proxy in between. A website needs auth mode iam in backend/config/auth.local.php.',
   'error.database_unavailable': 'The database is not reachable.',
   'error.server_error': 'Something went wrong on the server.',
-  'error.not_up_to_date':
-    "The database is not up to date with the uploaded version of the app yet. Try again in a moment; if this stays, the server's error log says why.",
+  'error.not_up_to_date': 'The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.',
+  'boot.problem.migrations': 'Open the Migrations page',
 };
 
 /**
@@ -30,7 +28,11 @@ const ENGLISH: Record<string, string> = {
  * the IAM's SDK's own message, comes after the page's words, small, and is
  * English whatever the page is in (`lang="en"`).
  *
- * Try again loads the page afresh: only a page load changes this state.
+ * Try again loads the page afresh: only a page load changes this state. A
+ * database update waiting (not_up_to_date) gives an administrator a link to
+ * the admin panel's Migrations page, where they apply it — a page load too,
+ * and that page starts while the update waits
+ * (TranslationService.refused()).
  */
 @Component({
   selector: 'app-problem',
@@ -53,6 +55,12 @@ export class ProblemComponent {
     return problem && problem.kind !== 'offline' ? problem.detail : null;
   });
   readonly tryAgain = computed(() => keptWord(this.i18n, 'common.tryAgain', 'Try again'));
+  /** For an administrator, while a database update waits for them: the way to apply it. */
+  readonly migrations = computed(() => {
+    const problem = this.auth.problem();
+    const waiting = problem?.kind === 'server' && problem.code === 'not_up_to_date';
+    return waiting && this.auth.isAdmin() ? keptWord(this.i18n, 'boot.problem.migrations', ENGLISH['boot.problem.migrations']) : null;
+  });
 
   retry(): void {
     location.reload();

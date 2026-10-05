@@ -11,7 +11,9 @@ paths:
 Reference: `docs/kb/kanji-srs.md`. Read it before changing the trainer.
 
 - The schedule is WaniKani's: 4, 8, 23, 47, 167, 335, 719 and 2879 h, rounded
-  down to the local hour. The penalty is `ceil(w/2)` stages, doubled from Guru
+  down to the hour of the learner's own time zone (their browser's
+  `X-Time-Zone`; days and the dashboard's today are theirs too, the backups'
+  names UTC: `docs/kb/kanji-srs.md`). The penalty is `ceil(w/2)` stages, doubled from Guru
   up, and never goes below Apprentice I. Change it only if the owner asks, and
   update `backend/tests/unit/srs.test.php` with it.
 - `srs_practice()` updates only `practice.*` and `lastWrongAt`. It must never
@@ -33,15 +35,18 @@ Reference: `docs/kb/kanji-srs.md`. Read it before changing the trainer.
   query has `WHERE user_id = ?`. One person can never read or change another's
   items, day counts, log or settings.
 - `store.php` saves each answer in one transaction: the item, the day's count
-  and the `srs_log` line. The log is only ever added to; the one exception
+  and the `srs_log` line. A person's log is only ever added to; the one exception
   was migration `002_users.sql`, which gave every existing line the owner's
-  user id, a one-time change the owner approved on 2026-09-27. The day's
-  backup (`backend/src/backup.php`) runs when the server starts or at the
-  first page load of a new day (the routes registered with
-  `data_route(…, true)`), never on an answer; nothing slow goes on the answer
-  path (the one bend: on a website, the first request after an upload applies
-  migrations and rebuilds content, whatever request it is —
-  `backend/src/upkeep.php`). The item records keep the shape of `srs_blank()`,
+  user id, a one-time change the owner approved on 2026-09-27 (a visitor's
+  lines become the person's at sign-in, `visitors_move()`, all but the
+  visitor's resets of what the person kept). The day's
+  backup (`backend/src/backup.php`) runs at the first page load of a day (the
+  routes registered with `study_route(…, true)`), never on an answer; nothing
+  slow goes on the answer path (the one bend: the first request after the
+  files changed — an upload, a pull — rebuilds content, whatever request it
+  is, on this computer as on a website — `backend/src/upkeep.php`; a new
+  migration is never applied by a request: it waits for an ADMIN's Apply on
+  the Migrations page, and the pages say "not up to date" meanwhile). The item records keep the shape of `srs_blank()`,
   which the browser (`ItemState` in `api.types.ts`), the export and the
   backups share.
 - `frontend/src/app/kanji/answer.ts`: every catalog item must accept its own
@@ -51,5 +56,7 @@ Reference: `docs/kb/kanji-srs.md`. Read it before changing the trainer.
 - The browser saves answers in the background, and the summary waits for
   pending saves. Keep it that way; the next card must never wait for the
   server.
-- Run `npm test`. If the UI changed, also run `npm run test:browser` and the
+- Run the PHP tests (`node backend/tools/php.js backend/tests/run.php`) and
+  `npm test` in `frontend/`. If the UI changed, also run `node frontend/e2e/run.js` (after
+  `node frontend/scripts/ensure-build.mjs`) and the
   `academy-ui-check` skill (or the `academy-ui-tester` agent).

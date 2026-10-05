@@ -1,3 +1,5 @@
+<app-visitor-notice />
+
 @if (s(); as s) {
   <div class="cards3">
     <div class="bigcard c-lessons">
@@ -123,9 +125,12 @@
     }
   </section>
 
-  <p class="small muted foot">
-    {{ 'dashboard.saved' | translate }}
-    <a href="/api/kanji/export" download (click)="privateLinks.click($event, '/api/kanji/export', true)">{{ 'dashboard.download' | translate }}</a
-    >.
-  </p>
+  @if (auth.signedIn()) {
+    <!-- Your data is a signed-in person's (a visitor's study has no file: the notice above says how it is kept). -->
+    <p class="small muted foot">
+      {{ 'dashboard.saved' | translate }}
+      <a routerLink="/" fragment="your-data" id="yourDataLink">{{ 'dashboard.download' | translate }}</a
+      >.
+    </p>
+  }
 }

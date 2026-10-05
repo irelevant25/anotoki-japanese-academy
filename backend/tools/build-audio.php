@@ -3,15 +3,16 @@
  * Makes the vocabulary audio with Google Cloud Text-to-Speech: every word the
  * kanji trainer or the exam can play, in two voices (female and male).
  *
- *   php backend/tools/build-audio.php                make the missing clips, drop unused ones (npm run build:audio)
+ *   php backend/tools/build-audio.php                make the missing clips, drop unused ones
  *   php backend/tools/build-audio.php --dry-run      count what would be sent; needs no key
  *   php backend/tools/build-audio.php --limit 20     make at most 20 clips, for a quick try
  *
- * The API key comes from GOOGLE_TTS_API_KEY, or from a .env file in the project
- * root (gitignored; see README). A clip is made once: each records the recipe
+ * (By hand where an older php comes first on PATH: node backend/tools/php.js
+ * backend/tools/build-audio.php …) The API key comes from GOOGLE_TTS_API_KEY,
+ * or from a .env file in backend/ (gitignored; see README). A clip is made once: each records the recipe
  * and voice that made it, and a rebuild only sends the words that have no
- * current clip. The clips go to data/audio/ under random names and are listed
- * in data/audio.json, which backend/src/speech.php reads. Ctrl+C stops cleanly: every
+ * current clip. The clips go to backend/data/audio/ under random names and are listed
+ * in backend/data/audio.json, which backend/src/speech.php reads. Ctrl+C stops cleanly: every
  * clip made so far stays listed.
  */
 
@@ -155,7 +156,7 @@ function audio_load_index(string $file): array
     }
     $idx = json_decode((string) file_get_contents($file), true);
     if (!is_array($idx) || !is_array($idx['voices'] ?? null) || !array_is_list($idx['voices']) || !is_array($idx['clips'] ?? null)) {
-        throw new RuntimeException("$file is unreadable. Restore it (git checkout -- data/audio.json) before building.");
+        throw new RuntimeException("$file is unreadable. Restore it (git checkout -- backend/data/audio.json) before building.");
     }
     return $idx + ['made' => []];
 }
@@ -300,11 +301,11 @@ function audio_build(array $o): array
     return ['made' => $made, 'removed' => $removed, 'skipped' => $skipped, 'todo' => count($todo), 'chars' => $chars, 'stopped' => $taken < count($batch)];
 }
 
-/** GOOGLE_TTS_API_KEY from the environment, or from .env in the project root. */
+/** GOOGLE_TTS_API_KEY from the environment, or from backend/.env. */
 function audio_api_key(): string
 {
     $key = (string) getenv('GOOGLE_TTS_API_KEY');
-    $env = ROOT . '/.env';
+    $env = BACKEND . '/.env';
     if ($key === '' && is_file($env)) {
         foreach (file($env, FILE_IGNORE_NEW_LINES) as $line) {
             if (preg_match('/^\s*(?:export\s+)?GOOGLE_TTS_API_KEY\s*=\s*(.*?)\s*$/', $line, $m)) {
@@ -366,7 +367,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
         $files = array_values(array_filter(scandir(AUDIO_CLIPS) ?: [], static fn (string $f): bool => (bool) preg_match(CLIP_NAME, $f)));
         $mb = array_sum(array_map(static fn (string $f): int => (int) filesize(AUDIO_CLIPS . "/$f"), $files)) / 1048576;
         echo "made {$r['made']}, removed {$r['removed']}" . ($r['stopped'] ? ', stopped early' : '') . '; '
-            . 'data/audio has ' . count($files) . ' clips (' . js_to_fixed($mb, 1) . " MB)\n";
+            . 'backend/data/audio has ' . count($files) . ' clips (' . js_to_fixed($mb, 1) . " MB)\n";
         exit($r['stopped'] || $r['skipped'] ? 1 : 0);
     } catch (Throwable $e) {
         fwrite(STDERR, $e->getMessage() . "\n");

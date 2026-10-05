@@ -2,15 +2,15 @@
 /**
  * The study content in the database.
  *
- * data/ holds the content (built from data/source/ by backend/tools/build-data.php,
+ * backend/data/ holds the content (built from backend/data/source/ by backend/tools/build-data.php,
  * plus the audio index and the hand-written exam items). From it this file
  * builds the kanji trainer's catalog and the exam's question bank — about two
  * seconds of work — and stores both in srs_items and exam_questions, so a
  * request only reads rows.
  *
- * content_sync() runs when the server starts (backend/server.php), in the setup
- * page, and on a hosted site at the first request after an upload
- * (src/upkeep.php). It rebuilds only when data/ or the code that builds from
+ * content_sync() runs in the setup page, in php backend/manage.php, and at
+ * the first request after the files changed - on this computer as on a hosted
+ * site (src/upkeep.php). It rebuilds only when backend/data/ or the code that builds from
  * it has changed since the last build: content_state remembers a hash of all
  * of those files, and the stamp upkeep_run() compares on every request.
  */
@@ -19,11 +19,11 @@ declare(strict_types=1);
 
 /** What the catalog and the bank are built from (paths from the repository's root). A change to any of these rebuilds them. */
 const CONTENT_FILES = [
-    'data/vocab.json',
-    'data/kanji.json',
-    'data/audio.json',
-    'data/authored-items-part1.php',
-    'data/authored-items-part2.php',
+    'backend/data/vocab.json',
+    'backend/data/kanji.json',
+    'backend/data/audio.json',
+    'backend/data/authored-items-part1.php',
+    'backend/data/authored-items-part2.php',
     'backend/src/content.php',
     'backend/src/generate.php',
     'backend/src/conjugate.php',
@@ -32,14 +32,14 @@ const CONTENT_FILES = [
     'backend/src/util.php',
 ];
 
-/** The content from data/, as the builders take it. */
+/** The content from backend/data/, as the builders take it. */
 function content_load(): array
 {
     return [
-        'vocab' => read_json(ROOT . '/data/vocab.json'),
-        'kanji' => read_json(ROOT . '/data/kanji.json'),
+        'vocab' => read_json(BACKEND . '/data/vocab.json'),
+        'kanji' => read_json(BACKEND . '/data/kanji.json'),
         'audio' => speech_read_index(),
-        'authored' => array_merge(require ROOT . '/data/authored-items-part1.php', require ROOT . '/data/authored-items-part2.php'),
+        'authored' => array_merge(require BACKEND . '/data/authored-items-part1.php', require BACKEND . '/data/authored-items-part2.php'),
     ];
 }
 
@@ -101,7 +101,7 @@ function content_sync(bool $force = false, ?string $stamp = null): ?array
     return ['items' => count($catalog['items']), 'questions' => count($bank), 'seconds' => round(microtime(true) - $t, 1)];
 }
 
-/** Is the content in the database the content in data/? */
+/** Is the content in the database the content in backend/data/? */
 function content_current(): bool
 {
     return db_value('SELECT hash FROM content_state') === content_hash();

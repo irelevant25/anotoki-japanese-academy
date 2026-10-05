@@ -10,7 +10,7 @@ import { ChangelogService } from './changelog.service';
  * Its frame is in the language on the page — the heading, Close, "latest", the
  * three kinds of change, the dates. The entries themselves are written in
  * English (public/changelog.json) and stay so, marked `lang="en"`. It opens
- * from the top bar in every state, so the frame's words have their English
+ * from the foot of the page in every state, so the frame's words have their English
  * here too (standin/kept-word.ts).
  */
 @Component({

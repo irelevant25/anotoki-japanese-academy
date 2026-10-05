@@ -1,6 +1,7 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector } from '@angular/core';
 import { TranslationService } from '../i18n/translation.service';
 import { AuthService } from './auth.service';
+import { VisitorKey } from './visitor-key';
 
 /** A report opened from memory shows as it was saved, but may never run a script. */
 export const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'";
@@ -19,6 +20,16 @@ export function lockDown(html: string): string {
   return doctype ? doctype[0] + meta + html.slice(doctype[0].length) : meta + html;
 }
 
+/** The code of a failure's JSON body (a copy is read), or ''. */
+async function codeOf(r: Response): Promise<string> {
+  const body: unknown = await r
+    .clone()
+    .json()
+    .catch(() => null);
+  const code = body && typeof body === 'object' ? (body as { code?: unknown }).code : undefined;
+  return typeof code === 'string' ? code : '';
+}
+
 /** The file name a download names itself (Content-Disposition), or null. */
 export function fileNameOf(response: Response): string | null {
   const m = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
@@ -26,9 +37,9 @@ export function fileNameOf(response: Response): string | null {
 }
 
 /**
- * What a report or a download that could not be had is called, by its status
- * alone: the report's address answers plain English text and no code, so there
- * is nothing else to word it from. 404 is a report that is not there (or is
+ * What a report that could not be had is called, by its status alone: the
+ * report's address answers plain English text and no code, so there is
+ * nothing else to word it from. 404 is a report that is not there (or is
  * somebody else's); anything else is the general sentence.
  */
 export function failureKey(status: number): string {
@@ -36,12 +47,13 @@ export function failureKey(status: number): string {
 }
 
 /**
- * The links the browser would follow by itself to somebody's data — a report
- * (/report/:id) and the progress download (/api/kanji/export). Without sign-in
- * they are plain links and work as they always did. Signed in (auth mode iam)
- * they can't carry the token, so a click fetches them with it and opens the
- * report from memory (a blob: address, with its no-script policy), or saves the
- * file under the server's name. The server sends a report with the same policy.
+ * The links the browser would follow by itself to somebody's data: an exam's
+ * report (/report/:id). A link can't carry the token, so a click fetches the
+ * report with it (AuthService.fetch()) and opens it from memory, in a new tab
+ * (a blob: address, with its no-script policy). The server sends a report with
+ * the same policy. A visitor's report goes with their key instead (VisitorKey,
+ * made only then), and a key the server no longer knows is forgotten. (The data file of Your data is fetched the same way, by its
+ * card: home/your-data.)
  *
  * What it says itself — the waiting tab's title, the alert when it fails — is
  * worded at the moment it is raised, in the language on the page; the server's
@@ -51,40 +63,36 @@ export function failureKey(status: number): string {
 export class PrivateLinksService {
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(TranslationService);
+  private readonly injector = inject(Injector);
 
-  /** For (click) on such a link: in auth mode iam, fetched with the token instead of followed. */
-  click(event: MouseEvent, url: string, download = false): void {
-    if (!this.auth.signsIn() || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+  /** For (click) on such a link: fetched with the token instead of followed. */
+  click(event: MouseEvent, url: string): void {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     event.preventDefault();
-    void this.open(url, { download });
+    void this.open(url);
   }
 
-  /** One of the person's own pages (a report) in a new tab, or a download (the progress file), from memory. */
-  async open(url: string, { download = false } = {}): Promise<void> {
+  /** One of the person's own pages (a report), in a new tab, from memory. */
+  async open(url: string): Promise<void> {
     // The tab opens during the click itself: later, the browser would block it.
-    const tab = download ? null : window.open('', '_blank');
+    const tab = window.open('', '_blank');
     if (tab) {
       tab.document.title = this.i18n.t('report.opening');
     }
     try {
-      const r = await this.auth.fetch(url);
+      const visitor = this.auth.visiting() ? this.injector.get(VisitorKey) : null;
+      const key = visitor?.current() ?? null;
+      const r = await this.auth.fetch(url, {}, key);
+      if (visitor && key && r.status === 401 && (await codeOf(r)) === 'visitor_unknown') {
+        visitor.forget(key, true);
+      }
       if (!r.ok) {
         this.failed(tab, failureKey(r.status));
         return;
       }
       const blob = await r.blob();
-      if (download) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fileNameOf(r) || 'download';
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-        return;
-      }
       const page = URL.createObjectURL(new Blob([lockDown(await blob.text())], { type: 'text/html' }));
       if (tab) {
         tab.opener = null;

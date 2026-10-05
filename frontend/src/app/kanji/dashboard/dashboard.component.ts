@@ -1,27 +1,33 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CatalogItem } from '../../core/api/api.types';
-import { PrivateLinksService } from '../../core/auth/private-links.service';
-import { fmtClock, fmtIn, fmtWeekday, pct } from '../../core/format';
+import { AuthService } from '../../core/auth/auth.service';
+import { fmtClock, fmtIn, fmtWeekdayOf, pct } from '../../core/format';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { VisitorNoticeComponent } from '../../home/visitor-notice/visitor-notice.component';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { TileComponent } from '../shared/tile/tile.component';
 
-/** The trainer's home: lessons, reviews and practice to start, today, the stages, what is coming, and each lesson's progress. */
+/**
+ * The trainer's home: lessons, reviews and practice to start, today, the
+ * stages, what is coming, and each lesson's progress. A visitor reads the
+ * visitor notice at its top; the link to Your data at its foot is a signed-in
+ * person's.
+ */
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe],
+  imports: [RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, VisitorNoticeComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent {
   readonly kanji = inject(KanjiStateService);
+  readonly auth = inject(AuthService);
   private readonly screen = inject(KanjiScreenService);
-  readonly privateLinks = inject(PrivateLinksService);
   private readonly i18n = inject(TranslationService);
 
   readonly s = computed(() => this.kanji.summary());
@@ -69,20 +75,24 @@ export class DashboardComponent {
     });
   });
 
-  /** The next seven days, their names in the language on the page, whatever the system's locale. */
+  /**
+   * The next seven days, their names in the language on the page, whatever the
+   * system's locale. The server counts them (forecastDays: day i is i times 24
+   * hours after the start of the learner's today, in the time zone the browser
+   * sent it) and says which of the learner's dates each stands for
+   * (forecastDates): each is named from its date, never by steps of the page's
+   * own — 24 hours from `now` is another day an hour round a change of summer
+   * time.
+   */
   readonly days = computed(() => {
     const s = this.s();
     if (!s) {
       return [];
     }
-    return s.forecastDays.map((n, i) => {
-      const d = new Date(s.now);
-      d.setDate(d.getDate() + i);
-      return {
-        n,
-        label: i === 0 ? this.i18n.t('dashboard.today') : i === 1 ? this.i18n.t('dashboard.tomorrow') : fmtWeekday(this.i18n, d.getTime()),
-      };
-    });
+    return s.forecastDays.map((n, i) => ({
+      n,
+      label: i === 0 ? this.i18n.t('dashboard.today') : i === 1 ? this.i18n.t('dashboard.tomorrow') : fmtWeekdayOf(this.i18n, s.forecastDates[i]),
+    }));
   });
 
   /** Each lesson: its kanji, and how much of its vocabulary is learned. */

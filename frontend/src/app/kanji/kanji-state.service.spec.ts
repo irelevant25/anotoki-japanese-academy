@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import fixture from '../../testing/catalog.fixture.json';
 import { ApiService } from '../core/api/api.service';
 import { Catalog, ItemState, Progress, Summary } from '../core/api/api.types';
+import { VisitorKey } from '../core/auth/visitor-key';
 import { KanjiStateService } from './kanji-state.service';
 
 const catalog = { ...(fixture as unknown as Catalog), stages: [], groups: [] } as Catalog;
@@ -57,6 +58,16 @@ describe('KanjiStateService', () => {
     });
     kanji = TestBed.inject(KanjiStateService);
     await kanji.load();
+  });
+
+  it('loads the progress again when what this browser studied without signing in moved into the account after it was loaded', async () => {
+    TestBed.tick();
+    expect(asked).toEqual(['catalog', 'progress']);
+    TestBed.inject(VisitorKey).moves.update((n) => n + 1);
+    TestBed.tick();
+    await vi.waitFor(() => expect(asked).toEqual(['catalog', 'progress', 'progress']));
+    TestBed.tick();
+    expect(asked, 'once a move').toHaveLength(3);
   });
 
   it('loads the catalog once, the progress every time', async () => {

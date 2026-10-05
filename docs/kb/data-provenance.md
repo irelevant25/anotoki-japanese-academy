@@ -14,7 +14,7 @@ The course has two parts, each with a textbook and a workbook, and one answer
 key for both. The five scanned books are in **`books/`** at the repository root,
 which is gitignored: they stay on this computer (`ACADEMY_BOOKS_DIR` points the
 page tool elsewhere). They are page **scans with no text layer** — nothing can
-be copied out as text. Everything in `data/source/*.tsv` was transcribed by
+be copied out as text. Everything in `backend/data/source/*.tsv` was transcribed by
 reading page images (see *Reading the PDFs* below).
 
 | Book | File | page tool key | Pages | Crop | PDF page = printed page + |
@@ -30,7 +30,7 @@ any PDF viewer shows. The blank and section-divider pages are numbered pages of
 the book, so each offset holds for the whole book. This was checked at the
 start, middle and end of each book, and on both sides of every blank page.
 
-The audio does **not** come from the books: `npm run build:audio` makes it with
+The audio does **not** come from the books: `backend/tools/build-audio.php` makes it with
 Google Cloud Text-to-Speech (see [kanji-srs.md](kanji-srs.md)).
 
 ## Page maps (PDF page numbers)
@@ -76,10 +76,10 @@ Google Cloud Text-to-Speech (see [kanji-srs.md](kanji-srs.md)).
 ## Reading the PDFs
 
 ```bash
-npm run pdf:pages -- textbook-2 357-359            # full-size pages, by PDF page number
-npm run pdf:pages -- textbook-1 364 --book-page    # by printed page number
-npm run pdf:pages -- answer-key 1-40 --sheet       # contact sheet to find things
-node backend/tools/pdf/pages.js textbook-2 357     # the same, without npm
+npm --prefix backend/tools/pdf ci                           # once: the tool's one package, sharp
+node backend/tools/pdf/pages.js textbook-2 357-359          # full-size pages, by PDF page number
+node backend/tools/pdf/pages.js textbook-1 364 --book-page  # by printed page number
+node backend/tools/pdf/pages.js answer-key 1-40 --sheet     # contact sheet to find things
 ```
 
 The tool prints image paths; open them with the Read tool. The first call for
@@ -96,7 +96,7 @@ Page order comes from the PDF's page tree. Where the images sit in the file
 doesn't matter, and a blank page that reuses another page's image still gets
 its own number. The `academy-pdf` skill covers the whole workflow.
 
-## `data/source/` formats (tab-separated, UTF-8, no header)
+## `backend/data/source/` formats (tab-separated, UTF-8, no header)
 
 **`vocab-part1.tsv`, `vocab-part2.tsv`** — from the vocabulary index J–E
 ```
@@ -129,7 +129,7 @@ no ⇥ kanji ⇥ lesson ⇥ on ⇥ kun ⇥ meaning ⇥ compounds
 `-E` Expression Notes, `-U` Useful Expressions, `-C` Culture Notes — legend on
 textbook 1, PDF page 365).
 
-## Built data (`npm run build:data` = `php backend/tools/build-data.php`, `npm run build:audio` = `php backend/tools/build-audio.php`)
+## Built data (`php backend/tools/build-data.php`, `php backend/tools/build-audio.php`; through `node backend/tools/php.js` where an older php comes first on PATH)
 
 The builders write exactly what the first (JavaScript) builders wrote —
 `JSON.stringify(x, null, 1)`, no trailing newline — so a rebuild of unchanged
@@ -137,10 +137,10 @@ sources changes nothing (`backend/tests/unit/build-data.test.php`).
 
 | File | Entries | Notes |
 |---|---:|---|
-| `data/vocab.json` | 1,715 | both parts; `verbClass`, `adjClass`, `pos`, `lesson` derived |
-| `data/kanji.json` | 317 | numbered 1–317 without gaps; per-lesson totals match the book |
-| `data/grammar-index.json` | 141 | |
-| `data/audio.json` + `data/audio/` | 2,041 words × 2 voices | made by Google Cloud Text-to-Speech, not from the books |
+| `backend/data/vocab.json` | 1,715 | both parts; `verbClass`, `adjClass`, `pos`, `lesson` derived |
+| `backend/data/kanji.json` | 317 | numbered 1–317 without gaps; per-lesson totals match the book |
+| `backend/data/grammar-index.json` | 141 | |
+| `backend/data/audio.json` + `backend/data/audio/` | 2,041 words × 2 voices | made by Google Cloud Text-to-Speech, not from the books |
 
 The kanji totals per lesson are asserted in `backend/tests/unit/catalog.test.php`:
 L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/15.
@@ -165,17 +165,20 @@ L3–12 15/14/14/15/14/14/15/14/16/14 · L13–23 16/16/16/16/15/16/16/15/15/16/
 
 ## Fixing a typo or adding content
 
-1. Find the page (`npm run pdf:pages`, page maps above) and read it.
+1. Find the page (`node backend/tools/pdf/pages.js`, page maps above) and read it.
 2. Edit the TSV row. Keep the format exactly — tabs, not spaces.
-3. `npm run build:data`, then `npm test` (the counts and invariants will catch slips).
-4. If a word was added or its spelling or reading changed, `npm run build:audio`
-   voices it (it needs the API key) and drops the clips nothing uses any more.
-5. Restart the server (`academy-run` skill): at its start it sees that `data/`
-   changed and rebuilds the catalog and the question bank in the database.
+3. `node backend/tools/php.js backend/tools/build-data.php`, then the PHP tests
+   (`node backend/tools/php.js backend/tests/run.php`; the counts and invariants will catch slips).
+4. If a word was added or its spelling or reading changed,
+   `node backend/tools/php.js backend/tools/build-audio.php` voices it (it needs
+   the API key) and drops the clips nothing uses any more.
+5. The app's next request sees that `backend/data/` changed and rebuilds the
+   catalog and the question bank in the database (`php backend/manage.php
+   --check` says whether it is waiting; no restart).
 6. Ask the `academy-data-auditor` agent to check the edited rows against the page.
 
 **Changing a spelling changes an SRS id.** Items are keyed `k:<kanji>` and
 `v:<word>`; if a fix renames one, the learner's progress stays under the old key
 and stops showing. After a backup (`php backend/manage.php --backup`), rename the key in
 the database — `UPDATE srs_progress SET item_id = 'v:NEW' WHERE item_id = 'v:OLD'`
-(and the same in `srs_log`) — then restart. The `academy-data` skill has the steps.
+(and the same in `srs_log`). The `academy-data` skill has the steps.

@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { fmtClock, fmtClockSince, fmtDate, fmtDateTime, fmtDuration, fmtIn, fmtInShort, fmtWeekday, fmtWeekdayClock, pct } from './format';
+import { fmtClock, fmtClockSince, fmtDate, fmtDateTime, fmtDuration, fmtIn, fmtInShort, fmtWeekday, fmtWeekdayClock, fmtWeekdayOf, pct } from './format';
 import { TranslationService } from './i18n/translation.service';
 import { provideTestTranslations } from './testing/test-translations';
 
@@ -99,6 +99,9 @@ describe('format', () => {
     expect(fmtClock(sk, moment)).toBe('14:05');
     expect(fmtDateTime(sk, moment)).toBe('24. 9. 2026, 14:05');
     expect(fmtWeekday(sk, moment)).toBe('št');
+    // a date the server names: its weekday wherever the browser is (24 Sept 2026 is a Thursday)
+    expect(fmtWeekdayOf(en, '2026-09-24')).toBe('Thu');
+    expect(fmtWeekdayOf(sk, '2026-09-24')).toBe('št');
     expect(fmtWeekdayClock(sk, moment)).toBe('št 14:05');
   });
 

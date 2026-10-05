@@ -17,12 +17,12 @@ function setUp(providers: Provider[] = []): void {
   changelog.load = () => Promise.resolve(changelog.entries.set(ENTRIES));
 }
 
-/** The version button drawn, and the dialog opened from it. */
+/** The foot drawn, and the dialog opened from its "What’s new". */
 async function opened(): Promise<HTMLElement> {
   const fixture = TestBed.createComponent(AppVersionComponent);
   await fixture.whenStable();
   const el = fixture.nativeElement as HTMLElement;
-  (el.querySelector('#version') as HTMLButtonElement).click();
+  (el.querySelector('#whatsNew') as HTMLButtonElement).click();
   await fixture.whenStable();
   return el;
 }
@@ -48,36 +48,37 @@ describe('AppVersionComponent', () => {
     }
   });
 
-  it('shows the version, with a dot until its news is read, and opens the news', async () => {
+  it('shows the version, and "What’s new" with a dot until its news is read, which opens the news', async () => {
     setUp();
     const fixture = TestBed.createComponent(AppVersionComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    const version = el.querySelector('#version') as HTMLButtonElement;
-    expect(version.textContent?.trim()).toBe('v0.2');
-    expect(el.querySelector('#version .dot')).not.toBeNull();
+    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2');
+    const news = el.querySelector('#whatsNew') as HTMLButtonElement;
+    expect(news.textContent?.trim()).toBe('What’s new');
+    expect(el.querySelector('#whatsNew .dot')).not.toBeNull();
 
-    version.click();
+    news.click();
     await fixture.whenStable();
     const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
     expect(dialog.hasAttribute('open')).toBe(true);
     expect(dialog.textContent).toContain('v0.2');
     expect(dialog.textContent).toContain('A setup page');
     expect(dialog.querySelectorAll('.release').length).toBe(2);
-    expect(el.querySelector('#version .dot'), 'read: the dot is gone').toBeNull();
+    expect(el.querySelector('#whatsNew .dot'), 'read: the dot is gone').toBeNull();
     expect(localStorage.getItem('academy-changelog-seen')).toBe('0.2');
   });
 
-  it('with no strings (the bar is drawn whatever became of them): its frame in the English it keeps, word for word, and no key', async () => {
+  it('with no strings (the foot is drawn whatever became of them): its frame in the English it keeps, word for word, and no key', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     setUp();
     const fixture = TestBed.createComponent(AppVersionComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#version')?.getAttribute('title')).toBe('What’s new');
-    expect(el.querySelector('#version .dot')?.getAttribute('title')).toBe('Something new');
+    expect(el.querySelector('#whatsNew')?.textContent?.trim()).toBe('What’s new');
+    expect(el.querySelector('#whatsNew .dot')?.getAttribute('title')).toBe('Something new');
 
-    (el.querySelector('#version') as HTMLButtonElement).click();
+    (el.querySelector('#whatsNew') as HTMLButtonElement).click();
     await fixture.whenStable();
     const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
     expect(dialog.querySelector('#changelog-title')?.textContent).toBe('What’s new');
@@ -89,7 +90,7 @@ describe('AppVersionComponent', () => {
       ['updated', 'Changed'],
     ]);
     expect(Array.from(dialog.querySelectorAll('.vdate')).map((date) => date.textContent)).toEqual([written('en-GB', 2026, 10, 6), written('en-GB', 2026, 9, 29)]);
-    expect(warn, 'a bar without strings asks for none').not.toHaveBeenCalled();
+    expect(warn, 'a foot without strings asks for none').not.toHaveBeenCalled();
     warn.mockRestore();
   });
 
@@ -116,11 +117,11 @@ describe('AppVersionComponent', () => {
     const fixture = TestBed.createComponent(AppVersionComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#version')?.getAttribute('title')).toBe('Čo je nové');
-    expect(el.querySelector('#version .dot')?.getAttribute('title')).toBe('Niečo nové');
+    expect(el.querySelector('#whatsNew')?.textContent?.trim()).toBe('Čo je nové');
+    expect(el.querySelector('#whatsNew .dot')?.getAttribute('title')).toBe('Niečo nové');
     expect(el.querySelector('#version')?.textContent?.trim(), 'the version itself is the same everywhere').toBe('v0.2');
 
-    (el.querySelector('#version') as HTMLButtonElement).click();
+    (el.querySelector('#whatsNew') as HTMLButtonElement).click();
     await fixture.whenStable();
     const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
     expect(dialog.querySelector('#changelog-title')?.textContent).toBe('Čo je nové');

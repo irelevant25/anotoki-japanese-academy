@@ -1,19 +1,19 @@
 ---
 name: academy-exam-items
-description: Write, fix or review the hand-written Japanese Academy exam questions (particles, grammar, counters, translation) in data/authored-items-part1.php and data/authored-items-part2.php. Use when adding questions, fixing a question with a wrong or doubtful answer, or checking distractors.
+description: Write, fix or review the hand-written Japanese Academy exam questions (particles, grammar, counters, translation) in backend/data/authored-items-part1.php and backend/data/authored-items-part2.php. Use when adding questions, fixing a question with a wrong or doubtful answer, or checking distractors.
 ---
 
 # Hand-written exam questions
 
 Only four sections are hand-written: `particle`, `grammar`, `counter` and
 `translation`. The rest of the exam is generated from data, so fix that through
-`data/source` (`academy-data` skill) or the generators
+`backend/data/source` (`academy-data` skill) or the generators
 (`backend/src/generate.php`, `backend/src/conjugate.php`).
 
 | Lessons | File |
 |---|---|
-| 0–12 (Part 1) | `data/authored-items-part1.php` (~175 items) |
-| 13–23 (Part 2) | `data/authored-items-part2.php` (~165 items) |
+| 0–12 (Part 1) | `backend/data/authored-items-part1.php` (~175 items) |
+| 13–23 (Part 2) | `backend/data/authored-items-part2.php` (~165 items) |
 
 ## Format
 
@@ -39,7 +39,7 @@ $P(4, 'つくえの上に本＿あります。', 'が', ['を', 'は', 'に'],
 - `explain` is one short English sentence giving the rule, not just the answer.
   It appears in the report next to a missed question.
 - `ref` is `L<lesson>-<grammar note>` from the grammar index
-  (`data/grammar-index.json`, whose `ref` column uses the same format), or
+  (`backend/data/grammar-index.json`, whose `ref` column uses the same format), or
   `L<lesson>` when the item isn't about one note.
 - Translation prompts are English in straight double quotes, and the options
   are full Japanese sentences.
@@ -53,22 +53,23 @@ $P(4, 'つくえの上に本＿あります。', 'が', ['を', 'は', 'に'],
 2. **Plausible distractors.** Use the mistakes learners make: a neighbouring
    particle, the wrong conjugation, a similar counter. Avoid nonsense options.
 3. **Only what's been taught.** Use grammar and vocabulary from that lesson or
-   earlier (check `data/vocab.json` lessons and the grammar index).
+   earlier (check `backend/data/vocab.json` lessons and the grammar index).
 4. **Written the way the book writes it.** Sentences come from, or are modelled
    on, the textbook and the answer key. Use the `academy-pdf` skill to check
    them. Keep their spelling: kanji where the answer key uses kanji, as the
    existing items do.
 5. **Distinct options.** No duplicates, and nothing that differs only in
-   spacing. `npm test` checks this for every question.
+   spacing. The PHP tests check this for every question.
 
 ## After editing
 
-1. `npm test`, from the repository root. The bank tests check the option count,
-   uniqueness and the answer index.
+1. The PHP tests, from the repository's top folder:
+   `node backend/tools/php.js backend/tests/run.php`. The bank tests check the
+   option count, uniqueness and the answer index.
 2. Run the `academy-japanese-reviewer` agent on the new or changed items. Give it
    the file and the lessons.
-3. Restart the owner's server (`academy-run`): at its start it rebuilds the
-   question bank in the database, because an item file changed. Question ids
+3. Nothing to restart: the app's next request rebuilds the question bank in
+   the database, because an item file changed. Question ids
    are sequential, so edits shift the ids of later authored items. That only
    matters for a paper already in progress.
 4. If the counts changed noticeably, update the bank figures in `README.md`

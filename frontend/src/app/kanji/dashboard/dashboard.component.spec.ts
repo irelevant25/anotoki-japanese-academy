@@ -2,13 +2,19 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { CatalogItem, ItemState, StageGroup, Summary } from '../../core/api/api.types';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { authStandIn } from '../../core/testing/auth-states';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { DashboardComponent } from './dashboard.component';
 
 const ENGLISH: Record<string, string> = {
+  'visitor.notice.one': 'You are studying without signing in. What you study is kept for this browser for {count} day after your last visit. Sign in to keep it in your account.',
+  'visitor.notice.few': 'You are studying without signing in. What you study is kept for this browser for {count} days after your last visit. Sign in to keep it in your account.',
+  'visitor.notice.other': 'You are studying without signing in. What you study is kept for this browser for {count} days after your last visit. Sign in to keep it in your account.',
+  'signIn.button': 'Sign in',
   'kanji.tab.lessons': 'Lessons',
   'kanji.tab.reviews': 'Reviews',
   'kanji.tab.practice': 'Practice',
@@ -42,8 +48,8 @@ const ENGLISH: Record<string, string> = {
   'dashboard.byLesson': 'Progress by lesson',
   'dashboard.vocabTitle': 'vocabulary learned / total',
   'dashboard.vocab': 'vocab',
-  'dashboard.saved': 'Your progress is saved in the database, with a daily copy in backups/.',
-  'dashboard.download': 'Download a copy',
+  'dashboard.saved': 'Your progress is kept with your account.',
+  'dashboard.download': 'Your data: download it, or bring a file back',
   'time.now': 'now',
   'time.inMinutes': 'in {m} min',
   'time.inHours': 'in {h} h',
@@ -84,6 +90,13 @@ const ITEMS = [0, 1, 2, 3, 4, 5, 6].map(item);
 /** Noon today: the hours of the forecast are whole, whenever the spec runs. */
 const NOW = new Date().setHours(12, 0, 0, 0);
 
+/** The date ('Y-m-d') `days` after NOW's, in the browser's zone: as the server names a forecast day. */
+function dateAfter(days: number): string {
+  const d = new Date(NOW);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function summary(more: Partial<Summary> = {}): Summary {
   const forecastHours = Array.from({ length: 24 }, () => 0);
   forecastHours[1] = 1;
@@ -99,6 +112,7 @@ function summary(more: Partial<Summary> = {}): Summary {
     groups: { apprentice: { name: 'Apprentice', total: 2, kanji: 2, vocab: 0 }, guru: { name: 'Guru', total: 0, kanji: 0, vocab: 0 } },
     forecastHours,
     forecastDays: [9, 4, 0, 0, 0, 0, 1],
+    forecastDates: [0, 1, 2, 3, 4, 5, 6].map(dateAfter),
     byLesson: { 3: { kanji: { total: 7, learned: 2, guru: 0 }, vocab: { total: 12, learned: 3, guru: 0 } } },
     today: { lessons: 2, reviews: 4, reviewsCorrect: 3, practice: 0, practiceCorrect: 0 },
     history: [],
@@ -117,13 +131,14 @@ describe('DashboardComponent', () => {
   const texts = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).map((el) => clean(el.textContent));
   const learnButton = (): HTMLButtonElement => host.querySelector('.c-lessons button') as HTMLButtonElement;
 
-  async function open(s: Summary, options: { slovak?: boolean; learned?: number } = {}): Promise<void> {
+  async function open(s: Summary, options: { slovak?: boolean; learned?: number; visiting?: boolean } = {}): Promise<void> {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
         options.slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: {} },
+        { provide: AuthService, useValue: authStandIn(options.visiting ? 'visiting' : 'ready') },
       ],
     });
     kanji = TestBed.inject(KanjiStateService);
@@ -232,11 +247,8 @@ describe('DashboardComponent', () => {
   });
 
   it('names the days ahead in the language on the page, whatever the system’s locale', async () => {
-    const weekday = (locale: string, days: number): string => {
-      const d = new Date(NOW);
-      d.setDate(d.getDate() + days);
-      return d.toLocaleDateString(locale, { weekday: 'short' });
-    };
+    // The server names each forecast day by the learner's date: the page words those dates.
+    const weekday = (locale: string, days: number): string => new Date(`${dateAfter(days)}T12:00:00Z`).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' });
     await open(summary());
     expect(texts('.fdl')).toEqual(['Today', 'Tomorrow', ...[2, 3, 4, 5, 6].map((i) => weekday('en-GB', i))]);
     expect(texts('.fdl')[2]).toMatch(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/);
@@ -247,12 +259,35 @@ describe('DashboardComponent', () => {
     expect(texts('.fdl')[2]).toMatch(/^(po|ut|st|št|pi|so|ne)$/);
   });
 
+  it('names each day by the date the server says, never by 24-hour steps of its own from now: a change of summer time moves those', async () => {
+    // Europe/Bratislava, 2026-10-25 00:30 CEST (the 25-hour day): now + 2 × 24 h is the 26th at 23:30 CET, a Monday —
+    // but day 2 is Tuesday the 27th, as the server says. The dates win whatever the browser's zone.
+    const now = Date.parse('2026-10-24T22:30:00Z');
+    const dates = ['2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31'];
+    await open(summary({ now, forecastDates: dates }));
+    expect(texts('.fdl')).toEqual(['Today', 'Tomorrow', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+
+    // And a week that is not this one's at all: the names are the dates', not now's.
+    TestBed.resetTestingModule();
+    await open(summary({ forecastDates: [3, 4, 5, 6, 7, 8, 9].map(dateAfter) }));
+    const weekday = (days: number): string => new Date(`${dateAfter(days)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
+    expect(texts('.fdl').slice(2)).toEqual([5, 6, 7, 8, 9].map(weekday));
+  });
+
+  it('a visitor (studying without signing in): the visitor notice above it all, and no way to Your data (a visitor’s study has no file)', async () => {
+    await open(summary(), { visiting: true });
+    expect(host.firstElementChild?.tagName.toLowerCase()).toBe('app-visitor-notice');
+    expect(host.querySelector('#visitorNotice')).not.toBeNull();
+    expect([host.querySelector('.foot'), host.querySelector('#yourDataLink')]).toEqual([null, null]);
+  });
+
   it('words the rest of the page from keys', async () => {
     await open(summary());
     expect(texts('h2')).toEqual(['SRS stages', 'Upcoming reviews', 'Progress by lesson']);
     expect(text('.lvocab')).toBe('vocab 3/12');
     expect(host.querySelector('.lvocab')?.getAttribute('title')).toBe('vocabulary learned / total');
-    expect(text('.foot')).toBe('Your progress is saved in the database, with a daily copy in backups/. Download a copy.');
+    expect(text('.foot')).toBe('Your progress is kept with your account. Your data: download it, or bring a file back.');
+    expect(host.querySelector('#yourDataLink')?.getAttribute('href'), 'to the Your data card on the home page').toBe('/#your-data');
     expect(text('.c-lessons .bc-foot a')).toBe('Choose lessons…');
 
     kanji.summary.set(summary({ forecastHours: Array.from({ length: 24 }, () => 0) }));

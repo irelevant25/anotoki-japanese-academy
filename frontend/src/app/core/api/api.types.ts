@@ -1,10 +1,40 @@
 // What the backend answers (backend/api/routes/*.php), as the frontend reads it.
 
-/** GET /api/auth/config: how this copy signs people in. */
+/**
+ * GET /api/auth/config: where the IAM is, which of its clients this site is,
+ * whether the IAM requires sign-in here (`loginRequired`: missing reads as
+ * true - the server says false only when the IAM does and visitors can be
+ * kept), and how many days a visitor's study is kept after their last visit.
+ */
 export interface AuthConfig {
-  mode: 'none' | 'iam';
   issuer?: string;
   clientId?: string;
+  loginRequired?: boolean;
+  visitorKeepDays?: number;
+}
+
+/**
+ * POST /api/visitor/move: what moved from this browser's visitor into the
+ * signed-in person's account. found false: the key was nobody's any more
+ * (moved by another tab, or swept) - nothing moved. kept: items both had,
+ * where the person's own progress stayed.
+ */
+export interface VisitorMove {
+  found: boolean;
+  items: number;
+  kept: number;
+  attempts: number;
+  answers: number;
+}
+
+/** GET /api/admin/visitors (ADMIN): how many visitors the site keeps now; ready false while migration 007 waits. */
+export interface VisitorsCount {
+  ready: boolean;
+  count: number;
+  /** milliseconds, or null when there is none */
+  oldestSeenAt: number | null;
+  keepDays: number;
+  max: number;
 }
 
 /**
@@ -28,6 +58,13 @@ export interface ApiErrorBody {
   language?: string;
   placeholder?: string;
   keys?: string[];
+  /**
+   * Beside a 413 too_large of a data file: the most this server takes, in
+   * bytes. Beside a 422 visitor_limit: which of a visitor's limits was
+   * reached ('attempts' or 'answers'), with its number in `max`.
+   */
+  limit?: number | string;
+  max?: number;
 }
 
 /* ------------------------------------------------------------------ kanji */
@@ -135,6 +172,8 @@ export interface Summary {
   groups: Record<string, { name: string; total: number; kanji: number; vocab: number }>;
   forecastHours: number[];
   forecastDays: number[];
+  /** The learner's date ('Y-m-d', their zone) each of forecastDays stands for: the page names the days from these. */
+  forecastDates: string[];
   byLesson: Record<string, { kanji: LessonCounts; vocab: LessonCounts }>;
   today: DayCounts;
   history: (DayCounts & { date: string })[];
@@ -252,6 +291,52 @@ export interface ExamResult {
   weakLessons: Breakdown[];
   reportUrl: string;
   review: ReviewRow[];
+}
+
+/* --------------------------------------------------------- your own data */
+
+/** PUT /api/me/data: what came in from the file, and whether a copy of what was there was kept first. */
+export interface BroughtBack {
+  items: number;
+  days: number;
+  log: number;
+  attempts: number;
+  reports: number;
+  copy: boolean;
+}
+
+/** One person of GET /api/admin/people; times in milliseconds. */
+export interface Person {
+  id: number;
+  username: string | null;
+  createdAt: number | null;
+  lastSeenAt: number | null;
+  timeZone: string | null;
+  /** items learned (a stage above 0) */
+  items: number;
+  /** exam attempts */
+  attempts: number;
+}
+
+/** GET /api/admin/migrations (ADMIN): the files applied, the first first, and the ones pending in the order they will run. */
+export interface MigrationsStatus {
+  /** appliedAt in milliseconds */
+  applied: { name: string; appliedAt: number }[];
+  /** whole: false for a file without its last line yet (still being uploaded), which waits with every one after it */
+  pending: { name: string; whole: boolean }[];
+}
+
+/**
+ * POST /api/admin/migrations/apply (ADMIN): what was applied, in order; the
+ * file that failed (rolled back whole; the run stopped there) and why —
+ * PostgreSQL's own words, on this computer and on a website alike, as the
+ * IAM's page shows them; and the raw copy of every table taken first.
+ */
+export interface MigrationsApplyResult {
+  applied: string[];
+  failed: string | null;
+  error: string | null;
+  backup: string | null;
 }
 
 /** One line of GET /api/attempts (newest first). */

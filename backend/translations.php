@@ -12,7 +12,7 @@
  *   php backend/translations.php --import sk FILE    and back in: checked as a save on the Translations page
  *                                                    is, all of it or none of it; an empty string is passed
  *                                                    over. FILE is a flat export, or a backup of everybody
- *                                                    (backups/academy-….json), from which the strings of that
+ *                                                    (backend/storage/backups/academy-….json), from which the strings of that
  *                                                    language are taken
  *
  * The strings live in the database so the owner can reword them in the
@@ -175,20 +175,23 @@ if (in_array($command, ['--help', '-h'], true)) {
 try {
     $problem = config_problem();
     if ($problem !== null) {
-        translations_cli_stop("Not set up yet: $problem. Start the app (php backend/server.php, or the launcher) and open /setup.php.");
+        translations_cli_stop("Not set up yet: $problem. Start the app (composer start in backend/) and open /setup.php.");
     }
     if (!db_exists()) {
         translations_cli_stop('The database ' . db_name() . ' is not set up yet: open /setup.php.');
     }
-    // Nothing is applied from here: the server's start, the setup page and manage.php do that, after a copy.
+    // Nothing is applied from here, nor by a request: an ADMIN's Apply on the Migrations page, the setup page and
+    // manage.php do that, after a copy.
     if (!translations_ready()) {
         translations_cli_stop('The database ' . db_name() . ' does not hold the app\'s words yet (migration 004 is not applied).'
-            . ' Start the app once (php backend/server.php), which applies it, and try again.');
+            . ' Apply it on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,'
+            . ' then try again.');
     }
     $pending = db_pending_migrations();
     if ($pending) {
         translations_cli_stop('The database ' . db_name() . ' is behind the files (' . implode(', ', $pending) . ').'
-            . ' Start the app once (php backend/server.php), which applies them, and try again.');
+            . ' Apply them on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,'
+            . ' then try again.');
     }
 
     switch ($command) {

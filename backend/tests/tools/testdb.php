@@ -5,7 +5,11 @@
  * settings (backend/config/database.local.php):
  *
  *   php backend/tests/tools/testdb.php template       make or update academy_test_template:
- *                                                     its tables and the study content from data/
+ *                                                     its tables and the study content from backend/data/.
+ *                                                     A migration still being written (no "-- end of NNN"
+ *                                                     line yet) is applied too, which only the tests'
+ *                                                     databases ever do; when such a draft changed since
+ *                                                     the template was made, the template is made afresh
  *   php backend/tests/tools/testdb.php template --fresh
  *                                                     drop the template first, then replay every migration and
  *                                                     build the content: after an edit of a migration that is not
@@ -24,9 +28,17 @@
  *                                                     database users of the site tests that own none
  *   php backend/tests/tools/testdb.php sql NAME SQL [JSON-PARAMS]
  *                                                     run SQL in a test database; prints the rows as JSON
- *   php backend/tests/tools/testdb.php config DIR NAME none|iam [JWKS] BACKUPS [FRONTEND]
+ *   php backend/tests/tools/testdb.php config DIR NAME JWKS BACKUPS [FRONTEND [ISSUER [APPLICATION_TTL]]]
  *                                                     the settings folder of a server on test database
- *                                                     NAME (tests/tools/test-config.php)
+ *                                                     NAME, signing people in through the test IAM whose
+ *                                                     keys are JWKS (tests/tools/test-config.php); ISSUER
+ *                                                     names the stand-in IAM it runs against (its address,
+ *                                                     http://127.0.0.1:PORT), else https://iam.test;
+ *                                                     APPLICATION_TTL the seconds its answer whether
+ *                                                     sign-in is required is kept (else a minute)
+ *   php backend/tests/tools/testdb.php drafts         the migrations still being written, by name, comma-separated
+ *                                                     (empty when there is none): what ACADEMY_MIGRATION_DRAFTS
+ *                                                     names for a server of the browser suites
  *
  * It only ever touches databases whose name starts with academy_test_.
  */
@@ -42,11 +54,20 @@ require __DIR__ . '/test-config.php';
 
 if ($command === 'config') {
     // before the app loads: it needs none of it
-    [, , $dir, $db, $auth] = $argv + [4 => ''];
-    $rest = array_slice($argv, 5);
-    $jwks = $auth === 'iam' ? (string) array_shift($rest) : null;
-    test_config_write((string) $dir, (string) $db, (string) $auth, $jwks, (string) ($rest[0] ?? ''), isset($rest[1]) ? (string) $rest[1] : null);
+    [, , $dir, $db, $jwks, $backups] = $argv + [4 => '', 5 => ''];
+    if ($jwks === '' || $backups === '') {
+        fwrite(STDERR, "usage: php backend/tests/tools/testdb.php config DIR NAME JWKS BACKUPS [FRONTEND [ISSUER [APPLICATION_TTL]]]\n");
+        exit(1);
+    }
+    $frontend = isset($argv[6]) && $argv[6] !== '' ? (string) $argv[6] : null;
+    $auth = isset($argv[8]) && ctype_digit((string) $argv[8]) && (int) $argv[8] > 0 ? ['application_ttl' => (int) $argv[8]] : [];
+    test_config_write((string) $dir, (string) $db, (string) $jwks, (string) $backups, $frontend, isset($argv[7]) ? (string) $argv[7] : 'https://iam.test', $auth);
     echo "$dir\n";
+    exit(0);
+}
+
+if ($command === 'drafts') {
+    echo implode(',', test_config_migration_drafts()), "\n";
     exit(0);
 }
 
@@ -64,6 +85,16 @@ function test_name(string $name): string
     return $name;
 }
 
+/** A fingerprint of the migrations still being written (without their last line), or 'none'. */
+function testdb_drafts(): string
+{
+    $drafts = '';
+    foreach (test_config_migration_drafts() as $name) {
+        $drafts .= $name . "\n" . file_get_contents(MIGRATIONS_DIR . "/$name") . "\n";
+    }
+    return $drafts === '' ? 'none' : sha1($drafts);
+}
+
 switch ($command) {
     case 'template':
         if (db_name() !== TEMPLATE) {
@@ -74,6 +105,19 @@ switch ($command) {
             fwrite(STDERR, "testdb: template takes no option but --fresh\n");
             exit(1);
         }
+        // The drafts too (db_migration_drafts_allowed(): a name of the tests only), so the tests
+        // run on what the migration being written makes.
+        putenv('ACADEMY_MIGRATION_DRAFTS=' . implode(',', test_config_migration_drafts()));
+        $drafts = testdb_drafts();
+        if (!$options && db_exists()) {
+            // A draft is edited while it is written, and an applied one is never applied again:
+            // when the drafts the template was made with are not these, it is made afresh.
+            $made = db_server()->query("SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = '" . TEMPLATE . "'")->fetchColumn();
+            if (preg_match('/^academy drafts (\w+)$/D', (string) $made, $m) && $m[1] !== $drafts) {
+                $options = ['--fresh'];
+                echo TEMPLATE . ": a migration being written changed since it was made: made afresh\n";
+            }
+        }
         if ($options) {
             // The one place the template is ever dropped, and the constant names it: test_name() refuses that name.
             db_server()->exec('DROP DATABASE IF EXISTS "' . TEMPLATE . '" WITH (FORCE)');
@@ -81,10 +125,10 @@ switch ($command) {
         db_create();
         $applied = db_migrate();
         if ($waiting = db_pending_migrations()) {
-            // A migration without its last line waits; every test would then run on old tables.
-            fwrite(STDERR, "testdb: backend/migrations/{$waiting[0]} does not end with \"-- end of " . substr($waiting[0], 0, 3) . "\", so it was not applied.\n");
+            fwrite(STDERR, "testdb: backend/migrations/{$waiting[0]} could not be applied.\n");
             exit(1);
         }
+        db_server()->exec('COMMENT ON DATABASE "' . TEMPLATE . "\" IS 'academy drafts $drafts'");
         $synced = content_sync();
         echo TEMPLATE . ': ' . ($applied || $synced ? 'updated' . ($synced ? " ({$synced['seconds']} s)" : '') : 'up to date') . "\n";
         break;
@@ -135,6 +179,6 @@ switch ($command) {
 
     default:
         fwrite(STDERR, "usage: php backend/tests/tools/testdb.php template [--fresh] | create NAME | site NAME | drop NAME | sweep | sql NAME SQL [JSON-PARAMS]"
-            . " | config DIR NAME none|iam [JWKS] BACKUPS [FRONTEND]\n");
+            . " | config DIR NAME JWKS BACKUPS [FRONTEND]\n");
         exit(1);
 }

@@ -1,41 +1,51 @@
 /**
  * Screenshots of every main screen in light, dark and phone layouts, for a
- * visual check after UI changes. Seeds a little progress first so the
- * dashboard, reviews and item pages have something to show. Two screens are a
- * hosted site's (auth mode iam, against the test IAM): the Sign in page, and
- * the account menu open over the kanji dashboard; two are the owner's
- * (Translations, Languages). Every screen is checked for horizontal overflow
- * and errors on the way.
+ * visual check after UI changes - everybody signed in through the stand-in
+ * IAM (a session planted in the browser; helpers.js). Seeds a little progress
+ * first so the dashboard, reviews and item pages have something to show. The
+ * reader is an ADMIN, so the admin panel's four pages are shot too; the Sign
+ * in card is a refused sign-in's; home-visitor is the home page of somebody
+ * studying without signing in (the stand-in IAM saying sign-in is not
+ * required here), with its notice. Every screen is checked for horizontal
+ * overflow, key-shaped text (a word with no string shows as its key),
+ * errors on the way, and what the reviews found by eye (looks()).
  *
- * The Slovak pass: every screen again at 390 px in a Slovak browser
- * (locale sk-SK; signed in, Slovak chosen, since the token says 'en'), light
- * and dark, each checked for <html lang="sk">, no text that is a key of the
- * bundle, and no text outside [lang=en] / [lang=ja] that is an English string
- * of the bundle whose Slovak differs (a sentence left in English).
+ * The Slovak pass: every screen again at 390 px in a Slovak browser (Slovak
+ * chosen, since the token says 'en'), light and dark, each checked for
+ * <html lang="sk">, no text that is a key, and no text outside [lang=en] /
+ * [lang=ja] that is an English string of the bundle whose Slovak differs (a
+ * sentence left in English). The admin area stays English: <html lang="en">.
  *
- * The room: the top bar measured piece by piece (locator.boundingBox()) at
- * 360, 370, 390, 440 and 560 px, in English and in Slovak - signed in with a
- * three-digit due badge, without sign-in, and signed out: nothing overlaps,
- * nothing leaves the screen, nothing a person needs is hidden. A bar can paint
- * over its neighbours without scrolling, so boxes are compared, not only
- * scroll widths. Signed in in Slovak at 360 and 390 px it gets the Slovak
- * checks and a shot (room-*.png).
+ * The room: the family's top bar measured piece by piece at 360, 390, 760,
+ * 761, 960, 961 and 1280 px, in English and in Slovak, light and dark -
+ * signed in with a 20-character name and 999 reviews due, signed out (the
+ * Sign in card), visiting (sign-in not required: the links and Sign in), and
+ * in the admin area: one row, in order, nothing
+ * overlapping, nothing off the screen, no sideways scroll, the brand whole;
+ * a phone's bar (up to 760) with its menu button and the due count on it, a
+ * desktop's with the links and the person's button, the name beside it from
+ * 961. Then the menus open, light and dark, shot, and a real Tab press from
+ * an item: the menu closed, the focus on its button, never <body>.
  *
- *   npm run screens            → frontend/e2e/shots/screen-*.png, room-*.png
- *   npm run screens -- kanji   → only screens whose name contains "kanji"
- *   npm run screens -- room    → only the room
+ *   node frontend/e2e/screens.js          → frontend/e2e/shots/screen-*.png, bar-*.png, menu-*.png
+ *   node frontend/e2e/screens.js kanji    → only screens whose name contains "kanji"
+ *   node frontend/e2e/screens.js room     → only the room
+ *   (after a build: node frontend/scripts/ensure-build.mjs)
  */
 const path = require('path');
 const fs = require('fs');
-const { isolate, startApp, closeAll, iamToken, iamSession } = require('./helpers');
+const { isolate, startApp, closeAll, iamState, plant } = require('./helpers');
 isolate('academy-screens'); // before the server starts: a throwaway database
 
-const { launch, newContext, watch, SHOTS } = require('./browser');
+const { launch, newContext, watch, keyShaped, SHOTS } = require('./browser');
 
 const FILTER = process.argv[2] || '';
 
-/** The person signed in on the screens of a hosted site. */
-const READER = { sub: 4202, name: 'kanji-reader', roles: ['ADMIN'] };
+/** The person on the screens: an ADMIN, so the admin area's pages are there too. */
+const READER = { sub: 4501, name: 'kanji-reader', roles: ['MEMBER', 'ADMIN'] };
+/** The room's people: the longest name the family measures (20 characters), 999 reviews due. */
+const ROOMY = { sub: 4502, name: 'Alexandra Novakova-K', roles: ['MEMBER'] };
+const ROOMY_ADMIN = { sub: 4503, name: 'Alexandra Novakova-A', roles: ['MEMBER', 'ADMIN'] };
 
 /** A 40-question paper, started. */
 async function startPaper(page) {
@@ -46,8 +56,8 @@ async function startPaper(page) {
 }
 
 const SCREENS = [
-  ['home', '/'],
-  ['kanji-dashboard', '/kanji'],
+  ['home', '/', async (page) => page.waitForSelector('.homecards')],
+  ['kanji-dashboard', '/kanji', async (page) => page.waitForSelector('.cards3')],
   ['kanji-lessons', '/kanji/lessons'],
   ['kanji-lesson-screen', '/kanji/lessons', async (page) => {
     // by its place, not its name: the Slovak pass takes this screen too
@@ -78,19 +88,40 @@ const SCREENS = [
     await page.waitForSelector('#result:not([hidden])');
   }],
   ['changelog', '/', async (page) => {
-    await page.click('#version');
+    await page.click('#whatsNew');
     await page.waitForSelector('dialog.changelog[open]');
   }],
-  ['signed-out', '/', async (page) => page.waitForSelector('#signin-button'), { iam: true }],
-  ['account-menu', '/kanji', async (page) => {
+  ['your-data-question', '/', async (page, app) => {
+    // the reader's own file chosen: the question before anything is replaced
+    const own = await (await app.api('/api/me/data', READER)).text();
+    await page.setInputFiles('#your-data input[type=file]', { name: 'japanese-academy-2026-10-04.json', mimeType: 'application/json', buffer: Buffer.from(own) });
+    await page.waitForSelector('dialog.confirm[open]');
+  }],
+  ['bar-menu', '/kanji', async (page) => {
+    // the person's menu, or on a phone the one menu with the links in it
     await page.waitForSelector('.cards3');
-    await page.click('#usermenu summary');
-    await page.waitForSelector('#usermenu .umenu');
-  }, { iam: true, signedIn: true }],
-  // the owner's pages (English on every page): anybody, without sign-in
-  ['owner-translations', '/translations', async (page) => page.waitForSelector('table.grid')],
-  ['owner-languages', '/languages', async (page) => page.waitForSelector('section.add')],
+    const phone = (await page.$('#menuButton')) !== null;
+    await page.click(phone ? '#menuButton' : '#userButton');
+    await page.waitForSelector(phone ? '#topbar-menu' : '#user-menu');
+  }],
+  ['signed-out', '/', async (page) => page.waitForSelector('#signin-button'), { signedOut: true }],
+  // nobody signed in, where the IAM does not require it: a visitor's home, with the notice
+  ['home-visitor', '/', async (page) => page.waitForSelector('#visitorNotice'), { visiting: true }],
+  // the admin area: English, whatever the reader chose
+  ['admin-translations', '/admin/translations', async (page) => page.waitForSelector('table.grid'), { admin: true }],
+  ['admin-languages', '/admin/languages', async (page) => page.waitForSelector('section.add'), { admin: true }],
+  ['admin-people', '/admin/people', async (page) => page.waitForSelector('#people'), { admin: true }],
+  ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('#applied li'), { admin: true }],
 ];
+
+/** Slovak chosen in a browser nobody is signed in to (about:blank has no storage). */
+const SLOVAK = () => {
+  try {
+    localStorage.setItem('academy-language', 'sk');
+  } catch (e) {
+    // about:blank
+  }
+};
 
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const VARIANTS = [
@@ -102,15 +133,11 @@ const VARIANTS = [
   ['sk-phone-dark', { ...PHONE, colorScheme: 'dark', locale: 'sk-SK' }],
 ];
 
-/** The person on the room's signed-in bar: more than 99 reviews due. */
-const ROOMY = { sub: 4205, name: 'room-reader', roles: ['MEMBER'] };
-const ROOM_WIDTHS = [360, 370, 390, 440, 560];
-
 /**
- * What a Slovak page must not show: a key of the bundle (but on the owner's
- * pages, which list them), or, outside [lang=en] / [lang=ja], an English
- * string of the bundle whose Slovak is different. Text nodes and the
- * attributes a person reads or hears, shown or not yet shown.
+ * What a Slovak page must not show, beside key-shaped text (keyShaped()): a
+ * key of the bundle, or, outside [lang=en] / [lang=ja], an English string of
+ * the bundle whose Slovak is different. Text nodes and the attributes a person
+ * reads or hears, shown or not yet shown.
  */
 function slovakProblems(page, bundle) {
   const keys = Object.keys(bundle.values);
@@ -125,7 +152,7 @@ function slovakProblems(page, bundle) {
     const check = (raw, el, what) => {
       const text = raw.replace(/\s+/g, ' ').trim();
       if (!text) return;
-      if (keySet.has(text) && !el.closest('main.owner')) out.push(`a key ${what} ${where(el)}: ${text}`);
+      if (keySet.has(text) && !el.closest('main.admin')) out.push(`a key ${what} ${where(el)}: ${text}`);
       const own = (el.closest('[lang]') || document.documentElement).getAttribute('lang') || '';
       if (englishSet.has(text) && !/^(en|ja)\b/i.test(own)) out.push(`English ${what} ${where(el)}: "${text}"`);
     };
@@ -142,103 +169,107 @@ function slovakProblems(page, bundle) {
 }
 
 /**
- * The top bar, piece by piece (null: not shown), and whether a piece's text is
- * cut short inside it.
+ * What the reviews found by eye, measured on every screen where it is: the
+ * People table's zone on one line and every Delete data in view (at 390 px
+ * too); the What's new dot beside its words, not floating above them on a
+ * touch screen; the Your data question's focus on Keep mine with the accent's
+ * ring, never on the dialog; in dark, the anotoki mark with its light halo.
  */
-async function barBoxes(page) {
-  const PIECES = {
-    brand: '.topnav .brand',
-    academy: '.topnav .brand b',
-    version: '#version',
-    chooser: '#langmenu summary',
-    kanji: '.topnav nav a[href="/kanji"]',
-    badge: '#navDue',
-    exam: '.topnav nav a[href="/exam"]',
-    account: '#usermenu summary',
-  };
-  const boxes = {};
-  for (const [name, selector] of Object.entries(PIECES)) {
-    const found = page.locator(selector);
-    boxes[name] = (await found.count()) ? await found.first().boundingBox() : null;
-  }
-  // text cut short: a piece's words reach past its own box (its scroll width
-  // would also count the version's dot, which hangs over its edge on purpose)
-  const cut = await page.evaluate(() =>
-    [...document.querySelectorAll('.topnav nav a, #navDue, #version, #langmenu summary, #usermenu summary')]
-      .filter((el) => {
-        const box = el.getBoundingClientRect();
-        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          if (!node.textContent.trim() || !node.parentElement.checkVisibility()) continue;
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          const text = range.getBoundingClientRect();
-          if (text.left < box.left - 0.5 || text.right > box.right + 0.5) return true;
+function looks(page, dark) {
+  return page.evaluate((dark) => {
+    const out = [];
+    const people = document.querySelector('#people');
+    if (people) {
+      const box = (people.closest('.scroll') || people).getBoundingClientRect();
+      const right = Math.min(box.right, document.documentElement.clientWidth);
+      for (const code of people.querySelectorAll('tbody td code')) {
+        const lines = Math.round(code.getBoundingClientRect().height / parseFloat(getComputedStyle(code).lineHeight || '0') || 0);
+        if (code.getClientRects().length > 1 || lines > 1) out.push(`the zone "${code.textContent}" breaks over lines`);
+      }
+      for (const button of people.querySelectorAll('tbody button')) {
+        const r = button.getBoundingClientRect();
+        if (r.right > right + 0.5 || r.left < box.left - 0.5) out.push(`"${button.textContent.trim()}" is cut at the table's edge (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(box.left)}..${Math.round(right)})`);
+      }
+    }
+    const dot = document.querySelector('#whatsNew .dot');
+    if (dot) {
+      const button = document.querySelector('#whatsNew');
+      const range = document.createRange();
+      const text = [...button.querySelectorAll('*'), button].flatMap((el) => [...el.childNodes]).find((n) => n.nodeType === 3 && n.textContent.trim());
+      if (text) {
+        range.selectNodeContents(text);
+        const words = range.getBoundingClientRect();
+        const d = dot.getBoundingClientRect();
+        const middle = (d.top + d.bottom) / 2;
+        if (middle < words.top - 2 || middle > words.bottom || d.left < words.right - 2 || d.left > words.right + 12) {
+          out.push(`the What's new dot is not beside its words (dot ${Math.round(d.left)},${Math.round(middle)}; words ${Math.round(words.left)}..${Math.round(words.right)}, ${Math.round(words.top)}..${Math.round(words.bottom)})`);
         }
-        return false;
-      })
-      .map((el) => el.id || el.getAttribute('href') || el.tagName.toLowerCase())
-  );
-  return { boxes, cut };
+      }
+    }
+    const question = document.querySelector('dialog.confirm[open]');
+    if (question && question.querySelector('#keepMine')) {
+      const active = document.activeElement;
+      if (!active || active.id !== 'keepMine') out.push(`the question's focus is on <${active ? active.tagName.toLowerCase() + (active.id ? '#' + active.id : '') : 'nothing'}>, not on Keep mine`);
+      else if (active.matches(':focus-visible') && getComputedStyle(active).outlineStyle !== 'solid') out.push('Keep mine has the focus but not the accent ring');
+    }
+    const mark = document.querySelector('app-brand img');
+    if (dark && mark && !/255, 255, 255/.test(getComputedStyle(mark).filter)) out.push(`the anotoki mark has no light halo in the dark bar (filter: ${getComputedStyle(mark).filter})`);
+    return out;
+  }, dark);
 }
 
-/** What is wrong with a bar of `width` px that should show `needed`. */
-function barProblems({ boxes, cut }, width, needed) {
-  const out = [];
-  for (const name of needed) {
-    const b = boxes[name];
-    if (!b || b.width < 1 || b.height < 1) out.push(`${name} is not shown`);
-    else if (b.x < -0.5 || b.x + b.width > width + 0.5) out.push(`${name} leaves the screen (${Math.round(b.x)}..${Math.round(b.x + b.width)})`);
-  }
-  // "Academy" gives way to the mark below 440 px (max-width: 440px), as built
-  const academy = !!(boxes.academy && boxes.academy.width > 0);
-  if (academy !== width > 440) out.push(`"Academy" ${academy ? 'shown' : 'hidden'} at ${width} px`);
-  const apart = ['brand', 'version', 'chooser', 'kanji', 'exam', 'account'].filter((n) => boxes[n]);
-  for (let i = 0; i < apart.length; i++) {
-    for (let j = i + 1; j < apart.length; j++) {
-      const a = boxes[apart[i]];
-      const b = boxes[apart[j]];
-      const x = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-      const y = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-      if (x > 0.5 && y > 0.5) out.push(`${apart[i]} and ${apart[j]} overlap by ${Math.round(x)} px`);
+/** Where each piece of the bar is, left-right, and what is wrong with the row (overlap, off the screen, cut). */
+function measureBar(page) {
+  return page.evaluate(() => {
+    const q = (s) => document.querySelector(s);
+    const box = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return r.width ? [Math.round(r.left), Math.round(r.right)] : null;
+    };
+    const pieces = {
+      brand: box(q('app-brand a')),
+      links: box(q('.topbar-nav')),
+      language: box(q('#langButton')),
+      theme: box(q('app-theme-toggle .segmented')),
+      person: box(q('#userButton')),
+      signIn: box(q('#signInButton')),
+      menu: box(q('#menuButton')),
+    };
+    const order = Object.entries(pieces).filter(([, v]) => v);
+    const problems = [];
+    for (let i = 1; i < order.length; i++) {
+      if (order[i][1][0] < order[i - 1][1][1]) problems.push(`${order[i - 1][0]} overlaps ${order[i][0]}`);
     }
-  }
-  const { badge, kanji } = boxes;
-  if (badge && kanji && (badge.x < kanji.x - 0.5 || badge.x + badge.width > kanji.x + kanji.width + 0.5)) out.push('the due badge sticks out of its link');
-  if (cut.length) out.push(`text cut short: ${cut.join(', ')}`);
-  return out;
+    const width = document.documentElement.clientWidth;
+    for (const [k, v] of order) if (v[1] > width || v[0] < 0) problems.push(`${k} leaves the screen (${v[0]}..${v[1]})`);
+    if (document.documentElement.scrollWidth > width) problems.push(`the page scrolls sideways: ${document.documentElement.scrollWidth} > ${width}`);
+    const wordmark = q('app-brand .wordmark');
+    if (wordmark && wordmark.scrollWidth > wordmark.clientWidth + 1) problems.push('the brand is cut');
+    const header = q('header.topbar');
+    const rows = header ? Math.round(header.getBoundingClientRect().height) : 0;
+    const name = q('#userButton .user-name');
+    return {
+      pieces: Object.fromEntries(order),
+      problems,
+      height: rows,
+      links: [...document.querySelectorAll('.topbar-nav a')].map((a) => a.id),
+      badge: (q('#navDue') || q('#menuDue'))?.textContent.trim() ?? null,
+      nameShown: !!(name && getComputedStyle(name).display !== 'none' && name.getBoundingClientRect().width > 0),
+    };
+  });
 }
 
 (async () => {
-  const app = await startApp();
-  const site = await startApp({ auth: 'iam' });
+  // the IAM's answer whether sign-in is required kept a second, not a minute: home-visitor and the room switch it
+  const app = await startApp({ applicationTtl: 1 });
   // some progress: 大 and 学 learned, one of them due, so every screen has content
-  const post = (base, u, b, token) => fetch(base + u, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(b),
-  });
-  const token = iamToken(READER.sub, READER);
   for (const id of ['k:一', 'k:二', 'k:大', 'k:学', 'v:大学']) {
-    await post(app.base, '/api/kanji/learn', { id });
-    await post(site.base, '/api/kanji/learn', { id }, token);
+    await app.api('/api/kanji/learn', READER, { method: 'POST', body: { id } });
   }
-  app.makeDue(['k:大', 'k:学']);
-  site.makeDue(['k:大', 'k:学'], 60000, READER.sub);
-  const session = iamSession(READER.sub, READER);
+  app.makeDue(['k:大', 'k:学'], 60000, READER.sub);
   const bundle = await (await fetch(app.base + '/api/translations/sk')).json();
   if (bundle.language !== 'sk' || !bundle.english) throw new Error(`no Slovak bundle: ${JSON.stringify(bundle).slice(0, 200)}`);
-
-  /** A signed-in session in the browser before its pages load, and Slovak chosen there when `sk`. */
-  const signIn = (context, person, sk) =>
-    context.addInitScript(({ key, value, sk }) => {
-      try {
-        localStorage.setItem(key, value);
-        if (sk) localStorage.setItem('academy-language', 'sk'); // the token says 'en'
-      } catch (e) {
-        // about:blank has no storage
-      }
-    }, { ...person, sk });
 
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await launch();
@@ -246,25 +277,29 @@ function barProblems({ boxes, cut }, width, needed) {
   for (const [variant, opts] of VARIANTS) {
     const sk = opts.locale === 'sk-SK';
     if (FILTER === 'room') break;
-    const page = await (await newContext(browser, opts)).newPage();
+    const context = await newContext(browser, opts);
+    await plant(context, READER, sk ? 'sk' : null);
+    const page = await context.newPage();
     const errors = watch(page);
     for (const [name, url, prep, how = {}] of SCREENS) {
       if (FILTER && !name.includes(FILTER)) continue;
-      // a hosted site's screen: a browser of its own, signed in or not
+      // the Sign in card: a browser of its own, nobody signed in, the IAM refusing
       let shown = page;
-      let shownErrors = null;
-      if (how.iam) {
-        const context = await newContext(browser, opts);
-        if (how.signedIn) await signIn(context, session, sk);
-        shown = await context.newPage();
-        shownErrors = watch(shown);
+      if (how.signedOut || how.visiting) {
+        if (how.signedOut) await iamState({ deny: true });
+        else await app.signInRequired(false);
+        const outContext = await newContext(browser, opts);
+        if (sk) await outContext.addInitScript(SLOVAK);
+        shown = await outContext.newPage();
+        const outErrors = watch(shown);
+        shown.on('close', () => errors.push(...outErrors));
       }
       // a real page load for every screen (the same address twice would not load again)
       await shown.goto('about:blank');
-      await shown.goto((how.iam ? site.base : app.base) + url);
+      await shown.goto(app.base + url);
       await shown.waitForLoadState('networkidle');
-      if (prep) await prep(shown);
-      if (!how.signedIn) await shown.mouse.move(0, 0); // no hover left over from an earlier click
+      if (prep) await prep(shown, app);
+      await shown.mouse.move(0, 0); // no hover left over from an earlier click
       await shown.waitForTimeout(150);
       const overflow = await shown.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (overflow > 0) problems.push(`${variant}/${name}: ${overflow}px horizontal overflow`);
@@ -275,7 +310,14 @@ function barProblems({ boxes, cut }, width, needed) {
         return strip ? strip.scrollWidth - strip.clientWidth : 0;
       });
       if (tabs > 0) problems.push(`${variant}/${name}: the kanji tabs scroll by ${tabs}px`);
-      if (sk) problems.push(...(await slovakProblems(shown, bundle)).map((p) => `${variant}/${name}: ${p}`));
+      problems.push(...(await keyShaped(shown)).map((p) => `${variant}/${name}: ${p}`));
+      problems.push(...(await looks(shown, opts.colorScheme === 'dark')).map((p) => `${variant}/${name}: ${p}`));
+      if (sk && how.admin) {
+        const lang = await shown.getAttribute('html', 'lang');
+        if (lang !== 'en') problems.push(`${variant}/${name}: the admin area is <html lang="${lang}">, not English`);
+      } else if (sk) {
+        problems.push(...(await slovakProblems(shown, bundle)).map((p) => `${variant}/${name}: ${p}`));
+      }
       const file = path.join(SHOTS, `screen-${name}-${variant}.png`);
       // Edge garbles full-page shots taller than ~16k device pixels: keep the top part
       const { height, dpr } = await shown.evaluate(() => ({ height: document.documentElement.scrollHeight, dpr: devicePixelRatio }));
@@ -283,72 +325,137 @@ function barProblems({ boxes, cut }, width, needed) {
       const clip = height > limit ? { x: 0, y: 0, width: shown.viewportSize().width, height: limit } : undefined;
       await shown.screenshot({ path: file, fullPage: true, clip });
       console.log(`saved ${path.relative(process.cwd(), file)}${clip ? `  (top ${limit} of ${height} px)` : ''}`);
-      if (shownErrors) {
-        errors.push(...shownErrors);
+      if (how.signedOut) {
         await shown.context().close();
+        await iamState({ deny: false });
+      } else if (how.visiting) {
+        await shown.context().close();
+        await app.signInRequired(true);
       }
     }
     problems.push(...errors.map((e) => `${variant}: ${e}`));
+    await context.close();
   }
 
   /* ------------------------------------------------------------ the room */
   if (!FILTER || FILTER === 'room') {
-    console.log('the room: the top bar at ' + ROOM_WIDTHS.join(', ') + ' px');
-    // somebody with more than 99 reviews due: a three-digit badge
-    const catalog = await (await fetch(app.base + '/api/kanji/catalog')).json();
-    await post(site.base, '/api/kanji/learn', { id: 'k:一' }, iamToken(ROOMY.sub, ROOMY)); // makes the person
-    site.sql(
-      "INSERT INTO srs_progress (user_id, item_id, stage, learned_at, next_review) SELECT ?, x, 1, now(), now() - interval '1 hour' FROM json_array_elements_text(?::json) AS x ON CONFLICT DO NOTHING",
-      ROOMY.sub, JSON.stringify(catalog.items.slice(0, 140).map((it) => it.id))
+    console.log('the room: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px');
+    for (const person of [ROOMY, ROOMY_ADMIN]) await app.api('/api/kanji/summary', person); // their rows
+    app.sql(
+      "INSERT INTO srs_progress (user_id, item_id, stage, learned_at, next_review) SELECT ?, id, 1, now() - interval '2 days', now() - interval '1 hour' FROM srs_items ORDER BY ord LIMIT 999 ON CONFLICT DO NOTHING",
+      ROOMY.sub
     );
-    site.makeDue(['k:一'], 60000, ROOMY.sub);
-    const roomySession = iamSession(ROOMY.sub, ROOMY);
-    const MODES = [
-      ['signed-in', site, '/kanji', '#navDue', ['brand', 'version', 'chooser', 'kanji', 'badge', 'exam', 'account']],
-      ['no-sign-in', app, '/kanji', '.cards3', ['brand', 'version', 'chooser', 'kanji', 'exam']],
-      ['signed-out', site, '/', '#signin-button', ['brand', 'version', 'chooser']],
-    ];
-    for (const sk of [false, true]) {
-      for (const [mode, server, url, ready, needed] of MODES) {
-        for (const width of ROOM_WIDTHS) {
-          const label = `room ${mode} ${sk ? 'sk' : 'en'} ${width}px`;
-          const context = await newContext(browser, { ...PHONE, viewport: { width, height: 800 }, colorScheme: 'light', ...(sk ? { locale: 'sk-SK' } : {}) });
-          if (mode === 'signed-in') await signIn(context, roomySession, sk);
-          const page = await context.newPage();
-          const errors = watch(page);
-          await page.goto(server.base + url);
-          await page.waitForSelector(ready);
-          await page.waitForSelector('#langmenu summary');
-          await page.waitForLoadState('networkidle');
-          await page.waitForTimeout(100);
-          if (mode === 'signed-in') {
-            const due = (await page.textContent('#navDue')).trim();
-            if (!/^\d{3}$/.test(due)) problems.push(`${label}: the due badge says "${due}", not three digits`);
-          }
-          const lang = await page.getAttribute('html', 'lang');
-          if (lang !== (sk ? 'sk' : 'en')) problems.push(`${label}: <html lang="${lang}">`);
-          const measured = await barBoxes(page);
-          problems.push(...barProblems(measured, width, needed).map((p) => `${label}: ${p}`));
-          const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-          if (overflow > 0) problems.push(`${label}: ${overflow}px horizontal overflow`);
-          const pieces = Object.entries(measured.boxes)
-            .map(([n, b]) => `${n} ${b ? `${Math.round(b.x)}-${Math.round(b.x + b.width)}` : '-'}`)
-            .join(', ');
-          console.log(`${label}: ${pieces}`);
-          if (sk && mode === 'signed-in' && (width === 360 || width === 390)) {
-            problems.push(...(await slovakProblems(page, bundle)).map((p) => `${label}: ${p}`));
-            await page.screenshot({ path: path.join(SHOTS, `room-signed-in-sk-${width}.png`) });
-          }
-          problems.push(...errors.map((e) => `${label}: ${e}`));
-          await context.close();
+    const ROOM = [360, 390, 760, 761, 960, 961, 1280];
+    const SHOT = [360, 390, 760, 761, 1280];
+    const cases = [];
+    for (const lang of ['en', 'sk']) {
+      for (const dark of [false, true]) {
+        for (const width of ROOM) {
+          if (dark && !SHOT.includes(width)) continue;
+          cases.push({ mode: 'signed-in', lang, dark, width, url: '/kanji', person: ROOMY });
+          if (SHOT.includes(width)) cases.push({ mode: 'signed-out', lang, dark, width, url: '/kanji' });
+          if (SHOT.includes(width)) cases.push({ mode: 'visiting', lang, dark, width, url: '/kanji' });
+          if ([360, 390, 761, 961, 1280].includes(width)) cases.push({ mode: 'admin', lang, dark, width, url: '/admin/people', person: ROOMY_ADMIN });
         }
       }
     }
+    // the visitors last, all at once: the IAM says sign-in is not required for them
+    cases.sort((a, b) => (a.mode === 'visiting') - (b.mode === 'visiting'));
+    let visiting = false;
+    for (const c of cases) {
+      if (c.mode === 'visiting' && !visiting) {
+        await app.signInRequired(false);
+        visiting = true;
+      }
+      const label = `room ${c.mode} ${c.lang} ${c.dark ? 'dark' : 'light'} ${c.width}px`;
+      const phone = c.width <= (c.mode === 'admin' ? 960 : 760); // ADMIN_PHONE_BAR_MAX and PHONE_BAR_MAX in top-bar.component.ts
+      const context = await newContext(browser, { viewport: { width: c.width, height: 800 }, colorScheme: c.dark ? 'dark' : 'light', ...(c.lang === 'sk' ? { locale: 'sk-SK' } : {}) });
+      if (c.person) await plant(context, c.person, c.lang === 'sk' ? 'sk' : null);
+      else {
+        if (c.mode === 'signed-out') await iamState({ deny: true });
+        if (c.lang === 'sk') await context.addInitScript(SLOVAK);
+      }
+      const page = await context.newPage();
+      const errors = watch(page);
+      await page.goto(app.base + c.url);
+      await page.waitForSelector(c.mode === 'signed-out' ? '#signin-button' : phone ? '#menuButton' : c.mode === 'visiting' ? '#signInButton' : '#userButton');
+      if (c.mode === 'visiting') await page.waitForSelector('#visitorNotice');
+      if (c.mode === 'signed-in') await page.waitForSelector(phone ? '#menuDue' : '#navDue');
+      if (c.mode === 'admin') await page.waitForSelector('#people');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(150);
+      const m = await measureBar(page);
+      const found = [...m.problems];
+      if (m.height > 72) found.push(`the bar is ${m.height} px high: more than one row`);
+      if (phone !== !!m.pieces.menu) found.push(phone ? 'no menu button on a phone' : 'a menu button on a desktop');
+      if (phone && m.pieces.links) found.push('links in the row on a phone');
+      if (!phone && c.mode !== 'signed-out' && !m.pieces.links) found.push('no links on a desktop');
+      if (!phone && !['signed-out', 'visiting'].includes(c.mode) && !m.pieces.person) found.push('no person’s button on a desktop');
+      if (!phone && ['signed-out', 'visiting'].includes(c.mode) && !m.pieces.signIn) found.push('no Sign in on a desktop');
+      if (c.mode === 'visiting' && m.pieces.person) found.push('a person’s button for a visitor');
+      if (c.mode === 'signed-in' && m.badge !== '999') found.push(`the due count says "${m.badge}", not 999`);
+      if (['signed-in', 'visiting'].includes(c.mode) && !phone && m.links.join(',') !== 'nav-kanji,nav-exam') found.push(`links ${m.links.join(',')}`);
+      if (c.mode === 'admin' && !phone && m.links.join(',') !== 'nav-translations,nav-languages,nav-people,nav-migrations') found.push(`admin links ${m.links.join(',')}`);
+      if (!['signed-out', 'visiting'].includes(c.mode) && !phone && m.nameShown !== c.width >= 961) found.push(`the name ${m.nameShown ? 'shown' : 'hidden'} at ${c.width} px`);
+      if (!m.pieces.brand || !m.pieces.theme) found.push('the brand or the theme switch missing');
+      const lang = await page.getAttribute('html', 'lang');
+      const expected = c.mode === 'admin' ? 'en' : c.lang;
+      if (lang !== expected) found.push(`<html lang="${lang}">, not ${expected}`);
+      found.push(...(await keyShaped(page)));
+      found.push(...errors);
+      problems.push(...found.map((p) => `${label}: ${p}`));
+      console.log(`${label}: ${Object.entries(m.pieces).map(([k, v]) => `${k} ${v[0]}-${v[1]}`).join(', ')}${m.badge ? `; due ${m.badge}` : ''}`);
+      if (SHOT.includes(c.width) && (c.mode !== 'admin' || [360, 390, 761, 1280].includes(c.width))) {
+        await page.screenshot({ path: path.join(SHOTS, `bar-${c.mode}-${c.lang}-${c.width}-${c.dark ? 'dark' : 'light'}.png`), clip: { x: 0, y: 0, width: c.width, height: 140 } });
+      }
+      await context.close();
+      if (c.mode === 'signed-out') await iamState({ deny: false });
+    }
+    if (visiting) await app.signInRequired(true);
+
+    // The menus open, light and dark, shot; and a real Tab and Shift+Tab from
+    // an item: the menu closed, the focus on its button, never <body>.
+    for (const [width, dark, lang] of [[390, false, 'sk'], [390, true, 'sk'], [1280, false, 'en'], [1280, true, 'en'], [360, true, 'en']]) {
+      const label = `menus ${lang} ${dark ? 'dark' : 'light'} ${width}px`;
+      const context = await newContext(browser, { viewport: { width, height: 800 }, colorScheme: dark ? 'dark' : 'light', ...(lang === 'sk' ? { locale: 'sk-SK' } : {}) });
+      await plant(context, { ...ROOMY_ADMIN }, lang === 'sk' ? 'sk' : null);
+      const page = await context.newPage();
+      const errors = watch(page);
+      await page.goto(app.base + '/');
+      const button = width <= 760 ? '#menuButton' : '#userButton';
+      await page.waitForSelector(button);
+      await page.click(button);
+      await page.waitForSelector('[role="menu"]');
+      await page.waitForTimeout(200);
+      const menuBox = await page.evaluate(() => {
+        const r = document.querySelector('[role="menu"]').getBoundingClientRect();
+        return [Math.round(r.left), Math.round(r.right), Math.round(r.bottom), document.documentElement.clientWidth];
+      });
+      if (menuBox[0] < 0 || menuBox[1] > menuBox[3]) problems.push(`${label}: the menu leaves the screen (${menuBox})`);
+      problems.push(...(await keyShaped(page)).map((p) => `${label}: ${p}`));
+      await page.screenshot({ path: path.join(SHOTS, `menu-${lang}-${width}-${dark ? 'dark' : 'light'}.png`), clip: { x: 0, y: 0, width, height: Math.min(760, menuBox[2] + 20) } });
+      const first = await page.evaluate(() => document.activeElement?.getAttribute('role'));
+      for (const key of ['Tab', 'Shift+Tab']) {
+        if (key === 'Shift+Tab') {
+          await page.click(button);
+          await page.waitForSelector('[role="menu"]');
+          await page.waitForTimeout(100);
+        } else {
+          await page.keyboard.press('ArrowDown');
+        }
+        await page.keyboard.press(key);
+        await page.waitForTimeout(100);
+        const after = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, open: !!document.querySelector('[role="menu"]') }));
+        if (after.open || `#${after.id}` !== button) problems.push(`${label}: a real ${key} from an item: ${JSON.stringify(after)}`);
+      }
+      if (first !== 'menuitem') problems.push(`${label}: the menu opened with the focus on ${first}, not its first item`);
+      problems.push(...errors.map((e) => `${label}: ${e}`));
+      await context.close();
+    }
   }
   await browser.close();
-  await site.close();
   await app.close();
-  console.log(problems.length ? `\nPROBLEMS:\n  ${problems.join('\n  ')}` : '\nno overflow, no page errors');
+  console.log(problems.length ? `\nPROBLEMS:\n  ${problems.join('\n  ')}` : '\nno overflow, no key-shaped text, the bar in one row, no page errors');
   process.exit(problems.length ? 1 : 0);
 })().catch(async (e) => {
   console.error(e);

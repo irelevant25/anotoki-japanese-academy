@@ -8,7 +8,7 @@ require __DIR__ . '/../lib.php';
 $GLOBALS['catalog'] = catalog_build(content_load());
 
 test('kanji data: all 317 kanji of the course, numbered 1–317 without gaps', function (): void {
-    $kanji = read_json(ROOT . '/data/kanji.json');
+    $kanji = read_json(BACKEND . '/data/kanji.json');
     assert_same(317, count($kanji));
     $nos = array_column($kanji, 'no');
     sort($nos);
@@ -23,7 +23,7 @@ test('kanji data: all 317 kanji of the course, numbered 1–317 without gaps', f
 });
 
 test('vocabulary data covers greetings and lessons 1–23', function (): void {
-    $vocab = read_json(ROOT . '/data/vocab.json');
+    $vocab = read_json(BACKEND . '/data/vocab.json');
     assert_true(count($vocab) >= 1700, count($vocab) . ' entries');
     $lessons = array_unique(array_column($vocab, 'lesson'));
     for ($L = 0; $L <= 23; $L++) {
@@ -67,7 +67,7 @@ test('SRS catalog: ids unique, kanji first in course order, vocab only uses the 
 
 test('audio: every vocabulary item has a clip in each voice, and every clip exists', function (): void {
     $index = read_json(AUDIO_INDEX);
-    assert_same(2, count($index['voices']), 'two voices: run npm run build:audio');
+    assert_same(2, count($index['voices']), 'two voices: run node backend/tools/php.js backend/tools/build-audio.php');
     $silent = array_values(array_filter($GLOBALS['catalog']['items'], static fn (array $i): bool => $i['type'] === 'vocab' && count($i['audio'] ?? []) !== 2));
     assert_same([], array_column($silent, 'id'));
     $missing = [];

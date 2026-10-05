@@ -3,7 +3,10 @@ import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, Routes, TitleStrategy, provideRouter } from '@angular/router';
 import { keptWord } from '../standin/kept-word';
+import { ApiService } from './api/api.service';
+import { VisitorMove } from './api/api.types';
 import { AuthService } from './auth/auth.service';
+import { MOVE_AT_START_MS, VISITOR_STORAGE_KEY } from './auth/visitor-key';
 import { boot } from './boot';
 import { AcademyTitleStrategy } from './i18n/title.strategy';
 import { TranslatePipe } from './i18n/translate.pipe';
@@ -50,6 +53,10 @@ function serve(config: [number, unknown], translations: (code: string) => [numbe
 
 const words = (code: string): [number, unknown] => [200, code === 'sk' ? SK_BUNDLE : EN_BUNDLE];
 
+/** The sign-in's settings of a copy whose client id is these tests' own (their storage listeners stay on the window). */
+const CONFIG = { issuer: 'https://iam.test', clientId: 'academy-test-boot' };
+const CONFIG_KEY = `anotoki-auth:${CONFIG.clientId}`;
+
 /** A signed-in session as the SDK keeps it, for IAM user `sub`, whose account reads `locale`. */
 function session(sub: string, locale: string | null): string {
   return JSON.stringify({
@@ -57,7 +64,7 @@ function session(sub: string, locale: string | null): string {
     access_expires_at: Date.now() + 3_600_000,
     refresh_token: `refresh-of-${sub}`,
     id_token: null,
-    user: { sub, preferred_username: `user-${sub}`, email: null, email_verified: false, locale, roles: ['MEMBER'] },
+    user: { sub, preferred_username: `user-${sub}`, email: null, email_verified: false, locale, roles: [] },
     updated_at: Date.now(),
   });
 }
@@ -80,8 +87,9 @@ describe('boot(): the whole start', () => {
     vi.restoreAllMocks();
   });
 
-  it('asks how this copy signs people in first, then for the words — which need to know what the app can show', async () => {
-    const asked = serve([200, { mode: 'none' }], words);
+  it('asks where the IAM is first, then for the words — which need to know what the app can show', async () => {
+    localStorage.setItem(CONFIG_KEY, session('7', null));
+    const asked = serve([200, CONFIG], words);
     await TestBed.runInInjectionContext(boot);
 
     expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
@@ -92,7 +100,7 @@ describe('boot(): the whole start', () => {
 
   it('takes ?lang= out of the address before the router reads it, and starts in that language', async () => {
     history.replaceState(null, '', '/exam?lang=sk');
-    const asked = serve([200, { mode: 'none' }], words);
+    const asked = serve([200, CONFIG], words);
     await TestBed.runInInjectionContext(boot);
 
     expect(asked).toEqual(['/api/auth/config', '/api/translations/sk']);
@@ -128,7 +136,7 @@ describe('boot(): the whole start', () => {
   });
 
   it('the words answered 503 not_set_up (settings there, a database without its tables): the app is not set up after all', async () => {
-    serve([200, { mode: 'none' }], () => [503, { error: 'Japanese Academy is not set up yet.', code: 'not_set_up', setup: '/setup.php', reason: 'the database has no tables yet' }]);
+    serve([200, CONFIG], () => [503, { error: 'Japanese Academy is not set up yet.', code: 'not_set_up', setup: '/setup.php', reason: 'the database has no tables yet' }]);
     await TestBed.runInInjectionContext(boot);
 
     const auth = TestBed.inject(AuthService);
@@ -137,7 +145,7 @@ describe('boot(): the whole start', () => {
   });
 
   it('the words answered any other 503 (an upload still arriving, a migration that failed): the problem page, with the server’s reason', async () => {
-    const asked = serve([200, { mode: 'none' }], () => [503, { error: 'The database could not be brought up to date with the upload: 004 failed', code: 'not_up_to_date', detail: '004 failed' }]);
+    const asked = serve([200, CONFIG], () => [503, { error: 'The database could not be brought up to date with the upload: 004 failed', code: 'not_up_to_date', detail: '004 failed' }]);
     await TestBed.runInInjectionContext(boot);
 
     const auth = TestBed.inject(AuthService);
@@ -150,7 +158,7 @@ describe('boot(): the whole start', () => {
   it('signed out, the words are asked for all the same; somebody signing in in another tab then finds words, never keys', async () => {
     const clientId = 'academy-test-boot-words';
     const key = `anotoki-auth:${clientId}`;
-    const asked = serve([200, { mode: 'iam', issuer: 'https://iam.test', clientId }], words);
+    const asked = serve([200, { issuer: 'https://iam.test', clientId }], words);
     await TestBed.runInInjectionContext(boot);
 
     const auth = TestBed.inject(AuthService);
@@ -180,6 +188,56 @@ describe('boot(): the whole start', () => {
     expect(warn, 'no key was ever drawn').not.toHaveBeenCalled();
     localStorage.removeItem(key);
   });
+
+  it('signed in with a visitor key held: what the visitor studied moves into the account first, then the words — the first page shows it', async () => {
+    localStorage.setItem(CONFIG_KEY, session('7', null));
+    localStorage.setItem(VISITOR_STORAGE_KEY, 'k'.repeat(43));
+    const order: string[] = [];
+    serve([200, CONFIG], (code) => (order.push('words'), words(code)));
+    const moved: VisitorMove = { found: true, items: 3, kept: 0, attempts: 0, answers: 3 };
+    const moveVisitor = vi.fn(async (key: string) => (order.push(`move ${key}`), moved));
+    TestBed.overrideProvider(ApiService, { useValue: { moveVisitor } });
+    await TestBed.runInInjectionContext(boot);
+
+    expect(order).toEqual([`move ${'k'.repeat(43)}`, 'words']);
+    expect(localStorage.getItem(VISITOR_STORAGE_KEY)).toBeNull();
+    expect(TestBed.inject(AuthService).state()).toBe('ready');
+  });
+
+  it('a move that does not answer holds the start a few seconds at most; the key stays for it to finish', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      localStorage.setItem(CONFIG_KEY, session('7', null));
+      localStorage.setItem(VISITOR_STORAGE_KEY, 'k'.repeat(43));
+      const asked = serve([200, CONFIG], words);
+      TestBed.overrideProvider(ApiService, { useValue: { moveVisitor: () => new Promise<VisitorMove>(() => undefined) } });
+      let started = false;
+      void TestBed.runInInjectionContext(boot).then(() => (started = true));
+      await vi.advanceTimersByTimeAsync(MOVE_AT_START_MS - 100);
+      expect([started, asked]).toEqual([false, ['/api/auth/config']]);
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.waitFor(() => expect(started).toBe(true));
+      expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+      expect(localStorage.getItem(VISITOR_STORAGE_KEY)).toBe('k'.repeat(43));
+    } finally {
+      vi.useRealTimers();
+      localStorage.removeItem(VISITOR_STORAGE_KEY);
+    }
+  });
+
+  it('sign-in not required and nobody signed in: visiting — the words asked for, no trip to the IAM, nothing moved', async () => {
+    const clientId = 'academy-test-boot-visiting';
+    localStorage.removeItem(`anotoki-auth:${clientId}`);
+    const asked = serve([200, { issuer: 'https://iam.test', clientId, loginRequired: false, visitorKeepDays: 30 }], words);
+    const moveVisitor = vi.fn();
+    TestBed.overrideProvider(ApiService, { useValue: { moveVisitor } });
+    await TestBed.runInInjectionContext(boot);
+
+    expect(TestBed.inject(AuthService).state()).toBe('visiting');
+    expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+    expect(TestBed.inject(TranslationService).ready()).toBe(true);
+    expect(moveVisitor).not.toHaveBeenCalled();
+  });
 });
 
 /** Routes with nothing to draw: a title is all these tests read. */
@@ -188,6 +246,7 @@ const ROUTES: Routes = [
   { path: 'kanji', title: 'Kanji', children: [] },
   { path: 'exam', title: 'title.exam', children: [] },
   { path: 'translations', title: 'Translations', children: [] },
+  { path: 'admin/people', title: 'People', children: [] },
   { path: 'missing', title: 'title.nothingSeeded', children: [] },
 ];
 
@@ -222,12 +281,14 @@ describe('AcademyTitleStrategy', () => {
     expect(title()).toBe('Exam · Japanese Academy');
   });
 
-  it('leaves a term and an owner page’s English title as they are written', async () => {
+  it('leaves a term and an admin page’s English title as they are written, the admin panel’s name after the latter', async () => {
     const router = TestBed.inject(Router);
     await router.navigateByUrl('/kanji');
     expect(title()).toBe('Kanji · Japanese Academy');
     await router.navigateByUrl('/translations');
     expect(title()).toBe('Translations · Japanese Academy');
+    await router.navigateByUrl('/admin/people');
+    expect(title()).toBe('People · Admin panel · Japanese Academy');
   });
 
   it('is the app’s name alone on the home page', async () => {

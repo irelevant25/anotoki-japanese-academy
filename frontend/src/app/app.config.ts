@@ -1,6 +1,6 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
-import { provideRouter, TitleStrategy, withDisabledInitialNavigation } from '@angular/router';
+import { provideRouter, TitleStrategy, withDisabledInitialNavigation, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
 import { notSetUpInterceptor } from './core/api/not-set-up.interceptor';
 import { authInterceptor } from './core/auth/auth.interceptor';
@@ -15,10 +15,12 @@ export const appConfig: ApplicationConfig = {
     // sign-in coming back from the IAM finished, with the address it started
     // from put back in the address bar; then the language and its strings.
     provideAppInitializer(boot),
-    // The first navigation waits until the app can be used (AppComponent starts
-    // it): a screen's data is asked for only then — not while the copy is not
-    // set up, nor while nobody is signed in.
-    provideRouter(routes, withDisabledInitialNavigation()),
+    // The first navigation waits until the start has settled the sign-in
+    // (AppComponent starts it): then every page's guard sends anybody not
+    // signed in to the IAM, and a screen's data is asked for only once
+    // somebody is (never while the copy is not set up). A link to a part of a
+    // page (the dashboard's to Your data) scrolls to it.
+    provideRouter(routes, withDisabledInitialNavigation(), withInMemoryScrolling({ anchorScrolling: 'enabled' })),
     // A page's title in the language on the page, before the app's name.
     { provide: TitleStrategy, useClass: AcademyTitleStrategy },
     // The token on the way out; on the way back, an answer that the copy is

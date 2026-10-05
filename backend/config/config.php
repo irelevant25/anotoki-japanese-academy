@@ -3,38 +3,50 @@
  * This copy's settings. They live only in the *.local.php files of this folder,
  * which the setup page (/setup.php, backend/setup.php) writes and git never
  * sees, and they are required: there are no defaults to fall back on. Until
- * all three are there, every address with data answers 503
- * {"code": "not_set_up"}, and the app shows its "not set up yet" page.
+ * both are there, every address with data answers 503 {"code": "not_set_up"},
+ * and the app shows its "not set up yet" page.
  *
- *   database.local.php   ['host' => 'localhost', 'port' => 5432, 'name' => 'japanese_academy',
+ *   database.local.php   ['host' => 'localhost', 'port' => 5432, 'name' => 'anotoki_japanese',
  *                         'user' => 'postgres', 'password' => '…']
- *   auth.local.php       ['mode' => 'none', 'local_user_id' => 1]                  the owner's own computer
- *                        ['mode' => 'iam', 'issuer' => 'https://iam.anotoki.eu',   a website (or a development
- *                         'client_id' => 'japanese-academy', 'local_user_id' => 1]  copy against the dev IAM)
- *   app.local.php        ['timezone' => 'Europe/Bratislava']
+ *   auth.local.php       ['issuer' => 'https://iam.anotoki.eu', 'client_id' => 'japanese-academy']
+ *                        (on a computer, the development IAM: 'http://localhost:4300')
  *
- * local_user_id is the owner's IAM user id: whom auth mode none acts as, and
- * whose the old JSON files and version-1 backups are. Sign-in (docs/kb/sign-in.md)
- * is this deployment configuration and never a request's.
+ * People always sign in through the IAM (docs/kb/sign-in.md); who may do what
+ * is their role there. Keys the earlier versions wrote are ignored, so a copy
+ * set up by one keeps working: auth.local.php's 'mode' => 'iam' and
+ * 'local_user_id', and app.local.php with its 'timezone'. Only a copy that was
+ * set up without sign-in ('mode' => 'none') is not set up any more: there is
+ * no such way now, and the setup page asks for the IAM.
  *
  * The tests run against throwaway databases with settings of their own: a
- * folder of these three files, named by ACADEMY_CONFIG_DIR, and the test IAM's
- * keys from ACADEMY_JWKS_FILE. Both are honoured only when the database they
- * lead to is an academy_test_ one, so a stray variable can never point a real
- * server at other settings. (Three optional keys are for them alone:
- * 'jwks_file' in auth.local.php, read by auth_jwks_file(), and 'backups_dir'
+ * folder of these files, named by ACADEMY_CONFIG_DIR, and the test IAM's keys
+ * from ACADEMY_JWKS_FILE (and the IAM's answer whether sign-in is required
+ * from ACADEMY_APPLICATION_FILE). They are honoured only when the database they lead
+ * to is an academy_test_ one, so a stray variable can never point a real
+ * server at other settings. (Six optional keys are for them alone:
+ * 'jwks_file', 'application_file', 'application_ttl' and 'cache_dir' in
+ * auth.local.php, read by auth_jwks_file() and auth_iam_config(), and 'backups_dir'
  * and 'frontend_dir' in app.local.php, read by backup_dir() and
- * server_frontend_dir().)
+ * router_frontend_dir() in backend/router.php.)
+ *
+ * app.local.php is optional and the setup page never writes it: the owner may
+ * put one on the site by FTP for the visitors' numbers ('visitors',
+ * src/visitors.php) and the proxies trusted to name a visitor's address
+ * ('client_address', src/client_address.php); every one has a default
+ * (docs/kb/hosting.md, *Visitors on the site*). Its old 'timezone' is ignored.
  */
 
 declare(strict_types=1);
 
-/** The settings files, and what each holds (for the setup page and the not-set-up answer). */
+/** The settings files: the required ones (CONFIG_REQUIRED), and the optional app.local.php (the owner's, by FTP, or a test's). */
 const CONFIG_FILES = [
     'database' => 'database.local.php',
     'auth' => 'auth.local.php',
     'app' => 'app.local.php',
 ];
+
+/** What a copy needs before it is set up (the setup page writes them). */
+const CONFIG_REQUIRED = ['database', 'auth'];
 
 /** The folder the settings are read from. */
 function config_dir(): string
@@ -89,6 +101,10 @@ function config_all(bool $reload = false): array
     if ($jwks !== null) {
         $config['auth']['jwks_file'] = $jwks;
     }
+    $application = config_env_application($name);
+    if ($application !== null) {
+        $config['auth']['application_file'] = $application;
+    }
     foreach (config_overrides() as $section => $values) {
         $config[$section] = array_replace($config[$section], $values);
     }
@@ -100,6 +116,16 @@ function config_env_jwks(string $database): ?string
 {
     $jwks = getenv('ACADEMY_JWKS_FILE');
     return is_string($jwks) && $jwks !== '' && config_is_test_db($database) ? $jwks : null;
+}
+
+/**
+ * The test IAM's answer whether sign-in is required, named in the environment
+ * (ACADEMY_APPLICATION_FILE; src/access.php) — for a throwaway database only.
+ */
+function config_env_application(string $database): ?string
+{
+    $file = getenv('ACADEMY_APPLICATION_FILE');
+    return is_string($file) && $file !== '' && config_is_test_db($database) ? $file : null;
 }
 
 /**
@@ -117,7 +143,7 @@ function config_overrides(?array $set = null): array
 }
 
 /**
- * One setting by its path: 'db.host', 'auth.mode', 'app.timezone' …, or null
+ * One setting by its path: 'db.host', 'auth.issuer', 'app.backups_dir' …, or null
  * when it is not set.
  */
 function config(string $key)
@@ -133,8 +159,8 @@ function config(string $key)
 }
 
 /**
- * Why this copy is not set up yet, or null when it is: every settings file
- * there, and each value in it one the app can use. The setup page writes them;
+ * Why this copy is not set up yet, or null when it is: both required settings
+ * files there, and each value in them one the app can use. The setup page writes them;
  * nothing else does.
  */
 function config_problem(): ?string
@@ -144,9 +170,9 @@ function config_problem(): ?string
     } catch (RuntimeException $e) {
         return $e->getMessage();
     }
-    foreach (CONFIG_FILES as $which => $file) {
+    foreach (CONFIG_REQUIRED as $which) {
         if (config_read_file($which) === null) {
-            return "backend/config/$file is missing";
+            return 'backend/config/' . CONFIG_FILES[$which] . ' is missing';
         }
     }
     $db = $all['db'];
@@ -163,22 +189,16 @@ function config_problem(): ?string
         return 'the database user or password in backend/config/database.local.php is missing';
     }
     $auth = $all['auth'];
-    $mode = $auth['mode'] ?? null;
-    if ($mode !== 'iam' && $mode !== 'none') {
-        return "auth.mode in backend/config/auth.local.php must be 'iam' or 'none'";
+    // The earlier versions' keys ('mode' => 'iam', 'local_user_id') are ignored. A copy
+    // set up without sign-in has no IAM to name: it is set up again, the one way there is.
+    if (($auth['mode'] ?? null) === 'none') {
+        return 'sign-in without the IAM is gone: open /setup.php and save';
     }
-    if ($mode === 'iam' && (!is_string($auth['issuer'] ?? null) || !preg_match('~^https?://[^/\s]+(/[^\s]*)?$~', $auth['issuer']))) {
+    if (!is_string($auth['issuer'] ?? null) || !preg_match('~^https?://[^/\s]+(/[^\s]*)?$~', $auth['issuer'])) {
         return 'the IAM\'s address (issuer) in backend/config/auth.local.php is missing';
     }
-    if ($mode === 'iam' && (!is_string($auth['client_id'] ?? null) || !preg_match('/^[a-z0-9-]{2,64}$/D', $auth['client_id']))) {
+    if (!is_string($auth['client_id'] ?? null) || !preg_match('/^[a-z0-9-]{2,64}$/D', $auth['client_id'])) {
         return 'the client id in backend/config/auth.local.php is missing';
-    }
-    if (!is_int($auth['local_user_id'] ?? null) || $auth['local_user_id'] < 1) {
-        return 'local_user_id in backend/config/auth.local.php is missing';
-    }
-    $tz = $all['app']['timezone'] ?? null;
-    if (!is_string($tz) || !in_array($tz, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
-        return 'the time zone in backend/config/app.local.php is not valid';
     }
     return null;
 }

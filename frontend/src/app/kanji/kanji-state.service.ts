@@ -1,5 +1,6 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, Injector, signal, untracked } from '@angular/core';
 import { ApiService } from '../core/api/api.service';
+import { VisitorKey } from '../core/auth/visitor-key';
 import { CatalogItem, ItemState, LessonTypes, Settings, Stage, StageGroup, Summary } from '../core/api/api.types';
 import { knownCoresOf } from './answer';
 
@@ -7,7 +8,9 @@ import { knownCoresOf } from './answer';
  * The kanji trainer's state: the catalog (the same for everybody, loaded once)
  * and the person's progress, settings and dashboard summary (loaded again on
  * every screen change: due counts move with the clock). The item logic the
- * screens share lives here too.
+ * screens share lives here too. When what this browser studied without
+ * signing in moves into the account after the progress was loaded (a move
+ * asked again later: VisitorKey.moves), the progress is loaded again.
  */
 @Injectable({ providedIn: 'root' })
 export class KanjiStateService {
@@ -28,6 +31,22 @@ export class KanjiStateService {
   readonly reviewsDue = computed(() => this.summary()?.reviewsDue ?? 0);
 
   private catalogLoad: Promise<void> | null = null;
+  private readonly injector = inject(Injector);
+
+  constructor() {
+    // Once something was loaded (VisitorKey, which asks the API, is made only then): a move after that loads it again.
+    let movesSeen: number | null = null;
+    effect(() => {
+      if (this.summary() === null) {
+        return;
+      }
+      const moves = untracked(() => this.injector.get(VisitorKey)).moves();
+      if (movesSeen !== null && moves !== movesSeen) {
+        untracked(() => void this.refresh().catch(() => undefined));
+      }
+      movesSeen = moves;
+    });
+  }
 
   /** The catalog (once), then the progress. */
   async load(): Promise<void> {

@@ -5,17 +5,17 @@
  * listening questions and the kanji trainer's catalog, so all three agree on
  * which clip belongs to which word.
  *
- *   data/audio.json  { recipe, voices: [{id, name, label}],
+ *   backend/data/audio.json  { recipe, voices: [{id, name, label}],
  *                      clips: { "<text>|<reading>": { <voice id>: "<name>.mp3" } },
  *                      made: { "<name>.mp3": "<recipe>|<voice name>" } }  (the builder's)
- *   data/audio/      the clips. Their names are random, so the clip of a
+ *   backend/data/audio/      the clips. Their names are random, so the clip of a
  *                    listening question gives nothing away.
  */
 
 declare(strict_types=1);
 
-const AUDIO_INDEX = ROOT . '/data/audio.json';
-const AUDIO_CLIPS = ROOT . '/data/audio';
+const AUDIO_INDEX = BACKEND . '/data/audio.json';
+const AUDIO_CLIPS = BACKEND . '/data/audio';
 const CLIP_NAME = '/^[0-9a-f]{16}\.mp3$/D';
 
 /** The first spelling: a phrase put in order, optional parts, notes and punctuation dropped. */

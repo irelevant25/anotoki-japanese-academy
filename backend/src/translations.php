@@ -3,7 +3,7 @@
  * The app's own words, in the languages it speaks: the languages, the strings
  * a page asks for by key, and the grid the owner rewords them in. (The study
  * material is not here, and is never translated: the kanji, the words, their
- * readings and glosses and the exam's questions come from data/.)
+ * readings and glosses and the exam's questions come from backend/data/.)
  *
  * A key is the code's: migrations write the keys and their first strings
  * (backend/migrations/004_languages_and_translations.sql, and one for every
@@ -17,8 +17,9 @@
  * show it to the reader as it is written.
  *
  * The three tables (languages, translation_keys, translations) are the site's,
- * not a person's: everybody reads them, the owner writes them, and no query
- * here has a user id. The one place a person appears is translations.updated_by,
+ * not a person's: everybody reads them, the admin area writes them (the IAM
+ * roles EDITOR and ADMIN, api/middleware/staff.php), and no query here has a
+ * user id. The one place a person appears is translations.updated_by,
  * who last reworded a string: the request's person (the routes pass
  * uid($request)), or null for a migration and the command line.
  *
@@ -57,7 +58,7 @@ const LANGUAGE_SORT_MAX = 1000;
 
 /**
  * How the copy of a language's strings, taken before it is deleted, is named
- * in backups/ (translations_copy()). It is a flat {key: text}, not a backup of
+ * in backend/storage/backups/ (translations_copy()). It is a flat {key: text}, not a backup of
  * study data: the setup page leaves these out of the backups it offers.
  */
 const TRANSLATIONS_COPY_PREFIX = 'academy-before-language-delete-';
@@ -399,7 +400,7 @@ function languages_update(string $code, $body): array
 }
 
 /**
- * Deletes a language and its strings, after a copy of them in backups/
+ * Deletes a language and its strings, after a copy of them in backend/storage/backups/
  * (translations_copy()). Never English, and never a language the migrations
  * write strings for. Returns [200, {copy: the file's name}]; 404; 409
  * fallback_language, seeded_language.
@@ -714,13 +715,19 @@ function translations_check($values, array $keys, array $languages, array $engli
  * Writes strings, {key: {language: text}}: all of it checked first
  * (translations_check()) and written in one transaction, or none of it (a
  * TranslationRefused from the check rolls it back). A string sent as it
- * already is stays as it was, with who wrote it and when.
+ * already is stays as it was, with who wrote it and when. $userId's users
+ * row is held first (users_hold(), as every answer does): an administrator
+ * deleting that person's data meanwhile and the save take turns, and the
+ * save's updated_by never names a row that went.
  *
  * @param mixed $values {key: {language code: text}}
  */
 function translations_write($values, ?int $userId): void
 {
     db_tx(static function () use ($values, $userId): void {
+        if ($userId !== null) {
+            users_hold($userId);
+        }
         // FOR SHARE: no language is deleted between the check and the writing.
         $languages = array_column(db_all('SELECT code, name FROM languages FOR SHARE'), 'name', 'code');
         $keys = array_column(db_all('SELECT name FROM translation_keys'), 'name');
@@ -814,7 +821,7 @@ function translations_file_text($values): string
 
 /**
  * Before a language is deleted: its own strings, as an export gives them, in
- * backups/academy-before-language-delete-<code>-<time>.json. Put back with
+ * backend/storage/backups/academy-before-language-delete-<code>-<time>.json. Put back with
  * php backend/translations.php --import <code> <file>, once the language is
  * there again. Returns the file.
  */
@@ -824,7 +831,7 @@ function translations_copy(string $code): string
     if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
         throw new RuntimeException("Cannot create the backup folder $dir");
     }
-    $file = "$dir/" . TRANSLATIONS_COPY_PREFIX . "$code-" . local_time(now_ms())->format('Ymd-His-v') . '.json';
+    $file = "$dir/" . TRANSLATIONS_COPY_PREFIX . "$code-" . utc_stamp(now_ms()) . '.json';
     file_put_atomic($file, translations_file_text(translations_of($code)));
     return $file;
 }

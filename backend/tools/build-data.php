@@ -4,20 +4,21 @@
  * index, the per-lesson kanji lists, the grammar index) into the JSON the
  * question generator and the kanji trainer use.
  *
- *   data/source/vocab-part1|2.tsv   kana \t kanji \t english \t lesson-tag
- *   data/source/kanji-part1|2.tsv   no \t kanji \t lesson \t on \t kun \t meaning \t compounds
- *   data/source/grammar-index-part1|2.tsv   lesson \t point \t ref
+ *   backend/data/source/vocab-part1|2.tsv   kana \t kanji \t english \t lesson-tag
+ *   backend/data/source/kanji-part1|2.tsv   no \t kanji \t lesson \t on \t kun \t meaning \t compounds
+ *   backend/data/source/grammar-index-part1|2.tsv   lesson \t point \t ref
  *
- *   php backend/tools/build-data.php   (npm run build:data)
+ *   php backend/tools/build-data.php   (node backend/tools/php.js backend/tools/build-data.php
+ *                                      where an older php comes first on PATH)
  *
- * The server picks up the new JSON when it next starts (backend/src/content.php).
+ * The app picks up the new JSON at its next request (backend/src/content.php).
  */
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
-const SOURCE = ROOT . '/data/source';
+const SOURCE = BACKEND . '/data/source';
 
 function tsv_read(string $file): array
 {
@@ -183,8 +184,8 @@ function data_kanji(): array
 
 /* -------------------------------------------------------------------- write */
 
-/** Writes vocab.json, kanji.json and grammar-index.json to $dir (data/, or a test's temp folder). */
-function data_build(string $dir = ROOT . '/data', bool $quiet = false): void
+/** Writes vocab.json, kanji.json and grammar-index.json to $dir (backend/data/, or a test's temp folder). */
+function data_build(string $dir = BACKEND . '/data', bool $quiet = false): void
 {
     $vocab = data_vocab();
     $kanji = data_kanji();
