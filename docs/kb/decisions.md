@@ -1243,3 +1243,15 @@ signed in. So ([sign-in.md](sign-in.md), *Visitors in the browser*):
   without signing in where the site allows it, and the old "you always sign
   in" became "unless the site lets you study without signing in" - the
   site's own default stays sign-in required.
+
+**2026-10-06 — The family's visitor counter, without the query string.** The
+owner asked for Umami - the family's own, at `umami.anotoki.eu` - on every
+anotoki site. `frontend/src/index.html` loads its script (no policy here
+names scripts for the app's pages; a report's own still allows none). It sets
+no cookie and stores nothing in the browser. It is told to leave the query
+string and the fragment out (`data-exclude-search`, `data-exclude-hash`): the
+sign-in comes back to `/auth/callback?code=...&state=...`, and the script may
+read the address before the app has run - a counter that kept it would hold
+every sign-in's code. It is `async`, so the app never waits for it. The paths
+still go, which is what the counter is for. The browser suites are not
+counted: Umami answers a headless browser and keeps nothing.
