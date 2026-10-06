@@ -243,5 +243,8 @@ node backend/tools/pdf/pages.js textbook-1 12-14          # page images; the aca
   days gives the clock (`docs/kb/kanji-srs.md`, `docs/kb/testing.md`).
 - The UI is in English and Slovak (informal "ty"), plain and short, from the
   database: a new word is a key and a migration (above). Dates and numbers
-  follow the language on the page, never the system's locale. The two owner
-  pages are English.
+  follow the language on the page, never the system's locale — except a
+  signed-in person's own date order and clock, chosen for their anotoki
+  account, which win (`core/format.ts`). The theme, signed in, is the
+  account's too (`docs/kb/sign-in.md`, *The account's preferences*). The two
+  owner pages are English.

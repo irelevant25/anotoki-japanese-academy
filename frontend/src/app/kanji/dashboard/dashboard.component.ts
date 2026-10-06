@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { CatalogItem } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
-import { fmtClock, fmtIn, fmtWeekdayOf, pct } from '../../core/format';
+import { fmtClock, fmtHour, fmtIn, fmtWeekdayOf, pct } from '../../core/format';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { TranslationService } from '../../core/i18n/translation.service';
@@ -70,7 +70,7 @@ export class DashboardComponent {
         n,
         height: (n / max) * 100,
         title: this.i18n.plural('dashboard.reviewsAround', n, { clock: fmtClock(this.i18n, at.getTime()) }),
-        label: i % 3 === 0 ? String(at.getHours()).padStart(2, '0') : null,
+        label: i % 3 === 0 ? fmtHour(this.i18n, at.getTime()) : null,
       };
     });
   });

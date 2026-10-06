@@ -83,6 +83,25 @@ export function errorKey(error: Failure): string {
   return error.status > 0 && error.code === `http_${error.status}` ? 'error.http' : 'error.unknown';
 }
 
+/**
+ * A save of the account's preferences (the theme) that the IAM refused or
+ * never got — the code its SDK rejects with — as errorKey() reads a failure:
+ * `network` is no answer at all ("offline"), `login_required` nobody signed in
+ * (sign_in_required), `http_<status>` an answer that was not the IAM's own;
+ * any other code as it came (`invalid_token` has its sentence; the rest is
+ * error.unknown). No new words: the sentences every failure already has.
+ */
+export function preferencesFailure(code: string): Failure {
+  if (code === 'network') {
+    return { status: 0, code: 'offline' };
+  }
+  if (code === 'login_required') {
+    return { status: 401, code: 'sign_in_required' };
+  }
+  const http = /^http_(\d{3})$/.exec(code);
+  return { status: http ? Number(http[1]) : 0, code };
+}
+
 /** What errorKey()'s strings are filled with: `i18n.t(errorKey(error), errorParams(error))`. */
 export function errorParams(error: Failure): TranslationParams {
   const max = error.body?.max;

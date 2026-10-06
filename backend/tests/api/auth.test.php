@@ -412,8 +412,9 @@ test('the tests’ settings folder and keys file count only for a throwaway data
 test('the vendored IAM SDKs are the versions the notes name', function (): void {
     assert_same('1.1.0', ANOTOKI_IAM_SDK_VERSION, 'backend/src/anotoki_iam.php: change the note in src/auth.php and docs/kb/sign-in.md with it');
     $sdk = ROOT . '/frontend/src/app/core/auth/sdk';
-    assert_match("/const SDK_VERSION = '1\\.1\\.1';/", (string) file_get_contents("$sdk/anotoki-auth.mjs"),
+    assert_match("/const SDK_VERSION = '1\\.2\\.0';/", (string) file_get_contents("$sdk/anotoki-auth.mjs"),
         'frontend/src/app/core/auth/sdk/anotoki-auth.mjs: change the AuthService\'s note and docs/kb/sign-in.md with it');
-    assert_match('/^\/\/ Types for anotoki-auth\.mjs \/ anotoki-auth\.js - v1\.1\.1$/m', (string) file_get_contents("$sdk/anotoki-auth.d.ts"), 'and its types, the same version');
+    // \r?: git checks the file out with CRLF line endings where core.autocrlf is on, and $ stops before \n only.
+    assert_match('/^\/\/ Types for anotoki-auth\.mjs \/ anotoki-auth\.js - v1\.2\.0\r?$/m', (string) file_get_contents("$sdk/anotoki-auth.d.ts"), 'and its types, the same version');
     assert_same([], server_problems($GLOBALS['app']), 'no PHP warnings or errors on the server');
 });

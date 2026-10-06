@@ -142,6 +142,8 @@
   font-size: 10px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  // "12 pm" on a 12-hour clock is wider than its bar: one line, over the next two bars of its three.
+  white-space: nowrap;
 }
 .fdays {
   display: flex;

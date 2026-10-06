@@ -25,15 +25,16 @@ src/app/            app.component (the bar, the page, the foot), app.routes.ts, 
                     sign-in), SignOutService, SignInService; sdk/ the IAM's browser SDK, never
                     edited), storage.ts (localStorage that never throws), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
                     the translation service, its pipes, the language chooser, failures worded from their
-                    codes), theme/ (light, dark or the system's), saves-in-flight.service.ts
-                    (the saves a sign-out waits for), time-zone.ts, boot.ts, format.ts
+                    codes), theme/ (light, dark or the system's; signed in, the anotoki account's),
+                    saves-in-flight.service.ts (the saves a sign-out waits for), time-zone.ts, boot.ts,
+                    format.ts (dates and clocks in the language's way, or the account's order and clock)
   admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN), Languages,
                     People and Migrations (ADMIN); the top bar's links lead between them
   standin/          the Sign in card, the not set up and problem pages; sign-in-failed/ (a refused
                     sign-in said above a visitor's page)
 src/styles/         _tokens.scss (every colour, light and dark; dark also by <html data-theme>), _base.scss,
                     _items.scss
-public/             favicon.svg, anotoki.png (the family's mark), theme-boot.js (the light/dark choice
+public/             favicon.svg, anotoki.png (the family's mark), theme-boot.js (the light/dark shown last,
                     before the first paint), changelog.json (the releases; the version at the foot)
 e2e/                the browser suites: run.js, setup.js, screens.js (Edge, playwright-core)
 scripts/            ensure-build.mjs (builds only when the sources changed), catalog-fixture.mjs

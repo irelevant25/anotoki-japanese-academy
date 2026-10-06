@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
+import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { PeopleComponent } from './people.component';
 
@@ -17,6 +18,8 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
     deletePerson: vi.fn<(id: number) => Promise<{ deleted: number; copy: string }>>(),
     visitors: vi.fn<() => Promise<VisitorsCount>>(),
   };
+  /** The administrator's own account preferences, as the IAM sends them (null: none). */
+  const preferences = signal<AnotokiPreferences | null>(null);
 
   async function draw(): Promise<void> {
     TestBed.configureTestingModule({
@@ -26,7 +29,7 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
         // The learner's pages are Slovak: this page stays English all the same.
         provideTestTranslations({}, { language: 'sk' }),
         { provide: ApiService, useValue: api },
-        { provide: AuthService, useValue: { state: signal('ready'), user: signal({ sub: '7' }), isAdmin: signal(true), subject: () => '7' } },
+        { provide: AuthService, useValue: { state: signal('ready'), user: signal({ sub: '7' }), preferences, isAdmin: signal(true), subject: () => '7' } },
       ],
     });
     const fixture = TestBed.createComponent(PeopleComponent);
@@ -42,6 +45,7 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
   const settle = () => TestBed.inject(ApplicationRef).whenStable();
 
   beforeEach(() => {
+    preferences.set(null);
     api.people.mockReset().mockResolvedValue([HANA, ONE]);
     api.visitors.mockReset().mockResolvedValue({ ready: false, count: 0, oldestSeenAt: null, keepDays: 30, max: 300 });
     api.deletePerson.mockReset().mockResolvedValue({ deleted: 12, copy: 'academy-before-delete-user-12-20261004-101500-000.json' });
@@ -106,6 +110,23 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
     expect(hana).toHaveLength(6);
     expect(host.querySelectorAll('#people .tag'), 'only the one looking is "you"').toHaveLength(1);
     expect(one.slice(1, 6)).toEqual(['—', '—', '—', '1 item', '1 attempt']);
+  });
+
+  it('an administrator who chose a date order and a clock for their account reads the moments in them, the rest still English — and follows a change', async () => {
+    // Local times, so the day and the clock are the same in every time zone the tests run in.
+    const created = new Date(2026, 8, 22, 9, 5).getTime();
+    const seen = new Date(2026, 9, 3, 21, 5).getTime();
+    api.people.mockResolvedValue([{ ...HANA, createdAt: created, lastSeenAt: seen }]);
+    preferences.set({ theme: 'auto', date_format: 'ymd_dash', time_format: '12' });
+    await draw();
+    expect(rows()[0].slice(1, 3)).toEqual(['2026-09-22 9:05 am', '2026-10-03 9:05 pm']);
+
+    // Only the clock chosen, on another anotoki site: the date in the panel's English, the clock theirs.
+    preferences.set({ theme: 'auto', date_format: null, time_format: '24' });
+    await settle();
+    const [first, last] = rows()[0].slice(1, 3);
+    expect(first).toMatch(/^22 Sept? 2026 09:05$/);
+    expect(last).toBe('3 Oct 2026 21:05');
   });
 
   it('deletes a person’s data only after a question that names what goes; the list and the status line say it is done', async () => {

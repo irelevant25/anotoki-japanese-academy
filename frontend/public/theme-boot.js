@@ -1,4 +1,6 @@
-// Applies the stored light/dark choice before the first paint.
+// Applies the stored light/dark choice before the first paint: this device's
+// own, or - for somebody signed in - their anotoki account's, which the app
+// writes here whenever it shows it.
 //
 // The app sets the theme itself once it has loaded (src/app/core/theme/
 // theme.service.ts), but that is after the page has been drawn once, and

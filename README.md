@@ -30,6 +30,12 @@ language (**EN / SK**), a light / dark / your system's switch, and your menu
 phone the links and your menu are in one menu button, with the reviews due
 on it.
 
+Signed in, the look (light, dark or your system's), how dates are written
+and the clock (24 or 12 hours) are your anotoki account's: the same on every
+anotoki site, and on every page here, the admin panel too. The switch here
+changes it for all of them; dates and the clock are set on your anotoki
+account's page. Not signed in, each browser keeps its own look, as before.
+
 It replaced the earlier N4 Coach app on 2026-09-23. N4 Coach is still in the
 git history.
 
@@ -254,10 +260,18 @@ small dot beside it means there is news you haven't opened yet.
 ## Languages
 
 The app speaks English and Slovak: the round **EN / SK** button in the top
-bar switches, and the choice is remembered in that browser. Without a
-choice it follows your account's language (on the website) or the
-browser's, and English when it has neither; `?lang=sk` in an address opens
-that tab in Slovak. The study material is never translated — the kanji, the
+bar switches, and the choice is remembered in that browser — and, signed in,
+saved to your anotoki account, so the other anotoki sites speak it too
+(when the account can have that language). Signed in, where the anotoki
+sign-in keeps your preferences, the app speaks your account's language, and
+follows it when you change it elsewhere (on your account's page or another
+anotoki site); a choice made here holds for the visit. Otherwise it speaks
+the browser's remembered choice, else your account's language or the
+browser's, and English when it has none of them. `?lang=sk` in an
+address opens that tab in Slovak, whatever else says. Dates and times are
+written the way the language writes them, unless you chose a date format or
+a clock for your anotoki account.
+The study material is never translated — the kanji, the
 words, their readings and English meanings, the exam's questions — and
 neither are the stage names (Apprentice … Burned), which are WaniKani's.
 The exam report stays English.

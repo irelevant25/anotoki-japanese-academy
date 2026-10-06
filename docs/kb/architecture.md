@@ -391,10 +391,12 @@ tests run in Vitest with jsdom (`ng test`).
   (the saves on their way, which a sign-out — and a visitor's sign-in — waits for), `storage.ts`
   (localStorage that never throws), `time-zone.ts` (the
   browser's IANA zone), `i18n/` (the app's words, below; the language
-  chooser), `theme/` (`ThemeService`: light, dark or the system's, kept per
-  device), `changelog/` (the foot's version and "What's new", the dialog),
+  chooser), `theme/` (`ThemeService`: light, dark or the system's — the
+  anotoki account's while somebody is signed in, else kept per device),
+  `changelog/` (the foot's version and "What's new", the dialog),
   `audio.service.ts` (the two voices take turns),
-  `format.ts` (times, dates and percentages in the language on the page),
+  `format.ts` (times, dates and percentages in the language on the page, or
+  in the date order and clock of a signed-in person's account),
   `testing/` (the specs' translation service, stand-ins of the sign-in's states).
 - `admin/` — the admin panel, in English: Translations (EDITOR, ADMIN),
   Languages, People and Migrations (ADMIN); the bar's links lead between
@@ -461,12 +463,21 @@ One row, in this order:
 - **the language** (`core/i18n/language-chooser/`): a round button with the
   code ("SK"), named "Language: Slovenčina (SK)" (`language.button` holds
   `{code}`: a voice user says what they see), a menu of the languages; only
-  where the learner's pages are, and only with two or more.
+  where the learner's pages are, and only with two or more. A signed-in
+  person's choice goes to their anotoki account too (*The app's words*).
 - **the theme** (`ui/theme-toggle/`): light, dark or the system's, a radio
-  group of three icons (102 × 40); the choice is per device
-  (`localStorage` `academy-theme`), `<html data-theme>` for light or dark,
-  nothing for the system's (`core/theme/theme.service.ts`;
-  `public/theme-boot.js` sets it before the first paint).
+  group of three icons (102 × 40); `<html data-theme>` for light or dark,
+  nothing for the system's (`core/theme/theme.service.ts`). Signed in, it is
+  the anotoki account's — one theme for every anotoki site, this one's admin
+  panel too (the owner's decision of 2026-10-06): taken from the account, and
+  a choice here saved to it; a refusal puts the account's theme back, with a
+  line under the switch that says why (`.refused`, hung from its right edge,
+  over the page), until the next choice, a click elsewhere, Escape on any of
+  the bar's controls (`TopBarComponent.keydown()`) or anywhere else, or the
+  account gone (signed out). Nobody signed in, or an IAM that sends no
+  preferences: per device, as before. The theme shown is kept in `localStorage`
+  (`academy-theme`), and `public/theme-boot.js` sets it before the first
+  paint ([sign-in.md](sign-in.md), *The account's preferences*).
 - **the person's menu** (a round button with their initial, their name beside
   it from 961 px): their name, address and role (Administrator / Editor);
   **Your anotoki account** (the IAM's account page, a new tab); **Admin panel**
@@ -622,14 +633,39 @@ and sets `<html lang>`. The language is the first of: `?lang=` (taken out of
 the address and kept for the tab in `sessionStorage`), the chooser's choice
 (`localStorage`), the `locale` of the IAM's token, each of the browser's
 languages and its base (`sk-SK` asks for `sk`; a Czech browser reads Slovak
-while there is no Czech), and English. The page changes language only once
-the new bundle is in memory, and a key with no string shows as itself and
-warns once in the console — the owner wants to see which.
+while there is no Czech), and English. For somebody signed in whose account
+sends its preferences ([sign-in.md](sign-in.md), *The account's
+preferences*), the token's `locale` comes before what this device
+remembered: `?lang=`, a choice made on this page, the account's language,
+the device's choice, the browser's, English (`languageCandidates()`'s
+`stored`) — as on the survey site, the family's reference. The page changes
+language only once the new bundle is in memory, and a key with no string
+shows as itself and warns once in the console — the owner wants to see
+which.
+
+A changed `locale` (a change on the account's page, on another anotoki site
+or in another tab) is followed when it comes (`followToken()`): for an
+account that sends its preferences, over the device's choice and an earlier
+choice on the page — not over this tab's `?lang=`, and not while a choice
+made here is on its way to the account, whose answer to an earlier save
+would turn the page back; otherwise only while nothing is stored here (no
+choice, no `?lang=`).
 
 - The `translate` and `translatePlural` pipes (impure: the language changes
   under a constant key), `t()` / `plural()` / `number()` in code, the
   `localDate` pipe and `core/format.ts` for dates, clocks and relative times
   in the language's locale (`'en-GB'`, `'sk-SK'`), whatever the system's is.
+  A signed-in person who chose a date order or a clock for their anotoki
+  account gets those instead (`TranslationService.dateFormat()` and
+  `timeFormat()`, from `AuthService.preferences`; [sign-in.md](sign-in.md),
+  *The account's preferences*): 6.10.2026, 06/10/2026, 10/06/2026 or
+  2026-10-06, and 14:30 or 2:30 pm in the language's words; a date with its
+  time is the two side by side, each as chosen or as the language writes it
+  (`2026-10-06 14:30`). The admin panel's moments too, in its English
+  (`fmtAdminMoment()`), and the kanji dashboard's hour axis (`fmtHour()`: "15",
+  or "3 pm" on a 12-hour clock, one line over its three bars). Nothing
+  chosen, a visitor, or an IAM that sends none: the language's own way, as
+  before.
 - State holds keys, kinds and `ApiError`s, never a worded sentence, so a page
   follows a change of language without being made again; a failed request is
   worded from its code (`error-text.ts`), never with the server's sentence.
@@ -637,7 +673,14 @@ warns once in the console — the owner wants to see which.
   the admin panel's, and hides while fewer than two languages are on offer.
   Like the whole bar it keeps its keys to itself: Enter on a language never
   submits a card or finishes a paper behind it, and switching changes words
-  only.
+  only. A signed-in person's choice, once the page has switched, also goes
+  to their anotoki account (`setLanguage()` → `saveToAccount()`: one save at
+  a time, the latest last, nothing the account has already, nothing while
+  the IAM sends no preferences), so the IAM and the other sites speak it,
+  this one at the next visit too. It holds for the visit whatever the
+  account answers (a choice made on this page comes before the account's
+  language); a refusal puts nothing back and says nothing — a language the
+  IAM does not offer stays this site's own for the visit.
 - The admin panel reads in English (`pageLanguage`): the bar, the foot and the
   dialog answer from the bundle's English under `/admin`; the reader's own
   choice (`language()`) stays.

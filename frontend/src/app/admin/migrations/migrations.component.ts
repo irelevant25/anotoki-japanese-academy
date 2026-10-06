@@ -1,12 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
 import { ApiService, toApiError } from '../../core/api/api.service';
 import { MigrationsApplyResult, MigrationsStatus } from '../../core/api/api.types';
+import { fmtAdminMoment } from '../../core/format';
 import { TranslationService } from '../../core/i18n/translation.service';
 import { ConfirmComponent } from '../confirm/confirm.component';
 import { reason } from '../reason';
-
-/** A moment as the admin panel writes it: English, whatever the language on the learner's pages. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
  * /admin/migrations — the database schema, for the administrators (ADMIN
@@ -68,8 +66,9 @@ export class MigrationsComponent implements OnInit {
     }
   }
 
+  /** A moment in the admin panel's English, or in the date order and clock the administrator chose for their account. */
   protected when(ms: number): string {
-    return WHEN.format(ms);
+    return fmtAdminMoment(this.i18n, ms);
   }
 
   protected async apply(): Promise<void> {

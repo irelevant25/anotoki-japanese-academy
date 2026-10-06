@@ -1,4 +1,5 @@
 :host {
+  position: relative;
   display: inline-flex;
   flex: none;
 }
@@ -40,4 +41,24 @@
 .segment:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+// Why a choice could not be saved to the account: over the page, hung from
+// the switch's right edge (the switch stands near the right of the bar, so
+// there is room to its left on a 360 px phone), as a menu of the bar is.
+.refused {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 1.5rem));
+  min-height: 0;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font-size: 13px;
 }

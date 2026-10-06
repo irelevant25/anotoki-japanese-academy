@@ -16,3 +16,6 @@
     </button>
   }
 </div>
+@if (refusal(); as said) {
+  <p class="refused err" role="alert">{{ said }}</p>
+}

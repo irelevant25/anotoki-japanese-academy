@@ -84,7 +84,7 @@ For building and uploading, use the `academy-deploy` skill.
   apply a draft, by name (`ACADEMY_MIGRATION_DRAFTS`, `academy_test_…` only).
   Never upload a build whose newest migration is a draft: it waits there too.
 - `backend/src/anotoki_iam.php` (v1.1.0) and
-  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.1.1) are the
+  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.2.0) are the
   IAM's SDKs, copied unchanged from `../anotoki-iam/sdk/`: never edit them;
   update by copying a new version and the version notes
   (`backend/src/auth.php`, `auth.service.ts`, `docs/kb/sign-in.md`; a test pins

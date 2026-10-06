@@ -11,7 +11,7 @@ Read the page for an area before changing it.
 | [data-provenance.md](data-provenance.md) | You touch `backend/data/`, fix a typo, add content, or need a book page — **page maps for every PDF are here** |
 | [kanji-srs.md](kanji-srs.md) | You change the kanji trainer: catalog, schedule, answer checking, storage, screens; or anything about days and hours (each learner's own time zone) |
 | [exam.md](exam.md) | You change the exam: question generation, papers, scoring, reports, its screen |
-| [sign-in.md](sign-in.md) | You touch sign-in (the anotoki IAM, the roles, whether it is required), visitors (studying without signing in), the users, or anything that reads or writes somebody's data |
+| [sign-in.md](sign-in.md) | You touch sign-in (the anotoki IAM, the roles, whether it is required), the account's preferences (the theme, the date order and the clock every anotoki site follows), visitors (studying without signing in), the users, or anything that reads or writes somebody's data |
 | [hosting.md](hosting.md) | You build or upload the website, touch Apache's files (`backend/public/`), the setup page on a website, the start-time work, or the visitors' settings on a site |
 | [testing.md](testing.md) | You run or add tests, or need to know what to test for a change |
 | [environment.md](environment.md) | Something on these Windows machines behaves oddly — tooling pitfalls and fixes |

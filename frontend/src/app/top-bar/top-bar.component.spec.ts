@@ -6,9 +6,10 @@ import { AnotokiUser } from '../core/auth/sdk/anotoki-auth';
 import { TranslationService } from '../core/i18n/translation.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { provideTestTranslations } from '../core/testing/test-translations';
+import { ThemeService } from '../core/theme/theme.service';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { ADMIN_PHONE_BAR_MAX, PHONE_BAR_MAX, TopBarComponent } from './top-bar.component';
-import { derivedFromState } from '../core/testing/auth-states';
+import { derivedFromState, derivedFromUser } from '../core/testing/auth-states';
 
 const ENGLISH: Record<string, string> = {
   'topbar.home': 'anotoki Japanese: home',
@@ -71,7 +72,8 @@ const SLOVAK: Record<string, string> = {
 @Component({ selector: 'app-test-page', changeDetection: ChangeDetectionStrategy.OnPush, template: '' })
 class PageComponent {}
 
-const HANA: AnotokiUser = { sub: '7', preferred_username: 'hana', email: 'hana@example.test', email_verified: true, locale: null, roles: [] };
+/** An IAM that sends no preferences: the bar's theme is this device's (the account's: theme-toggle.component.spec.ts). */
+const HANA: AnotokiUser = { sub: '7', preferred_username: 'hana', email: 'hana@example.test', email_verified: true, locale: null, roles: [], preferences: null };
 
 describe('TopBarComponent', () => {
   const state = signal<AppState>('ready');
@@ -83,6 +85,7 @@ describe('TopBarComponent', () => {
     ...derivedFromState(state),
     loginRequired: signal(true),
     user,
+    ...derivedFromUser(state, user),
     showSignIn,
     displayName: computed(() => user()?.preferred_username || user()?.email || ''),
     isAdmin: computed(() => roles().includes('ADMIN')),
@@ -359,6 +362,25 @@ describe('TopBarComponent', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await fixture.whenStable();
     expect(items()).toEqual([]);
+  });
+
+  it('puts away the theme switch’s line about a choice the account refused on Escape pressed on any of the bar’s controls', async () => {
+    await draw();
+    const theme = TestBed.inject(ThemeService);
+    theme.refused.set('network');
+    await fixture.whenStable();
+    expect(host.querySelector('.refused')?.textContent?.trim(), 'with no string of its own here: the English the switch keeps').toBe('The server does not answer.');
+
+    press(host.querySelector('#nav-kanji')!, 'Escape');
+    await fixture.whenStable();
+    expect(host.querySelector('.refused')).toBeNull();
+    expect(reached, 'the bar keeps the key').toEqual([]);
+
+    theme.refused.set('network');
+    await fixture.whenStable();
+    press(userButton(), 'Escape');
+    await fixture.whenStable();
+    expect(theme.refused()).toBeNull();
   });
 
   /**

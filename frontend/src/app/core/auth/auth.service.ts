@@ -6,7 +6,7 @@ import { VISITOR_KEY_HEADER } from './issued-as';
 // No extension on purpose: TypeScript reads the types of a `.mjs` specifier only
 // from a `.d.mts`; written like this it finds the SDK's own `.d.ts`, and the
 // bundler, which tries `.mjs` after `.ts`, finds the code.
-import { type AnotokiAuth, type AnotokiUser, createAuth } from './sdk/anotoki-auth';
+import { type AnotokiAuth, type AnotokiPreferenceChanges, type AnotokiSavedPreferences, type AnotokiUser, createAuth } from './sdk/anotoki-auth';
 
 /** Where the IAM sends the browser back after a sign-in: a route of this app. */
 export const AUTH_CALLBACK_PATH = '/auth/callback';
@@ -90,7 +90,7 @@ function detailOf(body: unknown): string | null {
  * It asks the server where the IAM is, which client this site is and whether
  * the IAM requires sign-in here (GET /api/auth/config, `{issuer, clientId,
  * loginRequired, visitorKeepDays}`), then the IAM's browser SDK
- * (sdk/anotoki-auth.mjs, v1.1.1, copied unchanged from the IAM's sdk/js/)
+ * (sdk/anotoki-auth.mjs, v1.2.0, copied unchanged from the IAM's sdk/js/)
  * finishes a sign-in coming back to /auth/callback, or restores the session
  * from an earlier one, before the router's first navigation. Nobody signed in,
  * every page sends the browser to the IAM (signInGuard) and it comes back to
@@ -113,6 +113,12 @@ function detailOf(body: unknown): string | null {
  * state, the exam's paper), so when somebody else signs in, in another tab,
  * the page loads again, as them.
  *
+ * The account's theme, date order and clock come with who is signed in
+ * (`preferences`, the owner's decision of 2026-10-06 for every anotoki site),
+ * and what the person chooses with this site's own controls goes back to the
+ * account (savePreferences()): ThemeService, and TranslationService for the
+ * language and the dates.
+ *
  * It holds what happened — a state, a kind, a code — and never a sentence: the
  * pages word it (core/i18n). And it never asks the translation service for
  * anything (that one needs this one, which would close a circle): the language
@@ -126,6 +132,8 @@ export class AuthService {
   private shownFor: string | undefined;
   /** The page has been shown to a visitor: a sign-in (in another tab) means a fresh page. */
   private shownAsVisitor = false;
+  /** The save of the account's preferences asked for last, settled either way: the next one waits for it (savePreferences()). */
+  private lastPreferenceSave: Promise<unknown> = Promise.resolve();
 
   private readonly stateSignal = signal<AppState>('starting');
   private readonly userSignal = signal<AnotokiUser | null>(null);
@@ -192,6 +200,16 @@ export class AuthService {
    * (backend/api/middleware/staff.php).
    */
   readonly isStaff = computed(() => this.isAdmin() || this.roles().includes('EDITOR'));
+
+  /**
+   * The account's theme, date order and clock — one choice every anotoki
+   * site follows — while the page is a signed-in person's and the IAM sends
+   * them. Null otherwise: nobody signed in (a visitor too), an IAM before its
+   * migration 015, or a sign-in without the `profile` scope; the site keeps
+   * its own settings then, and saves nothing to the account. It follows every
+   * change the SDK hears of: a refresh, a save here or in another tab.
+   */
+  readonly preferences = computed(() => (this.signedIn() ? (this.userSignal()?.preferences ?? null) : null));
 
   /**
    * Once, before the router's first navigation (provideAppInitializer). Never
@@ -297,6 +315,41 @@ export class AuthService {
   /** After the API refused the current token: a different one, or null. */
   async refreshToken(): Promise<string | null> {
     return this.sdk ? this.ownToken(await this.sdk.refresh()) : null;
+  }
+
+  /**
+   * Saves to the account what the person chose with this site's own controls
+   * — the theme, the date order, the clock, the language — for every anotoki
+   * site, not only this one (the SDK's savePreferences()). Resolves with the
+   * account as it now stands, which the SDK has put into user() already, in
+   * every tab (follow() takes it from there). Rejects with an Error whose
+   * `code` is the IAM's or the SDK's (`invalid_request`, `access_denied`,
+   * `network`, …).
+   *
+   * One save at a time, whoever asks — the theme switch, the language: each
+   * answer is the whole account, which the SDK puts into user(), so the answer
+   * to an earlier save that came after a later one's would put back what that
+   * one changed (the page would then follow it back). A save waits for the
+   * one before it to settle, whichever way it settles.
+   *
+   * Only for the person the page is shown to, judged as the save starts:
+   * `login_required`, and nothing sent, when it is nobody's page or the SDK
+   * holds somebody else's session now (signed in in another tab, this page
+   * not loaded again yet). The SDK takes that person in the same turn, and
+   * from there sends their own token and no other: a sign-in of somebody else
+   * that another tab brings meanwhile is `login_required` too.
+   */
+  savePreferences(changes: AnotokiPreferenceChanges): Promise<AnotokiSavedPreferences> {
+    const save = (): Promise<AnotokiSavedPreferences> => {
+      const sdk = this.sdk;
+      if (!sdk || this.stateSignal() !== 'ready' || sdk.user()?.sub !== this.shownFor) {
+        return Promise.reject(refusal('login_required', 'Nobody whose page this is is signed in'));
+      }
+      return sdk.savePreferences(changes);
+    };
+    const saved = this.lastPreferenceSave.then(save);
+    this.lastPreferenceSave = saved.catch(() => undefined);
+    return saved;
   }
 
   /**
@@ -499,6 +552,11 @@ export function isThisSite(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** A refusal of savePreferences() in the shape the IAM's SDK rejects with: an Error with its code. */
+function refusal(code: string, message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code });
 }
 
 /** What a person's request with no token to send answers, without being sent: what the API would say. */

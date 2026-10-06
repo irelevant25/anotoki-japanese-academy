@@ -49,10 +49,12 @@ export interface LanguageCandidate {
 export interface LanguageSources {
   /** `?lang=`, kept for this tab. */
   tab?: string | null;
-  /** What the chooser remembered on this device. */
+  /** What the chooser remembered on this device — or, while the account's language outranks that (`stored`), only what was chosen on this page. */
   chosen?: string | null;
-  /** The `locale` claim of the IAM's token (a website only). */
+  /** The `locale` claim of the IAM's token. */
   token?: string | null;
+  /** What the chooser remembered on this device, after the account's language: for an account that sends its preferences. */
+  stored?: string | null;
   /** `navigator.languages`. */
   browser?: readonly (string | null | undefined)[];
 }
@@ -65,8 +67,9 @@ export function languageCode(raw: unknown): string | null {
 
 /**
  * Every language the reader may want, in order: `?lang=` / this tab, the
- * chooser's remembered choice, the token's `locale`, each browser tag and
- * then its first subtag (`sk-SK` also asks for `sk`), and English.
+ * chooser's choice, the token's `locale`, the device's remembered choice when
+ * it comes after the account's (`stored`), each browser tag and then its
+ * first subtag (`sk-SK` also asks for `sk`), and English.
  */
 export function languageCandidates(sources: LanguageSources): LanguageCandidate[] {
   const candidates: LanguageCandidate[] = [];
@@ -79,6 +82,7 @@ export function languageCandidates(sources: LanguageSources): LanguageCandidate[
   add(sources.tab, false);
   add(sources.chosen, false);
   add(sources.token, false);
+  add(sources.stored, false);
   for (const tag of sources.browser ?? []) {
     add(tag, true);
     add(typeof tag === 'string' ? tag.split('-')[0] : null, true);
@@ -140,6 +144,17 @@ export class BundleRefused extends Error {
  * A key with no string comes back as itself, on the page, and warns once: the
  * owner wants to see which key is missing.
  *
+ * Which language, strongest first: `?lang=` of this tab, the chooser's
+ * choice, the IAM token's `locale`, the browser's languages, English. A
+ * person whose anotoki account says how every anotoki site should look (the
+ * IAM sends its preferences — its migration 015, the owner's decision of
+ * 2026-10-06, as the survey site has it) reads the account's language over
+ * what this device remembered: only `?lang=` and a choice made on this page
+ * come before it, a change of it is followed when it comes (followToken()),
+ * and the chooser saves their choice to the account (saveToAccount()). A
+ * visitor — and anybody signed in through an IAM that sends no preferences —
+ * keeps the device's choice first, as before.
+ *
  * Keys are never built from an address, from the IAM's answer or from
  * anything a person typed — run-time keys come from closed sets, through a
  * table with a fallback key (error-text.ts, dynamic-keys.ts). And state holds
@@ -151,8 +166,9 @@ export class BundleRefused extends Error {
  * the strategy needs this service, and asking for the Router here would close
  * the circle (NG0200 at start-up). The strategy says when the page has moved
  * instead — navigated(). It injects AuthService (what the app can show, the
- * token's `locale`, the two ways a 503 changes the state); AuthService never
- * injects this.
+ * token's `locale`, the two ways a 503 changes the state, the account's date
+ * order and clock, and the save of a language chosen here to the account);
+ * AuthService never injects this.
  *
  * Every load — the start, a choice, reload(), asking again — takes the next
  * turn, and an answer is used only while its turn is still the last one: the
@@ -196,6 +212,16 @@ export class TranslationService {
     const code = this.pageLanguage();
     return Object.hasOwn(LOCALES, code) ? LOCALES[code] : code;
   });
+  /**
+   * The order a signed-in person writes a date's numbers in, and their
+   * clock: the account's, which every anotoki site follows
+   * (AuthService.preferences). Null: the language's own way — nobody signed
+   * in (a visitor too), an IAM that sends none, or nothing chosen.
+   * core/format.ts and the localDate pipe read them; a change made on another
+   * anotoki site rewrites the dates on the page as soon as the SDK hears of it.
+   */
+  readonly dateFormat = computed(() => this.auth.preferences()?.date_format ?? null);
+  readonly timeFormat = computed(() => this.auth.preferences()?.time_format ?? null);
 
   /** Keys already complained about, so one missing string is one warning. */
   private readonly warned = new Set<string>();
@@ -215,11 +241,18 @@ export class TranslationService {
    * The two wishes that are kept in storage, held here as well for as long as
    * the page lives: `?lang=` of this tab, and what the chooser was told. A
    * browser whose storage refuses writes still gets both, until it reloads.
+   * For an account that sends its preferences, `chosen` is the choice made on
+   * this page — before the account's language, until a change of that comes
+   * from elsewhere (followToken()).
    */
   private tab: string | null = null;
   private chosen: string | null = null;
   /** The token's `locale` as last seen: only a changed one is adopted. */
   private seenLocale: string | null = null;
+  /** A language save to the account is on its way (saveToAccount()). */
+  private savingLanguage = false;
+  /** The latest language chosen while it is: saved once it settles. */
+  private nextLanguage: string | null = null;
 
   constructor() {
     // Honest for a screen reader, and for the browser's own hyphenation and spelling.
@@ -301,8 +334,9 @@ export class TranslationService {
 
   /**
    * The chooser's choice: loads that language's bundle, then switches and
-   * remembers it on this device. Never rejects — false when the strings could
-   * not be had, and the page stays as it is.
+   * remembers it on this device — and, for a signed-in person, saves it to
+   * their account (saveToAccount()). Never rejects — false when the strings
+   * could not be had, and the page stays as it is.
    *
    * `remember: false` is for a language that was not chosen here (the token's
    * `locale`): used, not stored — only the chooser writes the choice.
@@ -339,8 +373,56 @@ export class TranslationService {
       // A choice made here is stronger than the `?lang=` this tab came with.
       this.tab = null;
       writeTab(LANGUAGE_KEY, null);
+      this.saveToAccount(wanted);
     }
     return true;
+  }
+
+  /**
+   * A signed-in person's choice of language goes to their account too
+   * (AuthService.savePreferences()), so the IAM and the other anotoki sites
+   * speak it, this one at the next visit too — while the IAM sends the
+   * account's preferences at all (an IAM before them would refuse) and the
+   * account is not in it already.
+   *
+   * The page has switched already, and stays in the chosen language for the
+   * visit (`chosen` comes before the account's language) whatever the account
+   * answers, so a refusal puts nothing back, and says nothing: a language the
+   * IAM does not offer (`invalid_request`) is this site's own for the visit,
+   * as is one the IAM could not be told of (a warning in the console for
+   * that).
+   *
+   * One save at a time, and the latest choice last: two saves in flight
+   * together could be handled in either order and leave the account on a
+   * language the page no longer shows. A choice made while a save is on its
+   * way waits for it to settle — only the latest one, and only if the
+   * account does not have it by then. Meanwhile a change of the account's
+   * language is not followed (followToken()): it is the answer to an earlier
+   * save, and would turn the page back.
+   */
+  private saveToAccount(code: string): void {
+    if (this.savingLanguage) {
+      this.nextLanguage = code;
+      return;
+    }
+    if (!this.accountDecides() || this.tokenLocale() === code) {
+      return;
+    }
+    this.savingLanguage = true;
+    const settle = (): void => {
+      const next = this.nextLanguage;
+      this.savingLanguage = false;
+      this.nextLanguage = null;
+      if (next !== null) {
+        this.saveToAccount(next);
+      }
+    };
+    this.auth.savePreferences({ language: code }).then(settle, (error: unknown) => {
+      if ((error as { code?: unknown } | null)?.code !== 'invalid_request') {
+        console.warn('[i18n] the language could not be saved to the account', error);
+      }
+      settle();
+    });
   }
 
   /**
@@ -646,12 +728,23 @@ export class TranslationService {
 
   private candidates(): LanguageCandidate[] {
     const navigator = this.document.defaultView?.navigator;
-    return languageCandidates({
-      tab: this.tabWish(),
-      chosen: this.chosenWish(),
-      token: this.tokenLocale(),
-      browser: navigator?.languages?.length ? navigator.languages : [navigator?.language],
-    });
+    const browser = navigator?.languages?.length ? navigator.languages : [navigator?.language];
+    // An account that says how every anotoki site should look: its language
+    // comes before what this device remembered — only this tab's `?lang=` and
+    // a choice made on this page come before it.
+    if (this.accountDecides()) {
+      return languageCandidates({ tab: this.tabWish(), chosen: this.chosen, token: this.tokenLocale(), stored: readStorage(LANGUAGE_KEY), browser });
+    }
+    return languageCandidates({ tab: this.tabWish(), chosen: this.chosenWish(), token: this.tokenLocale(), browser });
+  }
+
+  /**
+   * Somebody is signed in and the IAM sends how their account says every
+   * anotoki site should look (its migration 015): the account's language then
+   * outranks what this device remembered, and the chooser saves to it.
+   */
+  private accountDecides(): boolean {
+    return this.auth.preferences() !== null;
   }
 
   /** `?lang=` of this tab: what this page took from its address, else what the tab kept. */
@@ -702,17 +795,34 @@ export class TranslationService {
 
   /**
    * The token's `locale` is used, not stored: a change made on the IAM's
-   * account page arrives with the next token, and somebody signing in in
-   * another tab brings theirs. While nothing is stored here — no choice, no
-   * `?lang=` — a changed one is adopted when it comes.
+   * account page arrives with the next token, one saved on another anotoki
+   * site (or in another tab) as soon as the SDK has it, and somebody signing
+   * in in another tab brings theirs. A changed one is adopted when it comes,
+   * if it is on offer:
+   *
+   * - for an account that sends its preferences, whatever this device
+   *   remembered and whatever was chosen on this page before it — it is the
+   *   newer wish — but not over this tab's `?lang=`, and not while a choice
+   *   made here is on its way to the account: the answer to an earlier save
+   *   would turn the page back to it;
+   * - otherwise only while nothing is stored here — no choice, no `?lang=`.
    */
   private followToken(locale: string | null): void {
     if (!this.started || locale === this.seenLocale) {
       return;
     }
     this.seenLocale = locale;
-    const stored = languageCode(this.tabWish()) ?? languageCode(this.chosenWish());
-    if (locale && !stored && locale !== this.languageSignal() && this.languagesSignal().some((language) => language.code === locale)) {
+    if (!locale || locale === this.languageSignal() || !this.languagesSignal().some((language) => language.code === locale)) {
+      return;
+    }
+    if (this.accountDecides()) {
+      if (!this.savingLanguage && !languageCode(this.tabWish())) {
+        this.chosen = null;
+        void this.setLanguage(locale, false);
+      }
+      return;
+    }
+    if (!(languageCode(this.tabWish()) ?? languageCode(this.chosenWish()))) {
       void this.setLanguage(locale, false);
     }
   }

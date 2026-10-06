@@ -51,7 +51,7 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   kept while sign-in is required. `AuthService` never injects `VisitorKey`.
   A visitor's Sign in goes through `SignInService` (it waits for the saves).
 - `core/auth/sdk/anotoki-auth.mjs` + `.d.ts` are the anotoki IAM's browser SDK
-  v1.1.1, copied unchanged from `../anotoki-iam/sdk/js/`. Never edit them; to
+  v1.2.0, copied unchanged from `../anotoki-iam/sdk/js/`. Never edit them; to
   update, copy the new files and change the version in `auth.service.ts`,
   `docs/kb/sign-in.md` and the test that pins it
   (`backend/tests/api/auth.test.php`). wanakana comes from npm.
@@ -70,7 +70,8 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   database (`core/i18n/`, `docs/kb/architecture.md`, *The app's words*).
   Dates, times and numbers follow the language on the page through `Intl`
   (`TranslationService.locale()`: `'en-GB'`, `'sk-SK'`; `core/format.ts`, the
-  `localDate` pipe), never the system's locale. The learning material, the SRS
+  `localDate` pipe), never the system's locale - but a signed-in person's own
+  date order and clock, the anotoki account's, win where they chose them. The learning material, the SRS
   stage names (from the server) and the admin panel stay as they are;
   material carries `lang="en"` or `lang="ja"` whatever the page's language.
 - A word a learner reads is a key with an English and a Slovak string — a new

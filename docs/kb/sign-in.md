@@ -316,13 +316,16 @@ blocks their sign-in, not their visiting (*Who may come in*, above).
 
 ## The browser — `frontend/src/app/core/auth/`
 
-The IAM's browser SDK **v1.1.1** is copied unchanged into `sdk/`
+The IAM's browser SDK **v1.2.0** is copied unchanged into `sdk/`
 (`anotoki-auth.mjs` and its types, `anotoki-auth.d.ts`, from the IAM's
 `sdk/js/`), and bundled with the app. Since 2026-10-04 the browser is in step
 with the server: the IAM only, roles from the token, each request with the
 reader's time zone; who is signed in is the person's menu of the anotoki
 family's top bar (`frontend/src/app/top-bar/`, [architecture.md](architecture.md),
-*The top bar*).
+*The top bar*). Since 1.2.0 (2026-10-06) the SDK also brings the account's
+**preferences** — the theme, the date order and the clock, which every
+anotoki site follows — and saves a change of them, or of the language, to
+the account (*The account's preferences*, below).
 
 - `AuthService.init()` runs before anything else (`provideAppInitializer`):
   it asks `GET /api/auth/config` (`{issuer, clientId, loginRequired,
@@ -466,6 +469,70 @@ out**. Signed out with the Sign in card on the page, or visiting, the bar has
 button; from a visitor's page after the saves on their way, below).
 Like the whole bar it keeps its keys to itself, so Enter on Sign out never
 submits a card or hands a paper in behind it.
+
+### The account's preferences
+
+The owner's decision for the whole anotoki family (2026-10-06, the IAM's
+migration 015; [decisions.md](decisions.md)): the theme, how dates are
+written and the clock are the account's, like its language — one choice every
+anotoki site follows, on every page, the admin panel included. The IAM sends
+them in the tokens (`preferences`, with the `profile` scope this site asks
+for), and the SDK hands them over with who is signed in:
+`{theme: 'auto'|'light'|'dark', date_format: 'dmy_dot'|'dmy_slash'|'mdy_slash'|'ymd_dash'|null, time_format: '24'|'12'|null}`.
+
+- `AuthService.preferences` is that, while the page is a signed-in person's
+  (state `ready`), and `null` otherwise: nobody signed in, a visitor, an IAM
+  before its migration 015 or a sign-in without `profile` (the SDK reads a
+  session kept by an older copy as none). `null` means this site's own
+  settings, exactly as before, and nothing is saved to the account (the IAM
+  would refuse: 503 while 015 waits). Every change the SDK hears of — a
+  refresh, a save here or in another tab — is read again (`follow()`).
+- `AuthService.savePreferences(changes)` saves what the person chose with this
+  site's own controls (`{theme}`, `{language}`; the SDK also takes
+  `date_format` and `time_format`, which no control here sets) through the
+  SDK's `savePreferences()` (`POST {issuer}/api/oidc/preferences`, the access
+  token as the proof). Only for the person the page is shown to: a page that
+  is nobody's, or whose SDK holds somebody else's session now (signed in in
+  another tab), gets `login_required` and nothing is sent. The SDK takes
+  that person in the same turn and sends their own token and no other — a
+  sign-in of somebody else that another tab brings meanwhile is
+  `login_required` too. One save at a time, whoever asks (the theme, the
+  language): each answer is the whole account, and one arriving after a
+  later save's would put back what that save changed, so a save waits for
+  the one before it to settle. It resolves once the SDK has put the account
+  as it now stands into `user()`, in every tab; it rejects with the IAM's or
+  the SDK's code (`invalid_request`, `access_denied`, `network`, …).
+- **The theme** (`core/theme/theme.service.ts`): signed in, the account's
+  is shown at sign-in and whenever it changes (its `auto` is this app's
+  `system`), but not while a choice made here is being saved; a choice shows
+  at once and is saved, one save at a time and the latest last; a refusal
+  puts the account's theme back and a line under the switch says why, in the
+  sentences failures already have (`preferencesFailure()` in
+  `core/i18n/error-text.ts`). The theme shown is always written to
+  `academy-theme`, so `public/theme-boot.js` paints it first next time.
+- **Dates and clocks** (`core/format.ts`, the `localDate` pipe, the admin
+  panel's moments): the account's `date_format` and `time_format` win over
+  the language's way when chosen, through `TranslationService.dateFormat()`
+  and `timeFormat()` ([architecture.md](architecture.md), *The app's words*).
+- **The language**, as the survey site has it: the account's language comes
+  before this device's remembered choice — only this tab's `?lang=` and a
+  choice made on this page come before it — and a change of it made
+  elsewhere is followed when it comes, but not over `?lang=` and not while a
+  choice made here is on its way to the account
+  ([architecture.md](architecture.md), *The app's words*). The chooser's
+  choice of a signed-in person goes to the account (`{language}`), one save
+  at a time and the latest last, and holds for the visit whatever the
+  account answers; a language the IAM does not offer (`invalid_request`)
+  stays this site's own for the visit, silently.
+- A visitor, and anybody signed out, keeps each device's choices as before;
+  the account's take over at sign-in. Signed in through an IAM that sends no
+  preferences, everything is as before too — the device's language choice
+  before the token's `locale`.
+
+The server does not read the claim. The one date it writes for a person, in
+the exam report, is part of a page stored once when the paper is handed in
+(English, in the server's own locale) and shown as it was saved; it stays so
+until the owner says otherwise ([decisions.md](decisions.md)).
 
 ### Visitors in the browser
 

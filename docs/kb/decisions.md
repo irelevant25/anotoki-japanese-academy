@@ -1255,3 +1255,73 @@ read the address before the app has run - a counter that kept it would hold
 every sign-in's code. It is `async`, so the app never waits for it. The paths
 still go, which is what the counter is for. The browser suites are not
 counted: Umami answers a headless browser and keeps nothing.
+
+**2026-10-06 — The theme, the dates and the clock are the account's; the
+browser SDK is v1.2.0 (follows 2026-10-04 "A light, dark or the system's
+look, per device").** The owner's decision for the whole anotoki family (the
+IAM's `docs/decisions.md`, the same day): "it should be in the iam only and
+apply for every project/application"; asked, the owner chose that a site's own
+controls save to the account for a signed-in person, and one theme everywhere
+- every site, every area of it, admin areas included. The IAM keeps them
+beside the language (its migration 015) and sends them in the tokens; its
+browser SDK 1.2.0, copied unchanged, hands them over (`user().preferences`)
+and saves a change (`savePreferences()`). Here
+([sign-in.md](sign-in.md), *The account's preferences*):
+- **The theme**, signed in, is the account's: the switch shows it and saves a
+  choice to it (the account's `auto` is this app's `system`), on the
+  learner's pages and in the admin panel alike; one save at a time, the
+  latest last, and no flicking back while one is on its way (the IAM's own
+  `ThemeService` is the reference). The theme shown is still written to
+  `academy-theme`, so `theme-boot.js` paints it first. "Per device" stays for
+  a visitor and anybody signed out; the account's takes over at sign-in, and
+  a device's earlier choice is not carried into the account (the IAM's rule:
+  which device should win is not knowable).
+- **A refused theme save** puts the account's theme back, and a line under
+  the switch says why — in the sentences every failed request already has
+  (`error.offline`, `error.http`, `error.unknown`, `error.sign_in_required`,
+  `error.invalid_token`, through `preferencesFailure()`), not a new string: a
+  new one needs a migration, a draft until the browser suites pass and then an
+  ADMIN's Apply on every database, for a line seen only when the IAM cannot be
+  reached or refuses. A sentence of its own ("Your theme could not be saved to
+  your account") is the owner's to ask for.
+- **Dates and clocks**: the account's date order and clock win over the
+  language's way when chosen, wherever the pages write one (`core/format.ts`,
+  the `localDate` pipe, the admin panel's People and Migrations); the four
+  orders and the two clocks are the family's (the IAM's `date-patterns.ts`).
+  The exam report's date is not touched: the report is a page stored once,
+  when the paper is handed in, in English and the server's locale.
+- **The language is the account's too**, as the IAM tells every site to
+  treat it (its `docs/integrating-an-app.md`, *The account's preferences*:
+  signed in, a site speaks the account's `locale` when it has that language)
+  and as the survey site, the family's reference, orders it: for somebody
+  signed in through an IAM that sends the account's preferences, the order is
+  this tab's `?lang=` and a choice made on this page, then the account's
+  language (the token's `locale`), then what this device remembered, the
+  browser's, English. A change of the account's language made elsewhere (its
+  page, another site, another tab) is followed when it comes, over the
+  device's choice and an earlier choice on the page — not over this tab's
+  `?lang=`, and not while a choice made here is on its way to the account
+  (the answer to an earlier save would turn the page back). The chooser's
+  choice is saved to the account, one at a time, the latest last, and holds
+  for the visit whatever the account answers; a refusal says nothing and
+  puts nothing back — a language the IAM does not offer (`invalid_request`)
+  is this site's own for the visit. Signed out, a visitor, or an IAM that
+  sends no preferences: the device's choice before the token's `locale`, as
+  before, and a changed `locale` followed only while nothing is stored here.
+- `AuthService.savePreferences()` asks the IAM only for the person the page
+  shows (*A page is one person's*): nothing is sent while the SDK holds
+  somebody else's session, signed in in another tab. The SDK then sends that
+  person's own token and no other (fixed in the IAM's SDK the same day,
+  still 1.2.0, after this site's review pointed at it).
+- **One save of the account's preferences at a time, whoever asks** (the
+  theme switch or the language): each answer is the whole account, which the
+  SDK puts into `user()`, so the answer to an earlier save arriving after a
+  later one's would put back what that one changed — and the page would
+  follow it back (the code review's finding). The theme and the language
+  keep their own "latest choice last" on top of it.
+- The dashboard's hour axis follows the clock too (`fmtHour()`: "15", or
+  "3 pm" on a 12-hour clock), as its bars' own words do.
+- The test that pins the SDK's version (`backend/tests/api/auth.test.php`)
+  takes the `.d.ts` as git checks it out where `core.autocrlf` is on: its `$`
+  stopped before a `\n` only, and the CRLF copy failed it on the owner's
+  computer before this change.

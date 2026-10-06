@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { NO_CHOICE } from '../testing/auth-states';
 import { AuthService } from './auth.service';
 
 /** fetch() that answers GET /api/auth/config with this. */
@@ -517,5 +518,155 @@ describe('AuthService: what it hands to the pages', () => {
     (auth as unknown as { sdk: { login: () => Promise<void> } }).sdk.login = () => Promise.reject(new Error('no code'));
     await auth.login();
     expect(auth.signInError()).toEqual({ code: 'could_not_start' });
+  });
+});
+
+describe('AuthService: the account’s preferences (the IAM’s SDK 1.2.0)', () => {
+  const realFetch = globalThis.fetch;
+
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  /** A signed-in session whose account has these preferences — none at all (`undefined`): kept by an SDK from before them. */
+  function withPreferences(sub: string, preferences?: unknown, ranOut = false): string {
+    const kept = JSON.parse(session(sub)) as { access_expires_at: number; user: Record<string, unknown> };
+    if (preferences !== undefined) {
+      kept.user['preferences'] = preferences;
+    }
+    if (ranOut) {
+      kept.access_expires_at = Date.now() - 1000;
+    }
+    return JSON.stringify(kept);
+  }
+
+  /** fetch() that records what it is asked and answers each with `status` and `body` — or, given an Error, fails as an unreachable server does. */
+  function iam(status: number | Error, body: unknown = {}): { url: string; method: string | undefined; bearer: string | null; body: unknown }[] {
+    const asked: { url: string; method: string | undefined; bearer: string | null; body: unknown }[] = [];
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      asked.push({ url: String(input), method: init?.method, bearer: new Headers(init?.headers).get('Authorization'), body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body });
+      return status instanceof Error ? Promise.reject(status) : Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
+    }) as unknown as typeof fetch;
+    return asked;
+  }
+
+  it('preferences: the account’s theme, date order and clock while the page is a signed-in person’s — null from an SDK or an IAM before them, and when nobody is', async () => {
+    const key = website('academy-test-prefs');
+    localStorage.setItem(key, withPreferences('7'));
+    const auth = TestBed.inject(AuthService);
+    expect(auth.preferences(), 'before the start').toBeNull();
+    await auth.init();
+    expect(auth.state()).toBe('ready');
+    expect(auth.preferences(), 'kept by an SDK from before them: none known yet').toBeNull();
+
+    const chosen = { theme: 'dark', date_format: 'ymd_dash', time_format: '12' };
+    otherTab(key, withPreferences('7', chosen));
+    expect(auth.preferences(), 'read again at every change the SDK hears of').toEqual(chosen);
+    expect(auth.user()?.preferences).toEqual(chosen);
+
+    otherTab(key, null);
+    expect([auth.state(), auth.preferences()]).toEqual(['signed-out', null]);
+  });
+
+  it('savePreferences(): the change goes to the IAM with the page’s own token, and the account as it now stands is the page’s at once', async () => {
+    const key = website('academy-test-save');
+    localStorage.setItem(key, withPreferences('7', NO_CHOICE));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    const answer = { locale: 'sk', preferences: { theme: 'dark', date_format: null, time_format: '24' } };
+    const asked = iam(200, answer);
+
+    expect(await auth.savePreferences({ theme: 'dark' })).toEqual(answer);
+    expect(asked).toEqual([{ url: 'https://iam.test/api/oidc/preferences', method: 'POST', bearer: 'Bearer token-of-7', body: { theme: 'dark' } }]);
+    expect(auth.preferences()).toEqual(answer.preferences);
+    expect(auth.user()?.locale).toBe('sk');
+    expect(JSON.parse(localStorage.getItem(key) ?? '{}').user.preferences, 'and every tab’s').toEqual(answer.preferences);
+  });
+
+  it('savePreferences(): nothing is sent for a page that is nobody’s, or while the SDK holds somebody else’s session (signed in in another tab)', async () => {
+    const nobodyKey = website('academy-test-save-nobody');
+    localStorage.removeItem(nobodyKey);
+    const nobody = TestBed.inject(AuthService);
+    await nobody.init();
+    let asked = iam(200);
+    await expect(nobody.savePreferences({ theme: 'dark' })).rejects.toMatchObject({ code: 'login_required' });
+    expect(asked).toEqual([]);
+
+    const key = website('academy-test-save-other');
+    localStorage.setItem(key, withPreferences('7', NO_CHOICE));
+    const page = TestBed.runInInjectionContext(() => new AuthService());
+    const reload = vi.spyOn(page, 'reload').mockImplementation(() => undefined);
+    await page.init();
+    otherTab(key, withPreferences('8', NO_CHOICE));
+    expect(reload).toHaveBeenCalledTimes(1);
+    asked = iam(200);
+    await expect(page.savePreferences({ theme: 'dark' })).rejects.toMatchObject({ code: 'login_required' });
+    expect(asked, 'never as the other person').toEqual([]);
+  });
+
+  it('savePreferences(): one save at a time, whoever asks — each answer is the whole account, so the next goes once the one before has its answer, refused or not', async () => {
+    const key = website('academy-test-save-queue');
+    localStorage.setItem(key, withPreferences('7', NO_CHOICE));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    const sent: unknown[] = [];
+    const answers: ((response: Response) => void)[] = [];
+    globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)));
+      return new Promise<Response>((answer) => answers.push(answer));
+    }) as unknown as typeof fetch;
+    const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    const turn = (): Promise<void> => new Promise((done) => setTimeout(done));
+
+    const theme = auth.savePreferences({ theme: 'dark' });
+    const language = auth.savePreferences({ language: 'sk' });
+    const clock = auth.savePreferences({ time_format: '12' });
+    await turn();
+    expect(sent, 'the language waits for the theme’s answer').toEqual([{ theme: 'dark' }]);
+
+    answers[0](json(400, { error: 'invalid_request', error_description: 'No' }));
+    await expect(theme).rejects.toMatchObject({ code: 'invalid_request' });
+    await turn();
+    expect(sent, 'a refusal does not hold the next one up').toEqual([{ theme: 'dark' }, { language: 'sk' }]);
+
+    answers[1](json(200, { locale: 'sk', preferences: NO_CHOICE }));
+    expect(await language).toEqual({ locale: 'sk', preferences: NO_CHOICE });
+    await turn();
+    expect(sent).toEqual([{ theme: 'dark' }, { language: 'sk' }, { time_format: '12' }]);
+    answers[2](json(200, { locale: 'sk', preferences: { ...NO_CHOICE, time_format: '12' } }));
+    await clock;
+    expect([auth.user()?.locale, auth.preferences()?.time_format]).toEqual(['sk', '12']);
+  });
+
+  it('savePreferences(): a refusal comes with the IAM’s code, the account left as it was; an IAM out of reach is `network`', async () => {
+    const key = website('academy-test-save-refused');
+    localStorage.setItem(key, withPreferences('7', NO_CHOICE));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+
+    iam(400, { error: 'invalid_request', error_description: 'That language is not offered here' });
+    await expect(auth.savePreferences({ language: 'ja' })).rejects.toMatchObject({ code: 'invalid_request' });
+    expect(auth.preferences()).toEqual(NO_CHOICE);
+
+    iam(new TypeError('Failed to fetch'));
+    await expect(auth.savePreferences({ theme: 'dark' })).rejects.toMatchObject({ code: 'network' });
+
+    // A token that ran out, and the IAM out of reach for a new one: said as such, and nothing goes to the preferences.
+    localStorage.setItem('anotoki-auth:academy-test-save-ran-out', withPreferences('7', NO_CHOICE, true));
+    const urls: string[] = [];
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return url === '/api/auth/config'
+        ? Promise.resolve(new Response(JSON.stringify({ issuer: 'https://iam.test', clientId: 'academy-test-save-ran-out' }), { status: 200 }))
+        : Promise.reject(new TypeError('Failed to fetch'));
+    }) as unknown as typeof fetch;
+    const stale = TestBed.runInInjectionContext(() => new AuthService());
+    await stale.init();
+    expect(stale.state(), 'the session is kept, to be tried again').toBe('ready');
+    await expect(stale.savePreferences({ theme: 'dark' })).rejects.toMatchObject({ code: 'network' });
+    expect(urls.filter((url) => url.endsWith('/api/oidc/preferences'))).toEqual([]);
   });
 });

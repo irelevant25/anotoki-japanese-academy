@@ -164,6 +164,7 @@ describe('YourDataComponent', () => {
             // as much of the sign-in as the card and the translation service read
             state: signal('ready'),
             user: signal(null),
+            preferences: signal(null),
             subject: () => '7',
             fetch: (url: string) => {
               fetched.push(url);

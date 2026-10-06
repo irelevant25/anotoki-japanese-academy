@@ -85,7 +85,8 @@ count wrong, fix it in the same piece of work.
   made of: brand, theme switch, icons), `core/` — API, sign-in, the
   changelog (the foot), `i18n/` (the app's words: the translation service,
   its pipes, the language chooser, failures worded from their codes),
-  `theme/` (light, dark or the system's), `saves-in-flight.service.ts` (the
+  `theme/` (light, dark or the system's - the anotoki account's while signed
+  in), `saves-in-flight.service.ts` (the
   saves a sign-out waits for), `time-zone.ts` —, `admin/` — the admin panel, in English:
   Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN) —, `standin/`
   — the Sign in card, not set up and problem pages; `home/your-data/` is a
@@ -114,7 +115,7 @@ count wrong, fix it in the same piece of work.
   `GOOGLE_TTS_API_KEY` in `backend/.env` (gitignored). Never print the key, put
   it in a file that git tracks, or paste it into a message.
 - `backend/src/anotoki_iam.php` (v1.1.0) and
-  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.1.1) are the
+  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.2.0) are the
   anotoki IAM's SDKs, copied unchanged from its repository
   (`../anotoki-iam/sdk/php/`, `../anotoki-iam/sdk/js/`). Never edit them: copy
   a new version over, and change the version where `backend/src/auth.php`,
@@ -135,7 +136,7 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
 node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (235): after every change
-cd frontend && npm test                      the Angular unit tests (623 in 46 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (657 in 46 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              Edge end to end (173 checks), signed in through the stand-in IAM: a
@@ -392,7 +393,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   shows as the key, on purpose. The learning material and the SRS stage names
   are never translated, and the admin panel is English. Dates, times and numbers follow the
   language on the page (`'en-GB'`, `'sk-SK'` through `Intl`), never the
-  system's locale. A new string is a new migration with its English and
+  system's locale - but a signed-in person's own date order and clock, the
+  anotoki account's, win where they chose them (`core/format.ts`). A new string is a new migration with its English and
   informal Slovak (`DEV.md`; `docs/kb/architecture.md`, *The app's words*).
 - The owner writes in non-native English: keep UI text and explanations plain
   and short. `frontend/public/changelog.json` gets an entry, in plain words,

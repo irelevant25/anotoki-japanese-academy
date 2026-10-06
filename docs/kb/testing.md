@@ -78,7 +78,7 @@ named after a stand-in asks the stand-in (`GET
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 235 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.1+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 623 tests in 46 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 657 tests in 46 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
 | `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (the problem page, a learner's, an EDITOR's everywhere and an ADMIN's with its link, the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 173 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each: 41 checks | ~1 min |
 | `node frontend/e2e/screens.js [filter]` | 21 screens × light/dark/phone and Slovak phone light/dark (105 shots; a visitor's home among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
@@ -473,7 +473,15 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   visitor's page; a person's page whose session ends is never a visitor's;
   `signInRequiredNow()`; a refused sign-in kept while visiting; `fetch()` for a
   visitor (the key, never a token) and for a person (never a key, never
-  without a token).
+  without a token). The account's preferences (SDK 1.2.0): `preferences`
+  none from a session an older SDK kept, read again at another tab's change,
+  none signed out; `savePreferences()` POSTs to the IAM with the page's own
+  token and the answer is the page's (and every tab's) at once, sends nothing
+  for a page that is nobody's or while another person's session is held,
+  rejects with the IAM's code, and with `network` when the IAM cannot be
+  reached — for a token that ran out too, without asking for the preferences;
+  one save at a time, whoever asks, the next sent once the one before has its
+  answer, a refused one included.
 - `core/auth/sign-in.guard.spec.ts` — signed in, every page; signed out, to
   the IAM in the reader's language and back to the very address, nothing
   navigated; after a failed sign-in, or one that cannot start, through to the
@@ -514,16 +522,33 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   every refusal worded from its code.
 - `admin/people/people.component.spec.ts` — the list in English, the one
   looking marked; a delete only after a question that names what goes, and a
-  refusal in the server's words; the visitors line (none while 007 waits).
+  refusal in the server's words; the visitors line (none while 007 waits);
+  the moments in the date order and clock the administrator chose for their
+  account, the rest still English, following a change.
 - `core/i18n/translation.service.spec.ts` — which language a page takes
   (`?lang=` for the tab, the choice, the token's `locale`, the browser's — a
   Czech browser Slovak —, English), when the server is asked, a bundle
   answered 503 changing what the app shows instead of leaving a page of keys,
-  the cached bundle and its refresh;
-  `core/i18n/pipes.spec.ts` (translate, plurals, dates), `error-text.spec.ts`
+  the cached bundle and its refresh; the account's date order and clock
+  (`dateFormat()`, `timeFormat()`); for an account that sends its
+  preferences, its language over the device's choice (`stored` after the
+  token; `?lang=` first; without preferences or for a visitor the device's
+  first, as before), a choice made on the page holding for the visit and the
+  next page the account's again, a change made elsewhere followed over the
+  device's and an earlier choice but not over `?lang=` nor while a save is on
+  its way; and a signed-in person's choice of
+  language saved to the account once the page has switched (nothing the
+  account has, nothing without its preferences or for a visitor; one save at
+  a time, the latest last; a refusal puts nothing back — `invalid_request`
+  silent, any other noted in the console);
+  `core/i18n/pipes.spec.ts` (translate, plurals, dates — a signed-in person's
+  own date order and clock, followed when they change, the language's again
+  for a visitor), `error-text.spec.ts`
   (every code worded, an unknown one `error.unknown`; `visitor_limit` by its
-  `limit`, with its `max`),
-  `language-chooser.component.spec.ts` (the chooser and its keys),
+  `limit`, with its `max`; a refused save of the account's preferences,
+  `preferencesFailure()`),
+  `language-chooser.component.spec.ts` (the chooser and its keys; signed in,
+  the choice saved to the account too, a visitor's not),
   `core/boot.spec.ts` (the start, in order, in every state — the move before
   the words, 5 s at most, visiting; the title
   strategy; `keptWord()`), `app.component.spec.ts` (the bar first and the
@@ -532,7 +557,8 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   visitor's app, and a refused sign-in said above it until closed);
   `home.component.spec.ts` and `kanji/dashboard` (the visitor notice and its
   days, no Your data for a visitor, Sign in waiting for the saves and asking
-  about an open paper, the notes after a move, the page loaded again).
+  about an open paper, the notes after a move, the page loaded again; the
+  dashboard's hour axis, two digits or the account's 12-hour clock).
 - The top bar: `top-bar/top-bar.component.spec.ts` — one row in the
   family's order; Kanji (with the reviews due, three digits) and Exam, the
   section and the page marked, the brand on the home page; the admin panel's
@@ -555,14 +581,22 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   menu button and in its name (one, few, other), the menu's contents, a link
   chosen, the Tab rule, signed out; the desktop bar from 761 px; **a crossing
   of 760 px closes the open menu**; Sign out waiting (spinner, "Saving…")
-  and asking over an open paper. `exam.component.spec.ts` and
+  and asking over an open paper; Escape on any of its controls puts the
+  theme switch's refusal line away. `exam.component.spec.ts` and
   `session.component.spec.ts` press Enter, Space and the paper's / the
   card's keys on every control of the real bar over an open paper (a spoken
   last question: nothing chosen, played or handed in) and a review (nothing
   checked), then the same keys on the page doing their work.
   `ui/theme-toggle/theme-toggle.component.spec.ts` (the three choices,
   `data-theme` and the device's choice, the arrow keys, English in the admin
-  area), `language-chooser.component.spec.ts` (the button named with its code,
+  area; signed in, the account's theme over the device's and kept for the
+  first paint, followed when it changes — `auto` the system's —, a choice
+  saved to it, in the admin panel too, with no flicking back while it is on
+  its way, one save at a time and the latest last, a refusal put back and
+  said under the switch (Slovak, with no strings the kept English) until a
+  click elsewhere, Escape or the next choice, or the account gone, and not
+  said for a save refused after it; no preferences, or signed out:
+  the device's, nothing saved), `language-chooser.component.spec.ts` (the button named with its code,
   the menu, its keys and the Tab rule, a failed switch said in the menu, the
   last choice winning), `translation.service.spec.ts` (the admin panel reads
   in English, `pageLanguage`).
@@ -577,7 +611,11 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   with its `lang`), the stand-in pages (`kept-around.spec.ts`,
   `problem.component.spec.ts`).
 - `core/format.spec.ts` (times, dates, counts in words: "1 attempt", in the
-  language's locale), `core/changelog/app-version.component.spec.ts` (the
+  language's locale; a signed-in person's own date order — the four — and
+  clock, 24 hours or 12 with the language's am and pm, side by side in a
+  moment, the weekday's clock, a chart's hour, the admin panel's English
+  moment),
+  `core/changelog/app-version.component.spec.ts` (the
   foot: the version, "What's new" and its dot until the news is read, the
   dialog),
   `standin/not-set-up/not-set-up.component.spec.ts`.

@@ -1,5 +1,7 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { AuthService } from '../auth/auth.service';
+import { authStandIn, NO_CHOICE, person } from '../testing/auth-states';
 import { provideTestTranslations } from '../testing/test-translations';
 import { LocalDatePipe } from './local-date.pipe';
 import { TranslatePluralPipe } from './translate-plural.pipe';
@@ -21,7 +23,7 @@ const SLOVAK = {
   'home.line': '{items} · {lessons}',
 };
 
-function pipes(language: 'en' | 'sk') {
+function pipes(language: 'en' | 'sk', more: Provider[] = []) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -30,6 +32,7 @@ function pipes(language: 'en' | 'sk') {
       TranslatePipe,
       TranslatePluralPipe,
       LocalDatePipe,
+      ...more,
     ],
   });
   return {
@@ -106,5 +109,28 @@ describe('the localDate pipe', () => {
     expect(date.transform(MOMENT, 'weekday')).toBe('št');
     await i18n.setLanguage('en', false);
     expect(date.transform(MOMENT, 'weekday')).toBe('Thu');
+  });
+
+  it('writes a signed-in person’s own date order and clock, chosen for their anotoki account — and follows them when they change', () => {
+    const auth = authStandIn('ready');
+    auth.user.set(person({ ...NO_CHOICE, date_format: 'dmy_dot', time_format: '12' }));
+    const { date } = pipes('sk', [{ provide: AuthService, useValue: auth }]);
+    expect(date.transform(MOMENT)).toBe('24.9.2026');
+    expect(date.transform(MOMENT, 'dateTime')).toBe('24.9.2026 2:05 PM');
+    expect(date.transform(MOMENT, 'clock')).toBe('2:05 PM');
+    expect(date.transform(MOMENT, 'weekday'), 'a weekday has neither').toBe('št');
+    expect(date.transform('2026-09-29'), 'a calendar day, that day here').toBe('29.9.2026');
+
+    // Changed on another anotoki site: the same value is written again.
+    auth.user.set(person({ ...NO_CHOICE, date_format: 'ymd_dash' }));
+    expect(date.transform(MOMENT, 'dateTime')).toBe('2026-09-24 14:05');
+    expect(date.transform(new Date(MOMENT).toISOString())).toBe('2026-09-24');
+
+    // Nobody signed in (a visitor), or an IAM that sends none: the language's own way, as before.
+    auth.state.set('visiting');
+    expect(date.transform(MOMENT, 'dateTime')).toBe('24. 9. 2026, 14:05');
+    auth.state.set('ready');
+    auth.user.set(person(null));
+    expect(date.transform(MOMENT)).toBe('24. 9. 2026');
   });
 });

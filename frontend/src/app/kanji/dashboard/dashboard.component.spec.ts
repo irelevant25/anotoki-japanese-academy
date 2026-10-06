@@ -4,8 +4,9 @@ import { provideRouter } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CatalogItem, ItemState, StageGroup, Summary } from '../../core/api/api.types';
+import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
 import { TranslationService } from '../../core/i18n/translation.service';
-import { authStandIn } from '../../core/testing/auth-states';
+import { authStandIn, NO_CHOICE, person } from '../../core/testing/auth-states';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { DashboardComponent } from './dashboard.component';
@@ -131,14 +132,19 @@ describe('DashboardComponent', () => {
   const texts = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).map((el) => clean(el.textContent));
   const learnButton = (): HTMLButtonElement => host.querySelector('.c-lessons button') as HTMLButtonElement;
 
-  async function open(s: Summary, options: { slovak?: boolean; learned?: number; visiting?: boolean } = {}): Promise<void> {
+  async function open(s: Summary, options: { slovak?: boolean; learned?: number; visiting?: boolean; account?: AnotokiPreferences } = {}): Promise<void> {
+    const auth = authStandIn(options.visiting ? 'visiting' : 'ready');
+    if (options.account) {
+      // Signed in, the anotoki account's date order and clock.
+      auth.user.set(person(options.account));
+    }
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
         options.slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: {} },
-        { provide: AuthService, useValue: authStandIn(options.visiting ? 'visiting' : 'ready') },
+        { provide: AuthService, useValue: auth },
       ],
     });
     kanji = TestBed.inject(KanjiStateService);
@@ -244,6 +250,23 @@ describe('DashboardComponent', () => {
     await open(summary(), { slovak: true });
     const sk = (h: number): string => new Date(NOW + h * 3600e3).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
     expect(titles().slice(0, 4)).toEqual([`0 opakovaní okolo ${sk(0)}`, `1 opakovanie okolo ${sk(1)}`, `3 opakovania okolo ${sk(2)}`, `5 opakovaní okolo ${sk(3)}`]);
+  });
+
+  it('marks every third hour ahead: two digits — or, on the 12-hour clock chosen for the anotoki account, the hour with am or pm, as the bars’ own words say it', async () => {
+    const at = (h: number): Date => new Date(NOW + h * 3600e3);
+    await open(summary());
+    expect(texts('.fl')).toEqual([0, 3, 6, 9, 12, 15, 18, 21].map((h) => String(at(h).getHours()).padStart(2, '0')));
+    expect(texts('.fl')[0], 'NOW is noon').toBe('12');
+
+    TestBed.resetTestingModule();
+    await open(summary(), { account: { ...NO_CHOICE, time_format: '12' } });
+    expect(texts('.fl')).toEqual([0, 3, 6, 9, 12, 15, 18, 21].map((h) => at(h).toLocaleTimeString('en-GB', { hour: 'numeric', hourCycle: 'h12' })));
+    expect(texts('.fl')[0]).toBe('12 pm');
+    expect(host.querySelectorAll('.fb')[1].getAttribute('title')).toBe(`1 review around ${at(1).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hourCycle: 'h12' })}`);
+
+    TestBed.resetTestingModule();
+    await open(summary(), { slovak: true, account: { ...NO_CHOICE, time_format: '12' } });
+    expect(texts('.fl')[0]).toBe('12 PM');
   });
 
   it('names the days ahead in the language on the page, whatever the system’s locale', async () => {

@@ -15,12 +15,17 @@ export type LocalDateStyle = 'date' | 'dateTime' | 'clock' | 'weekday';
  *   'clock'     14:00
  *   'weekday'   Thu / št
  *
+ * A signed-in person's own date order and clock, chosen for their anotoki
+ * account (TranslationService.dateFormat(), timeFormat()), win over the
+ * language's: 2026-09-24, 2026-09-24 2:00 pm, 2:00 pm.
+ *
  * Takes a time in milliseconds or the server's ISO text. A calendar day
  * (`2026-09-24`, a release's date) is that day wherever the reader is — not
  * midnight UTC. Nothing gives nothing; what is not a date comes back as it
  * came.
  *
- * Impure, like the translate pipe: the language changes under the same value.
+ * Impure, like the translate pipe: the language — or the account's choice —
+ * changes under the same value.
  */
 @Pipe({ name: 'localDate', pure: false })
 export class LocalDatePipe implements PipeTransform {

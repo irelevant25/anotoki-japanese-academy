@@ -1,5 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { AuthService } from '../../auth/auth.service';
+import { authStandIn, NO_CHOICE, person } from '../../testing/auth-states';
 import { provideTestTranslations } from '../../testing/test-translations';
 import { LANGUAGE_KEY, TranslationService } from '../translation.service';
 import { LanguageChooserComponent } from './language-chooser.component';
@@ -175,6 +177,38 @@ describe('LanguageChooserComponent', () => {
     expect(button().getAttribute('aria-label')).toBe('Language: English (EN)');
     expect(items()).toEqual([]);
     expect(document.activeElement).toBe(button());
+  });
+
+  it('signed in, the choice goes to the anotoki account too, for every site — a visitor’s stays this device’s alone', async () => {
+    host.remove();
+    TestBed.resetTestingModule();
+    const auth = authStandIn('ready');
+    auth.user.set(person(NO_CHOICE, 'sk'));
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }), { provide: AuthService, useValue: auth }],
+    });
+    fixture = TestBed.createComponent(LanguageChooserComponent);
+    host = fixture.nativeElement;
+    document.body.appendChild(host);
+    await fixture.whenStable();
+
+    await open();
+    items()[0].click();
+    await fixture.whenStable();
+    expect(TestBed.inject(TranslationService).language()).toBe('en');
+    expect(localStorage.getItem(LANGUAGE_KEY), 'this device keeps it, as before').toBe('en');
+    expect(auth.saves.map((save) => save.changes)).toEqual([{ language: 'en' }]);
+    auth.saves[0].accept();
+    await fixture.whenStable();
+    expect(auth.user()?.locale).toBe('en');
+
+    auth.state.set('visiting');
+    auth.user.set(null);
+    await open();
+    items()[1].click();
+    await fixture.whenStable();
+    expect(TestBed.inject(TranslationService).language()).toBe('sk');
+    expect(auth.saves, 'nothing more').toHaveLength(1);
   });
 
   it('says so in the menu, and stays as it was, when the language could not be loaded', async () => {

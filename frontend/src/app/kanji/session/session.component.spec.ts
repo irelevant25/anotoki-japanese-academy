@@ -452,6 +452,8 @@ describe('SessionComponent', () => {
             ...derivedFromState(signal('ready')),
             loginRequired: signal(true),
             user: signal(user),
+            // an IAM that sends no preferences: the theme switch is this device's
+            preferences: signal(null),
             showSignIn: signal(false),
             displayName: signal('hana'),
             isAdmin: signal(false),

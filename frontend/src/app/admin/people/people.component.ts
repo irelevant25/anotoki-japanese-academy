@@ -2,11 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, v
 import { ApiService, toApiError } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
+import { fmtAdminMoment } from '../../core/format';
+import { TranslationService } from '../../core/i18n/translation.service';
 import { ConfirmComponent } from '../confirm/confirm.component';
 import { reason } from '../reason';
-
-/** A moment as the admin area writes it: English, whatever the language on the learner's pages. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** "1 item", "12 items": the admin area's English. */
 function count(n: number, one: string, many: string): string {
@@ -38,6 +37,7 @@ function count(n: number, one: string, many: string): string {
 export class PeopleComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(TranslationService);
   private readonly confirm = viewChild.required(ConfirmComponent);
 
   protected readonly people = signal<Person[] | null>(null);
@@ -85,8 +85,9 @@ export class PeopleComponent implements OnInit {
     return String(person.id) === this.auth.subject();
   }
 
+  /** A moment in the admin panel's English, or in the date order and clock the administrator chose for their account. */
   protected when(ms: number | null): string {
-    return ms === null ? '—' : WHEN.format(ms);
+    return ms === null ? '—' : fmtAdminMoment(this.i18n, ms);
   }
 
   protected items(person: Person): string {

@@ -8,6 +8,7 @@ import { SignInService } from '../core/auth/sign-in.service';
 import { SignOutService } from '../core/auth/sign-out.service';
 import { LanguageChooserComponent } from '../core/i18n/language-chooser/language-chooser.component';
 import { isAdminAddress, TranslationService } from '../core/i18n/translation.service';
+import { ThemeService } from '../core/theme/theme.service';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { keptWord } from '../standin/kept-word';
 import { BrandComponent } from '../ui/brand/brand.component';
@@ -152,6 +153,7 @@ export class TopBarComponent {
   readonly signInFlow = inject(SignInService);
   private readonly i18n = inject(TranslationService);
   private readonly kanji = inject(KanjiStateService);
+  private readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -288,12 +290,14 @@ export class TopBarComponent {
    * hands a paper in, and Space plays a word. What the key does in the bar
    * (Enter and Space press a button or follow a link) is the browser's, and
    * stays so. Escape is handled here, because a document listener never hears
-   * it now.
+   * it now: it closes the open menu, and puts away the theme switch's line
+   * about a choice the account refused.
    */
   keydown(event: KeyboardEvent): void {
     event.stopPropagation();
     if (event.key === 'Escape') {
       this.closeMenu(true);
+      this.theme.refused.set(null);
     }
   }
 

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiError, errorCode, toApiError } from '../api/api.service';
 import { DYNAMIC_KEYS } from './dynamic-keys';
-import { errorKey, errorParams, signInFailureKey, signInFailureParams } from './error-text';
+import { errorKey, errorParams, preferencesFailure, signInFailureKey, signInFailureParams } from './error-text';
 
 /** The codes the server puts beside its sentences (backend/src, backend/api/middleware/errors.php), with the status each comes with. */
 const SERVER_CODES: [string, number][] = [
@@ -134,6 +134,23 @@ describe('signInFailureKey(): a sign-in that came back without one', () => {
     expect(signInFailureParams('http_503')).toEqual({ code: 'http_503' });
     expect(signInFailureParams('Your account is locked. Call 0900 123 456')).toEqual({ code: 'unknown' });
     expect(signInFailureParams('')).toEqual({ code: 'unknown' });
+  });
+});
+
+describe('preferencesFailure(): a save of the account’s preferences that did not happen, in the sentences failures already have', () => {
+  it('reads the SDK’s codes as errorKey() reads a failed request', () => {
+    const said = (code: string) => {
+      const failure = preferencesFailure(code);
+      return [errorKey(failure), errorParams(failure)];
+    };
+    expect(said('network'), 'no answer at all').toEqual(['error.offline', { status: 0 }]);
+    expect(said('login_required'), 'nobody signed in').toEqual(['error.sign_in_required', { status: 401 }]);
+    expect(said('invalid_token')).toEqual(['error.invalid_token', { status: 0 }]);
+    expect(said('http_502'), 'an answer that was not the IAM’s own').toEqual(['error.http', { status: 502 }]);
+    // access_denied: the site no longer lets the person in — no sentence of its own since 005 took error.no_access.
+    for (const code of ['invalid_request', 'insufficient_scope', 'temporarily_unavailable', 'access_denied', 'unknown', 'http_5000', '']) {
+      expect(said(code)[0], code).toBe('error.unknown');
+    }
   });
 });
 
