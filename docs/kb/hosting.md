@@ -26,32 +26,52 @@ what was done, so a file that lands while the work goes on leaves the stored
 stamp behind the files, and the next request looks again. Once it has work
 to do, the request asks for five minutes (`set_time_limit(300)`, where the
 host allows it) and to finish even if the browser leaves
-(`ignore_user_abort()`): cut off, the work would roll back and start again. A
-site that was never set up answers 503 `{"code": "not_set_up"}` (the app shows
-its "not set up yet" page, pointing at `/setup.php`) instead of being set up by
-a passing request. Without its settings the site says so at once; with them
-but with its database missing or without tables, `/api/auth/config` still
-answers (it needs the settings only: a database it cannot reach just means sign-in is required), so the app starts — a signed-out
-visitor goes to the IAM and back — and the first address with data answers
-`not_set_up`, which puts up the same page.
+(`ignore_user_abort()`): cut off, the work would roll back and start again.
+
+Where the site stands is the anotoki library's, as on every anotoki site
+(since 2026-10-07; [architecture.md](architecture.md), *The Slim app*), and
+`GET /api/site-status` says it to anybody, always. A site that was never set
+up answers 503 `{"code": "not_set_up"}` to every other address (the pages
+show the library's "This site is not set up yet", pointing at `/setup.php`)
+instead of being set up by a passing request; once its setup page has
+finished (`backend/storage/installed.lock`) nobody is pointed there again —
+settings lost after that read "The site is not available right now". With
+its settings but its database missing or out of reach, the site is
+`unavailable`: the pages say it is not available right now and ask again
+by themselves, and the addresses with data answer 503
+`database_unavailable`. With its settings and a database without tables
+(made again in the panel, say), every migration waits: the site is being
+updated until an `ADMIN` applies them (below), or the setup page runs again.
+Where the site stands is worked out for every request to the API, the
+clips' included: a connection to the database, a look at its `migrations`
+table and at `backend/migrations/` (with the database out of reach, a clip
+waits for the connection's timeout, 5 s, before it is served).
 
 **Every migration ends with the line `-- end of NNN`**, its own number
 (`001_init.sql`, from before the rule, is exempt). An FTP upload writes a
 file bit by bit, and a request could read half of one; without its last line
 a migration is taken to be still arriving, and it waits, with every one after
-it (`db_migration_sql()` in `backend/src/db.php`). The rest of the upload
-changes the stamp, and a request then applies it.
+it (`db_migration_ready()` in `backend/src/db.php`, the library engine's
+`ready` hook) — and stops nothing meanwhile. Once the rest of the upload makes
+it whole, it waits for an `ADMIN`'s **Apply pending** on the admin panel's
+Migrations page (a request never applies one: the owner's decision of
+2026-10-04), and the site tells everybody it is being updated: every address
+but the few the pages need — to start, to sign somebody in, to reach that
+page — answers 503 `update_pending` with `Retry-After: 60`, and the pages
+show the library's "The site is being updated", with a quiet **Sign in**
+while nobody is signed in, and for an `ADMIN` "A database update is waiting"
+and the way to the Migrations page.
 
-The raw copy of every table is taken once per upload: a migration that fails
-rolls back, every request answers 503 "The database could not be brought up
-to date with the upload" (the details go to the error log), and each tries it
-again, without another full copy each time. `backend/storage/backups/.before-migration.json`
-notes the stamp and the pending migrations the last copy was taken with;
-while both are the same, the tries are of the same files on the same tables
-(nobody can study while a migration fails), and the copy is still what the
-tables hold. Another upload — the fixed file, or the failing one taken out and
-put back after the site was used — changes the stamp and gets a copy of its
-own.
+The raw copy of every table is taken once per upload, before the first
+Apply (or the setup page's Save, or `manage.php --sync`): a migration that
+fails rolls back whole, the Apply stops there and tells its `ADMIN` why, and
+the next Apply tries it again without another full copy.
+`backend/storage/backups/.before-migration.json` notes the stamp and the
+pending migrations the last copy was taken with; while both are the same,
+the tries are of the same files on the same tables (nobody can study while a
+migration waits), and the copy is still what the tables hold. Another upload
+— the fixed file, or the failing one taken out and put back after the site
+was used — changes the stamp and gets a copy of its own.
 
 `public/.htaccess` (its source is `backend/public/.htaccess`):
 
@@ -182,15 +202,22 @@ always gets this way, even under PHP's built-in server.
 Build (or with `--no-audio`) and upload over the old files. The
 upload never touches `backend/config/*.local.php` or `backend/storage/` on
 the host, which the build doesn't contain (but its `.htaccess`). An update
-with a new migration: once it is all there, the site says it is not up to
-date (503 `not_up_to_date`; the problem page, with a link for an `ADMIN`)
-until an `ADMIN` opens the admin panel's **Migrations** page and presses
+with a new migration: once it is all there, the site says it is being
+updated (503 `update_pending`; the anotoki library's page, with a quiet
+**Sign in**, and for an `ADMIN` "A database update is waiting" and the way
+on) until an `ADMIN` signs in, opens the admin panel's **Migrations** page and presses
 **Apply pending** — after a raw copy of every table in
 `backend/storage/backups/`, each file rolled back whole if it fails, which
 stops the run there and names it. The first request after that (or after an
 update without one) rebuilds the study content if `backend/data/` or its
 builders changed. `backend/setup.php` may be left out of an update;
 uploaded, it only removes itself.
+
+**The update that brings the anotoki library** (2026-10-07) needs **PHP 8.2**
+on the host (until then 8.1 did): check the PHP version in the hosting panel
+before uploading it. It brings migration 008 (the words of the app's own "not
+set up" page and of the problem page's link to the Migrations page go:
+the library's page stands in for both), applied like any other.
 
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
@@ -254,7 +281,8 @@ file is still arriving (no `-- end of 004` yet) the bundle of words,
 `/api/translations/{code}`, answers 503 `not_up_to_date` and logs nothing,
 and a page that starts then shows the problem page ("The database is not up
 to date with this version of the app yet: …"); once the upload is whole it
-waits for the Apply like any migration. Strings the owner reworded
+waits for the Apply like any migration (the bundle still says
+`not_up_to_date`, but the library's page stands in, in its own words). Strings the owner reworded
 on the site survive later migrations — a migration's insert steps aside for
 a row that is there —, but the site and this computer each hold their own
 strings: export the site's languages (the Translations page) before an upload
@@ -387,15 +415,15 @@ restores on a computer with `php backend/manage.php --restore=FILE`.
 | 500 for every address right after the upload | the host does not allow `CGIPassAuth` in `.htaccess`: delete that `<IfModule mod_version.c>` block (the `SetEnvIf` line is the fallback) |
 | every API request is 401 while signed in | the `Authorization` header does not reach PHP: the host dropped both `.htaccess` lines |
 | "Sign in again" right after signing in | the server cannot fetch the IAM's keys (outbound HTTPS blocked?), or the issuer or client id in `backend/config/auth.local.php` is not the IAM's |
-| the app says "not set up yet" at once | the setup page has not run: `backend/config/*.local.php` are missing |
-| the app says "not set up yet" after signing in, at the first screen with data | the settings are there, but the database they name is missing or has no tables (made again in the panel, say): run the setup page again |
-| the page says the database is not up to date with this version of the app yet | a new migration waits for an `ADMIN`: sign in as one, follow **Open the Migrations page**, and **Apply pending** |
+| the page says "This site is not set up yet" | the setup page has not run: `backend/config/*.local.php` are missing |
+| the page says "The site is not available right now", and asks again by itself | the settings are there, but the database they name is missing or does not answer (made again in the panel, say: run the setup page again — delete `backend/storage/installed.lock` and upload `backend/setup.php` first); or the site was installed and a settings file is gone since |
+| the page says "The site is being updated" | a migration waits for an `ADMIN` (a database without tables counts too): sign in as one (the page's quiet **Sign in**), follow **Open Migrations**, and **Apply pending** |
 | Apply says "Stopped at NNN_….sql" | that migration failed and was rolled back whole (the ones before it stay applied); the box under it says why, in PostgreSQL's own words, and the error log has it too (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Upload the fixed file and Apply again; the raw copy is taken again only when the files changed |
-| Apply says the database is being brought up to date already (409) | another Apply, the setup page or `manage.php` held the lock for longer than Apply waits for it (10 s; the requests that look while a migration waits hold it only for a moment): let that one finish, then Apply again |
-| Apply says "Applied - one still waits" | the files before it are applied; the one named has no last line yet (still uploading): upload it whole, then Apply again |
-| a new migration is listed as "not whole yet", and Apply stays off | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
+| Apply says another database update is running (409) | another Apply, the setup page, `manage.php` or the content's rebuild after an upload holds the lock (Apply does not wait for it): let that one finish, then Apply again |
+| after an Apply the list still shows a "draft" | the files before it are applied; that one has no last line yet (still uploading): upload it whole, then Apply again |
+| a new migration is listed as a "draft" ("it does not run until it is finished"), and Apply stays off | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
 | the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
-| the app says "not set up yet", and to this computer "sign-in without the IAM is gone" | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone: run the setup page and save |
+| the page says "This site is not set up yet" on a copy that was set up long ago | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone (`php backend/manage.php --check` says "sign-in without the IAM is gone"): run the setup page and save |
 | the app shows, `/api/...` answers 404 | `mod_rewrite` is off, or the document root is not `public/` |
 | right after the update of 2026-10 the listening questions are silent and `/audio/...` answers 404 | the clips are still in the old `data/audio/`: move them to `backend/data/audio/` (*Updates*, the one-time move) |
 | a page's address (`/kanji/reviews`) answers 404 on reload | `mod_rewrite` is off: the app's own addresses need the `index.html` rewrite |

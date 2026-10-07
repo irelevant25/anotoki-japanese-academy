@@ -79,12 +79,14 @@ before(function (): void {
     $GLOBALS['site'] = test_site();
 });
 
-test('before it is set up, the API says so, and to this computer why', function (): void {
-    $r = call(site()['base'], 'GET', '/api/kanji/summary');
-    assert_same(503, $r['status']);
-    assert_same('not_set_up', $r['body']['code'] ?? null);
-    assert_same('/setup.php', $r['body']['setup'] ?? null);
-    assert_same('backend/config/database.local.php is missing', $r['body']['reason'] ?? null);
+test('before it is set up, every address says so, the anotoki library’s way: with the way to the setup page, since this copy was never installed (this computer’s never is)', function (): void {
+    $notSetUp = ['code' => 'not_set_up', 'installed' => false, 'message' => 'This site is not set up yet. Its setup page connects it to its database.', 'setup' => '/setup.php'];
+    foreach (['/api/kanji/summary', '/api/auth/config', '/api/translations/en', '/api/health', '/api/admin/migrations', '/audio/nothing.mp3', '/report/x'] as $url) {
+        $r = call(site()['base'], 'GET', $url);
+        assert_same([503, $notSetUp], [$r['status'], $r['body']], $url);
+    }
+    $r = call(site()['base'], 'GET', '/api/site-status', null, no_token());
+    assert_same([200, ['state' => 'not_set_up', 'installed' => false]], [$r['status'], $r['body']], 'where the site stands: always answered');
 });
 
 test('from this computer: no token; the database and the IAM, and nothing else', function (): void {
@@ -202,7 +204,10 @@ test('Save: the database and the IAM in the settings, a raw copy, the migrations
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce']), [], jar());
     assert_match('/<h1>Saved<\/h1>/', $r['raw'], strip_tags($r['raw']));
     assert_match('/Backup before the update: backend\/storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
-    assert_match('/Applied the migrations: 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql, 005_own_time_zone_and_words\.sql, 006_admin_panel_words\.sql, 007_visitors\.sql\./', $r['raw']);
+    $after001 = array_values(array_diff(array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []), ['001_init.sql']));
+    sort($after001);
+    assert_same('002_users.sql', $after001[0]);
+    assert_match('/Applied the migrations: ' . preg_quote(implode(', ', $after001), '/') . '\./', $r['raw'], 'every one after 001, in order');
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_match('/sign-in through the IAM at https:\/\/iam\.test/', $r['raw']);
     assert_match('/sign in with your anotoki account/', $r['raw']);
@@ -248,10 +253,11 @@ test('an earlier version’s settings: the sign-in mode, the owner id and the ti
     assert_same(site()['password'], (require "$config/database.local.php")['password'], 'the password stays as it was');
     assert_same(['timezone' => 'Europe/Bratislava'], require "$config/app.local.php", 'and app.local.php is left alone: the setup page never writes it (the owner\'s optional file), and its old timezone is ignored');
 
-    // A copy set up without sign-in is not set up: it says why, and saving here sets it up again.
+    // A copy set up without sign-in is not set up (config_problem() says why, to manage.php --check): the way to the
+    // setup page, never installed on this computer - and saving here sets it up again.
     file_put_contents("$config/auth.local.php", "<?php\nreturn ['mode' => 'none', 'local_user_id' => 1];\n");
     $r = call(site()['base'], 'GET', '/api/kanji/summary');
-    assert_same([503, 'not_set_up', 'sign-in without the IAM is gone: open /setup.php and save'], [$r['status'], $r['body']['code'] ?? null, $r['body']['reason'] ?? null]);
+    assert_same([503, 'not_set_up', false, '/setup.php'], [$r['status'], $r['body']['code'] ?? null, $r['body']['installed'] ?? null, $r['body']['setup'] ?? null]);
     $page = test_page(site()['base'], '/setup.php', [], jar());
     assert_match('/name="issuer" type="text" value="http:\/\/localhost:4300"/', $page['raw'], 'no IAM saved: the development IAM');
     $r = test_form(site()['base'], '/setup.php', local_form(nonce_of($page['raw']), ['db_password' => '']), [], jar());

@@ -29,6 +29,12 @@
  *             People: an ADMIN deletes a person's data (a copy first, nobody
  *             else's touched); an EDITOR has Translations only, the API says
  *             403 to the rest; a learner has no admin area
+ *   update    a database update waiting (the anotoki library's gate): a
+ *             visitor, a learner and an editor read that the site is being
+ *             updated - no error, no button but a visitor's quiet Sign in,
+ *             no trip to the IAM; a signed-out ADMIN signs in from that page,
+ *             comes back to it, and reaches the Migrations page: Apply fails
+ *             (PostgreSQL's words), then applies; the app back, in words
  *   time zone a browser on Kiritimati (UTC+14) and one on Pago Pago (UTC-11):
  *             each sees its own today, and the server keeps the zone
  *   Slovak    the learner's pages, the bar's menus and Your data's question
@@ -124,7 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.waitForSelector('main');
   const authorizeAt = sent.findIndex((r) => r.url.startsWith(`${IAM.issuer}/api/oidc/authorize`));
   const askedBefore = sent.slice(0, authorizeAt).filter((r) => r.url.startsWith(`${app.base}/api/`) || r.url.startsWith(`${app.base}/report/`));
-  const noData = (r) => /^\/api\/(auth\/config|translations\/[\w-]+)$/.test(new URL(r.url).pathname);
+  const noData = (r) => /^\/api\/(site-status|auth\/config|translations\/[\w-]+)$/.test(new URL(r.url).pathname);
   ck('signed out, a deep link goes straight to the IAM: nobody’s data asked for on the way',
     authorizeAt > 0 && askedBefore.every(noData), askedBefore.map((r) => r.url).join(' '));
   const drawn = await page.evaluate(() => sessionStorage.getItem('drawn-signed-out'));
@@ -703,8 +709,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The token went with every call to this site's API, and nowhere else: not
   // with the app's words either (/api/translations/, the same for everybody),
   // and never to the IAM. The browser's time zone went to this site alone.
+  // Where the site stands (the anotoki library's status, asked before the
+  // sign-in is set up) is nobody's: it goes bare.
   const requests = await Promise.all(sent.map(async (r) => ({ url: r.url, headers: await r.headers })));
-  const ours = (r) => r.url.startsWith(`${app.base}/api/`) || r.url.startsWith(`${app.base}/report/`);
+  const ofNobody = (r) => r.url === `${app.base}/api/site-status`;
+  const ours = (r) => (r.url.startsWith(`${app.base}/api/`) || r.url.startsWith(`${app.base}/report/`)) && !ofNobody(r);
   const ofWords = (r) => r.url.startsWith(`${app.base}/api/translations/`) || r.url === `${app.base}/api/auth/config`;
   const bearer = (r) => /^Bearer /.test(r.headers.authorization || '');
   const api = requests.filter((r) => ours(r) && !ofWords(r));
@@ -712,6 +721,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('her token went with every call to the API', api.length > 20 && api.every(bearer), api.filter((r) => !bearer(r)).map((r) => r.url).join(' '));
   ck('and nowhere else: not to the IAM, not with the app’s own files or words',
     elsewhere.some((r) => r.url.startsWith(IAM.issuer)) && !elsewhere.some(bearer), elsewhere.filter(bearer).map((r) => r.url).join(' '));
+  ck('where the site stands was asked, with nothing of anybody’s: no token, no key',
+    requests.some(ofNobody) && requests.filter(ofNobody).every((r) => !bearer(r) && !r.headers['x-visitor-key']));
   ck('the browser’s time zone went with every call to this site’s API, and never to the IAM',
     requests.filter(ours).every((r) => r.headers['x-time-zone'] === zone) && !requests.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-time-zone']));
 
@@ -878,99 +889,142 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await learnerContext.close();
 
   /* ------------------------------------- a database update waiting for an ADMIN */
-  console.log('a database update that waits for an administrator: the Migrations page');
+  console.log('a database update that waits for an administrator: the anotoki library’s page, and the Migrations page');
   // 006 adds a key and rewords strings, each only where that is not done yet: applied again, it changes
   // nothing. Taken off the list, with the stamp of the files forgotten, it is what an upload looks like.
   const WAITS = '006_admin_panel_words.sql';
   app.sql('DELETE FROM migrations WHERE name = ?', WAITS);
   app.sql("UPDATE content_state SET stamp = 'before the upload'");
   const waiting = await app.api('/api/kanji/summary', NOA);
-  ck('every address with data says the app is not up to date: no request applies it',
-    waiting.status === 503 && (await waiting.json()).code === 'not_up_to_date' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0);
+  ck('every address with data says the site is being updated, and to ask again in a minute: no request applies it',
+    waiting.status === 503 && (await waiting.json()).code === 'update_pending' && waiting.headers.get('retry-after') === '60'
+      && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0);
+  /** The anotoki library's page, as a tab shows it: its heading, its words, every button and link on it. */
+  const libraryPage = (pg) =>
+    pg.$eval('anotoki-site-status', (el) => ({
+      title: (el.querySelector('h1')?.textContent ?? '').trim(),
+      text: el.textContent.replace(/\s+/g, ' ').trim(),
+      actions: [...el.querySelectorAll('a, button')].map((a) => a.textContent.trim()),
+    }));
+  // The pages behind the library's page are made all the same (the gate only hides them), and ask for their
+  // data: answered 503 update_pending, on purpose.
+  const WAITING_ANSWERS = [/\/api\/(kanji|meta|attempts|me\/data|admin\/(translations|languages|people|visitors))\b/];
+
+  // A visitor - nobody signed in, sign-in required here: never sent to the IAM while the site is being updated.
+  const asVisitor = await newContext(browser, { viewport: { width: 390, height: 844 } });
+  const visitorSent = [];
+  asVisitor.on('request', (request) => visitorSent.push(request.url()));
+  const waitingVisitor = await asVisitor.newPage();
+  const visitorErrors = watch(waitingVisitor, { ignore: WAITING_ANSWERS });
+  await waitingVisitor.goto(app.base + '/kanji/reviews');
+  await waitingVisitor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
+  const seenByVisitor = await libraryPage(waitingVisitor);
+  ck('a visitor: “The site is being updated” - no error, no code, no setup or migrations button; a quiet Sign in, and no trip to the IAM',
+    seenByVisitor.title === 'The site is being updated' && seenByVisitor.actions.join(',') === 'Sign in'
+      && !/error|update_pending|503|setup|Migrations/i.test(seenByVisitor.text) && !visitorSent.some((url) => url.startsWith(IAM.issuer)),
+    JSON.stringify(seenByVisitor));
+  await waitingVisitor.screenshot({ path: path.join(SHOTS, 'waiting-visitor.png') });
+  ck('no browser errors for the visitor', visitorErrors.length === 0, visitorErrors.join(' | '));
+  await asVisitor.close();
+
+  // A signed-in learner: the same page, and no button at all.
   const asLearner = await newContext(browser, { viewport: { width: 390, height: 844 } });
   await plant(asLearner, NOA);
   const waitingLearner = await asLearner.newPage();
+  const learnerErrors = watch(waitingLearner, { ignore: WAITING_ANSWERS });
   await waitingLearner.goto(app.base + '/');
-  await waitingLearner.waitForSelector('#signin .err');
-  const learnerSaid = (await waitingLearner.textContent('#signin .err')).trim();
-  ck('a learner: the problem page says so, and offers nothing to apply', /not up to date/.test(learnerSaid) && (await waitingLearner.$('#toMigrations')) === null, learnerSaid);
+  await waitingLearner.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
+  const seenByLearner = await libraryPage(waitingLearner);
+  ck('a signed-in learner: the same page, no error, and no button at all',
+    seenByLearner.title === 'The site is being updated' && seenByLearner.actions.length === 0 && !/error|update_pending|setup|Migrations/i.test(seenByLearner.text),
+    JSON.stringify(seenByLearner));
   await waitingLearner.screenshot({ path: path.join(SHOTS, 'waiting-learner.png') });
+  ck('no browser errors for the learner but the waiting answers', learnerErrors.length === 0, learnerErrors.join(' | '));
   await asLearner.close();
 
-  // An EDITOR rewords strings, and applies nothing: the problem page everywhere, with no way to the Migrations page.
+  // An EDITOR rewords strings, and applies nothing: the same page everywhere, with no way to the Migrations page.
   await iamState({ user: asUser(EDDIE) });
   const asEditor = await newContext(browser, { viewport: { width: 1100, height: 860 } });
   await plant(asEditor, EDDIE);
   const waitingEditor = await asEditor.newPage();
   for (const where of ['/', '/admin/migrations', '/admin/translations']) {
     await waitingEditor.goto(app.base + where);
-    await waitingEditor.waitForSelector('#signin .err, main.admin, .homecards', { timeout: 15000 });
-    ck(`an EDITOR at ${where} while it waits: the problem page, and no way to the Migrations page`,
-      (await waitingEditor.$('#signin .err')) !== null && (await waitingEditor.$('#toMigrations')) === null && (await waitingEditor.$('main.admin')) === null,
-      `${new URL(waitingEditor.url()).pathname}: ${(await waitingEditor.textContent('body')).replace(/\s+/g, ' ').slice(0, 160)}`);
+    await waitingEditor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
+    const seen = await libraryPage(waitingEditor);
+    ck(`an EDITOR at ${where} while it waits: the same page, and no way to the Migrations page`,
+      seen.title === 'The site is being updated' && seen.actions.length === 0 && (await waitingEditor.$('main.admin')) === null,
+      `${new URL(waitingEditor.url()).pathname}: ${JSON.stringify(seen)}`);
   }
   await asEditor.close();
 
-  await iamState({ user: asUser(ADA) });
+  // A signed-out administrator: the visitors' page, whose Sign in goes to the IAM and back to it - signed in, the
+  // way to the Migrations page, where they apply it. (No session planted: the trip itself is what is tried.)
+  await iamState({ user: asUser(ADA), deny: false });
   const asAdmin = await newContext(browser, { viewport: { width: 1100, height: 860 } });
-  await plant(asAdmin, ADA);
   const migrations = await asAdmin.newPage();
-  // until it is applied, every address but the Migrations page's answers 503, on purpose
-  const migrationErrors = watch(migrations, { ignore: [/\/api\/(translations|kanji|meta|attempts)\b/] });
+  const migrationErrors = watch(migrations, { ignore: WAITING_ANSWERS });
   await migrations.goto(app.base + '/');
-  await migrations.waitForSelector('#toMigrations');
-  ck('an administrator: the same page, with the way to the Migrations page', (await migrations.textContent('#toMigrations')).trim() === 'Open the Migrations page');
+  await migrations.waitForSelector('anotoki-site-status button', { timeout: 15000 });
+  ck('a signed-out administrator: the visitors’ page, its quiet Sign in the way in', (await libraryPage(migrations)).actions.join(',') === 'Sign in');
+  const iamBefore = (await iamLog()).length;
+  await migrations.click('anotoki-site-status button');
+  await migrations.waitForSelector('anotoki-site-status a', { timeout: 15000 });
+  const seenByAdmin = await libraryPage(migrations);
+  ck('its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page',
+    (await iamLog()).slice(iamBefore).includes('GET /api/oidc/authorize') && new URL(migrations.url()).pathname === '/'
+      && seenByAdmin.title === 'A database update is waiting' && seenByAdmin.actions.join(',') === 'Open Migrations'
+      && (await migrations.textContent('.user-name')).trim() === 'ada', `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'waiting-admin.png') });
-  await migrations.click('#toMigrations');
-  await migrations.waitForSelector('#pending li');
-  const pendingFiles = await migrations.$$eval('#pending li code', (els) => els.map((e) => e.textContent.trim()));
+  await migrations.click('anotoki-site-status a');
+  await migrations.waitForSelector('[data-pending] .file', { timeout: 15000 });
+  const pendingFiles = await migrations.$$eval('[data-pending] .file code', (els) => els.map((e) => e.textContent.trim()));
   ck('the Migrations page opens while it waits: the file pending, the rest applied, Apply on',
     new URL(migrations.url()).pathname === '/admin/migrations' && pendingFiles.join(',') === WAITS
-      && (await migrations.$$('#applied li')).length >= 5 && !(await migrations.isDisabled('#applyMigrations'))
+      && (await migrations.$$('[data-applied] .file')).length >= 5 && !(await migrations.isDisabled('[data-apply]'))
       && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy', `${pendingFiles.join(',')} ${await migrations.title()}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
-  await migrations.click('#applyMigrations');
-  await migrations.waitForSelector('dialog.confirm[open]');
-  ck('Apply asks first', (await migrations.textContent('#confirm-title')).trim() === 'Apply 1 pending migration?');
+  await migrations.click('[data-apply]');
+  await migrations.waitForSelector('dialog[data-confirm][open]');
+  ck('Apply asks first', (await migrations.textContent('dialog[data-confirm] h2')).trim() === 'Apply 1 pending migration?');
 
   // A migration that fails: 006's own gate, with the Slovak string it rewords taken away. Rolled back whole and named.
   const SK_ADMIN = "SELECT value FROM translations WHERE key_name = 'topbar.admin' AND language_code = ?";
   const skAdmin = app.sql(SK_ADMIN, 'sk')[0].value;
   const enAdmin = app.sql(SK_ADMIN, 'en')[0].value;
   app.sql("DELETE FROM translations WHERE key_name = 'topbar.admin' AND language_code = 'sk'");
-  await migrations.click('dialog.confirm[open] button.primary');
-  await migrations.waitForSelector('#applyResult h2', { timeout: 15000 });
-  await migrations.waitForFunction(() => !document.querySelector('#applyMigrations').textContent.includes('Applying'));
-  const stopped = (await migrations.textContent('#applyResult')).replace(/\s+/g, ' ').trim();
+  await migrations.click('[data-confirm-apply]');
+  await migrations.waitForSelector('[data-result] .result-title', { timeout: 15000 });
+  await migrations.waitForFunction(() => !document.querySelector('[data-apply]').textContent.includes('Applying'));
+  const stopped = (await migrations.textContent('[data-result]')).replace(/\s+/g, ' ').trim();
   ck('a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
-    (await migrations.textContent('#applyResult h2')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
-      && (await migrations.getAttribute('#applyResult', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
-      && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('#applyMigrations'))
-      && (await migrations.$$eval('#pending li code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
+    (await migrations.textContent('[data-result] .result-title')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
+      && (await migrations.getAttribute('[data-result]', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
+      && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('[data-apply]'))
+      && (await migrations.$$eval('[data-pending] .file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
   // Why, in PostgreSQL's own words (its gate's exception), on the page as the IAM's shows it - a website's too.
-  const why = (await migrations.$eval('#applyResult pre.error code', (el) => el.textContent).catch(() => '')).trim();
+  const why = (await migrations.$eval('[data-result] pre.error', (el) => el.textContent).catch(() => '')).trim();
   ck("a migration that fails: why, in PostgreSQL's own words, on the page (no error log to look in)",
     /ERROR:\s+006_admin_panel_words: reworded keys without an English and a Slovak string: topbar\.admin/.test(why) && !/error log/.test(stopped), why || stopped);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-failed.png'), fullPage: true });
   app.sql("INSERT INTO translations (key_name, language_code, value) VALUES ('topbar.admin', 'sk', ?)", skAdmin);
 
-  await migrations.click('#applyMigrations');
-  await migrations.waitForSelector('dialog.confirm[open]');
-  await migrations.click('dialog.confirm[open] button.primary');
-  await migrations.waitForFunction(() => document.querySelector('#applyResult h2')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
-  await migrations.waitForFunction(() => document.querySelector('#pending .empty') !== null);
+  await migrations.click('[data-apply]');
+  await migrations.waitForSelector('dialog[data-confirm][open]');
+  await migrations.click('[data-confirm-apply]');
+  await migrations.waitForFunction(() => document.querySelector('[data-result] .result-title')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
+  await migrations.waitForFunction(() => /Nothing pending/.test(document.querySelector('[data-pending]')?.textContent ?? ''));
   ck('then applies it: up to date, nothing pending, the file applied, Apply off',
-    (await migrations.textContent('#applyResult h2')).trim() === 'Up to date' && (await migrations.isDisabled('#applyMigrations'))
-      && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1, await migrations.textContent('#applyResult'));
+    /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
+      && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1, await migrations.textContent('[data-result]'));
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations.png'), fullPage: true });
-  // Back to the app without a page load (the menu's link): the panel started without the app's words while the
-  // update waited, and has them by now - the learner's page is drawn in words, not keys, from the start.
+  // Back to the app without a page load (the menu's link): the gate is open again, and the app's words were asked
+  // for anew - the learner's page is drawn in words, not keys, from the start.
   await migrations.click('#userButton');
   await migrations.click('#backLink');
   await migrations.waitForSelector('.homecards', { timeout: 15000 });
   const keysBack = await keyShaped(migrations);
   ck('back to the app by the menu, no page load: its words at once, no key on the page',
-    keysBack.length === 0 && new URL(migrations.url()).pathname === '/', keysBack.join(' | '));
+    keysBack.length === 0 && new URL(migrations.url()).pathname === '/' && (await migrations.$('anotoki-site-status')) === null, keysBack.join(' | '));
   ck('and the app is back, for everybody', (await app.api('/api/kanji/summary', NOA)).status === 200);
   ck('no browser errors on the way but the waiting answers', migrationErrors.length === 0, migrationErrors.join(' | '));
   const editorMigrations = await app.api('/api/admin/migrations', EDDIE);

@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpReq
 import { inject } from '@angular/core';
 import { catchError, defer, finalize, from, Observable, switchMap, tap, throwError } from 'rxjs';
 import { errorCode } from '../api/api.service';
+import { SITE_STATUS_URL } from '../site-status';
 import { browserTimeZone, TIME_ZONE_HEADER } from '../time-zone';
 import { AuthService, isThisSite } from './auth.service';
 import { CARRIES_VISITOR_KEY, ISSUED_AS, VISITOR_KEY_HEADER } from './issued-as';
@@ -22,12 +23,19 @@ function bare(request: HttpRequest<unknown>): HttpRequest<unknown> {
   return request.clone({ headers: request.headers.delete('Authorization').delete(VISITOR_KEY_HEADER) });
 }
 
-/** The app's own addresses with somebody's data: /api/… and /report/… of this site. */
+/**
+ * The app's own addresses with somebody's data: /api/… and /report/… of this
+ * site - not where the site stands (the anotoki library's /api/site-status,
+ * asked before the sign-in is even set up): that is nobody's, and goes bare.
+ */
 export function takesToken(url: string): boolean {
   if (!isThisSite(url)) {
     return false;
   }
   const path = new URL(url, location.href).pathname;
+  if (path === SITE_STATUS_URL) {
+    return false;
+  }
   return path.startsWith('/api/') || path.startsWith('/report/');
 }
 

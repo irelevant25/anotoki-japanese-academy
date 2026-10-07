@@ -10,56 +10,32 @@
  *
  * A migration is never applied by a request (since 2026-10-04, the owner's
  * decision): while one is there and whole, it waits for an administrator's
- * Apply on the admin panel's Migrations page (upkeep_apply(), after a raw copy
- * of every table, as the setup page takes one), and every address with data
- * answers 503 not_up_to_date meanwhile (upkeep_waiting()); the Migrations
- * page's own addresses do not wait (api/routes/migrations.php). The setup page
- * and backend/manage.php apply them as before (upkeep_migrate()), the same
- * way and under the same lock: never two at once, whichever starts them.
+ * Apply on the admin panel's Migrations page, and the site answers 503
+ * update_pending meanwhile to everything but the few addresses a page needs
+ * to start, to sign somebody in and to reach that page (the anotoki library's
+ * SiteGate, api/app.php). Every apply - the Migrations page's, the setup
+ * page's, manage.php's - is the library's engine (db_migrator() in
+ * src/db.php), after a raw copy of every table (upkeep_before_apply()), under
+ * the upkeep's lock: never two at once, whichever starts them.
  *
  * Every request pays one cheap check: a stamp of the names, sizes and times
  * of the content files and the migrations, against the one stored in
- * content_state. Only when they differ does it look further, under a lock, so
- * two requests never do the work twice, and never while an Apply runs.
+ * content_state. Only when they differ does it look further, under the lock,
+ * so two requests never do the work twice, and never while an Apply runs -
+ * nor while a migration waits for one: the content is built for the tables
+ * this version expects.
  */
 
 declare(strict_types=1);
 
-/** A number for pg_advisory_xact_lock(): one upkeep, or one Apply, at a time, per database. */
+/**
+ * A number for PostgreSQL's advisory locks: one rebuild of the content, or one
+ * apply of the migrations (db_migrator()'s lock), at a time, per database.
+ */
 const UPKEEP_LOCK = 4210927;
 
-/**
- * How long applying waits for the lock before it says busy. While a migration
- * waits, every request with data takes the lock for a moment to look
- * (upkeep_run()): an Apply that tried only once could be refused again and
- * again on a site in use. Another Apply, the setup page or manage.php running
- * longer than this: busy, try again.
- */
-const UPKEEP_LOCK_WAIT_MS = 10000;
-
-/** What applying says when the lock stays taken: another Apply, the setup page or manage.php is at it. */
-const UPKEEP_BUSY = 'The database is being brought up to date already. Try again in a moment.';
-
-/**
- * The upkeep's lock, for the transaction this runs in: waited for at most
- * $waitMs (the requests that look take it for a moment), then HttpError 409
- * busy. The wait bounds this statement alone: the migrations that run after it
- * wait for their own locks as they always did.
- */
-function upkeep_lock(int $waitMs): void
-{
-    $before = (string) db_value("SELECT current_setting('lock_timeout')");
-    db_value("SELECT set_config('lock_timeout', ?, true)", [max(1, $waitMs) . 'ms']); // 0 would be no limit at all
-    try {
-        db_value('SELECT pg_advisory_xact_lock(?::bigint)', [UPKEEP_LOCK]);
-    } catch (PDOException $e) {
-        if (($e->errorInfo[0] ?? (string) $e->getCode()) === '55P03') { // lock_not_available: the wait ran out
-            throw new HttpError(409, UPKEEP_BUSY, [], 'busy');
-        }
-        throw $e;
-    }
-    db_value("SELECT set_config('lock_timeout', ?, true)", [$before]);
-}
+/** What the setup page and manage.php say when another apply holds the lock (the Migrations page's Apply answers 409 busy). */
+const UPKEEP_BUSY = 'Another database update is running, so nothing was applied: try again in a moment.';
 
 /** The names, sizes and times of the files the schema and the study content are built from. */
 function upkeep_stamp(): string
@@ -104,134 +80,78 @@ function upkeep_copy_before(array $ready, string $stamp): ?string
 }
 
 /**
- * The migrations that can run now, applied: what the Migrations page's Apply,
- * the setup page and backend/manage.php all do. Under the upkeep's lock
- * (upkeep_lock(): one at a time, whichever of them asks; 409 busy when it
- * stays taken for $waitMs), after a raw copy of every table
- * (upkeep_copy_before()), in order, each under a savepoint of its own; the
- * first that fails is rolled back whole and the run stops there, the ones
- * before it stay applied.
+ * The engine's beforeApply (db_migrator()): the raw copy of every table before
+ * the files $files ([{set, name}], in order) are applied - upkeep_copy_before()
+ * - said in the apply's note, which the Migrations page shows ("A copy of
+ * every table from before is in backups/…"); $backup gets the copy's path, for
+ * the setup page and manage.php to name it. A copy that cannot be written
+ * stops the apply before anything runs, with a sentence that says so: the
+ * reason only to this computer (error_reason()), and to the error log.
  *
- * Returns ['applied' => names, 'failed' => the file that failed or null,
- * 'exception' => its PDOException or null, 'backup' => the copy's path or null].
+ * It runs once there is something to apply, so it also asks for the time the
+ * work may take: the copy and the files, seconds perhaps, on a website whose
+ * PHP stops a request after 30. Cut off by the time limit, or by the
+ * administrator leaving the page, the file being applied would roll back
+ * whole, and every try after it stop at the same place.
  */
-function upkeep_apply_ready(?string $stamp, int $waitMs): array
+function upkeep_before_apply(?string &$backup = null): Closure
 {
-    if (function_exists('set_time_limit')) {
-        @set_time_limit(300);
-    }
-    if (function_exists('ignore_user_abort')) {
-        ignore_user_abort(true); // the administrator leaving the page does not cut a migration in half
-    }
-    return db_tx(static function () use ($stamp, $waitMs): array {
-        upkeep_lock($waitMs);
-        $result = ['applied' => [], 'failed' => null, 'exception' => null, 'backup' => null];
-        $ready = db_migrations_ready();
-        if (!$ready) {
-            return $result;
+    return static function (PDO $pdo, array $files) use (&$backup): ?string {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(300);
         }
-        $result['backup'] = upkeep_copy_before($ready, $stamp ?? upkeep_stamp());
-        db_migrations_table(); // a new database: the setup page's first run
-        $pdo = db();
-        foreach ($ready as $name) {
-            $sql = db_migration_sql($name);
-            if ($sql === null) {
-                break; // it stopped being whole since it was looked at: it waits
-            }
-            $pdo->exec('SAVEPOINT migration');
-            try {
-                $pdo->exec($sql);
-                db_exec('INSERT INTO migrations (name) VALUES (?)', [$name]);
-                $pdo->exec('RELEASE SAVEPOINT migration');
-            } catch (PDOException $e) {
-                $pdo->exec('ROLLBACK TO SAVEPOINT migration');
-                $result['failed'] = $name;
-                $result['exception'] = $e;
-                break;
-            }
-            $result['applied'][] = $name;
+        if (function_exists('ignore_user_abort')) {
+            ignore_user_abort(true);
         }
-        return $result;
-    });
+        try {
+            $backup = upkeep_copy_before(array_column($files, 'name'), upkeep_stamp());
+        } catch (Throwable $e) {
+            error_log('[upkeep] the copy before the migrations could not be written: ' . $e->getMessage());
+            $reason = error_reason($e);
+            throw new RuntimeException('The copy of every table could not be written, so nothing was applied'
+                . ($reason !== null ? ": $reason" : '. The server\'s error log says more.'));
+        }
+        return $backup === null ? null : 'A copy of every table from before is in backups/' . basename($backup) . '.';
+    };
 }
 
 /**
- * The migrations that can run now, applied — after a raw copy of every table,
- * under the lock an Apply takes (upkeep_apply_ready()). The setup page and
- * backend/manage.php come here; a migration that fails throws, naming its
- * file, and nothing of it stays (the ones before it do). Another Apply, setup
- * page or manage.php at it longer than $waitMs: HttpError 409 busy.
- * Returns ['backup' => the copy or null, 'applied' => names].
+ * The migrations that can run now, applied, for the setup page and
+ * backend/manage.php: the engine on a connection of its own, after a raw copy
+ * of every table, the same way and under the same lock as the Migrations
+ * page's Apply. Returns ['backup' => the copy's path or null, 'applied' =>
+ * names]. A migration that fails throws, naming its file, and nothing of it
+ * stays (the ones before it do); so does a copy that could not be written
+ * (nothing applied), and another apply at it (UPKEEP_BUSY).
  */
-function upkeep_migrate(?string $stamp = null, int $waitMs = UPKEEP_LOCK_WAIT_MS): array
+function upkeep_migrate(): array
 {
-    $done = upkeep_apply_ready($stamp, $waitMs);
-    if ($done['exception'] !== null) {
-        throw new PDOException("backend/migrations/{$done['failed']}: " . $done['exception']->getMessage(), 0, $done['exception']);
+    $backup = null;
+    $done = db_migrator(db_connect(), upkeep_before_apply($backup))->apply();
+    if ($done['busy']) {
+        throw new RuntimeException(UPKEEP_BUSY);
     }
-    return ['backup' => $done['backup'], 'applied' => $done['applied']];
-}
-
-/**
- * The Migrations page's Apply (POST /api/admin/migrations/apply, an
- * administrator's): upkeep_apply_ready(). One at a time, under the upkeep's
- * lock: waited for while the requests that look take it for a moment; while
- * another Apply, the setup page or manage.php holds it longer than $waitMs,
- * 409 busy. The study content is rebuilt by the next request, once nothing
- * waits.
- *
- * Returns ['applied' => names, 'failed' => the file that failed or null,
- * 'error' => why it failed, PostgreSQL's own words, or null, 'backup' => the
- * copy's file name or null]. The error goes to the administrator on this
- * computer and on a website alike, as the IAM's Migrations page shows it (the
- * owner's decision, 2026-10-04: it says what to fix, and a host's error log is
- * hard to reach); it is logged as well. This answer is the one exception to
- * error_reason()'s rule: every other failure tells a website no more than a
- * sentence.
- */
-function upkeep_apply(int $waitMs = UPKEEP_LOCK_WAIT_MS): array
-{
-    $done = upkeep_apply_ready(null, $waitMs);
-    if ($done['exception'] !== null) {
-        error_log("[upkeep] a migration failed: backend/migrations/{$done['failed']}: " . $done['exception']->getMessage());
+    if ($done['failed'] !== null) {
+        throw new RuntimeException("backend/migrations/{$done['failed']['name']}: {$done['error']}");
     }
-    return [
-        'applied' => $done['applied'],
-        'failed' => $done['failed'],
-        'error' => $done['exception'] !== null ? $done['exception']->getMessage() : null,
-        'backup' => $done['backup'] !== null ? basename($done['backup']) : null,
-    ];
+    if ($done['error'] !== null) {
+        throw new RuntimeException((string) $done['error']);
+    }
+    return ['backup' => $backup, 'applied' => array_column($done['applied'], 'name')];
 }
 
 /**
- * What the Migrations page shows (GET /api/admin/migrations): the files
- * applied, the first first, each with when (milliseconds); and the ones
- * pending, in the order they will run, each with whether it is whole (a file
- * without its last line is still being uploaded, or written, and waits with
- * every one after it: db_migration_sql()).
- */
-function upkeep_migrations(): array
-{
-    $applied = db_all('SELECT name, academy_ms(applied_at) AS applied_at FROM migrations ORDER BY name');
-    $ready = db_migrations_ready();
-    return [
-        'applied' => array_map(static fn (array $r): array => ['name' => $r['name'], 'appliedAt' => (int) $r['applied_at']], $applied),
-        'pending' => array_map(static fn (string $name): array => ['name' => $name, 'whole' => in_array($name, $ready, true)], db_pending_migrations()),
-    ];
-}
-
-/**
- * Is this copy's database set up at all? Its stored stamp (null before
- * migration 003, too) — or HttpError 503 not_set_up for a database that does
- * not exist or has no tables yet: the setup page's job, not a request's.
+ * The stamp stored with the study content - null before migration 003, and
+ * for a database the migrations have yet to build (no content_state at all:
+ * an update that waits for its Apply, which the site says meanwhile).
  */
 function upkeep_stored_stamp(): ?string
 {
     try {
         $stored = db_value("SELECT to_jsonb(c)->>'stamp' FROM content_state c");
     } catch (PDOException $e) {
-        if (db_missing_error($e) || db_value("SELECT to_regclass('migrations') IS NULL")) {
-            throw not_set_up();
+        if (($e->errorInfo[0] ?? (string) $e->getCode()) === '42P01') { // undefined_table
+            return null;
         }
         throw $e;
     }
@@ -240,13 +160,14 @@ function upkeep_stored_stamp(): ?string
 
 /**
  * Brings the study content up to date with the files, when the stamp says
- * they changed. Returns what it did: null when the stamp matched, [] when
- * nothing had really changed, else ['content' => …]. A migration that is
- * whole and not applied stops it: HttpError 503 not_up_to_date
- * (upkeep_waiting()) until an administrator applies it; one that is not
- * whole yet (still on its way) does not, and the site goes on as it is. A
- * database that was never set up: HttpError 503 not_set_up (so is one that
- * does not exist yet).
+ * they changed. Returns what it did: null when the stamp matched, [] when it
+ * looked and there was nothing to do, or nothing it may do yet, else
+ * ['content' => …]. While a migration waits for an administrator's Apply
+ * nothing is built and nothing saved - the site answers update_pending
+ * meanwhile, and only the addresses that stay open come here, without taking
+ * the lock an Apply holds -, so the first request after the Apply builds. One
+ * that is not whole yet (a draft, or a file still on its way) stops nothing:
+ * the stamp says this much is done, and the rest of the upload changes it.
  */
 function upkeep_run(): ?array
 {
@@ -256,6 +177,9 @@ function upkeep_run(): ?array
     $stamp = upkeep_stamp();
     if ($stored === $stamp) {
         return null;
+    }
+    if (db_migrations_ready()) {
+        return [];
     }
 
     // Seconds of work, perhaps. Cut off by the time limit, or by the person
@@ -268,20 +192,18 @@ function upkeep_run(): ?array
     }
 
     return db_tx(static function () use ($stamp): array {
-        // The other requests that saw the new stamp wait here, then find the work done.
+        // The other requests that saw the new stamp wait here, then find the work done; so does an Apply's end.
         db_value('SELECT pg_advisory_xact_lock(?::bigint)', [UPKEEP_LOCK]);
         if (db_value("SELECT to_jsonb(c)->>'stamp' FROM content_state c") === $stamp) {
             return [];
         }
-        $ready = db_migrations_ready();
-        if ($ready) {
-            // Not saved: every request looks again, until an administrator applied them.
-            throw upkeep_waiting($ready);
+        if (db_migrations_ready()) {
+            return []; // one arrived whole meanwhile: it waits for its Apply, and the content with it
         }
         if (db_pending_migrations()) {
-            // One is not whole yet: still being uploaded. The content may need
-            // it; the rest of the upload changes the stamp, and a request then
-            // finds it waiting. Until then the stamp says this much is done.
+            // One is not whole yet: still being written, or uploaded. The content may need
+            // it; the rest of the upload changes the stamp, and a request then finds it
+            // waiting. Until then the stamp says this much is done.
             upkeep_save_stamp($stamp);
             return [];
         }
@@ -292,19 +214,6 @@ function upkeep_run(): ?array
         upkeep_save_stamp($stamp);
         return [];
     });
-}
-
-/** What every address with data says while a migration waits for an administrator's Apply. */
-const UPKEEP_WAITING = 'The database is not up to date with this version of the app yet: an administrator applies the update on the Migrations page.';
-
-/**
- * The 503 of migrations that wait for an administrator: every address with
- * data answers it until they are applied. The files' names go out as the
- * answer's "detail", which only this computer is given (answer_to()).
- */
-function upkeep_waiting(array $ready): HttpError
-{
-    return new HttpError(503, UPKEEP_WAITING, [], 'not_up_to_date', 'Waiting to be applied: ' . implode(', ', $ready) . '.');
 }
 
 /** The stamp of what is done — if there is a column for it yet (migration 003 might be the one still arriving). */

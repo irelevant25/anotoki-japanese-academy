@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.4",
+    "date": "2026-10-07",
+    "changes": {
+      "added": [],
+      "updated": [
+        "While Japanese Academy is being updated, the page says so in your language instead of showing an error, and comes back by itself when the update is done; an administrator can always sign in to apply the update"
+      ]
+    }
+  },
+  {
     "version": "0.3",
     "date": "2026-10-06",
     "changes": {

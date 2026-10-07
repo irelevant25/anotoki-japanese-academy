@@ -1,7 +1,12 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { NO_CHOICE } from '../testing/auth-states';
+import { provideTestSiteStatus } from '../testing/site-status';
 import { AuthService } from './auth.service';
+
+/** The anotoki library's answer for a site without its settings (its SiteGate), never installed. */
+const NOT_SET_UP = { code: 'not_set_up', installed: false, message: 'This site is not set up yet. Its setup page connects it to its database.', setup: '/setup.php' };
 
 /** fetch() that answers GET /api/auth/config with this. */
 function server(status: number, body: unknown): typeof fetch {
@@ -43,7 +48,7 @@ function otherTab(key: string, value: string | null): void {
 describe('AuthService: what the app can show', () => {
   const realFetch = globalThis.fetch;
 
-  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideTestSiteStatus()] }));
   afterEach(() => {
     globalThis.fetch = realFetch;
     vi.restoreAllMocks();
@@ -86,17 +91,13 @@ describe('AuthService: what the app can show', () => {
     expect([auth.isStaff(), auth.isAdmin()]).toEqual([true, true]);
   });
 
-  it('not set up yet: the page that says so, and why', async () => {
-    globalThis.fetch = server(503, {
-      error: 'Japanese Academy is not set up yet. Open /setup.php to set it up.',
-      code: 'not_set_up',
-      setup: '/setup.php',
-      reason: 'backend/config/auth.local.php is missing',
-    });
+  it('not set up yet: nothing of the app starts, and SiteStatus hears it - never installed, so the library’s page offers the setup page', async () => {
+    globalThis.fetch = server(503, NOT_SET_UP);
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('not-set-up');
-    expect(auth.notSetUpReason()).toBe('backend/config/auth.local.php is missing');
+    const site = TestBed.inject(SiteStatus);
+    expect([site.state(), site.installed()]).toEqual(['not-set-up', false]);
   });
 
   it('a server that does not answer, or refuses: what happened — a kind and a code, never a blank page and never a sentence', async () => {
@@ -155,22 +156,34 @@ describe('AuthService: what the app can show', () => {
     expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 failed' });
 
     const other = TestBed.runInInjectionContext(() => new AuthService());
-    other.notSetUp('the database has no tables yet');
+    other.notSetUp();
     other.cannotStart({ kind: 'offline' });
     expect(other.state()).toBe('not-set-up');
     expect(other.problem()).toBeNull();
   });
 
-  it('not set up after all (a database missing), said by a later answer: the page that says so', async () => {
+  it('not set up after all (its settings gone), said by a later answer: nothing goes on - installed once, never the setup page', async () => {
     localStorage.setItem(website('academy-test-later'), session('7'));
     const auth = TestBed.inject(AuthService);
     await auth.init();
     expect(auth.state()).toBe('ready');
-    globalThis.fetch = server(503, { error: 'Japanese Academy is not set up yet. Open /setup.php to set it up.', code: 'not_set_up', setup: '/setup.php' });
+    globalThis.fetch = server(503, { code: 'not_set_up', installed: true, message: 'The site is not available right now. Try again in a few minutes.' });
     const r = await auth.fetch('/api/me/data');
     expect(r.status).toBe(503);
     expect(auth.state()).toBe('not-set-up');
-    expect(auth.notSetUpReason()).toBeNull();
+    const site = TestBed.inject(SiteStatus);
+    expect([site.state(), site.installed()]).toEqual(['not-set-up', true]);
+  });
+
+  it('being updated, said by a later answer (a report, the data file): SiteStatus hears it, the gate stands in, and the sign-in goes on', async () => {
+    localStorage.setItem(website('academy-test-updating'), session('7'));
+    const auth = TestBed.inject(AuthService);
+    await auth.init();
+    globalThis.fetch = server(503, { code: 'update_pending', message: 'The site is being updated. Try again in a few minutes.' });
+    const r = await auth.fetch('/report/x');
+    expect(r.status).toBe(503);
+    expect(auth.state(), 'no problem page, no not-set-up: the person is still signed in').toBe('ready');
+    expect(TestBed.inject(SiteStatus).state()).toBe('update-pending');
   });
 
   it('somebody else signing in, in another tab: the page loads again, as them', async () => {
@@ -234,10 +247,9 @@ describe('AuthService: what the app can show', () => {
     localStorage.setItem(key, session('7'));
     const auth = TestBed.inject(AuthService);
     await auth.init();
-    auth.notSetUp('the database academy_x does not exist');
+    auth.notSetUp();
     otherTab(key, session('7', 'a-fresh-token'));
     expect(auth.state()).toBe('not-set-up');
-    expect(auth.notSetUpReason()).toBe('the database academy_x does not exist');
   });
 
   it('its own fetch() (reports, the data file) sends the token and the time zone to this site, and no token of somebody else', async () => {

@@ -64,6 +64,9 @@ describe('which addresses get the token', () => {
     expect(takesToken('https://iam.test/api/oidc/userinfo')).toBe(false);
     expect(takesToken('//elsewhere.example/api/kanji/progress')).toBe(false);
     expect(isThisSite('https://iam.test/')).toBe(false);
+    // where the site stands (the anotoki library's status): nobody's data, asked before the sign-in is set up
+    expect(takesToken('/api/site-status')).toBe(false);
+    expect(takesToken('/api/admin/migrations')).toBe(true);
   });
 
   it('the saves that may make a visitor: the ones the server makes one on (study_route with mayMake), and nothing else', () => {

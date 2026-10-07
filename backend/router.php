@@ -16,11 +16,14 @@
  *                               a file as it is, a page's address its index.html; never a
  *                               PHP file, a dotfile or anything outside the build
  *
- * Nothing happens at start: what has to be done before the app can be used -
- * new migrations (after a raw copy of every table), the study content rebuilt
- * when backend/data/ changed, the day's backup - is done by the first request
- * that needs it, as on a website (src/upkeep.php). Not set up yet (no
- * backend/config/*.local.php), every address with data answers 503
+ * Nothing happens at start: the study content is rebuilt when backend/data/
+ * changed, and the day's backup taken, by the first request that needs it, as
+ * on a website (src/upkeep.php). A new migration is applied by nobody's
+ * request: it waits for an ADMIN's Apply on the admin panel's Migrations page
+ * (after a raw copy of every table), and meanwhile the site answers 503
+ * update_pending to all but the addresses that stay open (the anotoki
+ * library's SiteGate, api/app.php). Not set up yet (no
+ * backend/config/*.local.php), every address but /api/site-status answers 503
  * not_set_up, and /setup.php opens from this computer.
  */
 

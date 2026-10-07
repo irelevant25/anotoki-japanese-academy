@@ -450,7 +450,7 @@ test('backend/manage.php --check with a whole migration pending: who applies it 
     }
     assert_same(1, $code, $said);
     assert_match('/(?:^|\R)To do: apply ' . preg_quote($newest, '/') . '\. An ADMIN applies it on the admin panel\'s Migrations page \(\/admin\/migrations: Apply pending\),'
-        . ' or manage\.php --sync does \(the setup page too\)\. Until then the app says it is not up to date\.\R/', $said);
+        . ' or manage\.php --sync does \(the setup page too\)\. Until then the site tells everybody it is being updated\.\R/', $said);
     assert_no_match('/first request/', $said, 'a request never applies one');
 
     $hash = db_value('SELECT hash FROM content_state');

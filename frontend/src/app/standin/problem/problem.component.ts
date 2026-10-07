@@ -16,7 +16,6 @@ const ENGLISH: Record<string, string> = {
   'error.database_unavailable': 'The database is not reachable.',
   'error.server_error': 'Something went wrong on the server.',
   'error.not_up_to_date': 'The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.',
-  'boot.problem.migrations': 'Open the Migrations page',
 };
 
 /**
@@ -29,10 +28,9 @@ const ENGLISH: Record<string, string> = {
  * English whatever the page is in (`lang="en"`).
  *
  * Try again loads the page afresh: only a page load changes this state. A
- * database update waiting (not_up_to_date) gives an administrator a link to
- * the admin panel's Migrations page, where they apply it — a page load too,
- * and that page starts while the update waits
- * (TranslationService.refused()).
+ * site that is being updated, or not set up, never comes here: the anotoki
+ * library's page stands in for the app then, and has the way to the
+ * Migrations page for an administrator (core/site-status.config.ts).
  */
 @Component({
   selector: 'app-problem',
@@ -55,12 +53,6 @@ export class ProblemComponent {
     return problem && problem.kind !== 'offline' ? problem.detail : null;
   });
   readonly tryAgain = computed(() => keptWord(this.i18n, 'common.tryAgain', 'Try again'));
-  /** For an administrator, while a database update waits for them: the way to apply it. */
-  readonly migrations = computed(() => {
-    const problem = this.auth.problem();
-    const waiting = problem?.kind === 'server' && problem.code === 'not_up_to_date';
-    return waiting && this.auth.isAdmin() ? keptWord(this.i18n, 'boot.problem.migrations', ENGLISH['boot.problem.migrations']) : null;
-  });
 
   retry(): void {
     location.reload();

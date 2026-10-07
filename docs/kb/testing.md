@@ -76,12 +76,12 @@ named after a stand-in asks the stand-in (`GET
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 235 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.1+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 247 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 657 tests in 46 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (the problem page, a learner's, an EDITOR's everywhere and an ADMIN's with its link, the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 173 checks | ~4 min |
-| `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each: 41 checks | ~1 min |
-| `node frontend/e2e/screens.js [filter]` | 21 screens × light/dark/phone and Slovak phone light/dark (105 shots; a visitor's home among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 667 tests in 44 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (the anotoki library's page for a visitor, a learner and an EDITOR everywhere, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 178 checks | ~4 min |
+| `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
+| `node frontend/e2e/screens.js [filter]` | 23 screens × light/dark/phone and Slovak phone light/dark (115 shots; a visitor's home and the library's update-waiting page among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
 The browser suites run against the production build: build it first with
 `node frontend/scripts/ensure-build.mjs` (it builds only when the sources
@@ -178,9 +178,11 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
 - `api/errors.test.php` — what a failure says: its sentence, its code, and
   its reason (`detail`) only under PHP's built-in server — a database that
   cannot be reached (`database_unavailable`), anything else (`server_error`),
-  a migration waiting for an administrator (`not_up_to_date`, which files
-  to this computer only), 404 and 405 keeping their codes; and
-  once for real, a server whose database is not there.
+  a migration waiting for an administrator (the anotoki library's 503
+  `update_pending`, the same everywhere: no file named, nothing logged, with
+  the app's own headers), 404 and 405 keeping their codes; and
+  once for real, a server whose database is not there (and
+  `/api/site-status` saying `unavailable`, never the setup page).
 - `api/kanji-api.test.php` — learn / review / practice / notes / settings /
   reset through HTTP, moving the clock by editing the test database;
   every answer in `srs_log`, every row the signed-in person's; the day's
@@ -356,7 +358,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   the upload (what it holds and leaves out: nothing beside `public/` and
   `backend/`, the study content in `backend/data/`, no `router.php`; `--list`
   has every clip), served as
-  Apache serves it (`.ht*` files refused), closed before the setup page runs,
+  Apache serves it (`.ht*` files refused), closed before the setup page runs
+  (the anotoki library's 503 `not_set_up` with the way to the setup page, to
+  every address; `/api/site-status` answered),
   the setup page as a website's (the token written whole — a half-written
   token file replaced, nothing left beside it — and no form passing without
   it, nor anything going on when it cannot be written; a field or cookie sent
@@ -371,13 +375,18 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   their IAM user id through `PUT /api/me/data`, the zone of that request
   kept), the installed site signed into with test tokens,
   and later uploads: a new migration left alone while it lacks its last line
-  ("whole": false on the Migrations page), then, whole, waiting: every
-  address with data 503 `not_up_to_date` (which file to this computer), the
-  bundle of words too, nothing applied by a request; the Migrations page's
-  addresses an ADMIN's alone (a learner 403 `staff_only`, an EDITOR
+  (a draft, `"ready": false`, on the Migrations page; the site going on and
+  ready), then, whole, waiting: `update_pending` to anybody at
+  `/api/site-status`, every other address 503 `update_pending` with
+  `Retry-After: 60` to an administrator and to nobody alike — but the open
+  ones: how to sign in, the words, the health check, the clips —, nothing
+  applied by a request; the Migrations page's
+  addresses (the list, a file's SQL, Apply) an ADMIN's alone, from the token
+  (a learner 403 `staff_only`, an EDITOR
   `admin_only`, nobody 401), listing it pending and the rest applied with
-  when, 409 `busy` while the lock stays held past the wait, then Apply: applied after a raw
-  copy (its name in the answer), the content rebuilt by the next request,
+  when (ISO 8601, UTC), a file's SQL and no other file's, 409 `busy` at once
+  while another holds the lock, then Apply: applied after a raw
+  copy (its file named in the note), ready, the content rebuilt by the next request,
   Apply again "nothing"; one that fails on Apply (the one before it applied,
   the failed one rolled back whole and named with PostgreSQL's words, the
   site waiting at every try, a copy only when the tables changed, the fixed
@@ -385,11 +394,36 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   before the token or after (an empty password keeping the saved one), and
   taking the raw copy before it migrates; and the update that
   brings 004 while it has not arrived whole: the bundle 503
-  `not_up_to_date`, nothing logged, the rest of the site going on. Its test
+  `not_up_to_date`, nothing logged, the rest of the site going on; and,
+  installed, its settings gone: every address "not available", never the
+  setup page (`installed` true, no `setup`), ready again with them back. Its test
   migrations are numbered 901–904, out of the way of the real ones, and
   `backend/translations.php` must stay out of the upload.
+- `api/site-state.test.php` — where the site stands and what it answers,
+  on a database that starts empty (every migration waits): `update_pending`
+  at `/api/site-status`, to anybody — whatever the IAM says about signing in
+  here (required, not, no answer) and whatever the browser sends (nothing, a
+  visitor key nobody knows, a token that is no good or ran out); every
+  address but the open ones 503 `update_pending` with `Retry-After: 60` to a
+  visitor, a learner and an administrator alike, the open ones answering as
+  they would; crafted paths that only look like open ones (sent as written:
+  `/api/admin/migrations/../x`, `%2e%2e`, `%2F`, a trailing `%0A`, under the
+  words', the clips', the health check's and how to sign in's addresses too)
+  503 like any other, to an administrator too, while the Migrations page's
+  three answer, a trailing slash and all; the Migrations page an administrator's from the token alone
+  (nobody 401, a learner and an editor 403, no row written), its Apply
+  building the database from nothing; then ready, the study addresses
+  refusing nobody with 401 where sign-in is required, and the status still
+  answered to anybody.
+- `api/build.test.php` — the library's engine on a database built from
+  nothing (each file in a transaction of its own, listed in this site's
+  `migrations` table, its shape as ever), and `manage.php` on it: `--check`
+  says what is left, `--sync` builds the content and applies a migration
+  that waits first.
 - `api/setup.test.php` — the setup page on the owner's computer: before it is
-  set up the API says so (and to this computer why); the page from this
+  set up every address says so, the anotoki library's way, with the way to
+  the setup page (this computer's copy is never installed), and
+  `/api/site-status` answers; the page from this
   computer (no token, the nonce cookie `HttpOnly` and `SameSite=Strict`, the
   database and the IAM and no other field, the defaults `anotoki_japanese`,
   5432, `postgres`, `http://localhost:4300`, `japanese-academy`, the button
@@ -414,13 +448,16 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   every database but the tests' (`db_migration_drafts_allowed()`: never
   `anotoki_japanese_academy` or any name that is not `academy_test_…`, never
   without its name in `ACADEMY_MIGRATION_DRAFTS`, and the tests name exactly
-  the drafts there are); the stamp stored with the content is the one from
-  before the build, so a request after it looks again; the lock every way of
-  applying takes (the Migrations page's Apply, and `upkeep_migrate()` for the
-  setup page and `manage.php`): 409 `busy` after the wait while another
-  connection holds it, and, held by another process for a moment (as a
-  request that looks holds it), waited for and then done, the session's
-  `lock_timeout` as it was; and an Apply that fails, outside PHP's built-in
+  the drafts there are); the engine as this site has it (`db_migrator()`:
+  the `migrations` table as it is, one set, each file whole in one exec,
+  under the upkeep's lock); the stamp stored with the content is the one from
+  before the build, so a request after it looks again; one apply at a time:
+  while another holds the upkeep's lock (an Apply, the setup page,
+  `manage.php`, the content's rebuild) every way of applying — the
+  Migrations page's Apply 409 `busy`, `upkeep_migrate()` for the setup page
+  and `manage.php` — says so at once and applies nothing; while a migration
+  waits for its Apply a request builds nothing, saves no stamp and does not
+  wait for the lock an Apply holds; and an Apply that fails, outside PHP's built-in
   server (as a website answers): its `error` is PostgreSQL's own words, and
   the error log has them too.
 
@@ -439,7 +476,8 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   again after a move into the account that finished later.
 - `core/auth/auth.interceptor.spec.ts` — the token and `X-Time-Zone` (the
   browser's IANA name, `Asia/Tokyo` when it says so; no header when it names
-  none) to this site's API and reports only, never to the IAM; one retry with
+  none) to this site's API and reports only, never to the IAM nor to where
+  the site stands (`/api/site-status`, nobody's); one retry with
   a fresh token after a 401 — never as somebody else, and with the zone —,
   the session over when there is none. A person's request with no token is
   **never sent** (a 401 `sign_in_required` of its own; no visitor made, even
@@ -460,7 +498,10 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - `core/auth/auth.service.spec.ts` — the settings without a mode (asked with
   the zone), nobody signed in (no token, no card: the guard goes to the IAM),
   the roles (EDITOR staff, ADMIN staff and admin, a stale MEMBER nothing), not
-  set up (with the reason, at start or from a later answer), a server that
+  set up (at start or from a later answer: nothing of the app goes on,
+  `SiteStatus` told, the setup page offered only while never installed),
+  being updated said by a later answer (`SiteStatus` told, the sign-in going
+  on), a server that
   does not answer or refuses; and with the real SDK, other tabs played by
   `storage` events: somebody else signing in loads the page again, the same
   person back or a refreshed token does not (a sign-out while open draws the
@@ -485,7 +526,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - `core/auth/sign-in.guard.spec.ts` — signed in, every page; signed out, to
   the IAM in the reader's language and back to the very address, nothing
   navigated; after a failed sign-in, or one that cannot start, through to the
-  card with no second trip; nothing while the app cannot run; the callback
+  card with no second trip; nothing while the app cannot run; while the site
+  is being updated (or not ready at all) nobody sent to the IAM — the page let
+  through and the address kept for the library page's Sign in; the callback
   left alone; visiting, every learner page, and `/admin` to the IAM
   (`adminSignInGuard`) — or home after a refused sign-in.
 - `core/auth/sign-out.service.spec.ts` — signing out waits for the saves on
@@ -497,8 +540,10 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   `session.component.spec.ts`: an answer whose save failed before Sign out,
   shown nowhere yet, makes it ask — once — until the summary has it).
 - `core/api/not-set-up.interceptor.spec.ts` — any answer 503 `not_set_up`
-  from this site puts up the "not set up yet" page (with the reason when
-  given); other failures, and other hosts' answers, change nothing.
+  from this site stops the app, and the anotoki library's page takes its
+  place (never the setup page for a site installed once); other failures —
+  a site being updated too: the library's gate stands in and the sign-in goes
+  on —, and other hosts' answers, change nothing of the app's.
 - `app.routes.spec.ts` — every learner page behind `signInGuard` (the
   callback not), `/kanji` and `/exam` behind `whenReady`; the admin split:
   ADMIN opens Translations, Languages and People, EDITOR Translations alone
@@ -512,7 +557,8 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   page's language (through the SDK's own callback).
 - `core/auth/private-links.service.spec.ts` — `lockDown()` puts the no-script
   policy before anything of a report's; a download's file name; a visitor's
-  report with the key, an unknown key forgotten.
+  report with the key, an unknown key forgotten; while the site is being
+  updated (or not set up after all) the waiting tab closed and no dialog.
 - `home/your-data/your-data.component.spec.ts` — `readDataFile()` (one
   person, the caller's part of several, `several_people`, `not_a_data_file`);
   the zone line; Download through the sign-in's fetch under the server's
@@ -528,7 +574,10 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - `core/i18n/translation.service.spec.ts` — which language a page takes
   (`?lang=` for the tab, the choice, the token's `locale`, the browser's — a
   Czech browser Slovak —, English), when the server is asked, a bundle
-  answered 503 changing what the app shows instead of leaving a page of keys,
+  answered 503 changing what the app shows instead of leaving a page of keys
+  (`not_set_up`: nothing goes on; `update_pending`, or any 503 while the
+  site is being updated: `SiteStatus` told and the library's page standing
+  in, never the problem page, for everybody, in the admin panel or not),
   the cached bundle and its refresh; the account's date order and clock
   (`dateFormat()`, `timeFormat()`); for an account that sends its
   preferences, its language over the device's choice (`stored` after the
@@ -549,12 +598,30 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   `preferencesFailure()`),
   `language-chooser.component.spec.ts` (the chooser and its keys; signed in,
   the choice saved to the account too, a visitor's not),
-  `core/boot.spec.ts` (the start, in order, in every state — the move before
+  `core/boot.spec.ts` (the start, in order, in every state — where the site
+  stands first; not set up or out of reach, nothing more asked; an update
+  waiting, the start going on as ever, never the problem page, whatever the
+  words answer; the move before
   the words, 5 s at most, visiting; the title
-  strategy; `keptWord()`), `app.component.spec.ts` (the bar first and the
+  strategy — the app's name alone while the library's page stands in;
+  `keptWord()`), `app.component.spec.ts` (the bar first and the
   foot last in every state, with and without strings; nothing drawn on the
   way to the IAM, the card after a session ended or a failed sign-in; a
-  visitor's app, and a refused sign-in said above it until closed);
+  visitor's app, and a refused sign-in said above it until closed; the
+  library's page: not set up with the way to the setup page, installed once
+  "not available right now" without it; while an update waits, a visitor's
+  "The site is being updated" with no error, no code, no setup or migrations
+  button and a quiet Sign in — this app's own, back to the page —, in
+  Slovak too, a learner's and an editor's with no button at all, and the
+  ADMIN's "A database update is waiting" and the way to the Migrations page,
+  which opens, alone of the app's pages);
+  `admin/migrations/migrations.component.spec.ts` (the library's page in the
+  panel's frame, English whatever the learner reads: a draft shown as one,
+  the dates in the administrator's own order, Apply asked first, what was
+  applied and the copy's note, the site running again and its words asked for
+  anew; for anybody but the ADMIN only whose page it is, nothing asked —
+  the page's own cases, a failure's words and `busy`, are the library's tests
+  and the browser suite's);
   `home.component.spec.ts` and `kanji/dashboard` (the visitor notice and its
   days, no Your data for a visitor, Sign in waiting for the saves and asking
   about an open paper, the notes after a move, the page loaded again; the
@@ -582,11 +649,22 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   chosen, the Tab rule, signed out; the desktop bar from 761 px; **a crossing
   of 760 px closes the open menu**; Sign out waiting (spinner, "Saving…")
   and asking over an open paper; Escape on any of its controls puts the
-  theme switch's refusal line away. `exam.component.spec.ts` and
+  theme switch's refusal line away; while the site is being updated no
+  section and no Admin panel (all of it back once it is ready), and the
+  ADMIN on the Migrations page that link alone (an editor nothing).
+  `exam.component.spec.ts` and
   `session.component.spec.ts` press Enter, Space and the paper's / the
   card's keys on every control of the real bar over an open paper (a spoken
   last question: nothing chosen, played or handed in) and a review (nothing
   checked), then the same keys on the page doing their work.
+  `exam.component.spec.ts` also: while the site is being updated, a hand-in
+  refused (503 `update_pending`) with no dialog and the paper kept for the
+  tab as it is; the site stopping keeps an open paper at once, and the
+  paper off the page hears no key; left while the site is not ready it stays
+  kept, left while it is ready it goes; put back when the exam opens again —
+  its question, answers, flags, name and clock, then handed in with its spec
+  and start — for the person it was kept for alone; a kept paper of somebody
+  else's, or one that is not a paper, gone.
   `ui/theme-toggle/theme-toggle.component.spec.ts` (the three choices,
   `data-theme` and the device's choice, the arrow keys, English in the admin
   area; signed in, the account's theme over the device's and kept for the
@@ -608,8 +686,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - Every screen's component in English and Slovak: home, exam, the kanji
   shell, dashboard, lessons, practice, session, summary, browse, item, the
   tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
-  with its `lang`), the stand-in pages (`kept-around.spec.ts`,
-  `problem.component.spec.ts`).
+  with its `lang`), the stand-in page (`problem.component.spec.ts`: what
+  happened and Try again, never a way to the Migrations page — the
+  library's page has it).
 - `core/format.spec.ts` (times, dates, counts in words: "1 attempt", in the
   language's locale; a signed-in person's own date order — the four — and
   clock, 24 hours or 12 with the language's am and pm, side by side in a
@@ -617,8 +696,7 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   moment),
   `core/changelog/app-version.component.spec.ts` (the
   foot: the version, "What's new" and its dot until the news is read, the
-  dialog),
-  `standin/not-set-up/not-set-up.component.spec.ts`.
+  dialog).
 
 A spec gets its strings from `core/testing/test-translations.ts`
 (`provideTestTranslations()`): the real `TranslationService` with the
@@ -632,7 +710,7 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   First a deep link opened signed out (`/kanji/reviews`): straight to the
   IAM and back to that address, with nothing of the app drawn (a
   `MutationObserver` notes any `<main>` while no session is kept) and no API
-  asked on the way but the config and the words; then a refused sign-in
+  asked on the way but where the site stands, the config and the words; then a refused sign-in
   (`iamState({ deny: true })`): the Sign in card with its sentence, and its
   button signing in once the IAM lets them. Then the study flow as that
   learner: types answers like a person (romaji readings, one miss on
@@ -665,8 +743,9 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   the card; the tokens gone. Reports fetched with the token (opened from
   memory, with its no-script policy, and reports made to get round it — a
   script before `<head>`, a no-break space before the doctype — running
-  nothing); the token on every API call and on nothing else (the words and the
-  config go without one, the IAM never gets it), and `X-Time-Zone` the
+  nothing); the token on every API call and on nothing else (the words, the
+  config and where the site stands go without one — the last with no key
+  either —, the IAM never gets it), and `X-Time-Zone` the
   browser's on every call to this site and never to the IAM; then a sign-in
   in another tab starting the app, and somebody else's there loading the page
   again, as them. **The admin panel**: an ADMIN signs in on `/?lang=sk` (that
@@ -680,7 +759,23 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   touched). An EDITOR: Translations only, `/admin/people` and
   `/admin/languages` by address go home, the API answers 403 `admin_only`; a
   learner has no Admin item, `/admin` goes home, the API answers 403
-  `staff_only`. **Time zones**: a browser on Pacific/Kiritimati (UTC+14) and
+  `staff_only`. **A migration waiting** (a file put whole into the run's
+  copy): every address with data 503 `update_pending` with `Retry-After`,
+  nothing applied by a request; a visitor (nobody signed in) reads the
+  anotoki library's "The site is being updated" — no error, no code, no setup
+  or migrations button, a quiet Sign in and no trip to the IAM; a signed-in
+  learner the same page with no button at all; an EDITOR the same at `/`,
+  `/admin/migrations` and `/admin/translations`, with no way to the
+  Migrations page; then **an administrator who is signed out** (no session
+  planted: the trip itself is what is tried) gets the visitors' page, its
+  Sign in goes to the IAM and back to the same page, signed in, "A database
+  update is waiting" and the way to the Migrations page, which opens while
+  it waits (the file pending, the rest applied); Apply asks first, a
+  migration that fails stops at its file with PostgreSQL's words and nothing
+  applied, the fixed file then applies (up to date, nothing pending), and
+  the menu leads back to the app with its words and no page load; the app
+  back for everybody, the Migrations page's addresses 403 `admin_only` to an
+  EDITOR. **Time zones**: a browser on Pacific/Kiritimati (UTC+14) and
   one on Pacific/Pago_Pago (UTC-11) — never the same day — each sees its own
   today's count on the dashboard, and the server keeps the zone; the second
   in Slovak: no key-shaped text on the learner's pages, in the person's menu,
@@ -706,7 +801,8 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   app logged (a key with no string warns), or failed request.
 - `setup.js` — the setup page on a built upload with the real app (the draft
   migration let in by `--allow-draft`, as the tests alone may) and a stand-in
-  IAM that signs people in: the "not set up yet" page and both forms in light,
+  IAM that signs people in: the anotoki library's "This site is not set up
+  yet" page (with the way to the setup page: never installed) and both forms in light,
   dark and phone layouts (no overflow); from this computer no token, the
   database and the IAM and nothing else (`nonce`, `db_*`, `issuer`,
   `client_id`), the family's defaults (`anotoki_japanese`, 5432, `postgres`,
@@ -723,13 +819,18 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   after it**, Enter in the token checking it (and sending no form), the
   buttons wanting it too, a pasted token checked at once ("That is the
   token.", and no more), Save with the fields filled in again: the lock, the
-  page and its token gone, the app signing in through the IAM.
+  page and its token gone, the app signing in through the IAM; then,
+  installed, its settings gone: the library's "The site is not available
+  right now", asking again by itself — never the setup page.
 - `screens.js` — everybody signed in (a planted session of an ADMIN): the
   home page, every kanji screen (with a review answered wrongly and its item
   info open), the exam's three screens, the changelog, Your data's question,
   the bar's menu open (the person's on a desktop, the one menu on a phone), the
   Sign in card (a refused sign-in), a visitor's home with its notice (sign-in
-  not required, nobody signed in) and the admin panel's four pages: 21
+  not required, nobody signed in), the admin panel's four pages, and the
+  anotoki library's page while a database update waits, as a learner reads it
+  and as the site's ADMIN does (a migration taken off the list for it, and put
+  back): 23
   screens in light, dark and phone, each checked for key-shaped text,
   overflow and what the reviews found by eye (`looks()`: People's zone on one
   line and Delete data in view, the What's new dot beside its words, Your
@@ -810,7 +911,9 @@ after `node frontend/scripts/ensure-build.mjs`.
 - `[auth] a token was refused: …` in a server's log is the sign-in tests at
   work: they send bad tokens on purpose.
 - The setup suite's "not set up" pages answer `/api/auth/config` with 503: that
-  is what they are for, and its error check ignores it.
+  is what they are for, and its error check ignores it. So do the browser
+  suite's pages while a migration waits (503 `update_pending`, the
+  "waiting answers" its error check leaves out).
 - `[i18n] no string for …` in a browser suite is a failure, not noise: a key
   the page asks for has no string in the database.
 - The native file picker on the admin panel's Translations page speaks the

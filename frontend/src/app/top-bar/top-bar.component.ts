@@ -2,12 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, Signal, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { SignInService } from '../core/auth/sign-in.service';
 import { SignOutService } from '../core/auth/sign-out.service';
 import { LanguageChooserComponent } from '../core/i18n/language-chooser/language-chooser.component';
 import { isAdminAddress, TranslationService } from '../core/i18n/translation.service';
+import { MIGRATIONS_ROUTE, pagesShut } from '../core/site-status';
 import { ThemeService } from '../core/theme/theme.service';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { keptWord } from '../standin/kept-word';
@@ -130,6 +132,12 @@ type OpenMenu = 'account' | 'phone' | null;
  * (`keydown()`), and handles Escape itself, which no document listener would
  * hear.
  *
+ * While the site is not ready (the anotoki library's SiteStatus: being
+ * updated, not set up, out of reach) its page stands in for the app's under
+ * the bar, and the bar offers no section and no way into the admin panel -
+ * each would lead to that same page. The site's ADMIN on the Migrations page,
+ * the one page that works while an update waits, has that link alone.
+ *
  * Sign out goes through SignOutService: it waits for the answers and notes
  * still on their way (the button's spinner and "Saving…"), and asks first
  * when something would be lost. A visitor's Sign in does the same first
@@ -157,6 +165,7 @@ export class TopBarComponent {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly site = inject(SiteStatus);
 
   private readonly accountButton = viewChild<ElementRef<HTMLButtonElement>>('accountButton');
   private readonly phoneButton = viewChild<ElementRef<HTMLButtonElement>>('phoneButton');
@@ -181,8 +190,14 @@ export class TopBarComponent {
   private readonly here = computed(() => this.path().split(/[?#]/)[0] || '/');
   readonly area = computed(() => (isAdminAddress(this.here()) ? 'admin' : 'app'));
 
-  /** The app can be used: somebody is signed in, or a visitor. Only then are there sections to follow (they load data on the way). */
-  readonly ready = computed(() => this.auth.usable());
+  /**
+   * The app can be used: somebody is signed in, or a visitor, and the anotoki
+   * library's gate does not stand in front of this page (core/site-status.ts).
+   * Only then are there sections to follow (they load data on the way).
+   */
+  readonly ready = computed(() => this.auth.usable() && !pagesShut(this.site, () => this.auth.isAdmin(), this.here()));
+  /** The way into the admin panel, for EDITOR and ADMIN: not while the site is not ready (the panel would be the library's page too). */
+  readonly adminOffered = computed(() => this.auth.isStaff() && !this.site.blocked());
   /** Who is signed in, while the app is theirs (never a visitor). */
   readonly person = computed(() => (this.auth.signedIn() ? this.auth.user() : null));
   /** Sign in is offered: signed out with the Sign in card on the page (any other time the browser is on its way to the IAM), or visiting. */
@@ -191,7 +206,9 @@ export class TopBarComponent {
     if (!this.ready()) {
       return [];
     }
-    return (this.area() === 'admin' ? ADMIN_LINKS : APP_LINKS).filter((link) => !link.adminOnly || this.auth.isAdmin());
+    const links = (this.area() === 'admin' ? ADMIN_LINKS : APP_LINKS).filter((link) => !link.adminOnly || this.auth.isAdmin());
+    // While an update waits the Migrations page is the ADMIN's one page: the others would be the library's again.
+    return this.site.blocked() ? links.filter((link) => link.path === MIGRATIONS_ROUTE) : links;
   });
   /** The language chooser: where the learner's pages are (the admin area is English). It hides itself with fewer than two languages. */
   readonly chooser = computed(() => this.area() === 'app');

@@ -11,8 +11,6 @@ import {
   ExamResult,
   ExamSpec,
   ItemPatch,
-  MigrationsApplyResult,
-  MigrationsStatus,
   Person,
   Progress,
   Settings,
@@ -159,9 +157,10 @@ export class ApiService {
     );
   }
 
-  /* ------------------------------ the admin panel: words, languages, people, migrations */
-  // EDITOR and ADMIN: the words; ADMIN alone: the languages' changes, the people and the migrations
-  // (backend/api/middleware/staff.php). The pages only hide what the server refuses.
+  /* ------------------------------ the admin panel: words, languages, people */
+  // EDITOR and ADMIN: the words; ADMIN alone: the languages' changes and the people
+  // (backend/api/middleware/staff.php). The pages only hide what the server refuses. (The Migrations
+  // page is the anotoki library's, which asks its own addresses: core/site-status.config.ts.)
 
   languages(): Promise<AdminLanguage[]> {
     return this.call(this.http.get<{ languages: AdminLanguage[] }>('/api/admin/languages', { context: AS_PERSON })).then((r) => r.languages);
@@ -211,16 +210,6 @@ export class ApiService {
   /** How many visitors the site keeps now, the oldest seen when, and its limits (ADMIN): the People page's line. */
   visitors(): Promise<VisitorsCount> {
     return this.call(this.http.get<VisitorsCount>('/api/admin/visitors', { context: AS_PERSON }));
-  }
-
-  /** The migrations applied and pending (ADMIN): answers while one waits, as no other address does. */
-  migrations(): Promise<MigrationsStatus> {
-    return this.call(this.http.get<MigrationsStatus>('/api/admin/migrations', { context: AS_PERSON }));
-  }
-
-  /** Applies the pending ones that are whole, in order, after a raw copy of every table; stops at the first that fails (ADMIN; 409 busy). */
-  applyMigrations(): Promise<MigrationsApplyResult> {
-    return this.call(this.http.post<MigrationsApplyResult>('/api/admin/migrations/apply', {}, { context: AS_PERSON }));
   }
 
   /** The answer, or an ApiError: its status, its code and the server's answer. */

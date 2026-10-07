@@ -1,6 +1,6 @@
 # Environment — the computers it is worked on
 
-Windows 11 PCs. The app needs PHP 8.1+ (with pdo_pgsql, mbstring and intl;
+Windows 11 PCs. The app needs PHP 8.2+ (8.1 until the anotoki library came in, 2026-10-07; with pdo_pgsql, mbstring and intl;
 curl and openssl for the IAM and the audio) and PostgreSQL (13 or newer;
 tested with 18); the frontend and the developer tools need Node.js (22, see
 `frontend/.nvmrc`) and npm, and the browser suites Edge or Chrome. Claude
@@ -19,9 +19,9 @@ nothing may create it. Work on those with throwaway databases
 
 | Thing | What to know |
 |---|---|
-| `php` on PATH | On one PC it is PHP 7.4 (first on PATH in Git Bash, no pdo_pgsql), which can't run the app; on another a PHP 8.5 with its own `php.ini`. `node backend/tools/php.js <script> …` finds a PHP that can run the app (`ACADEMY_PHP`, every `php` on PATH, the usual install folders): use it for the tests (`node backend/tools/php.js backend/tests/run.php`), `manage.php`, `translations.php` and the build tools; the browser suites use it too. `composer start` runs the `php` first on PATH: put a PHP 8.1+ first in that window. The app (`bootstrap.php`) and `backend/manage.php` say so themselves when started with an old PHP |
+| `php` on PATH | On one PC it is PHP 7.4 (first on PATH in Git Bash, no pdo_pgsql), which can't run the app; on another a PHP 8.5 with its own `php.ini`. `node backend/tools/php.js <script> …` finds a PHP that can run the app (`ACADEMY_PHP`, every `php` on PATH, the usual install folders): use it for the tests (`node backend/tools/php.js backend/tests/run.php`), `manage.php`, `translations.php` and the build tools; the browser suites use it too. `composer start` runs the `php` first on PATH: put a PHP 8.2+ first in that window. The app (`bootstrap.php`) and `backend/manage.php` say so themselves when started with an old PHP |
 | PostgreSQL's port | 5432 on one PC, 5433 on another. It lives in this copy's settings (`backend/config/database.local.php`); the setup page asks for it and **Test connection** tries it |
-| The owner's editor | Checks PHP with a 7.4: the code stays parseable by 7.4 on purpose (no constructor promotion, no `throw` expressions, …), so it shows no false errors; it still needs 8.1 to run. There may be no 7.4 to try it with: `backend/tests/unit/php74-syntax.test.php` checks it with PHP's tokenizer |
+| The owner's editor | Checks PHP with a 7.4: the code stays parseable by 7.4 on purpose (no constructor promotion, no `throw` expressions, …), so it shows no false errors; it still needs 8.2 to run (the anotoki library, in `backend/vendor/`, is 8.2 code). There may be no 7.4 to try it with: `backend/tests/unit/php74-syntax.test.php` checks it with PHP's tokenizer |
 | Ports | 4200-4700 and 8000-8500 are the anotoki sites' (genshin 4200/8000, the IAM 4300/8100, Piano 4500/8300, the build analyzer 4600/8400, the survey 4700/8500): don't start anything there. This app: 8200 (the backend, `composer start`) and 4400 (`ng serve`); throwaway servers on 8590-8599 |
 
 ## Pitfalls met so far, and what works

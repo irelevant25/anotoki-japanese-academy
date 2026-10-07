@@ -1,10 +1,12 @@
-import { ApplicationRef, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
+import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentProviders, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router, Routes } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { AppComponent } from './app.component';
 import { AuthService } from './core/auth/auth.service';
 import { ChangelogService } from './core/changelog/changelog.service';
 import { TranslationService } from './core/i18n/translation.service';
+import { provideTestSiteStatus } from './core/testing/site-status';
 import { provideTestTranslations } from './core/testing/test-translations';
 import { KanjiStateService } from './kanji/kanji-state.service';
 
@@ -15,30 +17,45 @@ const SLOVAK = { 'topbar.exam': 'Skúška', 'language.button': 'Jazyk: {name} ({
 const CLIENT = 'academy-test-app';
 const KEY = `anotoki-auth:${CLIENT}`;
 
-/** A signed-in session as the SDK keeps it, for IAM user 7. */
-function session(): string {
+/** A signed-in session as the SDK keeps it, for IAM user 7, with these roles here. */
+function session(roles: string[] = []): string {
   return JSON.stringify({
     access_token: 'token-of-7',
     access_expires_at: Date.now() + 3_600_000,
     refresh_token: 'refresh-of-7',
     id_token: null,
-    user: { sub: '7', preferred_username: 'hana', email: null, email_verified: false, locale: null, roles: [] },
+    user: { sub: '7', preferred_username: 'hana', email: null, email_verified: false, locale: null, roles },
     updated_at: Date.now(),
   });
 }
 
+/** A page of the app, as the router draws it in the outlet. */
+@Component({ selector: 'app-test-page', changeDetection: ChangeDetectionStrategy.OnPush, template: '<p id="a-page">a page</p>' })
+class TestPageComponent {}
+
+/** The admin panel's Migrations page, standing in for the real one (the library's page has a spec of its own). */
+@Component({ selector: 'app-test-migrations', changeDetection: ChangeDetectionStrategy.OnPush, template: '<p id="the-migrations-page">Migrations</p>' })
+class TestMigrationsComponent {}
+
+const ROUTES: Routes = [
+  { path: 'admin/migrations', component: TestMigrationsComponent },
+  { path: '**', component: TestPageComponent },
+];
+
 /**
- * The page around every screen, once the app has started — signed in, unless
- * `signedIn` says not — with this many reviews due; `config`: more of what
- * the server relays (loginRequired false: sign-in not required here).
+ * The page around every screen, once the app has started — signed in (with
+ * these roles), unless `signedIn` says not — with this many reviews due;
+ * `config`: more of what the server relays (loginRequired false: sign-in not
+ * required here). The site's state (SiteStatus) stays 'unknown' — the gate
+ * shows the pages — unless a test tells it otherwise.
  */
-async function draw(providers: Provider[] = [], due = 0, signedIn = true, config: Record<string, unknown> = {}): Promise<HTMLElement> {
+async function draw(providers: (Provider | EnvironmentProviders)[] = [], due = 0, signedIn = true, config: Record<string, unknown> = {}, roles: string[] = []): Promise<HTMLElement> {
   TestBed.configureTestingModule({
-    providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } }, ...providers],
+    providers: [provideZonelessChangeDetection(), provideRouter(ROUTES), provideTestSiteStatus(), { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } }, ...providers],
   });
   TestBed.inject(ChangelogService).load = () => Promise.resolve(); // no version button: it has a spec of its own
   if (signedIn) {
-    localStorage.setItem(KEY, session());
+    localStorage.setItem(KEY, session(roles));
   } else {
     localStorage.removeItem(KEY);
   }
@@ -54,6 +71,13 @@ async function draw(providers: Provider[] = [], due = 0, signedIn = true, config
 function links(el: HTMLElement): (string | undefined)[] {
   return Array.from(el.querySelectorAll('app-top-bar .topbar-nav a')).map((a) => a.textContent?.replace(/\s+/g, ' ').trim());
 }
+
+/** The words of an element, its white space folded. */
+function words(el: Element | null | undefined): string {
+  return el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+}
+
+const settle = () => TestBed.inject(ApplicationRef).whenStable();
 
 describe('AppComponent: the bar above, the foot below — in every state', () => {
   const realFetch = globalThis.fetch;
@@ -86,14 +110,106 @@ describe('AppComponent: the bar above, the foot below — in every state', () =>
     expect(links(el)).toEqual(['Kanji 125', 'Exam']);
   });
 
-  it('the sections show only while the app can be used: a copy that is not set up has the bar, the foot and nothing to follow', async () => {
+  it('the sections show only while the app can be used: a copy that is not set up has the bar, the foot and the library’s page — never installed, with the way to the setup page', async () => {
     const el = await draw();
-    TestBed.inject(AuthService).notSetUp(null);
-    await TestBed.inject(ApplicationRef).whenStable();
+    TestBed.inject(AuthService).notSetUp(false);
+    await settle();
     expect(links(el)).toEqual([]);
-    expect(el.querySelector('#not-set-up')).not.toBeNull();
+    expect(words(el.querySelector('anotoki-site-status h1'))).toBe('This site is not set up yet');
+    expect(el.querySelector('anotoki-site-status a[href="/setup.php"]')?.textContent?.trim()).toBe('Open the setup page');
+    expect(el.querySelector('router-outlet')).toBeNull();
     expect(el.querySelector('app-top-bar app-brand')).not.toBeNull();
     expect(el.querySelector('footer app-version')).not.toBeNull();
+  });
+
+  it('a site that was installed once and lost its settings: “not available right now” — never the setup page', async () => {
+    const el = await draw();
+    TestBed.inject(AuthService).notSetUp(true);
+    await settle();
+    expect(words(el.querySelector('anotoki-site-status h1'))).toBe('The site is not available right now');
+    expect(el.querySelector('anotoki-site-status a[href="/setup.php"]')).toBeNull();
+    expect(words(el.querySelector('anotoki-site-status')).includes('setup'), words(el.querySelector('anotoki-site-status'))).toBe(false);
+  });
+});
+
+describe('AppComponent: while a database update waits', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    localStorage.removeItem(KEY);
+    vi.restoreAllMocks();
+  });
+
+  /** The library's page: its heading, and every button and link on it. */
+  function statusPage(el: HTMLElement): { title: string; text: string; actions: string[] } {
+    const page = el.querySelector('anotoki-site-status');
+    return {
+      title: words(page?.querySelector('h1')),
+      text: words(page),
+      actions: Array.from(page?.querySelectorAll('a, button') ?? [], (action) => words(action)),
+    };
+  }
+
+  it('a visitor (nobody signed in): “The site is being updated” — no error, no code, no setup or migrations button; a quiet Sign in, this app’s own', async () => {
+    const el = await draw([], 0, false);
+    TestBed.inject(SiteStatus).report('update_pending');
+    await settle();
+    const page = statusPage(el);
+    expect(page.title).toBe('The site is being updated');
+    expect(page.actions).toEqual(['Sign in']);
+    expect(page.text).not.toMatch(/error|update_pending|503|setup|Migrations/i);
+    expect(el.querySelector('#signin, app-problem, router-outlet')).toBeNull();
+    // The quiet Sign in is this app's: to the IAM, in the language read here, and back to this page (AuthService.askedFor).
+    const login = vi.spyOn(TestBed.inject(AuthService), 'login').mockResolvedValue(true);
+    el.querySelector<HTMLButtonElement>('anotoki-site-status button')!.click();
+    await vi.waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+  });
+
+  it('in the reader’s language: Slovak', async () => {
+    const el = await draw([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })], 0, false);
+    TestBed.inject(SiteStatus).report('update_pending');
+    await settle();
+    expect(statusPage(el).title).toBe('Stránku práve aktualizujeme');
+    expect(statusPage(el).actions).toEqual(['Prihlásiť sa']);
+    expect(el.querySelector('anotoki-site-status [lang]')?.getAttribute('lang')).toBe('sk');
+  });
+
+  it('a signed-in learner, and an editor: the same page, and no button at all', async () => {
+    for (const roles of [[], ['EDITOR']]) {
+      const el = await draw([], 0, true, {}, roles);
+      TestBed.inject(SiteStatus).report('update_pending');
+      await settle();
+      const page = statusPage(el);
+      expect([page.title, page.actions], roles.join() || 'a learner').toEqual(['The site is being updated', []]);
+      expect(page.text).not.toMatch(/error|update_pending|setup|Migrations/i);
+      TestBed.resetTestingModule();
+      localStorage.removeItem(KEY);
+    }
+  });
+
+  it('the site’s ADMIN: “A database update is waiting”, and the way to the Migrations page - which opens, alone of the app’s pages', async () => {
+    const el = await draw([], 0, true, {}, ['ADMIN']);
+    await TestBed.inject(Router).navigateByUrl('/kanji');
+    TestBed.inject(SiteStatus).report('update_pending');
+    await settle();
+    expect(statusPage(el).title).toBe('A database update is waiting');
+    expect(statusPage(el).actions).toEqual(['Open Migrations']);
+    expect(el.querySelector('#a-page')).toBeNull();
+
+    el.querySelector<HTMLAnchorElement>('anotoki-site-status a')!.click();
+    await vi.waitFor(async () => {
+      await settle();
+      expect(el.querySelector('#the-migrations-page')).not.toBeNull();
+    });
+    expect(TestBed.inject(Router).url).toBe('/admin/migrations');
+    expect(el.querySelector('anotoki-site-status')).toBeNull();
+
+    // Anywhere else, the page again.
+    await TestBed.inject(Router).navigateByUrl('/exam');
+    await settle();
+    expect(statusPage(el).title).toBe('A database update is waiting');
+    expect(el.querySelector('#a-page')).toBeNull();
   });
 });
 

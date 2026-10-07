@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Route, Router, provideRouter } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { adminOnly, routes, staffOnly, whenReady } from './app.routes';
 import { AppState, AuthService, SignInFailure } from './core/auth/auth.service';
 import { adminSignInGuard, signInGuard } from './core/auth/sign-in.guard';
@@ -52,7 +53,14 @@ describe('the routes, navigated', () => {
     roles.set([]);
     auth.login.mockReset().mockResolvedValue(true);
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideRouter(routes), provideTestTranslations(), { provide: AuthService, useValue: auth }],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter(routes),
+        provideTestTranslations(),
+        { provide: AuthService, useValue: auth },
+        // the site ready (the anotoki library's SiteStatus): the guards as they are every day
+        { provide: SiteStatus, useValue: { blocked: () => false } },
+      ],
     });
   });
 

@@ -43,7 +43,7 @@ git history.
 
 You need:
 
-- **PHP 8.1 or newer** with the extensions `pdo_pgsql`, `mbstring` and `intl`
+- **PHP 8.2 or newer** with the extensions `pdo_pgsql`, `mbstring` and `intl`
   (and `curl` and `openssl`, to test the sign-in's address and to make audio),
   first on PATH where you start the backend, and **Composer** for its start
   command;
@@ -72,10 +72,12 @@ way every anotoki site runs on a computer:
    change the settings. It never shows the password; left empty, the saved one
    stays.
 
-Nothing happens when the backend starts: the first page you open brings the
-database up to date (after a copy of every table), rebuilds the study content
-when it changed, and takes the day's backup. The backend also serves the last
-build of the app on 8200 (`npm run build` in `frontend/`).
+Nothing happens when the backend starts: the first page you open rebuilds the
+study content when it changed, and takes the day's backup. A new database
+change (a migration) is never applied by itself: until an `ADMIN` applies it
+on the admin panel's **Migrations** page, the site says it is being updated
+(*Languages* below says how). The backend also serves the last build of the
+app on 8200 (`npm run build` in `frontend/`).
 
 The app only listens on this computer (localhost): other devices on your
 network can't reach it.
@@ -85,7 +87,7 @@ network can't reach it.
 A copy set up by an earlier version keeps working: what its setup page wrote
 besides the database and the IAM (the sign-in mode, your user id, the time
 zone) is simply not read any more. A copy that was set up without sign-in
-says "not set up yet": open the setup page and **Save** once, with the IAM.
+says "This site is not set up yet": open the setup page and **Save** once, with the IAM.
 An old `src/config.local.php` at the top of the folder is not read either:
 delete it whenever you like.
 
@@ -291,10 +293,18 @@ strings: export from one and import into the other to carry a change over.
 each has come, and deletes a person's data after asking (a copy of it is kept
 on the server first; their account stays).
 **Migrations** (`ADMIN` only) shows the database's migrations, applied and
-pending. A new version that brings one does not apply it by itself: until an
-`ADMIN` presses **Apply pending** there (the server keeps a copy of every
-table first), the app says it is not up to date, and offers an `ADMIN` the
-way to this page.
+pending (a file still being written or uploaded as a "draft", which waits),
+each one's SQL, and **Apply pending**. A new version that brings one does not
+apply it by itself: until an `ADMIN` presses **Apply pending** there (the
+server keeps a copy of every table first, and says which), everybody else
+reads, in their language, that the site is being updated - a calm page that
+asks again by itself and comes back once it is done, with only a quiet
+**Sign in** while nobody is signed in. Signed in as an `ADMIN`, that page
+says "A database update is waiting" instead, with the way to this page, the
+one page that works meanwhile. So an `ADMIN` who is signed out presses
+**Sign in** there, comes back to it, and goes on to the Migrations page. That
+behaviour, and the page itself, are the anotoki library's (`anotoki-lib`, the
+same on every anotoki site; *Development* below).
 A word that shows as its key (`home.intro`) has no string in the database:
 `php backend/translations.php --status` lists them.
 
@@ -331,8 +341,11 @@ The owner's hosting has no shell, so everything goes up by FTP or SFTP:
 Later updates: build again, and upload over the old files. The first request
 afterwards rebuilds the study content. A new database change (a migration)
 waits until an `ADMIN` presses **Apply pending** on the admin panel's
-Migrations page, which takes a copy of every table first; until then the app
-says it is not up to date. `docs/kb/hosting.md` has the whole map.
+Migrations page, which takes a copy of every table first; until then the site
+tells everybody it is being updated (an `ADMIN` signs in from that very page).
+Once the setup page has finished on the website, the site never offers it
+again: should its settings go missing, it says it is not available. The
+website needs PHP 8.2 or newer. `docs/kb/hosting.md` has the whole map.
 
 ---
 
@@ -358,7 +371,7 @@ The app's next page load rebuilds the study content in the database.
 ## Layout
 
 ```
-backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL (backend/README.md)
+backend/                   the server: PHP 8.2+, Slim 4, PostgreSQL (backend/README.md)
   router.php               PHP's built-in web server on this computer (composer start): API + built app
   setup.php                the setup page, /setup.php: the database and the IAM, tables, content
   manage.php               command-line helpers: --check, --sync, --backup, --restore
@@ -367,16 +380,16 @@ backend/                   the server: PHP 8.1+, Slim 4, PostgreSQL (backend/REA
   src/                     the app itself: kanji SRS (srs/), exam, content, backups, sign-in, upkeep, the app's words
   config/                  config.php, and this copy's settings (*.local.php, not in git)
   migrations/              the database tables
-  vendor/                  Composer's packages (Slim), committed: a website has no shell to install them
+  vendor/                  Composer's packages (Slim, the anotoki library), committed: a website has no shell to install them
   public/                  index.php and .htaccess, for Apache on a website
   data/                    what the study content is built from, and the audio
   storage/                 the copies of your study data (backups/), the IAM's keys (not in git)
   tests/                   PHP unit and API tests
   tools/                   data and audio builders, the website's upload (build-dist.php),
-                           php.js (finds a PHP 8.1+), the PDF page tool (pdf/, with its own package.json)
+                           php.js (finds a PHP 8.2+), the PDF page tool (pdf/, with its own package.json)
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
-  src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, i18n),
-                           admin/ (Translations, Languages, People), standin/ (sign in, not set up, a problem)
+  src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, i18n, the site's
+                           status), admin/ (Translations, Languages, People, Migrations), standin/ (sign in, a problem)
   public/                  favicon, changelog.json
   e2e/                     the browser suites (Edge, playwright-core)
   scripts/                 ensure-build.mjs (builds when the sources changed), the catalog fixture
@@ -394,3 +407,10 @@ changing anything: where the data came from (with page maps of every book), how
 the SRS, the audio and the exam work, what to test, and why things are the way
 they are. For Claude Code, `CLAUDE.md` holds the project rules, and `.claude/`
 the rest.
+
+The database migrations - applying them, and what the site does while one
+waits - are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
+site; its repository is `../anotoki-lib`, published as
+https://github.com/irelevant25/anotoki-lib): the Composer package
+`anotoki/lib` in `backend/vendor/` and the npm package `@anotoki/lib` in
+`frontend/`. `DEV.md` (*The anotoki library*) says how to update it.

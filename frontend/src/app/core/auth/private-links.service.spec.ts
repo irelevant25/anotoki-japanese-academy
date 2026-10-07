@@ -142,6 +142,17 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     expect(String(alerted.mock.calls[0][0])).not.toContain('SQLSTATE');
   });
 
+  it('the site being updated (or not set up after all): the waiting tab closed, and no dialog — the anotoki library’s page says what is going on', async () => {
+    for (const code of ['update_pending', 'not_set_up']) {
+      answer = () =>
+        Promise.resolve(new Response(JSON.stringify({ code, message: 'The site is being updated. Try again in a few minutes.' }), { status: 503, headers: { 'Content-Type': 'application/json' } }));
+      await TestBed.inject(PrivateLinksService).open('/report/12');
+    }
+    expect(tab.close).toHaveBeenCalledTimes(2);
+    expect(tab.location.replace).not.toHaveBeenCalled();
+    expect(alerted).not.toHaveBeenCalled();
+  });
+
   it('no answer at all: the general sentence on the page, what it was in the console', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     answer = () => Promise.reject(new TypeError('Failed to fetch'));

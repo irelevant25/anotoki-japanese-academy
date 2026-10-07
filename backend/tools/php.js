@@ -7,7 +7,7 @@
  *   node backend/tools/php.js backend/manage.php --check       the helpers, the data and build tools
  *
  * The PHP is the first of ACADEMY_PHP, every php on PATH, and the usual install
- * folders that is PHP 8.1 or newer with pdo_pgsql, mbstring and intl. (Plain
+ * folders that is PHP 8.2 or newer with pdo_pgsql, mbstring and intl. (Plain
  * `php` would take the first on PATH, whatever its version.)
  */
 const fs = require('fs');
@@ -59,7 +59,7 @@ function problem(php) {
     ).trim();
     const [version, missing] = out.split(' ');
     const [major, minor] = version.split('.').map(Number);
-    if (major < 8 || (major === 8 && minor < 1)) return `PHP ${version}: too old`;
+    if (major < 8 || (major === 8 && minor < 2)) return `PHP ${version}: too old`;
     return missing ? `PHP ${version}: no ${missing}` : '';
   } catch (e) {
     return 'does not run';
@@ -76,7 +76,7 @@ function findPhp() {
     tried.push(`${php} (${why})`);
   }
   throw new Error(
-    'No PHP 8.1+ with pdo_pgsql, mbstring and intl found (README → Run it). ' +
+    'No PHP 8.2+ with pdo_pgsql, mbstring and intl found (README → Run it). ' +
       'Set ACADEMY_PHP to its php executable.' +
       (tried.length ? `\n  tried: ${tried.join('\n         ')}` : '')
   );

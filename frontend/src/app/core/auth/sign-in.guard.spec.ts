@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { provideTestTranslations } from '../testing/test-translations';
 import { AppState, AuthService, SignInFailure } from './auth.service';
 import { adminSignInGuard, signInGuard } from './sign-in.guard';
@@ -13,11 +14,14 @@ describe('signInGuard, and adminSignInGuard on the admin panel', () => {
   const failure = signal<SignInFailure | null>(null);
   const askedFor = signal<string | null>(null);
   const auth = { state, signInError: failure, askedFor, login: vi.fn(async (_uiLocales?: string, _returnTo?: string) => true) };
+  /** Whether the site is not ready by the anotoki library's account (SiteStatus.blocked: being updated, say). */
+  const blocked = signal(false);
 
   beforeEach(() => {
     state.set('ready');
     failure.set(null);
     askedFor.set(null);
+    blocked.set(false);
     auth.login.mockReset().mockResolvedValue(true);
     TestBed.configureTestingModule({
       providers: [
@@ -29,6 +33,7 @@ describe('signInGuard, and adminSignInGuard on the admin panel', () => {
         ]),
         provideTestTranslations({}, { language: 'sk' }),
         { provide: AuthService, useValue: auth },
+        { provide: SiteStatus, useValue: { blocked } },
       ],
     });
   });
@@ -123,6 +128,27 @@ describe('signInGuard, and adminSignInGuard on the admin panel', () => {
     expect(TestBed.inject(Router).url).toBe('/');
     expect(auth.login).toHaveBeenCalledTimes(1);
     expect(askedFor(), 'nothing kept for a card a visitor never sees').toBeNull();
+  });
+
+  it('while the site is being updated (or not ready at all): nobody is sent to the IAM — the page is let through, and the address kept for the library page’s quiet Sign in', async () => {
+    blocked.set(true);
+    state.set('signed-out');
+    expect(await go('/kanji/reviews?x=1#top')).toBe(true);
+    expect(askedFor(), 'its Sign in comes back here').toBe('/kanji/reviews?x=1#top');
+    expect(await go('/admin')).toBe(true);
+    expect(askedFor(), 'an administrator who signs in from it comes back to the panel: the Migrations page').toBe('/admin');
+    state.set('visiting');
+    expect(await go('/')).toBe(true);
+    expect(await go('/admin'), 'a visitor too, to the panel: the gate’s page has the Sign in').toBe(true);
+    expect(auth.login, 'nobody was sent to the IAM: the gate’s page stands in front of every page').not.toHaveBeenCalled();
+    // Signed in, as ever; and while the app cannot run, nothing.
+    state.set('ready');
+    expect(await go('/kanji/reviews')).toBe(true);
+    for (const s of ['starting', 'not-set-up', 'problem'] as const) {
+      state.set(s);
+      expect(await go('/kanji/practice'), s).toBe(false);
+    }
+    expect(auth.login).not.toHaveBeenCalled();
   });
 
   it('sends nobody anywhere while the app cannot run — the boot pages are drawn then', async () => {

@@ -12,7 +12,7 @@ node frontend/scripts/ensure-build.mjs   # from the repository's top folder: bui
 node frontend/e2e/screens.js             # every screen, then the room (~10 min)
 node frontend/e2e/screens.js kanji       # only screens whose name contains "kanji"
 node frontend/e2e/screens.js room        # only the top bar: measured at 360-1280 px, and its menus
-node frontend/e2e/setup.js               # the setup page and the "not set up" page, light/dark/phone
+node frontend/e2e/setup.js               # the setup page and the anotoki library's "not set up" page, light/dark/phone
 ```
 
 The script runs the real server (`backend/router.php`) on a throwaway
@@ -47,7 +47,9 @@ variants `light`, `dark`, `phone` (English) and `sk-phone`, `sk-phone-dark`
 | the admin panel's Translations page (English) | `admin-translations` |
 | the admin panel's Languages page (English) | `admin-languages` |
 | the admin panel's People page (English) | `admin-people` |
-| the admin panel's Migrations page (English): applied and pending, Apply | `admin-migrations` |
+| the admin panel's Migrations page (English, the anotoki library's): pending and applied, Apply | `admin-migrations` |
+| a database update waiting, as a learner reads it: the anotoki library's "The site is being updated" | `update-waiting` |
+| a database update waiting, as the site's ADMIN reads it: "A database update is waiting", Open Migrations | `update-waiting-admin` |
 
 Then **the room**: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px,
 English and Slovak, light and dark — signed in with a 20-character name and
@@ -61,12 +63,14 @@ with a real Tab and Shift+Tab from an item.
 `quiz-wrong.png`, `review.png`, `review-summary.png`, `changelog.png`,
 `signed-out.png`, `your-data-question.png`, `account-menu.png`,
 `admin-translations.png`, `admin-people.png`, and a migration waiting:
-`waiting-learner.png`, `waiting-admin.png`, `admin-migrations-waiting.png`,
-`admin-migrations-failed.png`, `admin-migrations.png`, and a visitor's:
+`waiting-visitor.png`, `waiting-learner.png`, `waiting-admin.png`,
+`admin-migrations-waiting.png`, `admin-migrations-failed.png`,
+`admin-migrations.png`, and a visitor's:
 `home-visitor.png`, `home-visitor-sk-phone.png`), and `node
 frontend/e2e/setup.js` `setup-not-set-up-*`, `setup-page-*`,
 `setup-page-website-*` (light, dark, phone), `setup-tested.png`,
-`setup-done.png` and `setup-website-app.png`.
+`setup-done.png`, `setup-website-app.png` and
+`setup-website-not-available.png`.
 
 It fails on horizontal overflow, a page error, an error or warning the app
 logged (a key with no string warns) or a failed request; on text that looks

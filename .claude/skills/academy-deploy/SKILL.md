@@ -12,7 +12,8 @@ is the build, the checks, and telling the owner exactly what to do.
 ## 1. Build and check
 
 From the repository's top folder (Git Bash's `php` is 7.4: `backend/tools/php.js`
-finds a PHP 8.1+):
+finds a PHP 8.2+ - the host needs 8.2 too, since the anotoki library came in
+on 2026-10-07):
 
 ```bash
 node backend/tools/php.js backend/tests/run.php     # the site test builds and sets up a copy of the upload
@@ -79,8 +80,10 @@ files. Nothing on the host is lost: the build has no `backend/config/*.local.php
 and `backend/storage/` holds only its `.htaccess`. A new migration then
 waits for the owner (an `ADMIN`): until they press **Apply pending** on the
 admin panel's Migrations page (`/admin/migrations`; a raw copy in
-`backend/storage/backups/` first), the pages say the database is not up to
-date, and the problem page links an `ADMIN` there. Tell them so. The first
+`backend/storage/backups/` first), the pages show the anotoki library's
+"The site is being updated" (with a quiet **Sign in**, which is how a
+signed-out `ADMIN` gets in), and an `ADMIN` reads "A database update is
+waiting" with the way to the Migrations page. Tell them so. The first
 request after it rebuilds the study content if it changed.
 `backend/setup.php` can be left out;
 uploaded, it only removes itself. Mention that a paper started just before
@@ -121,10 +124,10 @@ it a visitor's). The order against IAM 010 does not matter.
 A migration that changes data must carry its `DO $$ … $$` check: on the site
 nobody watches it run. Every migration ends with `-- end of NNN`; until that
 line is there (a file still uploading), the site leaves it, and the ones after
-it, pending ("not whole yet" on the Migrations page). Never upload while the
-newest migration is a draft (none is now: 007 is final since 2026-10-05): the
-site would wait on it, and its study content with it — `build-dist.php`
-refuses to build then, and names it. One that fails on Apply is rolled back
+it, pending (a "draft" on the Migrations page). Never upload while the
+newest migration is a draft (008 is one now, until the owner writes its
+last line): the site would wait on it, and its study content with it —
+`build-dist.php` refuses to build then, and names it. One that fails on Apply is rolled back
 whole and named ("Stopped at …", and why in PostgreSQL's own words under it;
 the host's error log has it too), the ones
 before it stay applied, and the site keeps waiting until a fixed file is
@@ -160,8 +163,9 @@ too.
 ## 5. When something is wrong
 
 The table at the end of `docs/kb/hosting.md` (500 after upload, 401 while
-signed in, "Sign in again", "not set up yet", "not up to date" (a migration
-waiting for Apply), Apply "Stopped at …", a migration "not whole yet", "not set up" for a copy of the
+signed in, "Sign in again", "This site is not set up yet", "The site is not
+available right now", "The site is being updated" (a migration
+waiting for Apply), Apply "Stopped at …", a migration listed as a "draft", "not set up" for a copy of the
 sign-in mode `none`, 404 for
 `/api` or for a page's address on reload, keys on a page instead of words). The host's PHP error log has the
 details a website's answers leave out.

@@ -40,7 +40,7 @@ The caller names rows, a lesson or a file. For each row:
    - **unclear on the scan**.
 
 Always run the quick structure and invariant checks (`backend/tools/php.js`
-finds a PHP 8.1+; Git Bash's `php` is 7.4):
+finds a PHP 8.2+; Git Bash's `php` is 7.4):
 
 ```bash
 # from the repository root

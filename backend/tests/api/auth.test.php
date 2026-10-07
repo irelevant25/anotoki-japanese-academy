@@ -341,7 +341,7 @@ test('the settings: required, with no defaults to fall back on; what earlier ver
         assert_same(503, $r['status'], $url);
         assert_same('not_set_up', $r['body']['code'] ?? null, $url);
     }
-    assert_same('backend/config/auth.local.php is missing', $r['body']['reason'] ?? null, 'what is missing, to this computer');
+    assert_same('/setup.php', $r['body']['setup'] ?? null, 'the way to the setup page: this computer is never installed (what is missing, manage.php --check says)');
 
     $problem = static function (string $authPhp, ?string $appPhp = null) use ($dir): ?string {
         file_put_contents("$dir/auth.local.php", $authPhp);

@@ -6,10 +6,14 @@
 // with a database and a PostgreSQL user of its own, as a hosting panel makes
 // them, from the database and the IAM alone; signed into with the test IAM's
 // tokens; and later uploads: a new migration, which waits once it is all
-// there until an administrator applies it on the Migrations page; one that
-// fails there; the setup page run again on purpose; and the update that brings
-// the app's own words, while its migration (004) is still arriving. (The setup
-// page on the owner's own computer is tests/api/setup.test.php's.)
+// there until an administrator applies it on the Migrations page - the site
+// closed meanwhile but for what the pages need to start, to sign in and to
+// reach that page (the anotoki library's SiteGate, in each of its states);
+// one that fails there; the setup page run again on purpose; the update that
+// brings the app's own words, while its migration (004) is still arriving;
+// and a site that was installed and lost its settings, which never offers the
+// setup page again. (The setup page on the owner's own computer is
+// tests/api/setup.test.php's.)
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -31,6 +35,23 @@ function site(): array
 function site_call(string $method, string $url, $body = null, array $headers = []): array
 {
     return call(site()['base'], $method, $url, $body, array_merge(WEBSITE, $headers));
+}
+
+/** What every address but the open ones answers while a migration waits (the anotoki library's SiteGate). */
+const UPDATE_PENDING = ['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'];
+
+/** Every migration file of this site's copy, in order (the drafts the tests apply among them). */
+function site_migrations(): array
+{
+    $files = array_map('basename', glob(site()['dir'] . '/backend/migrations/*.sql') ?: []);
+    sort($files);
+    return $files;
+}
+
+/** A file of the site's migrations as the engine names it in the Migrations page's answers. */
+function migration(string $name): array
+{
+    return ['set' => MIGRATION_SET, 'name' => $name];
 }
 
 before(function (): void {
@@ -99,6 +120,8 @@ test('the build: what a site needs, and nothing else', function (): void {
     $needed = ['public/index.html', 'public/main-TESTAPP1.js', 'public/changelog.json', 'public/index.php', 'public/.htaccess',
         'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php',
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
+        // the anotoki library: the migrations' engine, the SiteGate and the Migrations page's addresses
+        'backend/vendor/anotoki/lib/php/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
         // the app's own words: the code that serves them, and the migration that holds them
         'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/staff.php', 'backend/migrations/004_languages_and_translations.sql',
         'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
@@ -167,13 +190,17 @@ test('no upload while a migration is a draft: the build refuses, naming it (the 
     assert_true(is_array(json_decode(test_build($list), true)), 'allowed by name: it builds');
 });
 
-test('before the setup page has run, the site is closed, and says so', function (): void {
-    foreach (['/api/auth/config', '/api/health', '/api/kanji/progress'] as $url) {
+test('before the setup page has run, the site is closed, and says so: never installed, so with the way to the setup page', function (): void {
+    $notSetUp = ['code' => 'not_set_up', 'installed' => false, 'message' => 'This site is not set up yet. Its setup page connects it to its database.', 'setup' => '/setup.php'];
+    foreach (['/api/auth/config', '/api/health', '/api/kanji/progress', '/api/translations/en', '/api/admin/migrations', '/audio/nothing.mp3'] as $url) {
         $r = site_call('GET', $url);
         assert_same(503, $r['status'], "$url: without settings, not even a sign-in mode to assume");
-        assert_same(['error' => NOT_SET_UP, 'code' => 'not_set_up', 'setup' => '/setup.php'], $r['body'], "$url: no more than that, to a website");
+        assert_same($notSetUp, $r['body'], "$url: no more than that, to a website");
+        assert_same('no-store', $r['headers']['cache-control'] ?? null, "$url: never kept");
     }
-    assert_same(200, site_call('GET', '/kanji')['status'], 'the app itself loads, and shows its "not set up yet" page');
+    $r = site_call('GET', '/api/site-status', null, no_token());
+    assert_same([200, ['state' => 'not_set_up', 'installed' => false]], [$r['status'], $r['body']], 'where the site stands: always answered, to anybody');
+    assert_same(200, site_call('GET', '/kanji')['status'], 'the app itself loads, and shows the library\'s "not set up yet" page');
     // from here on, the site's log must stay clean
     $GLOBALS['site']['log_from'] = filesize(site()['log']);
 });
@@ -269,7 +296,9 @@ test('the setup page sets the site up: the settings, the tables and the study co
         'backup' => new CURLFile(owner_backup(), 'application/json', 'academy-2026-09-26.json')]), WEBSITE);
     assert_same(200, $r['status']);
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_match('/Applied the migrations: 001_init\.sql, 002_users\.sql, 003_content_stamp\.sql, 004_languages_and_translations\.sql, 005_own_time_zone_and_words\.sql, 006_admin_panel_words\.sql, 007_visitors\.sql\./', $r['raw']);
+    assert_same(['001_init.sql', '002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
+        array_slice(site_migrations(), 0, 7), 'the first migrations of every file');
+    assert_match('/Applied the migrations: ' . preg_quote(implode(', ', site_migrations()), '/') . '\./', $r['raw'], 'every one, in order');
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_no_match('/Imported/', $r['raw'], 'nobody\'s data: each person brings their own, in the app');
     assert_match('/sign in with your anotoki account at https:\/\/iam\.test/', $r['raw']);
@@ -288,7 +317,10 @@ test('the setup page sets the site up: the settings, the tables and the study co
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'the setup page is gone');
     assert_false(is_file("$config/setup-token.local.php"), 'and its token');
 
-    assert_same(['001_init.sql', '002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'], array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'));
+    assert_same(site_migrations(), array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'));
+    assert_same([['name', 'text'], ['applied_at', 'timestamp with time zone']], array_map(static fn (array $c): array => [$c['column_name'], $c['data_type']],
+        db_all("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migrations' ORDER BY ordinal_position")),
+        'the table that lists them made in this site\'s shape, as every database of it has it');
     assert_same(site()['role'], db_value("SELECT tableowner FROM pg_tables WHERE tablename = 'srs_progress'"), 'made by the site’s own user');
     assert_same(1373, (int) db_value('SELECT count(*) FROM srs_items'));
     assert_same(0, (int) db_value('SELECT count(*) FROM srs_progress') + (int) db_value('SELECT count(*) FROM exam_attempts'), 'nobody’s study data yet');
@@ -301,6 +333,7 @@ test('the setup page sets the site up: the settings, the tables and the study co
 });
 
 test('the installed site: sign-in first, and each person their own data', function (): void {
+    assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body'], 'ready, and installed: its setup page finished here');
     assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], site_call('GET', '/api/auth/config')['body']);
     assert_same(401, site_call('GET', '/api/kanji/progress', null, no_token())['status']);
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN'], ['preferred_username' => 'owner']));
@@ -343,71 +376,88 @@ function applied(string $migration): bool
     return in_array($migration, array_column(db_all('SELECT name FROM migrations'), 'name'), true);
 }
 
-test('a later upload with a new migration: waited for while it is half there; whole, it waits for an administrator’s Apply, which applies it after a raw copy of every table', function (): void {
+test('a later upload with a new migration: a draft while it is half there, and the site goes on; whole, the site closes but for its open addresses until an administrator’s Apply, which applies it after a raw copy of every table', function (): void {
     $file = site()['dir'] . '/backend/migrations/901_test_upload.sql';
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
     $editor = test_bearer(test_token(8, ['EDITOR']));
     file_put_contents($file, "CREATE TABLE academy_test_upload (id int);\n"); // the rest still on its way
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status'], 'the site goes on meanwhile');
+    assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body'], 'a draft stops nothing');
     assert_false(applied('901_test_upload.sql'), 'without its last line it may be half of it: not applied');
     assert_same(null, db_value("SELECT to_regclass('academy_test_upload')"));
     assert_same([], raw_copies(), 'nor any copy taken for it yet');
-    assert_same([['name' => '901_test_upload.sql', 'whole' => false]], site_call('GET', '/api/admin/migrations', null, $owner)['body']['pending'] ?? null,
-        'the Migrations page shows it on its way');
+    assert_same([migration('901_test_upload.sql') + ['ready' => false, 'blocked' => false]], site_call('GET', '/api/admin/migrations', null, $owner)['body']['pending'] ?? null,
+        'the Migrations page shows it on its way: a draft');
 
     file_put_contents($file, "-- end of 901\n", FILE_APPEND); // the rest arrives
-    foreach (['/api/kanji/summary', '/api/kanji/progress', '/api/attempts'] as $url) {
-        $r = site_call('GET', $url, null, $owner);
-        assert_same([503, UPKEEP_WAITING, 'not_up_to_date'], [$r['status'], $r['body']['error'] ?? null, $r['body']['code'] ?? null], "$url: whole, it waits");
-        // The tests serve the site with PHP's built-in server, so it answers as the owner's computer does: which
-        // file, as "detail". A website is not told (tests/api/errors.test.php).
-        assert_same('Waiting to be applied: 901_test_upload.sql.', $r['body']['detail'] ?? null, "$url: which file");
+    $r = site_call('GET', '/api/site-status', null, no_token());
+    assert_same([200, ['state' => 'update_pending', 'installed' => true]], [$r['status'], $r['body']], 'whole, it waits: where the site stands says so, to anybody');
+    $closed = ['GET /api/kanji/summary', 'GET /api/kanji/progress', 'GET /api/attempts', 'GET /api/meta', 'GET /report/x', 'GET /api/me/data', 'POST /api/visitor/move',
+        'GET /api/admin/translations', 'GET /api/admin/people', 'GET /api/nothing'];
+    foreach ($closed as $route) {
+        [$method, $url] = explode(' ', $route);
+        foreach (['an administrator' => $owner, 'nobody' => no_token()] as $who => $headers) {
+            $r = site_call($method, $url, null, $headers);
+            assert_same([503, UPDATE_PENDING], [$r['status'], $r['body']], "$route, $who: the site is being updated");
+            assert_same('60', $r['headers']['retry-after'] ?? null, "$route: ask again in a minute");
+        }
     }
-    $r = site_call('GET', '/api/translations/en');
-    assert_same([503, 'not_up_to_date'], [$r['status'], $r['body']['code'] ?? null], 'the app’s words too: a learner’s page puts up its problem page');
-    assert_same(503, site_call('GET', '/api/admin/translations', null, $owner)['status'], 'and the rest of the admin panel');
+    // Open: what the pages need to start, to sign somebody in and to reach the Migrations page.
+    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30],
+        site_call('GET', '/api/auth/config')['body'], 'how to sign in: an administrator signs in to apply it');
+    $r = site_call('GET', '/api/translations/sk');
+    assert_same([200, 'sk'], [$r['status'], $r['body']['language'] ?? null], 'the app’s words: no page of keys, no problem page');
+    assert_same([200, true], [site_call('GET', '/api/health')['status'], site_call('GET', '/api/health')['body']['ok'] ?? null], 'the health check');
+    assert_same(404, site_call('GET', '/audio/nothing.mp3')['status'], 'the clips (shared content) pass: there is no such clip, and it says so');
     assert_false(applied('901_test_upload.sql'), 'no request applies it');
     assert_same([], raw_copies());
 
-    // The Migrations page answers all the same, to an administrator alone.
-    $r = site_call('GET', '/api/admin/migrations', null, test_bearer(test_token(7)));
-    assert_same([403, 'staff_only'], [$r['status'], $r['body']['code'] ?? null], 'a learner');
-    foreach (['GET /api/admin/migrations', 'POST /api/admin/migrations/apply'] as $route) {
+    // The Migrations page answers all the same, to an administrator alone - from the token, with no table asked.
+    foreach (['GET /api/admin/migrations', 'GET /api/admin/migrations/file?set=academy&name=901_test_upload.sql', 'POST /api/admin/migrations/apply'] as $route) {
         [$method, $url] = explode(' ', $route);
+        $r = site_call($method, $url, null, test_bearer(test_token(7)));
+        assert_same([403, 'staff_only'], [$r['status'], $r['body']['code'] ?? null], "$route: a learner");
         $r = site_call($method, $url, null, $editor);
         assert_same([403, 'admin_only'], [$r['status'], $r['body']['code'] ?? null], "$route: an editor");
-        assert_same(401, site_call($method, $url, null, no_token())['status'], "$route: nobody");
+        $r = site_call($method, $url, null, no_token());
+        assert_same([401, 'sign_in_required'], [$r['status'], $r['body']['code'] ?? null], "$route: nobody");
     }
     assert_false(applied('901_test_upload.sql'));
     $list = site_call('GET', '/api/admin/migrations', null, $owner)['body'];
-    assert_same([['name' => '901_test_upload.sql', 'whole' => true]], $list['pending']);
-    assert_same('001_init.sql', $list['applied'][0]['name'] ?? null, 'the applied ones, the first first');
-    assert_true(is_int($list['applied'][0]['appliedAt'] ?? null) && $list['applied'][0]['appliedAt'] > 1700000000000, 'when, in milliseconds');
-    assert_false(in_array('901_test_upload.sql', array_column($list['applied'], 'name'), true));
+    assert_same([[MIGRATION_SET], [migration('901_test_upload.sql') + ['ready' => true, 'blocked' => false]], []], [$list['sets'], $list['pending'], $list['missing']]);
+    assert_same(site_migrations(), array_merge(array_column($list['applied'], 'name'), ['901_test_upload.sql']), 'the applied ones, in the order they ran');
+    assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) ($list['applied'][0]['applied_at'] ?? ''), 'when, in UTC');
+    $r = site_call('GET', '/api/admin/migrations/file?set=academy&name=901_test_upload.sql', null, $owner);
+    assert_same([200, migration('901_test_upload.sql') + ['sql' => "CREATE TABLE academy_test_upload (id int);\n-- end of 901\n"]], [$r['status'], $r['body']], 'a file’s SQL');
+    foreach (['set=academy&name=999_nothing.sql', 'set=academy&name=..%2Fconfig%2Fdatabase.local.php', 'set=other&name=901_test_upload.sql'] as $query) {
+        $r = site_call('GET', "/api/admin/migrations/file?$query", null, $owner);
+        assert_same([404, ['code' => 'not_found', 'message' => 'No such migration file.']], [$r['status'], $r['body']], "$query: no file of the set");
+    }
 
-    // One Apply at a time: while the lock stays held (another Apply, the setup page, manage.php), busy - once
-    // the wait for it ran out (UPKEEP_LOCK_WAIT_MS; a lock held for a moment is waited for: upkeep.test.php).
+    // One apply at a time: while another holds the lock (an Apply, the setup page, manage.php, the content's rebuild), busy at once.
     db_tx(static function () use ($owner): void {
         db_value('SELECT pg_advisory_xact_lock(?::bigint)', [UPKEEP_LOCK]);
         $r = site_call('POST', '/api/admin/migrations/apply', null, $owner);
-        assert_same([409, 'busy'], [$r['status'], $r['body']['code'] ?? null], 'another one runs');
+        assert_same([409, ['code' => 'busy', 'message' => 'Another database update is running. Nothing was applied. Wait a moment, then look again.']], [$r['status'], $r['body']], 'another one runs');
     });
     assert_false(applied('901_test_upload.sql'));
 
     $r = site_call('POST', '/api/admin/migrations/apply', null, $owner);
     assert_same(200, $r['status']);
-    assert_same(['applied' => ['901_test_upload.sql'], 'failed' => null, 'error' => null], array_diff_key($r['body'], ['backup' => 1]));
-    assert_match('/^academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json$/', (string) ($r['body']['backup'] ?? ''), 'the copy it took first');
+    assert_same(['applied' => [migration('901_test_upload.sql')], 'failed' => null, 'error' => null], array_diff_key($r['body'], ['note' => 1]));
+    assert_true(preg_match('/^A copy of every table from before is in backups\/(academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json)\.$/', (string) ($r['body']['note'] ?? ''), $copy) === 1,
+        'the copy it took first, named: ' . ($r['body']['note'] ?? 'no note'));
     assert_true(applied('901_test_upload.sql'), 'applied');
     assert_true((bool) db_value("SELECT to_regclass('academy_test_upload') IS NOT NULL"));
-    assert_same([$r['body']['backup']], array_map('basename', raw_copies()), 'a copy of every table first, and only one');
+    assert_same([$copy[1]], array_map('basename', raw_copies()), 'a copy of every table first, and only one');
     assert_same([], site_call('GET', '/api/admin/migrations', null, $owner)['body']['pending'] ?? null, 'nothing pending');
 
+    assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body']);
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status'], 'the site is back');
     $stamp = db_value('SELECT stamp FROM content_state');
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
     assert_same($stamp, db_value('SELECT stamp FROM content_state'), 'then nothing more to do');
-    assert_same(['applied' => [], 'failed' => null, 'error' => null, 'backup' => null], site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'],
+    assert_same(['applied' => [], 'failed' => null, 'error' => null, 'note' => null], site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'],
         'Apply again: there was nothing to apply');
     assert_same(1, count(raw_copies()));
 });
@@ -421,7 +471,7 @@ test('a migration that fails on Apply: rolled back whole and named, the ones bef
     $copies = count(raw_copies());
 
     $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
-    assert_same([['902_test_first.sql'], '903_test_broken.sql'], [$r['applied'], $r['failed']], 'the first applied, then it stopped');
+    assert_same([[migration('902_test_first.sql')], migration('903_test_broken.sql')], [$r['applied'], $r['failed']], 'the first applied, then it stopped');
     // Why, in PostgreSQL's words: to the administrator on a website as on this computer (the one answer that says it
     // on a website: tests/api/upkeep.test.php, outside the built-in server, proves it), and to the error log as well.
     assert_match('/relation "academy_test_nowhere" does not exist/', (string) $r['error'], 'why');
@@ -431,16 +481,17 @@ test('a migration that fails on Apply: rolled back whole and named, the ones bef
     assert_same($copies + 1, count(raw_copies()));
     foreach ([2, 3] as $try) {
         $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
-        assert_same([[], '903_test_broken.sql'], [$r['applied'], $r['failed']], "try $try");
+        assert_same([[], migration('903_test_broken.sql')], [$r['applied'], $r['failed']], "try $try");
+        // try 2: the tables changed since the first copy (902 is applied): a copy, named; try 3: the same files on the same tables, no other
+        assert_same($try === 2, $r['note'] !== null, "try $try: " . ($r['note'] ?? 'no copy'));
         $r = site_call('GET', '/api/kanji/summary', null, $owner);
-        assert_same([503, 'not_up_to_date'], [$r['status'], $r['body']['code'] ?? null], "try $try: the site waits");
-        assert_match('/903_test_broken\.sql/', (string) ($r['body']['detail'] ?? ''), "try $try: which file, to this computer");
+        assert_same([503, UPDATE_PENDING], [$r['status'], $r['body']], "try $try: the site waits");
     }
     assert_same($copies + 2, count(raw_copies()), 'one more copy for the tables after 902, not one for every try');
 
     file_put_contents($broken, "CREATE TABLE academy_test_fixed (id int);\n-- end of 903\n");
     $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
-    assert_same([['903_test_broken.sql'], null, null], [$r['applied'], $r['failed'], $r['error']]);
+    assert_same([[migration('903_test_broken.sql')], null, null], [$r['applied'], $r['failed'], $r['error']]);
     assert_same($copies + 3, count(raw_copies()), 'the fixed file is another upload: a copy right before it applies');
     assert_same(200, site_call('GET', '/api/kanji/summary', null, $owner)['status']);
     assert_match('/\[upkeep\] a migration failed: backend\/migrations\/903_test_broken\.sql: .*academy_test_nowhere/', (string) file_get_contents(site()['log']),
@@ -526,11 +577,17 @@ test('the update that brings the app’s own words, while migration 004 has not 
     assert_no_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|\[upkeep\]|Uncaught/i', $since, 'nothing was logged: a query on the missing table would be a [db] line for every page load');
 
     // The rest of the file arrives: it waits for an administrator, who applies it (after a raw copy of every
-    // table) on the Migrations page; the page's next request has the words.
+    // table) on the Migrations page - the site closed meanwhile; the page's next request has the words.
     file_put_contents($file, $whole);
+    assert_same(['state' => 'update_pending', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body'], 'whole, it waits');
+    $r = site_call('GET', '/api/kanji/progress', null, $owner);
+    assert_same([503, UPDATE_PENDING], [$r['status'], $r['body']], 'the site is being updated');
     $r = site_call('GET', '/api/translations/sk');
-    assert_same([503, UPKEEP_WAITING], [$r['status'], $r['body']['error'] ?? null], 'whole, it waits');
-    assert_same(['applied' => [$name], 'failed' => null, 'error' => null], array_diff_key(site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'], ['backup' => 1]));
+    assert_same([503, ['error' => TRANSLATIONS_NOT_READY, 'code' => 'not_up_to_date']], [$r['status'], $r['body']],
+        'the words answer while an update waits, and there are none yet: the gate\'s page stands in, which has its own');
+    $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
+    assert_same(['applied' => [migration($name)], 'failed' => null, 'error' => null], array_diff_key($r, ['note' => 1]));
+    assert_match('/^A copy of every table from before is in backups\/academy-before-migration-/', (string) ($r['note'] ?? ''), 'the copy, named');
     $r = site_call('GET', '/api/translations/sk');
     assert_same([200, 'sk', ['en', 'sk']], [$r['status'], $r['body']['language'] ?? null, array_column($r['body']['languages'] ?? [], 'code')], 'the words, with the page\'s first request');
     assert_true(applied($name), 'applied');
@@ -541,4 +598,28 @@ test('the update that brings the app’s own words, while migration 004 has not 
     assert_true(array_key_exists('translations', backup_data()), 'and from now on a backup holds them');
     clearstatcache();
     assert_no_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|\[upkeep\]|Uncaught/i', substr((string) file_get_contents(site()['log']), $logged));
+});
+
+test('installed, and its settings gone: every address says the site is not available - never the setup page, which is gone too', function (): void {
+    $config = site()['dir'] . '/backend/config';
+    $saved = [];
+    foreach (['database', 'auth'] as $which) {
+        $saved[$which] = (string) file_get_contents("$config/$which.local.php");
+    }
+    assert_true(is_file(site()['dir'] . '/backend/storage/installed.lock') && !is_file(site()['dir'] . '/backend/setup.php'), 'installed: the lock there, the setup page gone');
+    unlink("$config/auth.local.php");
+    try {
+        $notAvailable = ['code' => 'not_set_up', 'installed' => true, 'message' => 'The site is not available right now. Try again in a few minutes.'];
+        foreach (['/api/auth/config', '/api/translations/en', '/api/kanji/progress', '/api/admin/migrations'] as $url) {
+            $r = site_call('GET', $url, null, test_bearer(test_token(OWNER_AT_IAM, ['ADMIN'])));
+            assert_same([503, $notAvailable], [$r['status'], $r['body']], "$url: no setup page offered");
+        }
+        assert_same(['state' => 'not_set_up', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body']);
+        assert_same(404, site_call('GET', '/setup.php')['status'], 'and there is none to open');
+    } finally {
+        foreach ($saved as $which => $php) {
+            file_put_contents("$config/$which.local.php", $php);
+        }
+    }
+    assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body'], 'its settings back: ready');
 });

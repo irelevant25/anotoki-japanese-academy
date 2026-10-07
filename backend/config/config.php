@@ -3,8 +3,10 @@
  * This copy's settings. They live only in the *.local.php files of this folder,
  * which the setup page (/setup.php, backend/setup.php) writes and git never
  * sees, and they are required: there are no defaults to fall back on. Until
- * both are there, every address with data answers 503 {"code": "not_set_up"},
- * and the app shows its "not set up yet" page.
+ * both are there, every address but /api/site-status answers 503
+ * {"code": "not_set_up"} (the anotoki library's SiteGate, backend/api/app.php),
+ * and the app shows the library's "not set up yet" page - with the way to the
+ * setup page only while the site was never installed (INSTALLED_LOCK).
  *
  *   database.local.php   ['host' => 'localhost', 'port' => 5432, 'name' => 'anotoki_japanese',
  *                         'user' => 'postgres', 'password' => '…']
@@ -47,6 +49,15 @@ const CONFIG_FILES = [
 
 /** What a copy needs before it is set up (the setup page writes them). */
 const CONFIG_REQUIRED = ['database', 'auth'];
+
+/**
+ * The setup page's lock: written once its setup finished on a website
+ * (backend/setup.php), never on this computer. From then on nobody is offered
+ * the setup page again, whatever becomes of the settings: a site without them
+ * says it is not available right now, not that it is not set up (the
+ * SiteGate's `installed`, backend/api/app.php).
+ */
+const INSTALLED_LOCK = BACKEND . '/storage/installed.lock';
 
 /** The folder the settings are read from. */
 function config_dir(): string

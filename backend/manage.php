@@ -5,6 +5,9 @@
  *
  *   php backend/manage.php --check          what isn't ready (changes nothing); exit code 1 if anything
  *   php backend/manage.php --sync           rebuild the study content even if backend/data/ didn't change
+ *                                           (the migrations that wait are applied first, after a copy, as
+ *                                           every option but --check does: the anotoki library's engine,
+ *                                           db_migrator(), the same as the Migrations page's Apply)
  *   php backend/manage.php --backup         write a backup of all the study data now (backend/storage/backups/),
  *                                           also while a migration waits (one still being written)
  *   php backend/manage.php --restore=FILE   replace the study data with a backup's; what is there now is
@@ -37,8 +40,8 @@ function stop(string $message): never
 }
 
 // PHP itself first: without these the app can't even load.
-if (PHP_VERSION_ID < 80100) {
-    stop('PHP 8.1 or newer is needed; this is PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ').');
+if (PHP_VERSION_ID < 80200) {
+    stop('PHP 8.2 or newer is needed; this is PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ').');
 }
 $missing = array_values(array_filter(['pdo_pgsql', 'mbstring', 'intl'], static fn (string $ext): bool => !extension_loaded($ext)));
 if ($missing) {
@@ -77,10 +80,10 @@ try {
                     . 'it is still being written (or half copied), and nothing applies it, or anything after it, until it does.');
             }
             if ($ready) {
-                // No request applies a migration: until somebody does, the app says it is not up to date.
+                // No request applies a migration: until somebody does, the site says it is being updated.
                 $todo[] = 'apply ' . implode(', ', $ready);
                 $who = 'An ADMIN applies it on the admin panel\'s Migrations page (/admin/migrations: Apply pending), or manage.php --sync does'
-                    . ' (the setup page too). Until then the app says it is not up to date.';
+                    . ' (the setup page too). Until then the site tells everybody it is being updated.';
             } else {
                 exit(1);
             }

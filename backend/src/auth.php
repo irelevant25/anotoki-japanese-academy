@@ -198,6 +198,26 @@ function auth_user(): array
     if ($user !== null) {
         return $user;
     }
+    $found = auth_token_user();
+    $zone = users_seen($found['id'], $found['username'], auth_time_zone_header($_SERVER));
+    return $user = $found + ['timeZone' => $zone ?? 'UTC'];
+}
+
+/**
+ * Who this request's verified token says it is: ['id' => IAM user id,
+ * 'username' => ?string, 'roles' => the roles that mean something here] -
+ * auth_user() without their row: nothing is read from the database or written
+ * to it. For the Migrations page's addresses (migrations_admin_middleware()),
+ * which answer while a migration waits, when the tables may not be what this
+ * version expects. The same 401s as auth_user(); remembered for the rest of
+ * the request.
+ */
+function auth_token_user(): array
+{
+    static $found = null;
+    if ($found !== null) {
+        return $found;
+    }
 
     if (!auth_sent_token()) {
         throw new HttpError(401, 'Sign in first.', ['WWW-Authenticate: Bearer'], 'sign_in_required');
@@ -211,14 +231,11 @@ function auth_user(): array
         throw new HttpError(401, 'Sign in again.', ['WWW-Authenticate: Bearer error="invalid_token"'], 'invalid_token');
     }
     $name = $claims['preferred_username'] ?? null;
-    $found = [
+    return $found = [
         'id' => (int) anotoki_iam_user_id($claims),
         'username' => is_string($name) && $name !== '' ? str_clip($name, 200) : null,
         'roles' => auth_roles($claims),
     ];
-
-    $zone = users_seen($found['id'], $found['username'], auth_time_zone_header($_SERVER));
-    return $user = $found + ['timeZone' => $zone ?? 'UTC'];
 }
 
 /**
@@ -259,7 +276,13 @@ function auth_roles(array $claims): array
  */
 function auth_require_role(string ...$roles): void
 {
-    if (array_intersect(auth_user()['roles'], $roles)) {
+    auth_require_role_of(auth_user()['roles'], ...$roles);
+}
+
+/** auth_require_role() for roles read already ($held: a token's, auth_token_user()). */
+function auth_require_role_of(array $held, string ...$roles): void
+{
+    if (array_intersect($held, $roles)) {
         return;
     }
     if ($roles === [ROLE_ADMIN]) {

@@ -3,10 +3,6 @@
     <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
     <p class="err" role="alert">{{ said() }}@if (detail(); as detail) {<span class="detail" lang="en">{{ detail }}</span>}</p>
     <div class="actions">
-      @if (migrations(); as label) {
-        <!-- A page load, as Try again: the admin panel starts while the update waits. -->
-        <a class="btn primary" id="toMigrations" href="/admin/migrations">{{ label }}</a>
-      }
       <button class="ghost" type="button" (click)="retry()">{{ tryAgain() }}</button>
     </div>
   </section>

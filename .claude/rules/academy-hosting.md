@@ -28,7 +28,9 @@ For building and uploading, use the `academy-deploy` skill.
   written by the setup page only (an `app.local.php` and the `mode` /
   `local_user_id` keys an earlier version wrote are ignored; `mode` `none` is
   "not set up"). Never add a default or a fallback from a
-  template: without them the app answers `503 not_set_up`. Never print them
+  template: without them the app answers `503 not_set_up` (the anotoki
+  library's `SiteGate`, `backend/api/app.php`; the setup page offered only
+  until `backend/storage/installed.lock` is written). Never print them
   or copy their values anywhere. The tests' hooks (`ACADEMY_CONFIG_DIR`, a
   keys file, `backups_dir`, `frontend_dir`) count only for `academy_test_…`
   databases (`config_is_test_db()`): keep it that way.
@@ -46,14 +48,27 @@ For building and uploading, use the `academy-deploy` skill.
   folder). No token or a bad one is a 401, never a fallback to anybody. A
   token with no role is a learner. Never take a user id or a role from a
   request's body, address or headers of the app's own.
+- Where the site stands is the anotoki library's (`anotoki/lib`, committed
+  in `backend/vendor/`: never edit it; `DEV.md`, *The anotoki library*):
+  its `SiteGate` in front of every route answers 503 `not_set_up`, or
+  `update_pending` while a whole migration waits, to everything but
+  `/api/site-status` and `SITE_OPEN_PATHS` (how to sign in, the words, the
+  health check, the clips, the Migrations page's three routes) - an address
+  added there is its exact route, never a prefix (the gate reads the path
+  decoded once: a prefix lets `/…/../x`, `%2e%2e`, `%2F` past it), and must
+  work on tables a waiting migration may not have made; and nothing of the
+  site's sign-in may stand in front of `/api/site-status`.
+  The Migrations page's routes are the library's (`MigrationsRoutes::admin()`)
+  behind `migrations_admin_middleware()`: `ADMIN` from the token, no table read.
 - Every address with somebody's data is registered with `data_route()`
-  (`backend/api/routes/site.php`: set up → upkeep → the person → on a page load
-  the day's backup) - a study address (kanji, exam, report) with
+  (`backend/api/routes/site.php`: upkeep → the person → on a page load
+  the day's backup, behind the SiteGate) - a study address (kanji, exam, report) with
   `study_route()`, the same with the learner in the person's place (a person,
   or while the IAM says sign-in is not required a visitor or nobody:
-  `docs/kb/sign-in.md`, *Visitors*) - and passes the user id down. Only `/api/auth/config`,
+  `docs/kb/sign-in.md`, *Visitors*) - and passes the user id down. Only
+  `/api/site-status`, `/api/auth/config`,
   `/api/health`, `/api/translations/{code}` (the app's own words, the same for
-  everybody: set up and upkeep, no person, no token looked at) and the clips
+  everybody: upkeep, no person, no token looked at) and the clips
   need no sign-in. The `/api/admin/…` addresses are two Slim route groups
   (`backend/api/routes/translations.php`) with the checks on the groups:
   `data_route()` and `staff_middleware()` on the outer one (`EDITOR` or

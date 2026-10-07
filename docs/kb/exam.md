@@ -92,6 +92,20 @@ again; a listening question plays its clip when it is shown, and the next
 question's clip is fetched meanwhile. "Finish now" asks first when questions
 are unanswered.
 
+**A paper open while the site stops for an update** (since 2026-10-07): the
+anotoki library's page stands in front of it ("The site is being updated"),
+its handing in is refused without a dialog (503 `update_pending`: the library's
+page says what is going on), and no key reaches the hidden paper. The paper is
+kept for the tab meanwhile (`sessionStorage`, `academy-exam-kept-paper`: the
+paper, the question it is on, the answers with their times, the flags, the
+name, its start) — the library's page loads the page afresh once the site is
+back, which would lose a paper held only in memory — and put back as it was
+when the exam opens again, for the person it was kept for (or whoever signs
+in where a visitor kept it), its clock counting from its start; then it is
+handed in as ever. A paper left the usual way, the site ready, goes as it
+always has. Until then the refusal said "not up to date" in a dialog and the
+paper stayed on the page.
+
 The page's frame is in the language on the page (setup, the running paper's
 chrome, the result, the history); the questions, options, hints and
 explanations are material and stay as written, marked `lang="en"` or

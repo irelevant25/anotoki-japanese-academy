@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateChildFn, CanActivateFn, Router, UrlTree } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslationService } from '../i18n/translation.service';
 import { AuthService } from './auth.service';
 
@@ -29,6 +30,15 @@ import { AuthService } from './auth.service';
  * still starting — it lets nothing through and sends nobody anywhere: the
  * boot pages are drawn then.
  *
+ * Nor does it send anybody to the IAM while the site is not ready by the
+ * anotoki library's account (SiteStatus: being updated, say): the library's
+ * gate stands in front of the pages then (core/site-status.config.ts), and
+ * its page has a quiet Sign in of its own. A visitor reads that page and
+ * signs in only if they choose to - as an administrator does, to reach the
+ * Migrations page and apply the update. The page is let through with nobody
+ * signed in, the address asked for kept (`AuthService.askedFor`), so that
+ * Sign in comes back to it.
+ *
  * /auth/callback is not behind it: the SDK has finished the sign-in before the
  * router starts, and that route only ever sends the browser home.
  */
@@ -54,6 +64,13 @@ function guard(visitorsWelcome: boolean): boolean | UrlTree | Promise<boolean | 
   const router = inject(Router);
   const navigation = router.currentNavigation();
   const returnTo = navigation ? navigation.extractedUrl.toString() : location.pathname + location.search + location.hash;
+  if (inject(SiteStatus).blocked()) {
+    if (state !== 'signed-out' && state !== 'visiting') {
+      return false;
+    }
+    auth.askedFor.set(returnTo);
+    return true;
+  }
   if (state === 'visiting') {
     if (auth.signInError() !== null) {
       return router.createUrlTree(['/']);

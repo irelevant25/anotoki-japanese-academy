@@ -1,6 +1,9 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
+import { AuthService } from '../auth/auth.service';
+import { pagesShut } from '../site-status';
 import { isAdminAddress, TranslationService } from './translation.service';
 
 /** The app's name: a name, the same in every language. */
@@ -22,6 +25,10 @@ const KEY_SHAPE = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$/;
  * a route without one is the app's name. The title follows the language:
  * switching it renames the tab without a navigation.
  *
+ * While the anotoki library's page stands in for the page (the site being
+ * updated, not set up, out of reach: core/site-status.ts) the title is the
+ * app's name alone: the page the address names is not what the tab shows.
+ *
  * With no strings at all (the first request failed) a title that is a key is
  * left out — the name alone, never "title.exam" on a tab. With strings, a key
  * that has none shows as itself: the owner wants to see which.
@@ -36,21 +43,26 @@ const KEY_SHAPE = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$/;
 export class AcademyTitleStrategy extends TitleStrategy {
   private readonly title = inject(Title);
   private readonly i18n = inject(TranslationService);
+  private readonly site = inject(SiteStatus);
+  private readonly auth = inject(AuthService);
 
   /** The current route's title as the route wrote it. Undefined: the route has none. */
   private readonly page = signal<string | undefined>(undefined);
   /** The page is in the admin panel. */
   private readonly admin = signal(false);
+  /** The page's address, without its query and fragment. */
+  private readonly path = signal('/');
 
   constructor() {
     super();
-    effect(() => this.title.setTitle(this.worded(this.page())));
+    effect(() => this.title.setTitle(pagesShut(this.site, () => this.auth.isAdmin(), this.path()) ? BRAND : this.worded(this.page())));
   }
 
   override updateTitle(snapshot: RouterStateSnapshot): void {
     this.i18n.noteAddress(snapshot.url);
     this.i18n.navigated();
     this.admin.set(isAdminAddress(snapshot.url));
+    this.path.set(snapshot.url.split(/[?#]/)[0] || '/');
     this.page.set(this.buildTitle(snapshot));
   }
 

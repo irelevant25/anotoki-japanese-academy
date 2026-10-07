@@ -20,6 +20,7 @@
   --ok: #b8862b;
   --bad: #b4453c;
   --ok-text: #8a6417; /* --ok as small text on the page: the amber alone is too light to read */
+  --ok-text-on-tint: #7a5814; /* --ok-text on its own pale tint (the Migrations page's "pending" badge): 5:1, where --ok-text is 4.2 */
   /* a verdict's fill (the review's answer bar), dark enough under --item-ink in both themes */
   --good-fill: #2e7d5b;
   --bad-fill: #b4453c;
@@ -60,6 +61,23 @@
 
   --jp-serif: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'Noto Serif JP', 'MS Mincho', serif;
   --jp-sans: 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
+
+  /* The anotoki library's pages (@anotoki/lib: the page while the site is not
+     ready, the admin panel's Migrations page) in this app's colours. Each names
+     a token above, so the dark ones below reach them too. */
+  --anotoki-bg: var(--bg);
+  --anotoki-surface: var(--card);
+  --anotoki-text: var(--ink);
+  --anotoki-muted: var(--muted);
+  --anotoki-border: var(--line);
+  --anotoki-primary: var(--accent);
+  --anotoki-primary-contrast: var(--accent-ink);
+  --anotoki-danger: var(--bad-fill);
+  --anotoki-danger-contrast: var(--item-ink);
+  --anotoki-success: var(--good);
+  --anotoki-warning: var(--ok-text-on-tint);
+  --anotoki-radius: var(--radius);
+  --anotoki-font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 @mixin dark {
@@ -75,6 +93,7 @@
   --ok: #ddab52;
   --bad: #e2786d;
   --ok-text: #ddab52;
+  --ok-text-on-tint: #ddab52;
   --good-fill: #2b7654;
   --bad-fill: #ae4a3f;
   --ok-fill: #8e671d;

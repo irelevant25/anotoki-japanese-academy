@@ -1,5 +1,6 @@
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { AppState, AuthService, StartProblem } from '../auth/auth.service';
 import type { AnotokiPreferenceChanges, AnotokiPreferences, AnotokiSavedPreferences } from '../auth/sdk/anotoki-auth';
 import { TEST_LANGUAGES, provideTestTranslations } from '../testing/test-translations';
@@ -134,14 +135,20 @@ describe('TranslationService', () => {
       return answer.promise;
     }),
     isAdmin: admin,
-    notSetUp: vi.fn((reason?: string | null) => {
-      void reason;
+    notSetUp: vi.fn((installed?: boolean) => {
+      void installed;
       state.set('not-set-up');
     }),
     cannotStart: vi.fn((problem: StartProblem) => {
       void problem;
       state.set('problem');
     }),
+  };
+  /** Where the site stands (the anotoki library's SiteStatus): what the service tells it, and whether it is not ready. */
+  const siteState = signal('ready');
+  const site = {
+    blocked: computed(() => siteState() !== 'ready'),
+    report: vi.fn((code: string) => siteState.set(code)),
   };
   let warn: ReturnType<typeof vi.spyOn>;
   let browser: ReturnType<typeof vi.spyOn>;
@@ -152,7 +159,7 @@ describe('TranslationService', () => {
   }
 
   function configure(): void {
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: AuthService, useValue: auth }] });
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: AuthService, useValue: auth }, { provide: SiteStatus, useValue: site }] });
   }
 
   /** The sign-in changed, in this tab or another: what follows it has run. */
@@ -183,6 +190,8 @@ describe('TranslationService', () => {
     auth.savePreferences.mockClear();
     auth.notSetUp.mockClear();
     auth.cannotStart.mockClear();
+    siteState.set('ready');
+    site.report.mockClear();
     warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     browser = vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-GB']);
     configure();
@@ -407,17 +416,18 @@ describe('TranslationService', () => {
   });
 
   describe('a bundle answered 503 changes what the app can show, instead of leaving a page of keys', () => {
-    const NOT_SET_UP = new Refusal(503, { error: 'Japanese Academy is not set up yet. Open /setup.php to set it up.', code: 'not_set_up', setup: '/setup.php', reason: 'the database has no tables yet' });
+    const NOT_SET_UP = new Refusal(503, { code: 'not_set_up', installed: false, message: 'This site is not set up yet. Its setup page connects it to its database.', setup: '/setup.php' });
+    const UPDATE_PENDING = new Refusal(503, { code: 'update_pending', message: 'The site is being updated. Try again in a few minutes.' });
     const NOT_UP_TO_DATE = new Refusal(503, { error: 'The database could not be brought up to date with the upload: 004 failed', code: 'not_up_to_date', detail: '004 failed' });
 
-    it('not_set_up: the page that points at the setup, with the reason — and nothing is asked a second time', async () => {
+    it('not_set_up: nothing of the app goes on (the library’s page says so, with the setup page while never installed) — and nothing is asked a second time', async () => {
       vi.useFakeTimers();
       server.mockResolvedValue(NOT_SET_UP);
       const starting = service().init();
       await vi.advanceTimersByTimeAsync(RETRY_WAIT_MS * 2);
       await starting;
 
-      expect(auth.notSetUp.mock.calls).toEqual([['the database has no tables yet']]);
+      expect(auth.notSetUp.mock.calls).toEqual([[false]]);
       expect(auth.cannotStart).not.toHaveBeenCalled();
       expect(server).toHaveBeenCalledTimes(1);
       expect(service().ready()).toBe(false);
@@ -493,32 +503,39 @@ describe('TranslationService', () => {
       expect(auth.cannotStart).toHaveBeenCalledTimes(1);
     });
 
-    it('an administrator in the admin panel while a database update waits: the panel starts, in its English, to apply it — nobody else, nowhere else', async () => {
-      server.mockResolvedValue(NOT_UP_TO_DATE);
-      history.replaceState(null, '', '/admin/migrations');
-      admin.set(true);
-      await service().init();
+    it('update_pending: SiteStatus hears it, and the library’s page stands in, in its own words — never the problem page: the sign-in has to go on', async () => {
+      vi.useFakeTimers();
+      server.mockResolvedValue(UPDATE_PENDING);
+      const starting = service().init();
+      await vi.advanceTimersByTimeAsync(RETRY_WAIT_MS * 2);
+      await starting;
+
+      expect(site.report.mock.calls).toEqual([['update_pending', undefined]]);
       expect(auth.cannotStart).not.toHaveBeenCalled();
+      expect(auth.notSetUp).not.toHaveBeenCalled();
       expect(state()).toBe('ready');
       expect(service().ready()).toBe(false);
-      service().navigated(); // asked again at the next navigation: still not stopped
-      await settled();
-      expect(auth.cannotStart).not.toHaveBeenCalled();
+    });
 
-      for (const [address, isAdmin, refusal] of [
-        ['/admin/migrations', false, NOT_UP_TO_DATE], // an editor
-        ['/', true, NOT_UP_TO_DATE], // an administrator on a learner's page: the page links them there
-        ['/admin/migrations', true, new Refusal(503, { error: 'The database is not reachable.', code: 'database_unavailable' })],
-      ] as [string, boolean, Refusal][]) {
+    it('while the site is being updated, any other 503 is no problem of the app’s either (the words’ tables may be what the update brings) — for everybody, in the admin panel or not', async () => {
+      for (const [address, isAdmin] of [
+        ['/', false],
+        ['/admin/migrations', true],
+        ['/kanji', true],
+      ] as [string, boolean][]) {
         TestBed.resetTestingModule();
         configure();
         auth.cannotStart.mockClear();
         state.set('ready');
+        siteState.set('update_pending');
         history.replaceState(null, '', address);
         admin.set(isAdmin);
-        server.mockResolvedValue(refusal);
+        server.mockResolvedValue(NOT_UP_TO_DATE);
         await service().init();
-        expect(auth.cannotStart, `${address}, admin ${isAdmin}`).toHaveBeenCalledTimes(1);
+        service().navigated(); // asked again at the next navigation: still no problem page
+        await settled();
+        expect(auth.cannotStart, `${address}, admin ${isAdmin}`).not.toHaveBeenCalled();
+        expect(state()).toBe('ready');
       }
     });
 

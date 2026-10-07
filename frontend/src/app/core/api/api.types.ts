@@ -39,16 +39,17 @@ export interface VisitorsCount {
 
 /**
  * Every failure: {error, code?}. The sentence is English, for the console; a
- * page words the failure from the code. A copy not set up yet also says where
- * to set it up (and, to this computer, what is missing); and under PHP's
- * built-in server — the owner's computer, never a website — three failures
- * (database_unavailable, server_error, not_up_to_date) give the reason too.
+ * page words the failure from the code. Under PHP's built-in server — the
+ * owner's computer, never a website — three failures (database_unavailable,
+ * server_error, not_up_to_date) give the reason too. A site that is not set
+ * up, or is being updated, answers in the anotoki library's shape instead:
+ * 503 {code: "not_set_up", installed, message, setup?} or {code:
+ * "update_pending", message} - SiteStatus hears those (core/site-status.ts),
+ * and its gate puts up the library's page.
  */
 export interface ApiErrorBody {
   error?: string;
   code?: string;
-  setup?: string;
-  reason?: string;
   /** The reason in the server's own English words: shown small, after the page's own, in a `lang="en"` span. */
   detail?: string;
   /** The item as it stands, beside `already_learned` (always) and `not_due` (when the item has a record). */
@@ -316,27 +317,6 @@ export interface Person {
   items: number;
   /** exam attempts */
   attempts: number;
-}
-
-/** GET /api/admin/migrations (ADMIN): the files applied, the first first, and the ones pending in the order they will run. */
-export interface MigrationsStatus {
-  /** appliedAt in milliseconds */
-  applied: { name: string; appliedAt: number }[];
-  /** whole: false for a file without its last line yet (still being uploaded), which waits with every one after it */
-  pending: { name: string; whole: boolean }[];
-}
-
-/**
- * POST /api/admin/migrations/apply (ADMIN): what was applied, in order; the
- * file that failed (rolled back whole; the run stopped there) and why —
- * PostgreSQL's own words, on this computer and on a website alike, as the
- * IAM's page shows them; and the raw copy of every table taken first.
- */
-export interface MigrationsApplyResult {
-  applied: string[];
-  failed: string | null;
-  error: string | null;
-  backup: string | null;
 }
 
 /** One line of GET /api/attempts (newest first). */

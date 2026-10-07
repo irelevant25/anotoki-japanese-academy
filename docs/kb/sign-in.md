@@ -19,12 +19,14 @@ against `https://iam.anotoki.eu`.
 `backend/config/auth.local.php`, which the setup page writes, names the IAM:
 `['issuer' => …, 'client_id' => 'japanese-academy']`. It is deployment
 configuration; a request can never choose it. There is no default: without
-the file every address with data answers 503 `not_set_up`. What an earlier
+the file every address but `/api/site-status` answers 503 `not_set_up` (the
+anotoki library's SiteGate, [architecture.md](architecture.md), *The Slim
+app*). What an earlier
 version wrote beside them is ignored (`'mode' => 'iam'`, `local_user_id`,
 and `app.local.php` with its time zone), so a copy set up then keeps
 working; only a copy set up without sign-in (`'mode' => 'none'`) is not set up
-any more, and says why: "sign-in without the IAM is gone: open /setup.php and
-save".
+any more, and `manage.php --check` says why: "sign-in without the IAM is
+gone: open /setup.php and save".
 
 **Who may come in.** Every account the IAM lets sign in here. Since IAM
 migration 010 (2026-10-05, the owner's decision for the whole family) every
@@ -46,7 +48,7 @@ server decides:
 |---|---|
 | `MEMBER`, or none | study: their own kanji progress, exam attempts and reports; take all of their data away as a file and bring it back (`GET`, `PUT /api/me/data`) |
 | `EDITOR` | that, and reword the app's words: read and save the strings, export and import a language's (`/api/admin/translations…`, and read `/api/admin/languages`) |
-| `ADMIN` | all that, and add, change and delete languages (`POST`, `PUT`, `DELETE /api/admin/languages…`); see the people and delete a person's data (`GET /api/admin/people`, `DELETE /api/admin/people/{id}`); see and apply the database's migrations (`GET /api/admin/migrations`, `POST /api/admin/migrations/apply`, a group of its own that answers while a migration waits) |
+| `ADMIN` | all that, and add, change and delete languages (`POST`, `PUT`, `DELETE /api/admin/languages…`); see the people and delete a person's data (`GET /api/admin/people`, `DELETE /api/admin/people/{id}`); see and apply the database's migrations (`GET /api/admin/migrations`, `GET /api/admin/migrations/file`, `POST /api/admin/migrations/apply`: the anotoki library's routes, a group of its own that answers while a migration waits, its `ADMIN` read from the token alone) |
 
 The person's time zone travels with each request too (`X-Time-Zone`), but it
 is not who they are: it only says how their days are counted
@@ -63,13 +65,22 @@ nothing here, and a role named in a body, an address or a header is nobody's.
 There is no `Origin` check any more: every request here carries a bearer
 token, never a cookie, so another site's page cannot make a signed-in browser
 send one (the setup page, a cookie and a form, keeps its own).
+The Migrations page's group checks `ADMIN` in the token and nothing else
+(`migrations_admin_middleware()`, through `auth_token_user()`: no row is
+read or written, since the migration that waits may be the one that makes
+the tables), with the same 401s and 403s.
 A database update is never applied by a request: a new migration waits for
 an `ADMIN`'s **Apply pending** on the admin panel's Migrations page
 (`/admin/migrations`, which takes a raw copy of every table first;
-`backend/src/upkeep.php`), and meanwhile every address with data answers 503
-`not_up_to_date`. The setup page and `backend/manage.php` still apply them
-directly, under the same lock ([architecture.md](architecture.md), *A whole
-migration waits for an administrator*).
+`backend/src/upkeep.php`), and meanwhile every address but the few the
+pages need to start, to sign somebody in and to reach that page answers 503
+`update_pending` (the anotoki library's SiteGate). Signing in goes on
+working then — `/api/auth/config` and the words answer, and the IAM is not
+this site — so an administrator who is signed out signs in from the
+library's page and applies it (until 2026-10-07 they could not: the start
+stopped on the problem page). The setup page and `backend/manage.php` still
+apply them directly, under the same lock ([architecture.md](architecture.md),
+*A whole migration waits for an administrator*).
 
 The application is registered in the IAM as client `japanese-academy`: a
 public client, roles `MEMBER` (every account), `ADMIN` and `EDITOR` (IAM
@@ -153,7 +164,10 @@ data and puts the user id on the request:
 
 Every address with somebody's data needs it: all of `/api/*` and `/report/*`
 - the study addresses only while sign-in is required here (*Visitors*, below)
-- except `/api/auth/config` (how to sign in: `{issuer, clientId,
+- except `/api/site-status` (where the site stands, the anotoki library's
+`{state, installed}`: answered to anybody in every state, whatever the IAM
+says about signing in here; no token or key is looked at, and the browser
+sends none), `/api/auth/config` (how to sign in: `{issuer, clientId,
 loginRequired, visitorKeepDays}`; it can wait for the IAM once a minute, and asks the database
 only when the IAM says sign-in is not needed, above),
 `/api/health` (`{ok, contentCurrent}`; to a request straight from this
@@ -165,8 +179,8 @@ none). The audio clips are shared content and need no sign-in. Unknown
 addresses stay 404.
 
 `auth_from_this_computer()` decides nobody's sign-in. It decides what this
-computer is told and asked: the setup page wants no token from it, and the
-not-set-up answer, a failure and `/api/health` say more to it. A request
+computer is told and asked: the setup page wants no token from it, and a
+failure and `/api/health` say more to it. A request
 straight from it is one whose `Host` is `127.0.0.1`, `localhost` or `[::1]`
 (any port) and that carries no `Forwarded`, `X-Forwarded-For` or
 `X-Real-IP`: a tunnel or a proxy on this computer would make every visitor
@@ -327,7 +341,15 @@ family's top bar (`frontend/src/app/top-bar/`, [architecture.md](architecture.md
 anotoki site follows — and saves a change of them, or of the language, to
 the account (*The account's preferences*, below).
 
-- `AuthService.init()` runs before anything else (`provideAppInitializer`):
+- First of all the start asks where the site stands (the anotoki library's
+  `SiteStatus.check()`, `GET /api/site-status`, with no token and no key):
+  not set up, or its database out of reach, nothing of the sign-in starts,
+  and the library's page says so ("This site is not set up yet", with the
+  setup page only while the copy was never installed; "The site is not
+  available right now", asking again by itself). Being updated, the start
+  goes on as ever, and the library's page stands in front of the pages (*the
+  guard*, below).
+- `AuthService.init()` runs next (`provideAppInitializer`):
   it asks `GET /api/auth/config` (`{issuer, clientId, loginRequired,
   visitorKeepDays}`; there is no mode; `loginRequired` is true unless it is
   an explicit `false`: then nobody signed in is a visitor, *Visitors in the
@@ -335,14 +357,14 @@ the account (*The account's preferences*, below).
   it holds — waited for 5 s at most —, then
   the language and its strings are loaded: `core/boot.ts`,
   [architecture.md](architecture.md), *The app's words*.) A 503 `not_set_up`
-  shows the "not set up yet" page (with a link to `/setup.php`, and, to this
-  computer, why); a server that does not answer, a page that says so; settings
-  the SDK refuses, the problem page with its message. `/api/auth/config` needs
-  only the settings, so a copy whose database is missing or has no tables
-  starts all the same; the first address with data then answers `not_set_up`,
-  and any such answer from this site puts up the same page
-  (`core/api/not-set-up.interceptor.ts`, and `AuthService.fetch()` for its own
-  calls). Only a page load leaves it.
+  or `update_pending` there tells `SiteStatus` (the settings went, or an
+  update arrived, since the start asked), and the library's page stands in;
+  a server that does not answer, a page that says so; settings the SDK
+  refuses, the problem page with its message. Any `not_set_up` answer from
+  this site later stops the app the same way
+  (`core/api/not-set-up.interceptor.ts`, the library's
+  `siteStatusInterceptor`, and `AuthService.fetch()` for its own calls).
+  Only a page load leaves it.
 - It creates the SDK with this site's `/auth/callback` as the redirect URI and
   `/` after sign-out, and runs its `init()`, which finishes a sign-in coming
   back from the IAM (the code exchanged, the address the person started from
@@ -370,8 +392,16 @@ the account (*The account's preferences*, below).
   come back to `/exam`, `/kanji/reviews`, `/kanji/item/…`, not to `/`. The screens that load data on the way (the kanji routes' resolver)
   are behind `whenReady` too, so nothing is asked of the API meanwhile. While
   the app cannot run (not set up, could not start) the guard lets nothing
-  through and sends nobody anywhere: the boot pages are drawn then.
-  `/auth/callback` is not behind it (it only ever sends the browser home).
+  through and sends nobody anywhere: the boot pages are drawn then. **While
+  the site is being updated** (`SiteStatus.blocked()`) it sends nobody to
+  the IAM either: it lets the page through with nobody signed in, keeping
+  the address asked for (`AuthService.askedFor`), and the library's gate
+  draws "The site is being updated" in its place with a quiet **Sign in**
+  (`SignInService`, back to that address). A visitor signs in only if they
+  choose to; an administrator signs in there, comes back to "A database update
+  is waiting" and **Open Migrations**, and applies it — the deadlock of
+  before 2026-10-07 (signed out, an administrator could not get in at all)
+  is gone. `/auth/callback` is not behind it (it only ever sends the browser home).
 - The card is also what a page shows when the session ends while it is open
   (a sign-out in another tab, the IAM's idle limit): `AuthService.showSignIn`
   is "signed out, and a sign-in failed or the app was shown in this page

@@ -7,7 +7,7 @@ description: Run and read the Japanese Academy tests (PHP unit and API tests, si
 
 Run everything from the repository's top folder. It has no package of its
 own (since 2026-10-04): the PHP tests run through `backend/tools/php.js`,
-which finds a PHP 8.1+ (Git Bash's `php` is 7.4 on the owner's computer), the
+which finds a PHP 8.2+ (Git Bash's `php` is 7.4 on the owner's computer), the
 Angular ones in `frontend/`, and the browser suites against the production
 build, made first by `node frontend/scripts/ensure-build.mjs` (it builds only
 when the sources changed). Every suite uses throwaway databases
@@ -31,6 +31,7 @@ browser suite runs after `node frontend/scripts/ensure-build.mjs`.
 | sign-in (`backend/src/auth.php`, `access.php`, `users.php`, `visitors.php`, `frontend/src/app/core/auth/`), the routes or middleware | the PHP tests (`backend/tests/api/auth.test.php`, `access.test.php` and `visitors.test.php` above all; the visitors' tests switch sign-in off with `test_access(false)`, and `start_app(['app' => ['visitors' => [...]]])` sets their limits), the frontend tests (`auth.interceptor.spec.ts`) and `node frontend/e2e/run.js` (its sign-in, sign-out, token, admin-area and visitors parts) and `node frontend/e2e/setup.js` (signing in on a set-up copy) |
 | the setup page, `backend/config/` | the PHP tests (`setup.test.php`, `deploy.test.php`) and `node frontend/e2e/setup.js` |
 | Apache's files, `build-dist.php`, `backend/router.php`, `backend/src/upkeep.php`, `backend/api/front.php` | the PHP tests (`deploy.test.php`, `upkeep.test.php`, `exam-api.test.php` for the pages); for `.htaccess`, consider a real Apache (`docs/kb/environment.md`) |
+| where the site stands, the gate, the migrations' engine (`backend/api/app.php`'s `SITE_OPEN_PATHS`, `db_migrator()`, `backend/api/routes/migrations.php`, `frontend/src/app/core/site-status*.ts`, the anotoki library's version) | the PHP tests (`site-state.test.php`, `deploy.test.php`, `upkeep.test.php`, `build.test.php`, `errors.test.php`), the frontend tests (`boot.spec.ts`, `app.component.spec.ts`, `sign-in.guard.spec.ts`, `translation.service.spec.ts`), `node frontend/e2e/run.js` (a migration waiting: the signed-out administrator's way in) and `node frontend/e2e/setup.js` |
 | `backend/data/source/**`, `backend/tools/build-*.php` | first `node backend/tools/php.js backend/tools/build-data.php` (or `node backend/tools/php.js backend/tools/build-audio.php`), then the PHP tests and the frontend tests (`answer.spec.ts` checks the whole catalog) |
 | `backend/src/conjugate.php`, `backend/src/generate.php`, `backend/data/authored-items*.php`, `frontend/src/app/kanji/answer.ts` | the PHP tests (and the frontend tests for `answer.ts`), then the `academy-japanese-reviewer` agent |
 | `backend/migrations/` | the PHP tests (the template takes the new migration — a draft without its last line `-- end of NNN` too (the tests name the drafts, `ACADEMY_MIGRATION_DRAFTS`; only the newest may be one, which `upkeep.test.php` checks, and the template is made afresh when a draft changed); `migration.test.php` shows how to test one on old data), then `node backend/tools/php.js backend/manage.php --check`. After an edit of a migration not committed yet: `node backend/tools/php.js backend/tests/tools/testdb.php template --fresh` first, or the template keeps the old file |
@@ -57,9 +58,9 @@ Always finish with the full PHP tests, and the full frontend tests when
   `ℹ fail N`. A failure prints the assertion's message, expected and actual,
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
-  `Tests` lines. Report the real numbers of both (at the last count 235
-  backend tests, one of them the CRLF-only failure; 623 frontend tests in 46
-  files; 173 browser checks in `run.js`, 41 in `setup.js` — `docs/kb/testing.md`).
+  `Tests` lines. Report the real numbers of both (at the last count, on
+  2026-10-07: 247 backend tests; 667 frontend tests in 44 files; 178
+  browser checks in `run.js`, 42 in `setup.js` — `docs/kb/testing.md`).
 - `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.
 - `node frontend/e2e/run.js` prints each step, then `BROWSER SUITE PASSED` or
@@ -78,11 +79,13 @@ Always finish with the full PHP tests, and the full frontend tests when
   - 409 from `/api/kanji/learn` or `/review`, which the suite ignores by design;
   - `[auth] a token was refused: …` in a server's log: the sign-in tests send
     bad tokens on purpose;
-  - 503 from `/api/auth/config` on the setup suite's "not set up" pages.
+  - 503 from `/api/auth/config` on the setup suite's "not set up" pages, and
+    503 `update_pending` in the browser suite while it makes a migration
+    wait (its "waiting answers", left out of the error check).
 - `No Edge/Chrome found` means the browser wasn't found. Set `BROWSER_PATH` to
   its executable.
-- `No PHP 8.1+ … found` comes from `backend/tools/php.js`: set `ACADEMY_PHP` to
-  a php.exe 8.1+ with pdo_pgsql, mbstring and intl (and openssl, for the
+- `No PHP 8.2+ … found` comes from `backend/tools/php.js`: set `ACADEMY_PHP` to
+  a php.exe 8.2+ with pdo_pgsql, mbstring and intl (and openssl, for the
   sign-in tests).
 - `The tests make their databases on the PostgreSQL server of
   backend/config/database.local.php, and there is none` means this copy is not

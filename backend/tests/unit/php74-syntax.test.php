@@ -1,6 +1,6 @@
 <?php
 // The code stays parseable by PHP 7.4 (CLAUDE.md), because the owner's editor
-// checks it with a 7.4; it runs on 8.1+. There may be no PHP 7.4 to try it
+// checks it with a 7.4; it runs on 8.2+. There may be no PHP 7.4 to try it
 // with, so this reads every PHP file git would publish (Composer's packages in
 // backend/vendor/ aside: nobody edits those here) with PHP's own tokenizer and
 // looks for the syntax 7.4 cannot parse: match, ?->, named

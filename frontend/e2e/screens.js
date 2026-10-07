@@ -6,7 +6,9 @@
  * reader is an ADMIN, so the admin panel's four pages are shot too; the Sign
  * in card is a refused sign-in's; home-visitor is the home page of somebody
  * studying without signing in (the stand-in IAM saying sign-in is not
- * required here), with its notice. Every screen is checked for horizontal
+ * required here), with its notice; update-waiting is what a learner reads
+ * while a database update waits (the anotoki library's page), and
+ * update-waiting-admin what the site's ADMIN reads then. Every screen is checked for horizontal
  * overflow, key-shaped text (a word with no string shows as its key),
  * errors on the way, and what the reviews found by eye (looks()).
  *
@@ -46,6 +48,10 @@ const READER = { sub: 4501, name: 'kanji-reader', roles: ['MEMBER', 'ADMIN'] };
 /** The room's people: the longest name the family measures (20 characters), 999 reviews due. */
 const ROOMY = { sub: 4502, name: 'Alexandra Novakova-K', roles: ['MEMBER'] };
 const ROOMY_ADMIN = { sub: 4503, name: 'Alexandra Novakova-A', roles: ['MEMBER', 'ADMIN'] };
+/** A learner: what everybody but the site's ADMIN reads while a database update waits. */
+const LEARNER = { sub: 4504, name: 'learner', roles: ['MEMBER'] };
+/** The migration taken off the list for the update-waiting screens (applied again, it changes nothing), and put back. */
+const UPDATE = '006_admin_panel_words.sql';
 
 /** A 40-question paper, started. */
 async function startPaper(page) {
@@ -111,7 +117,10 @@ const SCREENS = [
   ['admin-translations', '/admin/translations', async (page) => page.waitForSelector('table.grid'), { admin: true }],
   ['admin-languages', '/admin/languages', async (page) => page.waitForSelector('section.add'), { admin: true }],
   ['admin-people', '/admin/people', async (page) => page.waitForSelector('#people'), { admin: true }],
-  ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('#applied li'), { admin: true }],
+  ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('[data-applied] .file'), { admin: true }],
+  // a database update waiting: the anotoki library's page, as a learner reads it, and as the site's ADMIN does
+  ['update-waiting', '/', async (page) => page.waitForSelector('anotoki-site-status h1'), { updating: true, learner: true }],
+  ['update-waiting-admin', '/', async (page) => page.waitForSelector('anotoki-site-status a'), { updating: true }],
 ];
 
 /** Slovak chosen in a browser nobody is signed in to (about:blank has no storage). */
@@ -269,6 +278,7 @@ function measureBar(page) {
   }
   app.makeDue(['k:大', 'k:学'], 60000, READER.sub);
   const bundle = await (await fetch(app.base + '/api/translations/sk')).json();
+  const updateAppliedAt = app.sql('SELECT applied_at FROM migrations WHERE name = ?', UPDATE)[0].applied_at;
   if (bundle.language !== 'sk' || !bundle.english) throw new Error(`no Slovak bundle: ${JSON.stringify(bundle).slice(0, 200)}`);
 
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -285,13 +295,18 @@ function measureBar(page) {
       if (FILTER && !name.includes(FILTER)) continue;
       // the Sign in card: a browser of its own, nobody signed in, the IAM refusing
       let shown = page;
-      if (how.signedOut || how.visiting) {
+      // While a database update waits, the pages behind the library's page ask for their data all the same: 503, on purpose.
+      const waitingAnswers = how.updating ? [/\/api\//] : [];
+      const errorsBefore = errors.length;
+      if (how.updating) app.sql('DELETE FROM migrations WHERE name = ?', UPDATE);
+      if (how.signedOut || how.visiting || how.learner) {
         if (how.signedOut) await iamState({ deny: true });
-        else await app.signInRequired(false);
+        else if (how.visiting) await app.signInRequired(false);
         const outContext = await newContext(browser, opts);
-        if (sk) await outContext.addInitScript(SLOVAK);
+        if (how.learner) await plant(outContext, LEARNER, sk ? 'sk' : null);
+        else if (sk) await outContext.addInitScript(SLOVAK);
         shown = await outContext.newPage();
-        const outErrors = watch(shown);
+        const outErrors = watch(shown, { ignore: waitingAnswers });
         shown.on('close', () => errors.push(...outErrors));
       }
       // a real page load for every screen (the same address twice would not load again)
@@ -331,6 +346,13 @@ function measureBar(page) {
       } else if (how.visiting) {
         await shown.context().close();
         await app.signInRequired(true);
+      } else if (how.learner) {
+        await shown.context().close();
+      }
+      if (how.updating) {
+        app.sql('INSERT INTO migrations (name, applied_at) VALUES (?, ?)', UPDATE, updateAppliedAt);
+        // the reader's own page's answers while it waited: 503, on purpose
+        errors.splice(errorsBefore, errors.length - errorsBefore, ...errors.slice(errorsBefore).filter((e) => !/^503 /.test(e)));
       }
     }
     problems.push(...errors.map((e) => `${variant}: ${e}`));

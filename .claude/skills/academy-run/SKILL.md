@@ -19,7 +19,7 @@ Doing so changes their progress and history. (The website, a hosted copy, is
 never run from here: see the `academy-deploy` skill.)
 
 **PHP:** Git Bash's `php` is 7.4 on the owner's computer, which the app
-refuses. `backend/tools/php.js` finds a PHP 8.1+ (or set `ACADEMY_PHP`);
+refuses. `backend/tools/php.js` finds a PHP 8.2+ (or set `ACADEMY_PHP`);
 below it is `$PHP`:
 
 ```bash
@@ -44,9 +44,12 @@ leave it as you found it.
 The first request after a change to `backend/data/` rebuilds the catalog and
 the question bank (~3 s); the day's first page load takes the day's backup.
 A new migration is never applied by a request: once it is whole, the pages
-say the database is not up to date until an `ADMIN` presses **Apply pending**
+show the anotoki library's "The site is being updated" (an `ADMIN`: "A
+database update is waiting", and the way on; anybody signed out: a quiet
+Sign in) until an `ADMIN` presses **Apply pending**
 on the admin panel's Migrations page (`/admin/migrations`, a raw copy of every
-table first) or `manage.php --sync` runs. So **no change ever needs a
+table first) or `manage.php --sync` runs; `GET /api/site-status` says where
+the site stands. So **no change ever needs a
 restart**: PHP's built-in server reads the PHP code again on every request,
 and the next request picks up data. For the frontend, build it again and
 reload the page — or work at the dev server (below). If the question bank

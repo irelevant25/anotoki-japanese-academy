@@ -3,7 +3,7 @@
  * Every failure becomes a JSON answer {"error": sentence, "code"?: word,
  * "detail"?: reason} (an HttpError may add what a page needs to word it: a
  * too_large's "limit"): an HttpError with its own status (a sign-in refused, a
- * copy not set up), an unknown address 404, a database that cannot be reached
+ * role lacking), an unknown address 404, a database that cannot be reached
  * 503, anything else 500. The code is what a page words the failure from; the
  * sentence is for the command line, the logs and the tests. On a hosted site
  * the sentence says no more than that, and there is no "detail": the details
@@ -25,9 +25,6 @@ function errors_middleware(string $sapi = PHP_SAPI): callable
             return $handler->handle($request);
         } catch (HttpError $e) {
             $body = ['error' => $e->getMessage()] + ($e->errorCode !== null ? ['code' => $e->errorCode] : []) + $e->fields;
-            if ($e->errorCode === 'not_set_up') {
-                $body['setup'] = '/setup.php';
-            }
             // whoever threw it gave a reason only to this computer (error_reason()); checked once more here
             if ($e->detail !== null && $sapi === 'cli-server') {
                 $body['detail'] = $e->detail;

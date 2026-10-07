@@ -469,7 +469,7 @@ test('from this computer too, nobody is anybody without a token; and a copy that
         assert_same([503, 'not_set_up'], [$r['status'], $r['body']['code'] ?? null], "$method $url");
     }
     $r = call($bare['base'], 'GET', '/api/translations/en');
-    assert_same([503, 'not_set_up', '/setup.php'], [$r['status'], $r['body']['code'] ?? null, $r['body']['setup'] ?? null], 'and the words: the page then shows "not set up yet"');
+    assert_same([503, 'not_set_up', '/setup.php'], [$r['status'], $r['body']['code'] ?? null, $r['body']['setup'] ?? null], 'and the words: the page then shows the library\'s "not set up yet"');
     assert_same($before, [every_string(), every_language()]);
     assert_same([], server_problems($bare));
 });

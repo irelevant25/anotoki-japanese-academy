@@ -11,6 +11,13 @@
  *   admin_middleware()   the group inside it, for what only ADMIN may do
  *                        (adding, changing and deleting languages; the people,
  *                        and deleting a person's data): else 403 admin_only
+ *   migrations_admin_middleware()   the Migrations page's group
+ *                        (routes/migrations.php): ADMIN, read from the token
+ *                        alone, with no person middleware before it - those
+ *                        addresses answer while a migration waits, when the
+ *                        tables may not be what this version expects (on a
+ *                        database the migrations have yet to build, there are
+ *                        none). Else 403 staff_only or admin_only, as above
  *
  * The roles come from the person's verified token and nowhere else
  * (src/auth.php). The pages only hide what this refuses.
@@ -45,6 +52,16 @@ function admin_middleware(): callable
 {
     return static function (Request $request, RequestHandler $handler): Response {
         auth_require_role(ROLE_ADMIN);
+        return $handler->handle($request);
+    };
+}
+
+function migrations_admin_middleware(): callable
+{
+    return static function (Request $request, RequestHandler $handler): Response {
+        $roles = auth_token_user()['roles'];
+        auth_require_role_of($roles, ...ROLES_STAFF);
+        auth_require_role_of($roles, ROLE_ADMIN);
         return $handler->handle($request);
     };
 }

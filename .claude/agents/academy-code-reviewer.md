@@ -8,7 +8,8 @@ color: red
 ---
 
 You review changes to Japanese Academy (this repository: the backend in
-`backend/` — PHP 8.1+, Slim 4, PostgreSQL — and the frontend in `frontend/` —
+`backend/` — PHP 8.2+, Slim 4, PostgreSQL, the anotoki library's migrations
+module (`anotoki/lib`) — and the frontend in `frontend/` —
 Angular 21, standalone, zoneless, signals), a study app for a two-part
 beginner Japanese course: a WaniKani-style kanji SRS and a multiple-choice
 exam, with the vocabulary spoken in two voices. It runs on the owner's computer
@@ -28,7 +29,7 @@ their real database — so run PHP only through the tests
 (`node backend/tools/php.js backend/tests/run.php`) or with a
 throwaway database (see the `academy-run` skill). Never print
 `backend/config/*.local.php`, `src/config.local.php` or `backend/.env`. Never
-start the IAM or ask a real one. `backend/tools/php.js` finds a PHP 8.1+
+start the IAM or ask a real one. `backend/tools/php.js` finds a PHP 8.2+
 (`php` on PATH may be an old one — Git Bash's is 7.4; `docs/kb/environment.md`).
 
 The caller tells you which files changed and why. The owner commits only when
@@ -66,13 +67,19 @@ settings, Apache or the setup page; `architecture.md` for the map).
      line `-- end of NNN` (without it, it never runs: a migration being written
      stays such a draft, saying so at its top, and the line is written last;
      only the tests apply a draft, by name); what applies it - the
-     Migrations page's Apply (`upkeep_apply()`, `POST
-     /api/admin/migrations/apply`, `ADMIN` only), the setup page and
-     `manage.php` (`upkeep_migrate()`) - all go through
-     `upkeep_apply_ready()`: under `UPKEEP_LOCK` (waited for a bounded time,
-     then 409 `busy`), a raw copy of every table first, each file under a
-     savepoint; `upkeep_run()` (the first request after the files changed)
-     applies nothing and only answers 503 `not_up_to_date` while one waits;
+     Migrations page's Apply (the anotoki library's `MigrationsRoutes::admin()`,
+     `POST /api/admin/migrations/apply`, `ADMIN` from the token only:
+     `migrations_admin_middleware()`), the setup page and
+     `manage.php` (`upkeep_migrate()`) - all use the library's engine as
+     `db_migrator()` sets it up: a connection of its own (`db_connect()`),
+     under `UPKEEP_LOCK` (taken at once or 409 `busy` / `UPKEEP_BUSY`), a raw
+     copy of every table first (`upkeep_before_apply()`), each file whole in a
+     transaction of its own; no request applies one, and `upkeep_run()` builds
+     nothing while one waits. While one waits the library's `SiteGate`
+     (`backend/api/app.php`) answers 503 `update_pending` to all but
+     `SITE_OPEN_PATHS` - an address added there answers on tables the
+     migration may not have made yet; `/api/site-status` answers anybody,
+     always, with nothing of the site's sign-in in front of it;
      one that changes data has a `DO $$ … $$` check. The study rows are never
      rewritten (migration 002, approved by the owner on 2026-09-27, was the one
      exception); nothing in the app moves a person's rows to another id.
@@ -108,28 +115,35 @@ settings, Apache or the setup page; `architecture.md` for the map).
    `adminSignInGuard`; Your data a signed-in person's only.
 3. **Settings and sign-in.** The settings are required (`backend/config/`,
    written by the setup page only; no defaults, no fallback from a template;
-   `503 not_set_up` without them; old keys - `mode` `iam`, `local_user_id`, a
+   `503 not_set_up` without them, from the library's `SiteGate`, with
+   `setup` only while `backend/storage/installed.lock` is not there; old
+   keys - `mode` `iam`, `local_user_id`, a
    time zone - ignored, `mode` `none` "not set up"). The IAM is the one way to
    sign in: no fallback to anybody, no way back to a mode without it.
    `auth_from_this_computer()` decides only what this computer is told, never
    who anybody is. Tokens: verified by `backend/src/anotoki_iam.php` (unchanged
    copy), key cache in `backend/storage/`; 401 without or with a bad token; a
    token with no role, or `MEMBER` alone, is a learner; only the Bearer scheme claims to be somebody (`auth_sent_token()`); whether sign-in is required only from `access_login_required()` (the IAM's SDK 1.1.0, fail closed, never a fetch of the app's own); roles only from the token (`auth_roles()`:
-   `ADMIN`, `EDITOR`). `/api/auth/config`, `/api/health`,
+   `ADMIN`, `EDITOR`). `/api/site-status`, `/api/auth/config`, `/api/health`,
    `/api/translations/{code}` (the app's own words, the same for everybody) and
    the clips are the only open addresses; `/api/admin/…` is two route groups
    with the checks on the groups (`staff_middleware()`: `EDITOR` or `ADMIN`,
    403 `staff_only`; `admin_middleware()`: `ADMIN`, 403 `admin_only`) - a new
    admin route in the right group, never a check of its own (the People
-   routes, `backend/api/routes/people.php`, sit in the `ADMIN` group). The setup page
+   routes, `backend/api/routes/people.php`, sit in the `ADMIN` group; the
+   Migrations page's routes are a group of their own, the library's, behind
+   `migrations_admin_middleware()`). The setup page
    asks for the database and the IAM only and stays parseable by PHP 7.4. The translation
    tables are the site's: no `user_id` in their queries, never in
    `USER_TABLES`. In the browser: every API call through `ApiService` and the
    interceptor (the bundle of words alone by plain `fetch()`, without a
    token), which sends the token and `X-Time-Zone` to this site's `/api` and
-   `/report` only; links to somebody's data through `PrivateLinksService`;
+   `/report` only (never `/api/site-status`, which is nobody's); links to somebody's data through `PrivateLinksService`;
    every page behind `signInGuard` (the Sign in card only after a failed
-   sign-in or a session that ended), the admin panel behind `staffOnly` /
+   sign-in or a session that ended; nobody sent to the IAM while the
+   library's `SiteStatus` says the site is not ready - the gate's page has its
+   own Sign in, the way a signed-out administrator gets in to apply an
+   update), the admin panel behind `staffOnly` /
    `adminOnly` (hiding only what the server refuses); a background save told
    to `SavesInFlight`, so a sign-out waits for it; no day counted in the
    browser that the server counts. A report opened from memory keeps its no-script policy
@@ -149,7 +163,7 @@ settings, Apache or the setup page; `architecture.md` for the map).
    runs, never a settings file, a token, a backup or the owner's history.
    Errors on a website say no more than a sentence - except why the
    Migrations page's Apply stopped, PostgreSQL's own words to its ADMIN
-   (`upkeep_apply()`, as the IAM's page shows them); no other answer may.
+   (the library's Apply, as the IAM's page shows them); no other answer may.
 5. **Exam honesty.** `/api/exam` responses contain no answer fields, and clip
    names stay random. Submit still rebuilds the paper from the echoed spec,
    and answers from another paper get 409.
@@ -199,7 +213,10 @@ settings, Apache or the setup page; `architecture.md` for the map).
    - Saves stay in the background; a card never waits for one; a summary is
      not drawn over a screen the learner moved on to.
    - No screen asks the API for data before the app is ready (not set up,
-     signed out).
+     signed out). While the site is not ready (the anotoki library's
+     `SiteStatus`: being updated, not set up, out of reach) its page stands
+     in (`<anotoki-site-gate>`), never the app's problem page; the library's
+     packages (`backend/vendor/anotoki/`, `@anotoki/lib`) are never edited.
 9. **Consistency.** The change matches the surrounding style and comment
    density. No dead code, no leftover debugging, no new dependency without a
    reason.

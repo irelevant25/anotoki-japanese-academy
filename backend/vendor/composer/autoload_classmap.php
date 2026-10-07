@@ -6,6 +6,12 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Anotoki\\Lib\\Migrations\\Http\\MigrationsRoutes' => $vendorDir . '/anotoki/lib/php/src/Migrations/Http/MigrationsRoutes.php',
+    'Anotoki\\Lib\\Migrations\\Http\\SiteGate' => $vendorDir . '/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
+    'Anotoki\\Lib\\Migrations\\Http\\SiteState' => $vendorDir . '/anotoki/lib/php/src/Migrations/Http/SiteState.php',
+    'Anotoki\\Lib\\Migrations\\MigrationSet' => $vendorDir . '/anotoki/lib/php/src/Migrations/MigrationSet.php',
+    'Anotoki\\Lib\\Migrations\\Migrator' => $vendorDir . '/anotoki/lib/php/src/Migrations/Migrator.php',
+    'Anotoki\\Lib\\Migrations\\Splitter' => $vendorDir . '/anotoki/lib/php/src/Migrations/Splitter.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'FastRoute\\BadRouteException' => $vendorDir . '/nikic/fast-route/src/BadRouteException.php',
     'FastRoute\\DataGenerator' => $vendorDir . '/nikic/fast-route/src/DataGenerator.php',

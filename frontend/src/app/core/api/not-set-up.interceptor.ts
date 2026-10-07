@@ -1,15 +1,16 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
-import { AuthService, isNotSetUp, isThisSite } from '../auth/auth.service';
-import { ApiErrorBody } from './api.types';
+import { AuthService, installedOf, isNotSetUp, isThisSite } from '../auth/auth.service';
 
 /**
- * Any answer 503 {"code": "not_set_up"} from this site puts the "not set up
- * yet" page in place of the app. GET /api/auth/config needs only the
- * settings, so a copy whose database is missing or has no tables yet starts as
- * usual (on a website, with its Sign in page); its first address with data
- * says so. Another host's answer says nothing about this copy.
+ * Any answer 503 {"code": "not_set_up"} from this site stops the app
+ * (AuthService.notSetUp()): its settings are gone, so nothing of it goes on,
+ * and the anotoki library's page takes its place (siteStatusInterceptor,
+ * before this one, has told SiteStatus too). The start asks where the site
+ * stands before anything else (core/boot.ts), so this is for a site whose
+ * settings go while a page is open. Another host's answer says nothing about
+ * this copy.
  */
 export const notSetUpInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
@@ -19,7 +20,7 @@ export const notSetUpInterceptor: HttpInterceptorFn = (request, next) => {
   return next(request).pipe(
     catchError((error: unknown) => {
       if (error instanceof HttpErrorResponse && isNotSetUp(error.status, error.error)) {
-        auth.notSetUp((error.error as ApiErrorBody).reason);
+        auth.notSetUp(installedOf(error.error));
       }
       return throwError(() => error);
     }),

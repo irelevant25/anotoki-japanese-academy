@@ -1,7 +1,9 @@
-import { DOCUMENT, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DOCUMENT, Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { errorCode } from '../api/api.service';
 import { ApiErrorBody } from '../api/api.types';
-import { AuthService, isNotSetUp, timeZoneHeaders } from '../auth/auth.service';
+import { AuthService, installedOf, isNotSetUp, timeZoneHeaders } from '../auth/auth.service';
+import { reportSiteState } from '../site-status';
 import { readStorage, writeStorage } from '../storage';
 import { SiteLanguage, TranslationBundle } from './translation.model';
 
@@ -178,6 +180,8 @@ export class BundleRefused extends Error {
 export class TranslationService {
   private readonly auth = inject(AuthService);
   private readonly document = inject(DOCUMENT);
+  /** For SiteStatus, asked for only when a refusal is to be told (core/site-status.config.ts says why). */
+  private readonly injector = inject(Injector);
 
   private readonly languageSignal = signal(FALLBACK_LANGUAGE);
   private readonly languagesSignal = signal<SiteLanguage[]>([]);
@@ -231,6 +235,14 @@ export class TranslationService {
   private out = 0;
   /** init() has decided the language at least once: only then is there something to ask again for. */
   private started = false;
+  /**
+   * A refusal said the site is not ready (being updated: refused()): the
+   * anotoki library's page stands in for the app, in its own words, and
+   * nothing is asked again by itself - not after a moment, not at a
+   * navigation - until words come (reload(), after an Apply) or the page
+   * loads afresh (the library's page does that once the site is back).
+   */
+  private siteNotReady = false;
   /**
    * What is in force came from the server since this page was loaded. False
    * with no bundle at all, and with the cached one whose refresh has not come
@@ -471,7 +483,7 @@ export class TranslationService {
   }
 
   private askAgainIfBehind(): void {
-    if (this.started && !this.fresh && this.out === 0 && this.canAsk()) {
+    if (this.started && !this.fresh && this.out === 0 && this.canAsk() && !this.siteNotReady) {
       void this.again().catch((error: unknown) => console.error('[i18n] the strings could not be asked for again', error));
     }
   }
@@ -551,7 +563,7 @@ export class TranslationService {
    * 503 that changed what the app can show: there is nothing to ask again for.
    */
   private async firstLoad(turn: number, candidates: readonly LanguageCandidate[], first: string): Promise<void> {
-    if ((await this.refresh(turn, candidates, first, true)) || turn !== this.lastTurn || !this.canAsk()) {
+    if ((await this.refresh(turn, candidates, first, true)) || turn !== this.lastTurn || !this.canAsk() || this.siteNotReady) {
       return;
     }
     await wait(RETRY_WAIT_MS);
@@ -639,24 +651,27 @@ export class TranslationService {
    * The server answered 503 instead of the strings. That is not a lost answer:
    * it says what the app can show.
    *
-   *   not_set_up      the copy has no settings, or its database no tables: the
-   *                   page that points at /setup.php — a database without its
-   *                   tables says so here first.
-   *   any other 503   (not_up_to_date: a database update waiting for an
-   *                   administrator, or still being uploaded;
-   *                   database_unavailable) the problem page, with the reason
-   *                   the server gives the owner's own computer.
+   *   not_set_up       the copy has no settings: nothing of the app goes on
+   *                    (AuthService.notSetUp()), and the anotoki library's page
+   *                    says so in its place.
+   *   update_pending   the site is being updated (a database update waits for an
+   *                    administrator): SiteStatus hears it, and the library's page
+   *                    stands in for the app, in its own words. (The words answer
+   *                    while an update waits, so this is rare.) Never the problem
+   *                    page: the sign-in has to go on working, for an
+   *                    administrator to get in and apply it.
+   *   any other 503    the problem page, with the reason the server gives the
+   *                    owner's own computer (database_unavailable; not_up_to_date:
+   *                    the words' tables not there yet, migration 004 of an upload
+   *                    still arriving) - unless the site is not ready by
+   *                    SiteStatus's account (being updated: the tables may be
+   *                    what the update brings), when the library's page stands in
+   *                    already.
    *
-   * The second only as the app starts, or while no bundle is in memory (the
-   * page would be in keys): once the app runs with its words, a choice of
+   * The problem page only as the app starts, or while no bundle is in memory
+   * (the page would be in keys): once the app runs with its words, a choice of
    * language that meets a 503 just fails, as any other lost answer — a lesson
    * or a paper somebody is in the middle of is not taken away over it.
-   *
-   * And never for an administrator in the admin panel while an update waits
-   * (not_up_to_date): the Migrations page, where they apply it, answers then,
-   * and the panel is English, written in its pages, with no strings needed
-   * (the bar's own English: standin/kept-word.ts). The problem page links an
-   * administrator there.
    */
   private refused(refusal: BundleRefused, atStart: boolean): void {
     if (refusal.status !== 503) {
@@ -664,10 +679,12 @@ export class TranslationService {
     }
     const body = refusal.body;
     if (isNotSetUp(refusal.status, body)) {
-      this.auth.notSetUp((body as ApiErrorBody).reason);
+      this.auth.notSetUp(installedOf(body));
       return;
     }
-    if (errorCode(refusal.status, body) === 'not_up_to_date' && this.adminArea() && this.auth.isAdmin()) {
+    const site = (): SiteStatus => this.injector.get(SiteStatus);
+    if (reportSiteState(site, refusal.status, body) || site().blocked()) {
+      this.siteNotReady = true;
       return;
     }
     if (atStart || !this.ready()) {
@@ -710,6 +727,9 @@ export class TranslationService {
    * is only in force until the server's comes.
    */
   private put(bundle: TranslationBundle, keep = true): void {
+    if (keep) {
+      this.siteNotReady = false; // the server's words came: it answers as usual again
+    }
     this.values.set(new Map(Object.entries(bundle.values)));
     this.englishValues.set(bundle.english ? new Map(Object.entries(bundle.english)) : null);
     this.languagesSignal.set(bundle.languages);

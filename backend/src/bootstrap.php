@@ -6,15 +6,16 @@
  * zone (UTC, until a person's request brings theirs), error handling and the
  * app's functions.
  *
- * PHP 8.1+ with the pdo_pgsql, mbstring and intl extensions (and openssl, to
- * check sign-ins). The HTTP side is Slim 4 (backend/api/); this is the domain
- * code under it, plain functions by area.
+ * PHP 8.2+ with the pdo_pgsql, mbstring and intl extensions (and openssl, to
+ * check sign-ins): 8.2 since the anotoki library (anotoki/lib, which applies
+ * the migrations) came in. The HTTP side is Slim 4 (backend/api/); this is the
+ * domain code under it, plain functions by area.
  */
 
 declare(strict_types=1);
 
-if (PHP_VERSION_ID < 80100) {
-    file_put_contents('php://stderr', 'Japanese Academy needs PHP 8.1 or newer; this is PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ").\n");
+if (PHP_VERSION_ID < 80200) {
+    file_put_contents('php://stderr', 'Japanese Academy needs PHP 8.2 or newer; this is PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ").\n");
     exit(1);
 }
 
@@ -36,6 +37,11 @@ set_error_handler(static function (int $level, string $message, string $file, in
     }
     throw new ErrorException($message, 0, $level, $file, $line);
 });
+
+// Composer's packages (backend/vendor/, committed: a website has no shell to
+// install them): Slim for the HTTP side, and the anotoki library, whose engine
+// applies the migrations (db_migrator() in src/db.php) for every entry point.
+require_once BACKEND . '/vendor/autoload.php';
 
 require BACKEND . '/config/config.php';
 

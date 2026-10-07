@@ -2,9 +2,14 @@
 /**
  * PostgreSQL through PDO. The connection opens with the first query, so the
  * pure parts of the app (the question generator, the catalog) run without one.
+ * The migrations are applied and read by the anotoki library's engine,
+ * configured here for this site (db_migrator()).
  */
 
 declare(strict_types=1);
+
+use Anotoki\Lib\Migrations\MigrationSet;
+use Anotoki\Lib\Migrations\Migrator;
 
 function db_dsn(?string $name = null): string
 {
@@ -160,13 +165,60 @@ function db_create(?string $name = null, ?string $template = null): bool
     }
 }
 
+/* ------------------------------------------------------------ migrations */
+
+/** The label of this site's one set of migrations, in the Migrations page's answers ({"set": "academy", "name": …}). */
+const MIGRATION_SET = 'academy';
+
 /**
- * A migration's SQL, or null while the file is not whole. Every migration
- * ends with the line "-- end of NNN", its own number: without it the file is
- * still being written, or on a hosted site still being uploaded by FTP, and
- * running half of it would leave the tables half changed. 001_init.sql is
- * from before this rule, and is whole as it is. Read once, so what is checked
- * is what runs.
+ * The migrations' engine: the anotoki library's (Anotoki\Lib\Migrations\
+ * Migrator, the Composer package anotoki/lib - every anotoki site's), set up
+ * for this site's own ways:
+ *
+ *   - one set of files, backend/migrations/, in the order of their names;
+ *   - the table `migrations (name, applied_at)` as this site has always had
+ *     it: made in that shape on a new database (db_migrations_table(), its
+ *     prepare hook), read and written as it is;
+ *   - each file sent to PostgreSQL in one exec (split false), as this site
+ *     always ran them, in a transaction of its own with its row: a file that
+ *     fails is rolled back whole, and the run stops there;
+ *   - a file that is not whole yet is a draft (db_migration_ready()): it
+ *     waits, with every one after it, and stops nothing;
+ *   - one apply at a time, under the upkeep's lock (UPKEEP_LOCK), which the
+ *     content's rebuild takes too (upkeep_run()): the two never run at once,
+ *     and a second apply is told it is busy;
+ *   - $beforeApply, once before anything runs: the raw copy of every table
+ *     (upkeep_before_apply()) for the Migrations page's Apply, the setup page
+ *     and manage.php; none for the tests' builder (db_migrate()).
+ *
+ * $pdo: the connection it works on, db() when none. Whoever applies gives it
+ * a connection of its own (db_connect()): the lock belongs to the connection,
+ * and db() stays open from one request to the next on this computer, where a
+ * request cut off half way (a time limit) would leave it held.
+ */
+function db_migrator(?PDO $pdo = null, ?Closure $beforeApply = null): Migrator
+{
+    $options = [
+        'split' => false,
+        'lock' => UPKEEP_LOCK,
+        'ready' => static function (MigrationSet $set, string $name, string $sql): bool {
+            return db_migration_ready($name, $sql);
+        },
+        'prepare' => 'db_migrations_table',
+    ];
+    if ($beforeApply !== null) {
+        $options['beforeApply'] = $beforeApply;
+    }
+    return new Migrator($pdo ?? db(), [new MigrationSet(MIGRATION_SET, MIGRATIONS_DIR)], $options);
+}
+
+/**
+ * May migration $name, whose text is $sql, run - or is it a draft? Every
+ * migration ends with the line "-- end of NNN", its own number: without it
+ * the file is still being written, or on a hosted site still being uploaded by
+ * FTP, and running half of it would leave the tables half changed. 001_init.sql
+ * is from before this rule, and is whole as it is. The engine reads a file
+ * once and hands its text here, so what is judged is what runs.
  *
  * The same rule keeps a migration that is still being written - a draft, in
  * backend/migrations/ without its last line - away from every real database:
@@ -174,16 +226,9 @@ function db_create(?string $name = null, ?string $template = null): bool
  * may apply a draft they name (db_migration_drafts_allowed()), so they run on
  * the tables it makes.
  */
-function db_migration_sql(string $name): ?string
+function db_migration_ready(string $name, string $sql): bool
 {
-    $sql = @file_get_contents(MIGRATIONS_DIR . "/$name");
-    if (!is_string($sql)) {
-        return null;
-    }
-    if ($name === '001_init.sql' || db_migration_whole($name, $sql)) {
-        return $sql;
-    }
-    return db_migration_drafts_allowed(db_name(), $name) ? $sql : null;
+    return $name === '001_init.sql' || db_migration_whole($name, $sql) || db_migration_drafts_allowed(db_name(), $name);
 }
 
 /** Does this migration's text end with its own last line, "-- end of NNN"? */
@@ -211,64 +256,45 @@ function db_migration_drafts_allowed(string $database, string $name): bool
 /** The pending migrations that can run now: in order, up to the first that is not whole yet. */
 function db_migrations_ready(): array
 {
-    $ready = [];
-    foreach (db_pending_migrations() as $name) {
-        if (db_migration_sql($name) === null) {
-            break;
-        }
-        $ready[] = $name;
-    }
-    return $ready;
+    return array_column(db_migrator()->applicable(), 'name');
+}
+
+/** Migrations not yet applied, drafts too, in the order they will run (all of them for a database without the table). */
+function db_pending_migrations(): array
+{
+    return array_column(db_migrator()->status()['pending'], 'name');
 }
 
 /**
- * Applies the missing migrations from backend/migrations (by file name, in order),
- * each in its own transaction; one that is not whole yet waits, and so do the
- * ones after it. Returns the names just applied. One that fails rolls back and
- * throws a PDOException that names it ("backend/migrations/004_….sql: …"):
- * PostgreSQL's message alone would not say which file to fix.
- *
- * The tests' databases come here (tests/tools/testdb.php); the app itself
- * applies through backend/src/upkeep.php, under its lock and after a copy.
+ * The tests' builder (tests/tools/testdb.php, and the tests of a migration on
+ * data in an older shape): what can run now applied, as an Apply does but
+ * without the copy first - their databases are throwaway. Returns the names
+ * applied. One that fails is rolled back whole and throws, naming its file
+ * ("backend/migrations/004_….sql: …"): PostgreSQL's message alone would not
+ * say which file to fix.
  */
 function db_migrate(): array
 {
-    $pdo = db();
-    db_migrations_table();
-    $applied = [];
-    foreach (db_pending_migrations() as $name) {
-        $sql = db_migration_sql($name);
-        if ($sql === null) {
-            break;
-        }
-        try {
-            db_tx(static function () use ($pdo, $sql, $name): void {
-                $pdo->exec($sql);
-                db_exec('INSERT INTO migrations (name) VALUES (?)', [$name]);
-            });
-        } catch (PDOException $e) {
-            throw new PDOException("backend/migrations/$name: " . $e->getMessage(), 0, $e);
-        }
-        $applied[] = $name;
+    $done = db_migrator()->apply();
+    if ($done['busy']) {
+        throw new RuntimeException('Another database update is running, so nothing was applied: try again in a moment.');
     }
-    return $applied;
+    if ($done['failed'] !== null) {
+        throw new RuntimeException("backend/migrations/{$done['failed']['name']}: {$done['error']}");
+    }
+    return array_column($done['applied'], 'name');
 }
 
-/** The table that lists the migrations applied, made on a new database before the first of them runs. */
-function db_migrations_table(): void
+/**
+ * The table that lists the migrations applied, in this site's shape, made on a
+ * new database before the first of them runs: the engine's prepare hook
+ * (db_migrator()), which asks before every apply, on the connection it applies
+ * with ($pdo).
+ */
+function db_migrations_table(?PDO $pdo = null): void
 {
-    db()->exec('CREATE TABLE IF NOT EXISTS migrations (
+    ($pdo ?? db())->exec('CREATE TABLE IF NOT EXISTS migrations (
         name       text PRIMARY KEY,
         applied_at timestamptz NOT NULL DEFAULT now()
     )');
-}
-
-/** Migrations not yet applied (all of them for a database without the table). */
-function db_pending_migrations(): array
-{
-    $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    sort($files);
-    $table = db_value("SELECT to_regclass('migrations') IS NOT NULL");
-    $done = $table ? array_column(db_all('SELECT name FROM migrations'), 'name') : [];
-    return array_values(array_diff($files, $done));
 }

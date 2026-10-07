@@ -113,8 +113,8 @@ const SETUP_CSS = ':root{color-scheme:light dark;--bg:#f6f5f2;--card:#fff;--ink:
 
 // Before the app loads: it needs all of these, and a new host may lack one.
 $lacking = [];
-if (PHP_VERSION_ID < 80100) {
-    $lacking[] = 'PHP 8.1 or newer (this is ' . PHP_VERSION . ')';
+if (PHP_VERSION_ID < 80200) {
+    $lacking[] = 'PHP 8.2 or newer (this is ' . PHP_VERSION . ')';
 }
 foreach (['pdo_pgsql', 'mbstring', 'intl', 'openssl'] as $extension) {
     if (!extension_loaded($extension)) {
@@ -130,7 +130,8 @@ require_once __DIR__ . '/src/bootstrap.php';
 
 /** This computer's own copy (no token), or a website (the token, the lock, the self-delete)? */
 define('SETUP_LOCAL', PHP_SAPI === 'cli-server' && auth_from_this_computer($_SERVER));
-const SETUP_LOCK = BACKEND . '/storage/installed.lock';
+/** The lock a website's setup leaves (INSTALLED_LOCK, backend/config/config.php): the site never offers this page again. */
+const SETUP_LOCK = INSTALLED_LOCK;
 const SETUP_COOKIE = 'academy_setup';
 
 function setup_token_file(): string
@@ -231,11 +232,8 @@ function setup_try_db(array $db): array
     try {
         $pdo = setup_pdo($db, $name);
         $tables = (int) $pdo->query("SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")->fetchColumn();
-        $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-        $applied = $pdo->query("SELECT to_regclass('migrations') IS NOT NULL")->fetchColumn()
-            ? array_column($pdo->query('SELECT name FROM migrations')->fetchAll(), 'name')
-            : [];
-        $pending = count(array_diff($files, $applied));
+        // what the migrations' engine finds there (it only reads: nothing is made)
+        $pending = count(db_migrator($pdo)->status()['pending']);
         return [true, "Connected to the database \"$name\": "
             . ($tables === 0 ? 'it is empty - Save makes the tables.' : ($pending > 0 ? "$pending update(s) to apply - Save applies them." : 'it is up to date.'))];
     } catch (PDOException $e) {

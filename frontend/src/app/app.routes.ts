@@ -11,9 +11,10 @@ import { HomeComponent } from './home/home.component';
  * a visitor (where the IAM does not require sign-in). signInGuard lets a page
  * through with nobody signed in after a sign-in that came back without one
  * (the Sign in card is drawn instead), and once the router has started, Back
- * or Forward still navigates while the page shows the card or the "not set up
- * yet" page: the kanji screens would ask the API for data on the way (their
- * resolver), which nobody signed out, or a copy not set up, can have.
+ * or Forward still navigates while the page shows the card or the anotoki
+ * library's page (a site not set up, or being updated): the kanji screens
+ * would ask the API for data on the way (their resolver), which nobody signed
+ * out, or a copy not set up, can have.
  */
 export const whenReady: CanActivateFn = () => inject(AuthService).usable();
 
@@ -33,7 +34,8 @@ export const adminOnly: CanActivateFn = () => inject(AuthService).isAdmin() || i
  *   /admin/translations     EDITOR, ADMIN: the app's words in every language (English)
  *   /admin/languages        ADMIN: the languages readers are offered (English)
  *   /admin/people           ADMIN: everybody the site has, and deleting a person's data (English)
- *   /admin/migrations       ADMIN: the database's migrations, applied and pending, and Apply (English)
+ *   /admin/migrations       ADMIN: the database's migrations, applied and pending, and Apply (English): the
+ *                           anotoki library's page, the one page that works while an update waits
  *   /auth/callback          where the IAM sends the browser back after a sign-in
  *
  * Every page but the callback is for somebody signed in: signInGuard sends

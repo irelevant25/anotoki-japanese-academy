@@ -22,7 +22,7 @@ function test_config_server_file(): string
 /**
  * The migrations of backend/migrations/ still being written: every file but
  * 001 whose last line is not its "-- end of NNN" (the app's rule:
- * db_migration_sql()), by name. The tests name them in
+ * db_migration_whole(), db_migration_ready()), by name. The tests name them in
  * ACADEMY_MIGRATION_DRAFTS, so their throwaway databases get what the drafts
  * make; nothing else does.
  */

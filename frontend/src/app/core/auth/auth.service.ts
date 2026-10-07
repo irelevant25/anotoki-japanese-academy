@@ -1,6 +1,8 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, Injector, signal } from '@angular/core';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { errorCode } from '../api/api.service';
 import { ApiErrorBody, AuthConfig } from '../api/api.types';
+import { reportSiteState } from '../site-status';
 import { browserTimeZone, TIME_ZONE_HEADER } from '../time-zone';
 import { VISITOR_KEY_HEADER } from './issued-as';
 // No extension on purpose: TypeScript reads the types of a `.mjs` specifier only
@@ -23,9 +25,16 @@ export const AUTH_CALLBACK_PATH = '/auth/callback';
  *                every page there), or the Sign in card when a sign-in came back
  *                without one, could not start, or the session ended while the
  *                page was open (showSignIn)
- *   not-set-up   the server has no settings yet, or no database with its tables
- *                (any answer 503 not_set_up says so): the page that points at /setup.php
+ *   not-set-up   the server has no settings yet (any answer 503 not_set_up says so):
+ *                nothing of the app starts, and the anotoki library's page says so in its
+ *                place (core/site-status.config.ts) - with the way to /setup.php only while
+ *                the site was never installed
  *   problem      the app cannot start (the server does not answer, or refuses): what happened
+ *
+ * While the site is being updated (a database update waits for an
+ * administrator) the state is whatever the sign-in makes it: the library's
+ * gate stands in front of the pages, and the sign-in itself works, so an
+ * administrator can get in to apply the update.
  */
 export type AppState = 'starting' | 'ready' | 'visiting' | 'signed-out' | 'not-set-up' | 'problem';
 
@@ -73,9 +82,15 @@ export interface SignInFailure {
   code: string;
 }
 
-/** Is this the server's answer for a copy that is not set up (503 {"code": "not_set_up"})? */
+/** Is this the server's answer for a copy that is not set up (503 {"code": "not_set_up", "installed": …})? */
 export function isNotSetUp(status: number, body: unknown): boolean {
   return status === 503 && !!body && typeof body === 'object' && (body as ApiErrorBody).code === 'not_set_up';
+}
+
+/** Whether a not_set_up answer says the site was installed once (a website's setup finished): then nobody is offered the setup page. */
+export function installedOf(body: unknown): boolean | undefined {
+  const installed = body && typeof body === 'object' ? (body as { installed?: unknown }).installed : undefined;
+  return typeof installed === 'boolean' ? installed : undefined;
 }
 
 /** The reason a failure's body gives to the owner's own computer (`detail`), or null. */
@@ -127,6 +142,8 @@ function detailOf(body: unknown): string | null {
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  /** For SiteStatus, asked for only when there is something to tell it (core/site-status.config.ts says why). */
+  private readonly injector = inject(Injector);
   private sdk: AnotokiAuth | null = null;
   /** Whose the page is: the IAM user id signed in when the app became ready (undefined until then). */
   private shownFor: string | undefined;
@@ -158,8 +175,6 @@ export class AuthService {
   private readonly problemSignal = signal<StartProblem | null>(null);
   /** Why the app could not start (state problem), else null. */
   readonly problem = this.problemSignal.asReadonly();
-  /** Why the server says it is not set up (state not-set-up; only to this computer, and not always). */
-  readonly notSetUpReason = signal<string | null>(null);
   /**
    * The sign-in this page load came back from without one — or the last one
    * that could not start: its code, for the Sign in card to word. Never
@@ -225,7 +240,7 @@ export class AuthService {
     }
     const body = (await r.json().catch(() => ({}))) as AuthConfig & ApiErrorBody;
     if (isNotSetUp(r.status, body)) {
-      this.notSetUp(body.reason);
+      this.notSetUp(installedOf(body));
       return;
     }
     if (!r.ok) {
@@ -401,13 +416,15 @@ export class AuthService {
   }
 
   /**
-   * The server answered 503 not_set_up (at start, or later: a copy with its
-   * settings, whose database is missing or has no tables yet, says so at the
-   * first address with data). The page that points at /setup.php, until a page
-   * load after the setup.
+   * The server answered 503 not_set_up (as the start asked where the site
+   * stands, or later: its settings gone). Nothing of the app goes on, until a
+   * page load after the setup; SiteStatus hears it too ($installed: whether
+   * the site was ever installed, as the answer says), and the gate puts up the
+   * anotoki library's page - with the way to /setup.php only while the site
+   * was never installed.
    */
-  notSetUp(reason?: string | null): void {
-    this.notSetUpReason.set(reason ?? null);
+  notSetUp(installed?: boolean): void {
+    this.injector.get(SiteStatus).report('not_set_up', installed);
     this.stateSignal.set('not-set-up');
   }
 
@@ -415,8 +432,11 @@ export class AuthService {
    * The app cannot start, or cannot go on: the problem page, with what
    * happened, until a page load. Said here when the sign-in's settings cannot
    * be had, and by the translation service when the server refuses the app's
-   * own words with a 503 (a migration that failed, an upload still arriving).
-   * A copy that is not set up stays that: it is the more exact answer.
+   * own words with a 503 for a reason of its own (a database out of reach, the
+   * words of an upload still arriving) - never while the site is being
+   * updated: then the anotoki library's page stands in for the app, and the
+   * sign-in has to work (TranslationService.refused()). A copy that is not set
+   * up stays that: it is the more exact answer.
    */
   cannotStart(problem: StartProblem): void {
     if (this.stateSignal() === 'not-set-up') {
@@ -496,7 +516,10 @@ export class AuthService {
         .json()
         .catch(() => null);
       if (isNotSetUp(r.status, body)) {
-        this.notSetUp((body as ApiErrorBody).reason);
+        this.notSetUp(installedOf(body));
+      } else {
+        // Being updated (update_pending): the gate puts up the library's page, as siteStatusInterceptor does for HttpClient.
+        reportSiteState(() => this.injector.get(SiteStatus), r.status, body);
       }
     }
     return r;

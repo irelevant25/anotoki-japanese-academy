@@ -15,8 +15,9 @@
  *
  * It refuses to build while a migration in backend/migrations/ is a draft
  * (without its last line, "-- end of NNN": db_migration_whole()): on the host
- * every request would find it pending and not whole, apply nothing after it
- * and rebuild no content, so the upload would run half updated.
+ * it would be taken for a file still arriving - never applied, nor anything
+ * after it, by an ADMIN's Apply or anybody's, and the content never rebuilt -
+ * so the upload would run half updated.
  *
  *   public/     the document root: the built Angular app (frontend/, built here by
  *               frontend/scripts/ensure-build.mjs when its sources changed), index.php

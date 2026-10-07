@@ -3,9 +3,13 @@
 This repository is Japanese Academy, the owner's study app for a two-part
 beginner Japanese course: a WaniKani-style kanji SRS (`/kanji`) and an
 11,523-question multiple-choice exam (`/exam`), with every word spoken in two
-voices. The backend is PHP 8.1+ with Slim 4 and PostgreSQL for all data
+voices. The backend is PHP 8.2+ with Slim 4 and PostgreSQL for all data
 (`backend/`); the frontend is an Angular 21 app — standalone, zoneless,
-signals (`frontend/`), built once and served by the backend. It runs two ways:
+signals (`frontend/`), built once and served by the backend. The database
+migrations - applying them, and what the site does while one waits - are the
+**anotoki library**'s (`anotoki-lib`, every anotoki site's: the Composer
+package `anotoki/lib`, the npm package `@anotoki/lib`; `../anotoki-lib`,
+`DEV.md`, *The anotoki library*). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -56,14 +60,18 @@ count wrong, fix it in the same piece of work.
   `manage.php` (command-line helpers: `--check`, `--sync`, `--backup`,
   `--restore`), `translations.php` (the app's own
   strings from the command line: `--status`, `--export`, `--import`; never
-  uploaded), `api/` (the HTTP side: `app.php` the Slim app, `routes/` site,
+  uploaded), `api/` (the HTTP side: `app.php` the Slim app, with the anotoki
+  library's SiteGate in front of every route and its `/api/site-status`,
+  `routes/` site,
   exam, kanji, me (your own data as a file), visitor (the move at sign-in),
   translations, people and
-  migrations (the admin panel), `middleware/` — `person.php` finds who asks
+  migrations (the admin panel: the library's routes), `middleware/` — `person.php` finds who asks
   (a person, or on the study addresses a visitor or nobody) and their time
   zone, `staff.php` guards the
-  admin panel's addresses (`EDITOR`, `ADMIN`) —, `front.php` which sends each request to the API, the
-  setup page or the built app), `src/` (the app: `bootstrap.php`, `db.php`,
+  admin panel's addresses (`EDITOR`, `ADMIN`), `upkeep.php` the content's
+  rebuild —, `front.php` which sends each request to the API, the
+  setup page or the built app), `src/` (the app: `bootstrap.php`, `db.php`
+  (with `db_migrator()`, the library's migrations engine set up for this site),
   `auth.php`, `access.php` (whether the IAM requires sign-in here), `users.php`,
   `visitors.php` (studying without signing in: made, found, capped, swept,
   moved into an account), `client_address.php` (the address the visitors'
@@ -72,10 +80,10 @@ count wrong, fix it in the same piece of work.
   the exam, content, backups, `me.php` — a person's own data file —,
   `people.php`, `translations.php` — the languages and the
   app's words), `config/` (`config.php`; this copy's settings in `*.local.php`),
-  `migrations/`, `vendor/` (Composer's packages, committed: a website has no
-  shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
+  `migrations/`, `vendor/` (Composer's packages - Slim, the anotoki library -
+  committed: a website has no shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
   `tests/`, `tools/` (data and audio builders, `build-dist.php` for the
-  upload, `php.js` which finds a PHP 8.1+ for the command line and the browser
+  upload, `php.js` which finds a PHP 8.2+ for the command line and the browser
   suites, `pdf/` — `pages.js` with its own `package.json` for `sharp`),
   `data/` (the study content's sources and the clips, below), `storage/`
   (gitignored contents: `backups/`, the IAM's keys, cached; a website's
@@ -87,9 +95,12 @@ count wrong, fix it in the same piece of work.
   its pipes, the language chooser, failures worded from their codes),
   `theme/` (light, dark or the system's - the anotoki account's while signed
   in), `saves-in-flight.service.ts` (the
-  saves a sign-out waits for), `time-zone.ts` —, `admin/` — the admin panel, in English:
-  Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN) —, `standin/`
-  — the Sign in card, not set up and problem pages; `home/your-data/` is a
+  saves a sign-out waits for), `time-zone.ts`, `site-status.config.ts` (the
+  anotoki library's migrations module wired to this app: the gate around the
+  pages, its page while the site is not ready, the Migrations page) —, `admin/` — the admin panel, in English:
+  Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN; the
+  library's page in the panel's frame) —, `standin/`
+  — the Sign in card and the problem page; `home/your-data/` is a
   person's own data file, down and back),
   `src/styles/` (tokens, base, items), `public/`
   (favicon, the family's mark, `theme-boot.js`, `changelog.json`), `e2e/`
@@ -127,7 +138,7 @@ count wrong, fix it in the same piece of work.
 
 There is no package at the top and no launcher. `php` in Git Bash is 7.4 on
 the owner's computer, which the app refuses: `node backend/tools/php.js
-<script> …` finds a PHP 8.1+ (`docs/kb/environment.md`); `composer start`
+<script> …` finds a PHP 8.2+ (`docs/kb/environment.md`); `composer start`
 runs the `php` first on PATH.
 
 ```
@@ -135,20 +146,21 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (235): after every change
-cd frontend && npm test                      the Angular unit tests (657 in 46 files): after every frontend change
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (247): after every change
+cd frontend && npm test                      the Angular unit tests (667 in 44 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (173 checks), signed in through the stand-in IAM: a
+                                             Edge end to end (178 checks), signed in through the stand-in IAM: a
                                              deep link signed out, lessons → reviews → practice → exam, the bar's
                                              keys and menus, Your data, sign-out, the admin panel by role, People,
-                                             a migration waiting (by role), failing and applied, two time
+                                             a migration waiting (the library's page for a visitor, a learner and an
+                                             editor; a signed-out ADMIN signs in from it), failing and applied, two time
                                              zones, a Slovak pass; then visitors (sign-in not required): study,
                                              an exam, Sign in moving it all, sign-in switched on with a key held
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
-                                             the setup page in Edge (41 checks): this computer's way and a website's
+                                             the setup page in Edge (42 checks): this computer's way and a website's
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
-                                             screenshots → frontend/e2e/shots/: 21 screens light/dark/phone and Slovak
+                                             screenshots → frontend/e2e/shots/: 23 screens light/dark/phone and Slovak
                                              phone light/dark, then the top bar measured at 360-1280 px and its menus
                                              (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
@@ -262,13 +274,18 @@ Tests enforce most of these. Never weaken a test to make it pass.
   (`docs/kb/kanji-srs.md`).
 - **Settings are required, and the IAM is deployment configuration**
   (`issuer` and `client_id` in `backend/config/auth.local.php`), never a
-  request's. Without the settings every address with data answers
-  `503 {"code": "not_set_up"}`; old keys (`mode` `iam`, `local_user_id`, a
+  request's. Without the settings every address but `/api/site-status` answers
+  `503 {"code": "not_set_up", "installed", "message"}` (the anotoki library's
+  SiteGate, `backend/api/app.php`), with `"setup": "/setup.php"` only while
+  the site was never installed (`backend/storage/installed.lock`, which a
+  website's setup writes and this computer never does: once set up on a
+  website, the setup page is never offered again); old keys (`mode` `iam`, `local_user_id`, a
   time zone) are ignored, and a file for the sign-in mode `none` is not set
   up. `auth_from_this_computer()` (its `Host` 127.0.0.1, localhost or
   [::1]; no `Forwarded`, `X-Forwarded-For` or `X-Real-IP`) decides only what
   this computer is told, never who anybody is.
 - Every `/api` and `/report` address needs a signed-in person except
+  `/api/site-status` (where the site stands, the anotoki library's),
   `/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
   own words, the same for everybody) - and, unless the IAM says sign-in is
   required here (`backend/src/access.php`, and always while migration 007 is
@@ -281,11 +298,14 @@ Tests enforce most of these. Never weaken a test to make it pass.
   a copy of it), and applies the database's migrations; the
   checks sit on the route groups (`backend/api/routes/translations.php`,
   `backend/api/routes/migrations.php`,
-  `backend/api/middleware/staff.php`: 403 `staff_only` / `admin_only`). On a
+  `backend/api/middleware/staff.php`: 403 `staff_only` / `admin_only`; the
+  Migrations page's group reads ADMIN from the token alone, no table asked,
+  `migrations_admin_middleware()`). On a
   website, `/api/health` shows no database or folder, and errors say no more
   than a sentence - the one exception is why the Migrations page's Apply
   stopped: PostgreSQL's own words, to its ADMIN, as the IAM's page shows
-  them (`upkeep_apply()`, the owner's decision of 2026-10-04).
+  them (the library's Apply route, `backend/api/routes/migrations.php`; the
+  owner's decision of 2026-10-04).
 - The setup page asks for the database and the IAM, nothing else (defaults
   `anotoki_japanese`, port 5432; **Test connection** in the anotoki family's
   words; the button **Save**). From this computer (PHP's built-in server, a
@@ -307,19 +327,29 @@ Tests enforce most of these. Never weaken a test to make it pass.
   other request pays one stamp check. `backend/router.php` does nothing at
   start.
 - **A migration never applies itself** (since 2026-10-04, the owner's
-  decision): once a new one is whole it waits for an `ADMIN`'s **Apply** on
-  the admin panel's Migrations page (`/admin/migrations`; `GET
-  /api/admin/migrations`, `POST /api/admin/migrations/apply`,
-  `backend/api/routes/migrations.php`), which takes the raw copy of every
-  table first, applies each file under a savepoint and stops at the first
-  that fails (rolled back whole); meanwhile every other address with data
-  answers 503 `not_up_to_date` and the page shows the problem page, with a
-  link to the Migrations page for an `ADMIN`. The Migrations page's
-  addresses skip that check; the content's rebuild follows by itself once
-  the schema is current. The setup page and `manage.php` apply migrations
-  as before, the same way and under the same lock as the Apply
-  (`upkeep_apply_ready()`: one at a time, waited for up to 10 s, then 409
-  `busy`).
+  decision), and **what the site does while one waits is the anotoki
+  library's** (since 2026-10-07, the owner's request: one behaviour on every
+  anotoki site; `docs/kb/decisions.md`): once a new one is whole it waits for
+  an `ADMIN`'s **Apply** on the admin panel's Migrations page
+  (`/admin/migrations`, the library's page; `GET /api/admin/migrations`,
+  `GET …/file`, `POST …/apply`, `backend/api/routes/migrations.php`), which
+  takes the raw copy of every table first (its file named in the answer's
+  note), applies each file in a transaction of its own and stops at the
+  first that fails (rolled back whole). Meanwhile every address answers 503
+  `update_pending` (`Retry-After: 60`) but the open ones (`SITE_OPEN_PATHS`:
+  how to sign in, the words, the health check, the clips, the Migrations
+  page's three - each its exact route, never a prefix a crafted path could
+  slip through): the pages start, and everybody but the site's `ADMIN` reads the
+  library's "The site is being updated", in their language, with nothing but
+  a quiet **Sign in** while nobody is signed in - the guards send nobody to
+  the IAM then -; the `ADMIN` reads "A database update is waiting" and
+  reaches the Migrations page, alone of the app's pages. That is how a
+  signed-out `ADMIN` gets in: never the problem page while an update waits
+  (that deadlock is what the library fixed). The content's rebuild waits too,
+  and follows by itself once the schema is current. The setup page and
+  `manage.php` apply migrations as before, the same way and under the same
+  lock as the Apply (`db_migrator()`, `UPKEEP_LOCK`: one at a time; another
+  at it, busy at once - the Apply 409 `busy`).
 - `backend/data/*.json` is generated: edit `backend/data/source/*.tsv`, then
   rebuild. `backend/data/authored-items-part1|2.php` is hand-written.
   `backend/data/audio.json` and `backend/data/audio/` come only from
@@ -332,7 +362,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `DO $$ … $$` check that fails it loudly when the result is wrong (see 002).
   Every migration but 001 ends with the line `-- end of NNN`, its own number:
   without it the file is taken to be half uploaded, and it waits, with every
-  one after it (`db_migration_sql()` in `backend/src/db.php`). **A migration
+  one after it, and stops nothing (`db_migration_ready()` in
+  `backend/src/db.php`, the library's engine's `ready` rule). **A migration
   being written stays a draft without that line**, and says so at its top,
   until it is final: the owner's `composer start` serves this working tree, and
   a whole migration there waits for their Apply (their study pages stop
@@ -344,7 +375,12 @@ Tests enforce most of these. Never weaken a test to make it pass.
   007 (`007_visitors.sql`, visitors) likewise, final since 2026-10-05 (its
   last line written after the browser suites passed;
   `docs/kb/architecture.md`, *The database*): it waits for an `ADMIN`'s
-  Apply on every database that has not got it.
+  Apply on every database that has not got it. 008
+  (`008_library_status_page.sql`: it deletes the words of the "not set up"
+  page and of the problem page's way to the Migrations page, which the
+  anotoki library's page took over) is a draft: its last line is the
+  owner's to write, once they accept that change - the upload is refused
+  until then.
 - What a word is spoken as is decided in one place, `speech_spoken()` in
   `backend/src/speech.php`, shared by the audio builder, the catalog and the
   exam.
@@ -359,8 +395,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   Keep it parseable by PHP 7.4 (no match, `?->`, named arguments, union or
   `static` types, constructor promotion, enums, readonly, catch without a
   variable or `throw` expressions) so the owner's editor, which uses a 7.4,
-  shows no false errors; it runs on 8.1+. `backend/tests/unit/php74-syntax.test.php`
-  checks it (Composer's `backend/vendor/` aside). Values in SQL are always `?`
+  shows no false errors; it runs on 8.2+ (the anotoki library's floor). `backend/tests/unit/php74-syntax.test.php`
+  checks it (Composer's `backend/vendor/` aside: the library is PHP 8). Values in SQL are always `?`
   parameters. Match the file you are in, including its comment density.
 - Angular: standalone components with `ChangeDetectionStrategy.OnPush`, state
   in signals, no zone.js. **Every component is three files** — `.ts`, `.html`,
@@ -371,11 +407,14 @@ Tests enforce most of these. Never weaken a test to make it pass.
   shown to a visitor, the visitor key - never both, decided as the request is
   issued; a person's request with no token is never sent) and the browser's
   time zone (`X-Time-Zone`) to this site's `/api` and `/report` addresses and
-  nowhere else; links the browser follows by itself that need a sign-in go
+  nowhere else (never with `/api/site-status`: nobody's); links the browser follows by itself that need a sign-in go
   through `PrivateLinksService`. The pages never count days themselves: a
   learner's days come in the server's answers. Every page is behind
   `signInGuard` (the admin panel `adminSignInGuard`, which a visitor does not
-  pass); a save in the background tells `SavesInFlight`, which a
+  pass) - which sends nobody to the IAM while the site is not ready
+  (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>` around the
+  pages, `core/site-status.config.ts`) shows its page then, with its own
+  Sign in; a save in the background tells `SavesInFlight`, which a
   sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog)
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
@@ -385,7 +424,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
 - JS/TS: 2-space indent, single quotes, semicolons. Node tools and the browser
   suites are CommonJS (`frontend/e2e/`) or ES modules (`.mjs`).
 - Colours come only from tokens in `frontend/src/styles/_tokens.scss`, each
-  defined for light and dark. Every screen must work at phone width (390 px).
+  defined for light and dark (the anotoki library's pages read them through
+  the `--anotoki-*` properties mapped there). Every screen must work at phone
+  width (390 px).
 - The UI is in English and Slovak (informal "ty"), English the fallback. The
   app's own words live in the database (migration 004 and later ones: a key,
   an English string, a Slovak one) and EDITOR and ADMIN reword them in the

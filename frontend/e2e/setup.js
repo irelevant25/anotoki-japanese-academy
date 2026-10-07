@@ -7,7 +7,8 @@
  * user of its own, as a hosting panel makes them, and a stand-in IAM
  * (backend/tests/tools/stand-in-iam.php) that signs people in.
  *
- *   not set up     the app says so, why, and links to the setup page
+ *   not set up     the app says so (the anotoki library's page), and - never
+ *                  installed - links to the setup page
  *   this computer  (http://127.0.0.1:…) no token; the database and the IAM and
  *                  nothing else, with the family's defaults; "Test connection"
  *                  in the family's words for the database and the IAM,
@@ -18,7 +19,9 @@
  *                  the browser is told is this computer) the token from
  *                  backend/config/setup-token.local.php; nothing of what is
  *                  saved, before the token or after it; Save → the lock, the
- *                  setup page gone, the app signing in through the IAM
+ *                  setup page gone, the app signing in through the IAM; its
+ *                  settings gone after that, the app says it is not
+ *                  available - never the setup page again
  *
  * Screenshots of the not-set-up page and both setup forms in light, dark and
  * phone layouts, checked for overflow.   node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
@@ -126,7 +129,7 @@ async function cleanup() {
     const page = await context.newPage();
     const errors = watch(page, { ignore: [/\/api\/auth\/config$/] }); // 503: not set up, as it should
     for (const [name, url, ready] of [
-      ['setup-not-set-up', `${local}/`, '#not-set-up'],
+      ['setup-not-set-up', `${local}/`, 'anotoki-site-status h1'],
       ['setup-page', `${local}/setup.php`, '#setup'],
       ['setup-page-website', `${website}/setup.php`, '#token'],
     ]) {
@@ -150,9 +153,13 @@ async function cleanup() {
   const page = await context.newPage();
   const errors = watch(page, { ignore: [/\/api\/auth\/config$/] });
   await page.goto(`${local}/kanji`);
-  await page.waitForSelector('#not-set-up');
-  const reason = await page.textContent('#not-set-up');
-  ck('not set up: the app says so, and to this computer why', /not set up yet/.test(reason) && /backend\/config\/database\.local\.php is missing/.test(reason), reason.replace(/\s+/g, ' '));
+  await page.waitForSelector('anotoki-site-status h1');
+  const notSetUp = await page.$eval('anotoki-site-status', (el) => ({
+    title: el.querySelector('h1').textContent.trim(),
+    actions: [...el.querySelectorAll('a, button')].map((a) => `${a.textContent.trim()}${a.getAttribute('href') ? ' ' + a.getAttribute('href') : ''}`),
+  }));
+  ck('not set up, and never installed (this computer’s never is): the library’s page says so, with the way to the setup page',
+    notSetUp.title === 'This site is not set up yet' && notSetUp.actions.join(',') === 'Open the setup page /setup.php,Try again', JSON.stringify(notSetUp));
   await page.click('text=Open the setup page');
   await page.waitForSelector('#setup');
   ck('its link opens the setup page', new URL(page.url()).pathname === '/setup.php');
@@ -301,6 +308,27 @@ async function cleanup() {
     `${site.url()} ${(await site.textContent('body')).replace(/\s+/g, ' ').slice(0, 200)} | IAM: ${(await iam.state()).log.slice(-6).join(', ')}`);
   await site.screenshot({ path: path.join(SHOTS, 'setup-website-app.png') });
   ck('no browser errors on the website', siteErrors.length === 0, siteErrors.join(' | '));
+
+  // Installed (the lock), and then its settings gone: the site is not available - and never offers the setup
+  // page again, which is gone besides.
+  const authFile = path.join(DIR, 'backend', 'config', 'auth.local.php');
+  const authSaved = fs.readFileSync(authFile);
+  fs.unlinkSync(authFile);
+  try {
+    const gone = await siteContext.newPage();
+    await gone.goto(`${website}/`);
+    await gone.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
+    const seen = await gone.$eval('anotoki-site-status', (el) => ({
+      title: el.querySelector('h1').textContent.trim(),
+      text: el.textContent.replace(/\s+/g, ' ').trim(),
+      actions: [...el.querySelectorAll('a, button')].map((a) => a.textContent.trim()),
+    }));
+    ck('installed, its settings gone: “not available right now”, asking again by itself - never the setup page',
+      seen.title === 'The site is not available right now' && seen.actions.join(',') === 'Try again' && !/setup/i.test(seen.text), JSON.stringify(seen));
+    await gone.screenshot({ path: path.join(SHOTS, 'setup-website-not-available.png') });
+  } finally {
+    fs.writeFileSync(authFile, authSaved);
+  }
   await siteContext.close();
 
   await browser.close();

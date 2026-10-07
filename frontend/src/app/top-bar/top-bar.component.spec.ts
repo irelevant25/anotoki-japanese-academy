@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { AppState, AuthService } from '../core/auth/auth.service';
 import { AnotokiUser } from '../core/auth/sdk/anotoki-auth';
 import { TranslationService } from '../core/i18n/translation.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
+import { provideTestSiteStatus } from '../core/testing/site-status';
 import { provideTestTranslations } from '../core/testing/test-translations';
 import { ThemeService } from '../core/theme/theme.service';
 import { KanjiStateService } from '../kanji/kanji-state.service';
@@ -145,6 +147,7 @@ describe('TopBarComponent', () => {
         provideZonelessChangeDetection(),
         translations,
         provideRouter([{ path: '**', component: PageComponent }]),
+        provideTestSiteStatus(),
         { provide: AuthService, useValue: auth },
         { provide: KanjiStateService, useValue: { reviewsDue: due } },
       ],
@@ -543,6 +546,41 @@ describe('TopBarComponent', () => {
     await fixture.whenStable();
     expect(childrenOf('.topbar-inner')).toEqual(['app-brand', 'div.topbar-actions']);
     expect(childrenOf('.topbar-actions')).toEqual(['app-language-chooser', 'app-theme-toggle']);
+  });
+
+  it('while the site is being updated: no section, and no way into the admin panel - each would be the anotoki library’s page again', async () => {
+    await draw();
+    await at('/kanji');
+    TestBed.inject(SiteStatus).report('update_pending');
+    await fixture.whenStable();
+    expect(links()).toEqual([]);
+    expect(childrenOf('.topbar-actions'), 'the language, the theme and the person stay').toEqual(['app-language-chooser', 'app-theme-toggle', 'div.user-menu']);
+    await openMenu();
+    expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Odhlásiť sa']);
+
+    // Back (the Migrations page's Apply, here in this tab): all of it again.
+    TestBed.inject(SiteStatus).markReady();
+    await fixture.whenStable();
+    expect(links().map(described)).toEqual(['Kanji /kanji [page] [here]', 'Skúška /exam']);
+    expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
+  });
+
+  it('while an update waits, the site’s ADMIN on the Migrations page - the one page that works then: that link alone, and the way back', async () => {
+    await draw();
+    await at('/admin/migrations');
+    TestBed.inject(SiteStatus).report('update_pending');
+    await fixture.whenStable();
+    expect(links().map(described)).toEqual(['Migrations /admin/migrations [page] [here]']);
+    await openMenu();
+    expect(items().map(words)).toEqual(['Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
+
+    // Anywhere else in the panel the library's page stands in: nothing to follow.
+    await at('/admin/people');
+    expect(links()).toEqual([]);
+    // An editor never has the Migrations page.
+    roles.set(['EDITOR']);
+    await at('/admin/migrations');
+    expect(links()).toEqual([]);
   });
 
   /* ---------------------------------------------- no key reaches the page */

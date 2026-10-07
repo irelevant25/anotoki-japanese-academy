@@ -169,7 +169,7 @@
         <app-icon name="arrowLeft" [size]="17" />
         Back to Japanese Academy
       </a>
-    } @else {
+    } @else if (adminOffered()) {
       <a role="menuitem" class="menu-item" id="adminLink" routerLink="/admin" (click)="closeMenu(false)">
         <app-icon name="shield" [size]="17" />
         {{ words().admin }}

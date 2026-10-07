@@ -1325,3 +1325,96 @@ and saves a change (`savePreferences()`). Here
   takes the `.d.ts` as git checks it out where `core.autocrlf` is on: its `$`
   stopped before a `\n` only, and the CRLF copy failed it on the owner's
   computer before this change.
+
+**2026-10-07 — The anotoki library says what the site does while it is not
+ready, and applies the migrations (follows 2026-10-04 "A migration waits for
+an administrator's Apply").** The owner's words, for the whole anotoki
+family:
+
+> When there is a new migration, some sites behave differently than others.
+> Japanese won't let me go to the admin or anywhere if I am not logged in,
+> but I cannot log in because a migration is waiting. Genshin gives me no
+> warning. Piano and survey show me a setup error with buttons to the setup
+> page or the migrations page. This needs to be consistent. I do not want
+> logged-in users or visitors to see the error about what is going on. The
+> admin should see it. If the setup was already done it should never offer
+> that button again, especially as setup.php is no longer there.
+
+So the migrations, and what a site does while it is not ready, are one
+library now, the same on every anotoki site: `anotoki-lib` 0.1.0 (the
+Composer package `anotoki/lib`, committed in `backend/vendor/`, and
+`@anotoki/lib`, from its release's tarball). Here
+([architecture.md](architecture.md), *The Slim app* and *A whole migration
+waits for an administrator*):
+
+- **The deadlock is gone.** While a migration waited, the app's words
+  answered 503 `not_up_to_date`, the start stopped on the problem page and
+  the router never started — nor the sign-in with it: an administrator who
+  was signed out could not sign in to apply it. Now the words, how to sign
+  in, the health check, the clips and the Migrations page's addresses answer
+  while an update waits (the SiteGate's open addresses); the start asks where
+  the site stands first and goes on as ever while an update waits; the guard
+  sends nobody to the IAM then, and the library's page stands in front of the
+  pages with a quiet **Sign in**, which comes back to the page asked for. The
+  browser suite goes that way now: a signed-out administrator signs in from
+  that page, opens Migrations and applies.
+- **What people read.** A visitor, a learner, an editor: "The site is being
+  updated", in the language on the page (the library's own English and
+  Slovak) — no error, no code, no button but that Sign in while nobody is
+  signed in; it asks again every 30 s and loads afresh once the site is
+  back. The site's `ADMIN` (from the token): "A database update is waiting"
+  and **Open Migrations**, the one page that works then. Not set up: "This
+  site is not set up yet" and the setup page — only while the copy was never
+  installed (`backend/storage/installed.lock`, which a website's setup
+  writes; this computer's never does); installed once and its settings lost
+  since: "The site is not available right now", never the setup page.
+  Settings whose database is missing or does not answer read "not available
+  right now" too (the library's `unavailable`: the settings are there) —
+  until now the app called a missing database "not set up yet" and pointed
+  at the setup page.
+- **The server.** Where the site stands (the library's `SiteState`:
+  `not_set_up`, `update_pending`, `unavailable`, `ready`) is decided afresh
+  for every request; its `SiteGate`, in front of every route, answers 503
+  `not_set_up` (with `installed`, and `setup` only while never installed) or
+  `update_pending` (`Retry-After: 60`); `GET /api/site-status` says it to
+  anybody, always. The engine is the library's `Migrator`, set up for this
+  site (`db_migrator()`): the `migrations` table as it was, each file whole in
+  one exec as ever (`split` off), a draft by the `-- end of NNN` rule, under
+  the upkeep's lock. Apply no longer waits up to 10 s for the lock — no
+  request takes it to look while an update waits any more (the SiteGate
+  answers them first) —: another apply, or the content's rebuild, holding it
+  is `busy` at once. The Migrations page's addresses are the library's,
+  checked by `ADMIN` in the token alone (`migrations_admin_middleware()`), so
+  they work on a database the migrations have yet to build; the page is the
+  library's, in its English (the IAM's model, as before), and shows each
+  file's SQL now. The addresses that stay open while an update waits are
+  each their exact route, never a prefix (the gate reads the path decoded
+  once: a prefix would let `/api/admin/migrations/../x`, `%2e%2e` or `%2F`
+  past it — the coordinator's finding from the survey site, the same day).
+  The Apply asks for 300 s and to finish if the administrator leaves, as the
+  site's own Apply did.
+- **What the pages do around it.** The top bar offers no section and no
+  Admin panel while the library's page stands in (each would lead to it), the
+  ADMIN on the Migrations page its link alone, and the tab's title is the
+  app's name. An exam paper open when the site stops is kept for the tab and
+  put back once it is back ([exam.md](exam.md), *In the browser*): the
+  library's page reloads the page then, and its hand-in is refused without a
+  dialog; keys never reach a hidden paper or lesson batch. Both came out of
+  the checkpoint reviews of this change.
+- **PHP 8.2** is the floor (the library's), on the host too. The site's own
+  code still parses as 7.4 for the owner's editor
+  (`php74-syntax.test.php`); the library in `vendor/` is 8.2 code.
+- **Kept**: the raw copy of every table before an apply, one per upload (the
+  engine's `beforeApply`); the setup page and `manage.php` applying the same
+  way, under the same lock; PostgreSQL's words for a failed file, on a
+  website too; the content's rebuild at the first request once the schema is
+  current; the problem page for every other failure (an upload whose 004 is
+  still arriving, a server error).
+- **Gone**: the app's own gates (`middleware/setup.php`, `not_set_up()`,
+  `upkeep_waiting()`, `tables_middleware()`, `upkeep_apply()` and the rest of
+  its own engine), the reason a not-set-up answer gave this computer
+  (`manage.php --check` says it), the app's "not set up yet" page
+  (`standin/not-set-up/`, and `keptAround()`, which it alone used) and the
+  problem page's link to the Migrations page. Their words go with migration
+  008 — a draft: its last line, `-- end of 008`, is the owner's to write once
+  they accept that, and the upload is refused until then.

@@ -1,7 +1,9 @@
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, Routes, TitleStrategy, provideRouter } from '@angular/router';
+import { SiteStatus, siteStatusInterceptor } from '@anotoki/lib/migrations';
 import { keptWord } from '../standin/kept-word';
 import { ApiService } from './api/api.service';
 import { VisitorMove } from './api/api.types';
@@ -12,6 +14,8 @@ import { AcademyTitleStrategy } from './i18n/title.strategy';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { TranslationBundle } from './i18n/translation.model';
 import { LANGUAGE_CACHE_KEY, LANGUAGE_KEY, TranslationService } from './i18n/translation.service';
+import { provideSiteStatus } from './site-status.config';
+import { provideTestSiteStatus } from './testing/site-status';
 import { TEST_LANGUAGES, provideTestTranslations } from './testing/test-translations';
 
 const ENGLISH = {
@@ -31,15 +35,22 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
+/** Where the site stands, as GET /api/site-status answers (the anotoki library's): ready, unless a test says otherwise. */
+const READY: [number, unknown] = [200, { state: 'ready', installed: false }];
+
 /**
- * The server, for the two addresses the start asks: how this copy signs
- * people in, and the app's words. Returns the addresses asked, in order.
+ * The server, for the three addresses the start asks: where the site stands
+ * (the anotoki library's status, through HttpClient's fetch), how this copy
+ * signs people in, and the app's words. Returns the addresses asked, in order.
  */
-function serve(config: [number, unknown], translations: (code: string) => [number, unknown]): string[] {
+function serve(config: [number, unknown], translations: (code: string) => [number, unknown], status: [number, unknown] = READY): string[] {
   const asked: string[] = [];
   globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
-    const url = String(input);
+    const url = input instanceof Request ? new URL(input.url).pathname : String(input);
     asked.push(url);
+    if (url === '/api/site-status') {
+      return Promise.resolve(json(...status));
+    }
     if (url === '/api/auth/config') {
       return Promise.resolve(json(...config));
     }
@@ -79,7 +90,15 @@ describe('boot(): the whole start', () => {
     history.replaceState(null, '', '/');
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-GB']);
     warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), TranslatePipe] });
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        TranslatePipe,
+        // as app.config.ts has them - on fetch(), so that serve() answers where the site stands too
+        provideHttpClient(withFetch(), withInterceptors([siteStatusInterceptor])),
+        provideSiteStatus(),
+      ],
+    });
   });
 
   afterEach(() => {
@@ -87,12 +106,13 @@ describe('boot(): the whole start', () => {
     vi.restoreAllMocks();
   });
 
-  it('asks where the IAM is first, then for the words — which need to know what the app can show', async () => {
+  it('asks where the site stands first, then where the IAM is, then for the words — which need to know what the app can show', async () => {
     localStorage.setItem(CONFIG_KEY, session('7', null));
     const asked = serve([200, CONFIG], words);
     await TestBed.runInInjectionContext(boot);
 
-    expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb']);
+    expect(TestBed.inject(SiteStatus).state()).toBe('ready');
     expect(TestBed.inject(AuthService).state()).toBe('ready');
     expect(TestBed.inject(TranslationService).ready()).toBe(true);
     expect(TestBed.inject(TranslationService).t('title.exam')).toBe('Exam');
@@ -103,7 +123,7 @@ describe('boot(): the whole start', () => {
     const asked = serve([200, CONFIG], words);
     await TestBed.runInInjectionContext(boot);
 
-    expect(asked).toEqual(['/api/auth/config', '/api/translations/sk']);
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/sk']);
     expect(location.pathname + location.search).toBe('/exam');
     expect(TestBed.inject(TranslationService).t('title.exam')).toBe('Skúška');
     // A link somebody followed is not a choice they made: this tab only.
@@ -111,46 +131,85 @@ describe('boot(): the whole start', () => {
     expect(localStorage.getItem(LANGUAGE_KEY)).toBeNull();
   });
 
-  it('a copy that is not set up: the page that says so, and no words asked for — it words itself', async () => {
-    const asked = serve([503, { error: 'Japanese Academy is not set up yet. Open /setup.php to set it up.', code: 'not_set_up', setup: '/setup.php' }], words);
+  it('a copy that is not set up: nothing of the app starts, nothing more asked for — the library’s page says so, in its own words', async () => {
+    const asked = serve([200, CONFIG], words, [200, { state: 'not_set_up', installed: false }]);
     await TestBed.runInInjectionContext(boot);
 
-    expect(asked).toEqual(['/api/auth/config']);
+    expect(asked).toEqual(['/api/site-status']);
     expect(TestBed.inject(AuthService).state()).toBe('not-set-up');
+    const site = TestBed.inject(SiteStatus);
+    expect([site.state(), site.installed()]).toEqual(['not-set-up', false]);
     const i18n = TestBed.inject(TranslationService);
     expect(i18n.ready()).toBe(false);
     expect(keptWord(i18n, 'signIn.button', 'Sign in')).toBe('Sign in');
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('a server that does not answer: the problem page, with the words the browser kept from an earlier visit', async () => {
+  it('a server that does not answer: nothing of the app starts — the library’s “not available” page, which asks again by itself; the words the browser kept from an earlier visit', async () => {
     localStorage.setItem(LANGUAGE_CACHE_KEY, JSON.stringify(SK_BUNDLE));
     globalThis.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
     await TestBed.runInInjectionContext(boot);
 
-    expect(TestBed.inject(AuthService).problem()).toEqual({ kind: 'offline' });
+    expect(TestBed.inject(SiteStatus).state()).toBe('unavailable');
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const auth = TestBed.inject(AuthService);
+    expect([auth.state(), auth.problem()]).toEqual(['starting', null]);
     const i18n = TestBed.inject(TranslationService);
     expect(i18n.language()).toBe('sk');
     expect(keptWord(i18n, 'signIn.button', 'Sign in')).toBe('Prihlásiť sa');
   });
 
-  it('the words answered 503 not_set_up (settings there, a database without its tables): the app is not set up after all', async () => {
-    serve([200, CONFIG], () => [503, { error: 'Japanese Academy is not set up yet.', code: 'not_set_up', setup: '/setup.php', reason: 'the database has no tables yet' }]);
+  it('a database that does not answer: the same, and nothing else asked of the server', async () => {
+    const asked = serve([200, CONFIG], words, [200, { state: 'unavailable', installed: true }]);
     await TestBed.runInInjectionContext(boot);
-
-    const auth = TestBed.inject(AuthService);
-    expect(auth.state()).toBe('not-set-up');
-    expect(auth.notSetUpReason()).toBe('the database has no tables yet');
+    expect(asked).toEqual(['/api/site-status']);
+    expect([TestBed.inject(SiteStatus).state(), TestBed.inject(AuthService).state()]).toEqual(['unavailable', 'starting']);
   });
 
-  it('the words answered any other 503 (an upload still arriving, a migration that failed): the problem page, with the server’s reason', async () => {
-    const asked = serve([200, CONFIG], () => [503, { error: 'The database could not be brought up to date with the upload: 004 failed', code: 'not_up_to_date', detail: '004 failed' }]);
+  it('an update waits: the start goes on as ever — how to sign in and the words answer — so a signed-out administrator can sign in; never the problem page', async () => {
+    const clientId = 'academy-test-boot-update';
+    localStorage.removeItem(`anotoki-auth:${clientId}`);
+    const asked = serve([200, { issuer: 'https://iam.test', clientId }], words, [200, { state: 'update_pending', installed: true }]);
+    await TestBed.runInInjectionContext(boot);
+
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb']);
+    expect(TestBed.inject(SiteStatus).state()).toBe('update-pending');
+    const auth = TestBed.inject(AuthService);
+    expect([auth.state(), auth.problem()], 'signed out, the sign-in set up: the router starts, and the gate’s page has its Sign in').toEqual(['signed-out', null]);
+    expect(TestBed.inject(TranslationService).ready()).toBe(true);
+  });
+
+  for (const refusal of [
+    { error: "The app's words are not in the database yet.", code: 'not_up_to_date' },
+    { code: 'update_pending', message: 'The site is being updated. Try again in a few minutes.' },
+  ]) {
+    it(`an update waits and the words answer 503 ${refusal.code} (their tables may be what it brings): no problem page either`, async () => {
+      localStorage.setItem(CONFIG_KEY, session('7', null));
+      serve([200, CONFIG], () => [503, refusal], [200, { state: 'update_pending', installed: true }]);
+      await TestBed.runInInjectionContext(boot);
+      const auth = TestBed.inject(AuthService);
+      expect([auth.state(), auth.problem()]).toEqual(['ready', null]);
+      expect(TestBed.inject(SiteStatus).state()).toBe('update-pending');
+      expect(TestBed.inject(TranslationService).ready()).toBe(false);
+    });
+  }
+
+  it('the words answered 503 not_set_up (the settings gone since the start asked): the app is not set up after all', async () => {
+    serve([200, CONFIG], () => [503, { code: 'not_set_up', installed: true, message: 'The site is not available right now. Try again in a few minutes.' }]);
+    await TestBed.runInInjectionContext(boot);
+
+    expect(TestBed.inject(AuthService).state()).toBe('not-set-up');
+    const site = TestBed.inject(SiteStatus);
+    expect([site.state(), site.installed()], 'installed once: never the setup page').toEqual(['not-set-up', true]);
+  });
+
+  it('the words answered any other 503 while the site is ready (an upload still arriving, a database out of reach): the problem page, with the server’s reason', async () => {
+    const asked = serve([200, CONFIG], () => [503, { error: 'The app\'s words are not in the database yet: 004 arrives', code: 'not_up_to_date', detail: '004 arrives' }]);
     await TestBed.runInInjectionContext(boot);
 
     const auth = TestBed.inject(AuthService);
     expect(auth.state()).toBe('problem');
-    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 failed' });
+    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 arrives' });
     // Asked once: what the answer said is known, and nothing is tried again.
     expect(asked.filter((url) => url.startsWith('/api/translations/'))).toHaveLength(1);
   });
@@ -165,7 +224,7 @@ describe('boot(): the whole start', () => {
     const i18n = TestBed.inject(TranslationService);
     const pipe = TestBed.inject(TranslatePipe);
     expect(auth.state()).toBe('signed-out');
-    expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb']);
     expect(i18n.ready()).toBe(true);
     // What the Sign in page and the top bar draw: a kept word, and a key through the pipe.
     expect(keptWord(i18n, 'signIn.button', 'Sign in')).toBe('Sign in');
@@ -183,7 +242,7 @@ describe('boot(): the whole start', () => {
       expect(pipe.transform('topbar.exam')).toBe('Skúška');
     });
     expect(i18n.language()).toBe('sk');
-    expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb', '/api/translations/sk']);
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb', '/api/translations/sk']);
     expect(localStorage.getItem(LANGUAGE_KEY)).toBeNull();
     expect(warn, 'no key was ever drawn').not.toHaveBeenCalled();
     localStorage.removeItem(key);
@@ -214,10 +273,10 @@ describe('boot(): the whole start', () => {
       let started = false;
       void TestBed.runInInjectionContext(boot).then(() => (started = true));
       await vi.advanceTimersByTimeAsync(MOVE_AT_START_MS - 100);
-      expect([started, asked]).toEqual([false, ['/api/auth/config']]);
+      expect([started, asked]).toEqual([false, ['/api/site-status', '/api/auth/config']]);
       await vi.advanceTimersByTimeAsync(200);
       await vi.waitFor(() => expect(started).toBe(true));
-      expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+      expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb']);
       expect(localStorage.getItem(VISITOR_STORAGE_KEY)).toBe('k'.repeat(43));
     } finally {
       vi.useRealTimers();
@@ -234,7 +293,7 @@ describe('boot(): the whole start', () => {
     await TestBed.runInInjectionContext(boot);
 
     expect(TestBed.inject(AuthService).state()).toBe('visiting');
-    expect(asked).toEqual(['/api/auth/config', '/api/translations/en-gb']);
+    expect(asked).toEqual(['/api/site-status', '/api/auth/config', '/api/translations/en-gb']);
     expect(TestBed.inject(TranslationService).ready()).toBe(true);
     expect(moveVisitor).not.toHaveBeenCalled();
   });
@@ -263,6 +322,7 @@ describe('AcademyTitleStrategy', () => {
         provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
         provideRouter(ROUTES),
         { provide: TitleStrategy, useClass: AcademyTitleStrategy },
+        provideTestSiteStatus(),
       ],
     });
   });
@@ -305,6 +365,16 @@ describe('AcademyTitleStrategy', () => {
     expect(warn).toHaveBeenCalledWith("[i18n] no string for 'title.nothingSeeded'");
   });
 
+  it('while the anotoki library’s page stands in for the page (the site being updated): the app’s name alone — then the page’s title again', async () => {
+    await TestBed.inject(Router).navigateByUrl('/exam');
+    expect(title()).toBe('Skúška · Japanese Academy');
+    const site = TestBed.inject(SiteStatus);
+    site.report('update_pending');
+    expect(title()).toBe('Japanese Academy');
+    site.markReady();
+    expect(title()).toBe('Skúška · Japanese Academy');
+  });
+
   it('tells the translation service after every navigation — which is when that one asks again for strings it has not', async () => {
     const navigated = vi.spyOn(TestBed.inject(TranslationService), 'navigated');
     const router = TestBed.inject(Router);
@@ -329,7 +399,13 @@ describe('AcademyTitleStrategy with no strings at all', () => {
     sessionStorage.clear();
     globalThis.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), { provide: AuthService, useValue: auth }, provideRouter(ROUTES), { provide: TitleStrategy, useClass: AcademyTitleStrategy }],
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: AuthService, useValue: auth },
+        provideRouter(ROUTES),
+        { provide: TitleStrategy, useClass: AcademyTitleStrategy },
+        provideTestSiteStatus(),
+      ],
     });
   });
 

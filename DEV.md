@@ -9,7 +9,7 @@ and using it); `backend/README.md` and `frontend/README.md` map each half;
 
 | Part | Folder | What |
 |---|---|---|
-| Backend | `backend/` | PHP 8.1+, Slim 4, PostgreSQL. `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs `public/index.php`. Both go through `api/front.php` |
+| Backend | `backend/` | PHP 8.2+, Slim 4, PostgreSQL, the anotoki library (`anotoki/lib`: the migrations). `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs `public/index.php`. Both go through `api/front.php` |
 | Frontend | `frontend/` | Angular 21: standalone components, zoneless, signals. Built into `frontend/dist/japanese-academy/browser/`, which the backend serves |
 | Data | `backend/data/` | what the study content is built from, and the audio clips |
 
@@ -24,9 +24,9 @@ router draws the page).
 
 ## What to install
 
-- **PHP 8.1 or newer** with `pdo_pgsql`, `mbstring`, `intl`, `curl` and
-  `openssl`. `composer start` runs the `php` first on PATH; put a PHP 8.1+
-  there for that window. For everything else, where an older `php` comes
+- **PHP 8.2 or newer** with `pdo_pgsql`, `mbstring`, `intl`, `curl` and
+  `openssl` (8.2 since the anotoki library came in). `composer start` runs
+  the `php` first on PATH; put a PHP 8.2+ there for that window. For everything else, where an older `php` comes
   first (Git Bash's is 7.4 on the owner's computer),
   `node backend/tools/php.js <script> …` finds one that can run the app
   (`ACADEMY_PHP`, then every `php` on PATH, then the usual install folders).
@@ -35,7 +35,7 @@ router draws the page).
   router.php` in `backend/` instead (`docs/kb/environment.md` says why).
 - **Composer** for `composer start`, and to change the backend's packages:
   `backend/vendor/` is committed, because a website has no shell to install
-  them.
+  them (the anotoki library among them: *The anotoki library* below).
 - **PostgreSQL 13 or newer** (tested with 18). The user in your settings must
   be allowed to make databases (the tests make throwaway ones), and roles (the
   setup and website tests make a database user, as a hosting panel does).
@@ -58,13 +58,18 @@ is not the owner's, never `anotoki_japanese_academy`, which is the owner's
 study data on theirs) and the IAM (the development IAM,
 `http://localhost:4300`, client `japanese-academy`: filled in). **Test
 connection** says what **Save** would do. The settings land in
-`backend/config/*.local.php` (gitignored): `database` and `auth`. The app
-requires both; without them every address with data answers
-`503 {"code": "not_set_up"}` and the app shows its "not set up yet" page — as
-it does when they name a database that is missing or has no tables yet, at the
-first screen with data. A copy set up by an earlier version keeps working
-(its sign-in mode, owner id and time zone are not read); one set up without
-sign-in is "not set up" until you save once more.
+`backend/config/*.local.php` (gitignored): `database` and `auth`, and
+**Save** builds the database's tables (every migration, the same engine as
+the Migrations page). The app requires both; without them every address
+but `/api/site-status` answers `503 {"code": "not_set_up"}` and the pages
+show the anotoki library's "This site is not set up yet", with the way to
+the setup page while the copy was never installed (a website's
+`backend/storage/installed.lock` ends that). Settings that name a database
+that is missing or does not answer: "The site is not available right now";
+one with no tables yet: an update that waits for its **Apply** (below). A
+copy set up by an earlier version keeps working (its sign-in mode, owner id
+and time zone are not read); one set up without sign-in is "not set up"
+until you save once more.
 
 ## Day to day
 
@@ -84,11 +89,14 @@ Nothing happens when the backend starts (`backend/router.php`): the first
 request after a change to `backend/data/` rebuilds the study content, and the
 day's first page load takes the day's backup (`backend/src/upkeep.php`, as on
 a website). A new migration is never applied by a request: once it is whole,
-the pages say the database is not up to date until an `ADMIN` applies it on
-the admin panel's **Migrations** page (`/admin/migrations`: what is applied,
-what waits, and **Apply pending**, after a raw copy of every table) — the
-problem page links an `ADMIN` there. Neither a change to the PHP code nor one
-to the data needs a restart.
+the site answers 503 `update_pending` to all but the few addresses the pages
+need to start and sign in, and the pages show the anotoki library's "The site
+is being updated" until an `ADMIN` applies it on the admin panel's
+**Migrations** page (`/admin/migrations`: what is applied, what waits, each
+file's SQL, and **Apply pending**, after a raw copy of every table) — the
+library's page shows an `ADMIN` "A database update is waiting" and the way
+there, and anybody signed out a quiet **Sign in**. Neither a change to the PHP
+code nor one to the data needs a restart.
 `node backend/tools/php.js backend/manage.php --check` says what is waiting,
 and `--sync` does it from the command line (migrations included).
 
@@ -165,6 +173,37 @@ insert leaves it alone. To add one:
 The learning material, the SRS stage names, grammar terms and the brand are
 never keys. The command line also exports and imports a language
 (`--export sk [FILE]`, `--import sk FILE`; a backup file works as well).
+
+### The anotoki library
+
+The database migrations are the anotoki library's (`anotoki-lib`, shared by
+every anotoki site: https://github.com/irelevant25/anotoki-lib, a clone of it
+beside this repository in `../anotoki-lib`), in two halves with one version:
+
+- `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
+  applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
+  for this site: its `migrations` table as it has always been, each file sent
+  whole, a file without its last line a draft -, the gate in front of every
+  route (`SiteGate`, `backend/api/app.php`: 503 `not_set_up` and
+  `update_pending`, and the few addresses that stay open), `/api/site-status`
+  and the Migrations page's addresses;
+- `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
+  the site stands (`SiteStatus`), the gate around the pages and the page it
+  shows, and the Migrations page - wired to this app in
+  `frontend/src/app/core/site-status.config.ts`.
+
+To update it, both halves together (while its version is 0.x a new minor
+version may need changes here: read its `CHANGELOG.md` first):
+
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.1"`)
+   if the new one needs it, then `composer update anotoki/lib
+   --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
+   `composer.lock` and `vendor/` with it (a website has no shell);
+2. in `frontend/`: the new release's address in `package.json`
+   (`https://github.com/irelevant25/anotoki-lib/releases/download/vX.Y.Z/anotoki-lib-X.Y.Z.tgz`),
+   then `bun install`, and `npm install --package-lock-only` so that
+   `package-lock.json` says the same as `bun.lock`;
+3. the PHP tests, `npm test` and the browser suites (below).
 
 ## Tests
 

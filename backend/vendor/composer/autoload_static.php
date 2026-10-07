@@ -29,6 +29,10 @@ class ComposerStaticInitce595c328ff4fa3483912c4937d0af23
             'Fig\\Http\\Message\\' => 17,
             'FastRoute\\' => 10,
         ),
+        'A' =>
+        array (
+            'Anotoki\\Lib\\' => 12,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -66,9 +70,19 @@ class ComposerStaticInitce595c328ff4fa3483912c4937d0af23
         array (
             0 => __DIR__ . '/..' . '/nikic/fast-route/src',
         ),
+        'Anotoki\\Lib\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/anotoki/lib/php/src',
+        ),
     );
 
     public static $classMap = array (
+        'Anotoki\\Lib\\Migrations\\Http\\MigrationsRoutes' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/Http/MigrationsRoutes.php',
+        'Anotoki\\Lib\\Migrations\\Http\\SiteGate' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
+        'Anotoki\\Lib\\Migrations\\Http\\SiteState' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/Http/SiteState.php',
+        'Anotoki\\Lib\\Migrations\\MigrationSet' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/MigrationSet.php',
+        'Anotoki\\Lib\\Migrations\\Migrator' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/Migrator.php',
+        'Anotoki\\Lib\\Migrations\\Splitter' => __DIR__ . '/..' . '/anotoki/lib/php/src/Migrations/Splitter.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'FastRoute\\BadRouteException' => __DIR__ . '/..' . '/nikic/fast-route/src/BadRouteException.php',
         'FastRoute\\DataGenerator' => __DIR__ . '/..' . '/nikic/fast-route/src/DataGenerator.php',

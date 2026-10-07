@@ -39,3 +39,25 @@ export function storageUsable(): boolean {
     return false;
   }
 }
+
+/** readStorage() of sessionStorage: this tab's alone, gone with it. */
+export function readTabStorage(key: string): string | null {
+  try {
+    return globalThis.sessionStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** writeStorage() of sessionStorage. */
+export function writeTabStorage(key: string, value: string | null): void {
+  try {
+    if (value === null) {
+      globalThis.sessionStorage?.removeItem(key);
+    } else {
+      globalThis.sessionStorage?.setItem(key, value);
+    }
+  } catch {
+    // Nothing to do: the value just will not survive a reload.
+  }
+}

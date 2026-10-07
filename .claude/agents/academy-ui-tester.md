@@ -46,7 +46,11 @@ The caller tells you what changed. Then:
    way; reports and the token going only to this site, with the time zone;
    other tabs; the admin panel (English with Slovak chosen, Translations,
    Languages, People deleting a person's data) for an ADMIN, Translations
-   only for an EDITOR, nothing for a learner; two browsers in time zones on
+   only for an EDITOR, nothing for a learner; a migration waiting (the
+   anotoki library's "The site is being updated" for a visitor, a learner and
+   an EDITOR, with no error and no button but a visitor's quiet Sign in; an
+   administrator who is signed out signing in from that page, opening
+   Migrations, an Apply that fails and one that applies); two browsers in time zones on
    either side of the date line; a Slovak pass with no key-shaped text; then
    visitors (the stand-in IAM saying sign-in is not required): the notice,
    `/admin` still through the IAM, a lesson batch making one visitor and one
@@ -55,7 +59,7 @@ The caller tells you what changed. Then:
    notice in Slovak on a phone. Note
    every failure, page error and error or warning the app logged (a key with
    no string warns).
-2. If the setup page or the "not set up" page may be affected, run
+2. If the setup page or the anotoki library's "not set up" page may be affected, run
    `node frontend/e2e/setup.js`.
 3. Run `node frontend/e2e/screens.js`, for all screens or with a filter that covers every
    screen the change touches (`room` for the top bar alone). Note any

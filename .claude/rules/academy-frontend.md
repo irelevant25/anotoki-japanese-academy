@@ -81,9 +81,21 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   together at run time comes from a closed set declared in
   `core/i18n/dynamic-keys.ts`, never from an address, the IAM or what
   somebody typed. What is drawn while there may be no strings (the stand-in pages, the
-  top bar) uses `keptWord()` / `keptAround()` (`standin/`), with the seeded
+  top bar) uses `keptWord()` (`standin/`), with the seeded
   English in the code. `backend/translations.php --status` and
   `backend/tests/unit/translations.test.php` hold the keys to the database.
+- Where the site stands is the anotoki library's (`@anotoki/lib/migrations`,
+  wired in `core/site-status.config.ts`; `docs/kb/architecture.md`): `boot()`
+  asks `SiteStatus` first, `<anotoki-site-gate>` wraps everything under the
+  bar in `app.component.html`, and while the site is not ready (being
+  updated, not set up, out of reach) the library's page stands in, in its
+  own words - never the app's problem page, and never a redirect to the IAM
+  (the page has its own Sign in). `/api/site-status` goes bare (no token, no
+  visitor key). The Migrations page is the library's
+  `<anotoki-migrations-page>`; its looks come from the `--anotoki-*` tokens,
+  mapped to this app's in `_tokens.scss`, light and dark. The library is a
+  package (`@anotoki/lib`, from its release's `.tgz`): never edit
+  `node_modules/`; `DEV.md`, *The anotoki library*, says how to update it.
 - State holds keys, kinds and `ApiError`s, never a worded sentence: wording
   happens in a template or inside a `computed()`, so a page follows a change
   of language without being made again. A failed request is worded from its

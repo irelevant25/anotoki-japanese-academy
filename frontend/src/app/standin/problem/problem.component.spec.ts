@@ -77,21 +77,17 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
     }
   });
 
-  it('a database update waiting: an administrator gets the way to the Migrations page, a page load; nobody else, and for nothing else', async () => {
-    const waiting: StartProblem = { kind: 'server', status: 503, code: 'not_up_to_date', detail: null };
-    const el = await draw(waiting, true);
-    const link = el.querySelector<HTMLAnchorElement>('a#toMigrations');
-    expect(link?.textContent?.trim()).toBe('Open the Migrations page');
-    expect(link?.getAttribute('href')).toBe('/admin/migrations');
-    expect(el.querySelector('button')?.textContent?.trim()).toBe('Try again');
+  it('only what happened, and Try again — never a way to the Migrations page: a site being updated shows the anotoki library’s page instead, which has it for an administrator', async () => {
     for (const [problem, admin] of [
-      [waiting, false],
+      [{ kind: 'server', status: 503, code: 'not_up_to_date', detail: null }, true],
       [{ kind: 'server', status: 503, code: 'database_unavailable', detail: null }, true],
-      [{ kind: 'offline' }, true],
+      [{ kind: 'offline' }, false],
     ] as [StartProblem, boolean][]) {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
-      expect((await draw(problem, admin)).querySelector('#toMigrations'), JSON.stringify([problem, admin])).toBeNull();
+      const el = await draw(problem, admin);
+      expect(el.querySelector('a'), JSON.stringify([problem, admin])).toBeNull();
+      expect(Array.from(el.querySelectorAll('button'), (button) => button.textContent?.trim())).toEqual(['Try again']);
     }
   });
 
@@ -108,7 +104,6 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     'boot.problem.couldNotStart': 'Japanese Academy could not start: {reason}',
     'boot.problem.signIn': 'Signing in could not be set up.',
     'common.tryAgain': 'Try again',
-    'boot.problem.migrations': 'Open the Migrations page',
     'error.offline': 'The server does not answer.',
     'error.http': 'The server answered with an error ({status}).',
     'error.unknown': 'Something went wrong.',
@@ -119,7 +114,6 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     'boot.problem.couldNotStart': 'Aplikáciu Japanese Academy sa nepodarilo spustiť: {reason}',
     'boot.problem.signIn': 'Prihlasovanie sa nepodarilo pripraviť.',
     'common.tryAgain': 'Skúsiť znova',
-    'boot.problem.migrations': 'Otvoriť stránku Migrations',
     'error.offline': 'Server neodpovedá.',
     'error.http': 'Server odpovedal chybou ({status}).',
     'error.unknown': 'Niečo sa pokazilo.',
@@ -137,9 +131,6 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     expect(el.querySelector('.detail')?.textContent).toBe('the migration 004 failed');
     expect(el.querySelector('.detail')?.getAttribute('lang')).toBe('en');
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Skúsiť znova');
-    expect(el.querySelector('#toMigrations'), 'a learner').toBeNull();
-    const admin = (await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: null }, true)).querySelector('#toMigrations');
-    expect(admin?.textContent?.trim(), 'an administrator, in their language').toBe('Otvoriť stránku Migrations');
 
     await TestBed.inject(TranslationService).setLanguage('en', false);
     await TestBed.inject(ApplicationRef).whenStable();

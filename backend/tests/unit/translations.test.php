@@ -444,6 +444,42 @@ test('migration 006 in 004\'s form: keys and strings written, rewords only of th
     assert_same(['Admin panel', 'Administrátorský panel'], [translations_of('en')['topbar.admin'] ?? null, translations_of('sk')['topbar.admin'] ?? null]);
 });
 
+/** The keys migration 008 deletes, every one of them: the words of the pages the anotoki library took over. */
+const MIGRATION_008_DELETED_KEYS = ['boot.notSetUp.title', 'boot.notSetUp.text', 'boot.notSetUp.setup', 'boot.notSetUp.open', 'boot.notSetUp.why', 'boot.problem.migrations'];
+
+test('migration 008 in 005\'s form: the listed keys deleted, and nothing else touched, a check at its end', function (): void {
+    $file = '008_library_status_page.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 008 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 008') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 008"/', $sql, 'and says so at its top');
+    }
+
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    assert_true($statements !== [], 'it does something');
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        assert_match('/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/', $statement, "not in 005's form: $statement");
+    }
+
+    // The keys it deletes are exactly the list (their strings go with them), and its check looks for each.
+    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', (string) preg_replace('/--[^\n]*/', '', $sql), $deletes);
+    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+    assert_same(in_order(MIGRATION_008_DELETED_KEYS), in_order($names[1]), 'the keys it deletes');
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', (string) preg_replace('/--[^\n]*/', '', $sql), $check);
+    foreach (MIGRATION_008_DELETED_KEYS as $key) {
+        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it");
+    }
+    assert_match("/RAISE EXCEPTION '008_library_status_page: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+    assert_same([], array_values(array_intersect(MIGRATION_008_DELETED_KEYS, database_keys())), 'gone from the database it was applied to');
+});
+
 /* -------------------------------------------------- the rules a string keeps */
 
 test('a language code: two small letters, or two and two; and nothing else reaches a query', function (): void {

@@ -4,8 +4,11 @@ A study app for one person on their own computer, and, since 2026-09-27, a
 website for several (each with their own data, signed in through the anotoki
 IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
 
-- `backend/` — PHP 8.1+ with **Slim 4** (routing and middleware; Composer's
-  packages committed in `backend/vendor/`), everything kept in **PostgreSQL**.
+- `backend/` — PHP 8.2+ with **Slim 4** (routing and middleware) and, since
+  2026-10-07, the **anotoki library** (`anotoki/lib`, every anotoki site's:
+  the migrations' engine, where the site stands and the gate in front of
+  every route; Composer's packages committed in `backend/vendor/`),
+  everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
 - `frontend/` — an **Angular 21** app (standalone components, zoneless change
   detection, signals), built into `frontend/dist/japanese-academy/browser/`
@@ -38,8 +41,11 @@ the top (`backend/README.md`, `frontend/README.md`).
         ├─ /setup.php ───────────── backend/setup.php (while it is there)
         ├─ /api/… /audio/… /report/… ── backend/api/app.php: the Slim app
         │      ├─ middleware: errors → JSON, security headers, a trailing slash dropped;
-        │      │   per address with data: set up? → upkeep (src/upkeep.php) → the person
+        │      │   in front of every route the anotoki library's SiteGate (not set up?
+        │      │   an update waiting? 503, but on the addresses that stay open);
+        │      │   per address with data: upkeep (src/upkeep.php) → the person
         │      │   (src/auth.php) → on a page load, the day's backup
+        │      ├─ /api/site-status   where the site stands (the library's; always answered, to anybody)
         │      ├─ routes/site.php    /api/auth/config  /api/health  /audio/:name
         │      ├─ routes/exam.php    /api/meta /api/exam /api/submit /api/attempts /report/:id ── src/exam.php
         │      │      └ src/score.php  marking · src/report.php  standalone HTML report · table exam_attempts
@@ -47,7 +53,8 @@ the top (`backend/README.md`, `frontend/README.md`).
         │      │      └ src/srs/srs.php  WaniKani schedule · src/srs/store.php  srs_progress, srs_settings, srs_daily, srs_log
         │      ├─ routes/translations.php   /api/translations/:code (everybody)  /api/admin/* (EDITOR, ADMIN)
         │      │      └ src/translations.php  languages, translation_keys, translations
-        │      └─ routes/migrations.php   /api/admin/migrations (ADMIN; answers while a migration waits) ── src/upkeep.php
+        │      └─ routes/migrations.php   /api/admin/migrations (the library's; ADMIN from the token; answers
+        │                                 while a migration waits) ── db_migrator() (src/db.php), src/upkeep.php
         └─ anything else ─────────── a file of the built app, or its index.html (Angular's router draws the page)
 
    src/speech.php — what a word is spoken as and which clips hold it; used by
@@ -66,8 +73,13 @@ the top (`backend/README.md`, `frontend/README.md`).
   2026-10-04 `php backend/server.php` checked, migrated, rebuilt and backed up
   before it served): the first request does the start-time work, as on a
   website (`backend/src/upkeep.php`, below), and the day's first page load
-  takes the day's backup. Not set up yet, its database missing, or a migration
-  failing, every address with data says so (503) and the setup page opens.
+  takes the day's backup. Not set up yet, every address says so (503
+  `not_set_up`) and the pages show the way to the setup page; a migration
+  waiting, every address but the few the pages need to start answers 503
+  `update_pending` until an `ADMIN` applies it on the Migrations page; its
+  database not answering, every address with data says so (503
+  `database_unavailable`) and the pages say the site is not available
+  (*The Slim app*, below).
   `php backend/manage.php --check` says what is waiting and the counts — and
   when a migration is a draft ("Waiting: backend/migrations/NNN_… does not
   end with its last line"), offering to apply only what comes before it (exit
@@ -91,12 +103,13 @@ to build it; the API works all the same.
 
 ### The Slim app — `backend/api/`
 
-`app.php` builds it once per request (`academy_app()`): the routes of
+`app.php` builds it once per request (`academy_app()`): the anotoki
+library's `GET /api/site-status`, the routes of
 `routes/site.php`, `routes/exam.php`, `routes/kanji.php`, `routes/me.php`,
-`routes/visitor.php` and
+`routes/visitor.php`,
 `routes/translations.php` (which calls `routes/people.php` inside its
-administrators' group), then the routing
-middleware, a trailing slash dropped before routing (`/api/meta/` is
+administrators' group) and `routes/migrations.php`, then the routing
+middleware, the library's **SiteGate** (below), a trailing slash dropped before routing (`/api/meta/` is
 `/api/meta`, as before Slim), the error middleware
 (`middleware/errors.php`: an `HttpError` becomes `{error, code?}` with its
 status, and what more a page needs to word it, such as a `too_large`'s
@@ -106,12 +119,41 @@ headers (`middleware/security.php`: `nosniff`, `X-Frame-Options: DENY`,
 has the response helpers (`json_response()`, `request_body()` — JSON objects
 only —, `file_response()` with byte ranges).
 
+**Whether the site can answer at all** comes before any route, since
+2026-10-07 the anotoki library's way, the same on every anotoki site
+([decisions.md](decisions.md), 2026-10-07): where the site
+stands (`academy_site_state()`, the library's `SiteState`, from
+`config_problem()`, `backend/storage/installed.lock` and the migrations'
+engine, `db_migrator()`), decided afresh for every request, and the
+**SiteGate** in front of every route:
+
+- **not set up** (no settings): every address answers 503 `{"code":
+  "not_set_up", "installed", "message"}`, with `"setup": "/setup.php"` only
+  while the copy was never installed (a website's setup leaves the lock; this
+  computer's never does);
+- **an update waiting** (a whole migration not applied): 503 `{"code":
+  "update_pending", "message"}` with `Retry-After: 60`, except the addresses
+  that stay open (`SITE_OPEN_PATHS` in `app.php`): `/api/auth/config`,
+  `/api/translations/{code}`, `/api/health`, `/audio/{name}` and the
+  Migrations page's three (`/api/admin/migrations`, `…/file`, `…/apply`) —
+  so the pages start with their words, an administrator signs in and applies
+  the update, and the clips play on. Each is its route and nothing under it,
+  never a prefix: the gate reads the path decoded once, and a prefix would
+  let a crafted path past it (`/api/admin/migrations/../x`, `%2e%2e`, `%2F`);
+- **unavailable** (the settings there, the database not answering) and
+  **ready**: everything passes, and answers as the database lets it (503
+  `database_unavailable` where it is needed).
+
+`GET /api/site-status` (the library's `MigrationsRoutes::status()`) is how
+the pages learn which: always answered, to anybody, no token or key looked
+at, `{"state": "ready" | "not_set_up" | "update_pending" | "unavailable",
+"installed": bool}`. No sign-in gate of the site's stands in front of it.
+
 Every address with somebody's data is registered through `data_route()`
-(`routes/site.php`), which puts four middleware in front of it, in this order:
-**set up** (`middleware/setup.php`: without the settings, 503
-`{"code": "not_set_up", "setup": "/setup.php"}`, and to this computer the
-reason), **upkeep** (the content's rebuild after an upload; while a whole
-migration waits for an administrator's Apply, 503 `not_up_to_date`), **the
+(`routes/site.php`), which puts three middleware in front of it, in this
+order, behind the SiteGate:
+**upkeep** (the content's rebuild after an upload; nothing while a whole
+migration waits for an administrator's Apply), **the
 person** (`middleware/person.php`: `auth_user()`, put on the request as `uid`;
 401 without one; PHP's time zone becomes theirs for the rest of the request —
 [kanji-srs.md](kanji-srs.md), *Each learner's own time zone*), and on a page
@@ -128,7 +170,8 @@ unseen for 30 days, at most once an hour.
 
 | Route | What |
 |---|---|
-| `GET /api/auth/config` | where to sign in: `{issuer, clientId, loginRequired, visitorKeepDays}` (the IAM, the one way there is, whether it requires sign-in here: `src/access.php`, true until visitors can be kept, and how many days a visitor's data is kept) — no sign-in needed; 503 when not set up |
+| `GET /api/site-status` | where the site stands: `{state, installed}` (the anotoki library's, above) — always answered, to anybody |
+| `GET /api/auth/config` | where to sign in: `{issuer, clientId, loginRequired, visitorKeepDays}` (the IAM, the one way there is, whether it requires sign-in here: `src/access.php`, true until visitors can be kept, and how many days a visitor's data is kept) — no sign-in needed; 503 when not set up; answered while an update waits |
 | `POST /api/visitor/move` | at sign-in, with the person's token and the visitor's `X-Visitor-Key`: what the visitor studied into the person's account → `{found, items, kept, attempts, answers}`, whatever the switch says — see [sign-in.md](sign-in.md), *Visitors* |
 | `GET /api/meta` | exam: parts, sections, lessons, bank size, your attempt count |
 | `POST /api/exam` | exam: build a paper from `{size, books, lessons, sections, seed}` — questions without answers |
@@ -139,14 +182,14 @@ unseen for 30 days, at most once an hour.
 | `GET /api/me/data`, `PUT /api/me/data` | all of your data as one file, and back — see *Your own data* below |
 | `GET /audio/:name` | a clip from `backend/data/audio/`; only names of 16 hex digits + `.mp3`; byte ranges (206); no sign-in (shared content) |
 | `GET /api/health` | `{ok, contentCurrent}`, and under PHP's built-in server, to a request straight from this computer, also `database` and `backups` — the tests ask it |
-| `GET /api/translations/:code` | the app's own words: `{language, languages, values, english?}` — a language's strings with English merged underneath, and the languages on offer; no sign-in, no token looked at; `ETag` + `Cache-Control: no-cache` (304 for the tag the browser holds); 404 `not_found` for what is no code; 503 `not_up_to_date` while 004 of an upload is still arriving |
+| `GET /api/translations/:code` | the app's own words: `{language, languages, values, english?}` — a language's strings with English merged underneath, and the languages on offer; no sign-in, no token looked at; `ETag` + `Cache-Control: no-cache` (304 for the tag the browser holds); 404 `not_found` for what is no code; 503 `not_up_to_date` while the database has no words yet (004 of an upload still arriving, or waiting for its Apply); answered while an update waits |
 | `/api/admin/languages`, `/api/admin/translations` | the admin panel, in two route groups: the editors and the administrators (`EDITOR`, `ADMIN`) read the languages and the grid of every key in every language, save the changed cells, export and import a language as flat JSON; the administrators alone add, change and delete languages (a copy of its strings in the backups first) — see *The app's words* |
 | `GET /api/admin/people`, `DELETE /api/admin/people/:id` | the administrators alone (the inner group): everybody the site has data of, and deleting a person's data — see *People* below |
 | `GET /api/admin/visitors` | the administrators alone: `{ready, count, oldestSeenAt, keepDays, max}`, the visitors the site keeps now (none on the People page) |
-| `GET /api/admin/migrations`, `POST /api/admin/migrations/apply` | the administrators alone, a group of its own without the upkeep (it answers while a migration waits): `{applied: [{name, appliedAt}], pending: [{name, whole}]}`; Apply → `{applied, failed, error, backup}`, 409 `busy` — see *The database*, *A whole migration waits for an administrator* |
+| `GET /api/admin/migrations`, `GET /api/admin/migrations/file`, `POST /api/admin/migrations/apply` | the administrators alone: the anotoki library's routes (`MigrationsRoutes::admin()`), with `ADMIN` read from the token alone (`migrations_admin_middleware()`: no table needed; it answers while a migration waits): `{sets, applied: [{set, name, applied_at}], pending: [{set, name, ready, blocked}], missing}`; a file's `{set, name, sql}`; Apply → `{applied, failed, error, note}`, 409 `busy` — see *The database*, *A whole migration waits for an administrator* |
 
 Every `/api` and `/report` address needs a signed-in person, except
-`/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
+`/api/site-status`, `/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
 own words, the same for everybody) - and the study addresses where the IAM
 lets people study without signing in (visitors) - and answers with that
 person's (or visitor's) data only ([sign-in.md](sign-in.md)). The `/api/admin/…` group adds, after the person,
@@ -155,8 +198,8 @@ person's (or visitor's) data only ([sign-in.md](sign-in.md)). The `/api/admin/�
 `admin_middleware()` (no `ADMIN` 403 `admin_only`); the checks are on the
 groups, so a route added to one cannot forget them. A refusal is `{error, code?, detail?}`: the sentence
 is for the command line, the logs and the tests; a page words the failure
-from its `code`; `detail`, the reason of a database error, a migration
-waiting or a crash, goes out under PHP's built-in server only (the one
+from its `code`; `detail`, the reason of a database error or a crash, goes
+out under PHP's built-in server only (the one
 exception: why the Migrations page's Apply stopped, PostgreSQL's words to
 its ADMIN on a website too, below) (`error_reason()` in
 `src/errors.php`). The built-in server handles one request at a time;
@@ -284,9 +327,13 @@ a visitor's address (`client_address`): [hosting.md](hosting.md), *Visitors
 on the site*.
 
 `config('db.host')` and the like read them; `config_problem()` says what is
-missing or wrong, and until nothing is, the API answers `not_set_up` (and the
-app shows its page pointing at the setup page). Written files are readable by
-their owner only, written aside and renamed.
+missing or wrong, and until nothing is, the API answers `not_set_up` (the
+SiteGate, above; the pages show the anotoki library's "This site is not set
+up yet", pointing at the setup page while the copy was never installed). The
+answer names no reason (until 2026-10-07 this computer was told it there):
+`php backend/manage.php --check` says what is missing, and the setup page
+mends it. Written files are readable by their owner only, written aside and
+renamed.
 
 The tests have settings of their own: a folder of the same files and an
 `app.local.php`, named by `ACADEMY_CONFIG_DIR`, honoured only when the database it names is an
@@ -344,7 +391,11 @@ zone.js (`provideZonelessChangeDetection`). Every component is three files
 (`.ts`, `.html`, `.scss`). Built with `@angular/build` (`ng build`); the unit
 tests run in Vitest with jsdom (`ng test`).
 
-- `app.config.ts` — before anything else, `boot()` (`core/boot.ts`):
+- `app.config.ts` — before anything else, `boot()` (`core/boot.ts`): where
+  the site stands (the anotoki library's `SiteStatus.check()`, `GET
+  /api/site-status`, bare; not set up or unavailable, nothing more of the
+  app starts, and the library's page says so; being updated, the start goes
+  on as ever, so whoever is signed out can sign in), then
   `AuthService.init()` asks `GET /api/auth/config` (and finishes a sign-in
   coming back from the IAM), then — signed in with a visitor key held — the
   move of what it holds into the account (`VisitorKey.settle()`, 5 s at most),
@@ -353,15 +404,37 @@ tests run in Vitest with jsdom (`ng test`).
   the start has settled the sign-in (`AppComponent` starts it), and then every
   page's guard sends anybody not signed in to the IAM — unless the IAM does not
   require sign-in here: then they are a visitor (state `visiting`)
-  ([sign-in.md](sign-in.md), *Visitors in the browser*); no screen asks for data while the copy is not set
+  ([sign-in.md](sign-in.md), *Visitors in the browser*) — and nobody
+  anywhere while the site is being updated: the gate's page has its own
+  Sign in; no screen asks for data while the copy is not set
   up or nobody is signed in (or visiting). The title strategy
   (`core/i18n/title.strategy.ts`) words a page's title in its language. A
   link to a part of a page (the dashboard's to Your data) scrolls to it.
+  The HTTP interceptors: the library's `siteStatusInterceptor` (an answer
+  503 `update_pending` or `not_set_up` tells `SiteStatus`), the not-set-up
+  one (`core/api/`) and the token's (`core/auth/`).
+- `core/site-status.config.ts` — the anotoki library's migrations module
+  (`@anotoki/lib/migrations`, every anotoki site's), wired to this app:
+  `SiteStatus` (where the site stands), the gate and its page, the Migrations
+  page; who is `ADMIN` from the token's roles, Sign in through
+  `SignInService`, the page's language, the administrator's own date order
+  and clock on the Migrations page, the words asked for again after an Apply.
+  `core/site-status.ts` has `reportSiteState()`, which tells `SiteStatus` what
+  a plain `fetch()` heard (the sign-in's settings, the words).
 - `app.component` — the anotoki family's top bar (`top-bar/`, *The top
-  bar* below), then the screen of the address, or what stands in for the app
+  bar* below), then the anotoki library's gate (`<anotoki-site-gate>`): while
+  the site is not ready its page stands in for everything under the bar, in
+  its own words (English and Slovak) — being updated: "The site is being
+  updated", which asks again by itself and loads afresh once the site is
+  back, with a quiet **Sign in** while nobody is signed in, and for the site's
+  `ADMIN` "A database update is waiting" and the way to the Migrations page,
+  the one page that works then; not set up: "This site is not set up yet" and
+  the setup page, only while the copy was never installed; unavailable: "not
+  available right now". Behind the gate, the screen of the address, or what
+  stands in for the app
   (`standin/`: the Sign in card after a failed sign-in or a session that
-  ended, the "not set up yet" page with a link to `/setup.php`, a problem
-  page; on the way to the IAM, nothing; for a visitor the screen, with a
+  ended, a problem page; on the way to the IAM, nothing; for a visitor the
+  screen, with a
   sign-in that came back without one said above it, `standin/sign-in-failed/`), then the foot: the version and
   **What's new** (`core/changelog/app-version.component`, which opens the
   changelog dialog). The bar and the foot are drawn in every state.
@@ -379,8 +452,8 @@ tests run in Vitest with jsdom (`ng test`).
   `/kanji`, `/exam` and the admin panel open only while the app can be used
   (`whenReady`: signed in or visiting), so Back or Forward on a stand-in page loads no data.
 - `core/` — `api/` (`ApiService` over HttpClient, the response types, and the
-  interceptor that puts up the "not set up yet" page on any `not_set_up`
-  answer), `auth/` (`AuthService`, `signInGuard` and `adminSignInGuard`, the
+  interceptor that stops the app on any `not_set_up` answer: the settings
+  went while a page was open), `auth/` (`AuthService`, `signInGuard` and `adminSignInGuard`, the
   interceptor that adds the token — or a visitor's key — and `X-Time-Zone`,
   whose a request is decided as it is issued (`issued-as.ts`),
   `visitor-key.ts` (`VisitorKey`: the key of somebody studying without signing
@@ -389,7 +462,7 @@ tests run in Vitest with jsdom (`ng test`).
   first), the
   IAM's browser SDK in `sdk/`), `saves-in-flight.service.ts`
   (the saves on their way, which a sign-out — and a visitor's sign-in — waits for), `storage.ts`
-  (localStorage that never throws), `time-zone.ts` (the
+  (localStorage and sessionStorage that never throw), `time-zone.ts` (the
   browser's IANA zone), `i18n/` (the app's words, below; the language
   chooser), `theme/` (`ThemeService`: light, dark or the system's — the
   anotoki account's while somebody is signed in, else kept per device),
@@ -397,9 +470,11 @@ tests run in Vitest with jsdom (`ng test`).
   `audio.service.ts` (the two voices take turns),
   `format.ts` (times, dates and percentages in the language on the page, or
   in the date order and clock of a signed-in person's account),
-  `testing/` (the specs' translation service, stand-ins of the sign-in's states).
+  `testing/` (the specs' translation service, stand-ins of the sign-in's
+  states, the library's module as a spec needs it).
 - `admin/` — the admin panel, in English: Translations (EDITOR, ADMIN),
-  Languages, People and Migrations (ADMIN); the bar's links lead between
+  Languages, People and Migrations (ADMIN: the anotoki library's
+  `<anotoki-migrations-page>` in the panel's frame); the bar's links lead between
   them (below). Its titles are "<page> · Admin panel · Japanese Academy"
   (`core/i18n/title.strategy.ts`).
 - `home/` — the home page (kanji summary, exam history) and, at its foot,
@@ -425,9 +500,11 @@ tests run in Vitest with jsdom (`ng test`).
   `[data-theme='dark']`), `_base.scss` (the page, buttons, chips, panels,
   tables, the sign-in page, the spinner), `_items.scss` (tiles and stage
   colours shared by the kanji screens).
-- `standin/` — the three pages that stand in for the app (and `sign-in-failed/`,
-  the Sign in card's words above a visitor's page), and `keptWord()` /
-  `keptAround()`: what is drawn outside the router's screens (these pages,
+- `standin/` — the two pages of the app's own that stand in for it, the Sign
+  in card and the problem page (and `sign-in-failed/`, the Sign in card's
+  words above a visitor's page; a site not set up, being updated or out of
+  reach is the anotoki library's page since 2026-10-07, in its own words),
+  and `keptWord()`: what is drawn outside the router's screens (these pages,
   the top bar, the foot, the "What's new" frame) may be drawn with no strings
   at all, so it falls back to the seeded English written in the code (a
   `const ENGLISH` map in each; `backend/tests/unit/translations.test.php`
@@ -486,6 +563,15 @@ One row, in this order:
   out** (`SignOutService`: it waits for the answers and notes on their way —
   a spinner and "Saving…" — and asks first when something would be lost). —
   Signed out with the Sign in card on the page: **Sign in** instead.
+
+**While the site is not ready** (the anotoki library's page stands in front
+of the pages: `pagesShut()` in `core/site-status.ts`, the library gate's own
+rule) the bar offers no section and no **Admin panel**: each would lead to
+that same page. The brand, the language, the theme and the person's menu stay.
+The site's `ADMIN` on the Migrations page while an update waits — the one page
+that works then — has its link alone, and **Back to Japanese Academy**. The
+tab's title is the app's name alone meanwhile (`AcademyTitleStrategy`), not
+the title of the page behind the library's.
 
 **The fold.** Up to `PHONE_BAR_MAX` = 760 px (a `matchMedia` signal, and the
 same number in the scss) the bar is a phone's: the brand, the language, the
@@ -593,8 +679,12 @@ that is there, so a later migration never undoes what the owner reworded.
   them (left out for `en`), and the languages on offer. A regional code is
   answered by its base language (`sk-sk` by `sk`), an unknown or hidden one in
   English. The browser asks every time (`no-cache`) and is answered 304 for
-  the `ETag` it holds. While 004 of an upload has not arrived whole it answers
-  503 `not_up_to_date`, and nothing is logged.
+  the `ETag` it holds. It answers while an update waits (the pages need their
+  words then too). While the database has no words yet (004 of an upload not
+  arrived whole, or waiting for its Apply) it answers 503 `not_up_to_date`,
+  and nothing is logged; the start then shows the problem page — unless the
+  site is being updated by `SiteStatus`'s account, when the library's page
+  stands in already, in its own words.
 - **A string is text**, never HTML; what stands in for a value is a
   `{placeholder}`, and which ones a key has is fixed by its English string: a
   save that adds, drops or changes one is refused, as is a brace that is not
@@ -712,7 +802,8 @@ closing the tab asks the browser's question.
 
 ## The database (PostgreSQL)
 
-Tables are created by `backend/migrations/*.sql` (applied in order by the
+Tables are created by `backend/migrations/*.sql` (applied in order, by the
+anotoki library's engine, by the
 setup page, `manage.php`, or an administrator's Apply on the admin panel's
 Migrations page, on this computer as on a hosted site — never by a request
 by itself: below; a migration that is
@@ -761,47 +852,61 @@ settings and applies the migrations before it, then stops with that sentence
 (the owner's copy is set up and needs no Save meanwhile).
 
 **A whole migration waits for an administrator** (since 2026-10-04, the
-owner's decision; until then the first request after an upload applied it).
-`upkeep_run()` (`backend/src/upkeep.php`), on the first request after the
-files changed, finds it whole and not applied and answers 503
-`{"code": "not_up_to_date"}` (`upkeep_waiting()`: "The database is not up
-to date with this version of the app yet: an administrator applies the
-update on the Migrations page.", and to this computer which files, as
-`detail`), without saving the stamp: every address with data says so, the
-bundle of words too, so a learner's page starts as the problem page
-(`error.not_up_to_date`, reworded in 006: "… an administrator has to apply
-the update first. Try again later."). An `ADMIN` on that page gets **Open
-the Migrations page** (`boot.problem.migrations`, a page load), and the
-admin panel starts for an `ADMIN` despite the refused bundle
-(`TranslationService.refused()`: the panel is English, written in its
-pages; the bar keeps its own English). The **Migrations page**
-(`/admin/migrations`, `ADMIN`; `backend/api/routes/migrations.php`, its
-group with set-up, `tables_middleware()` in place of the upkeep, the
-person, the editors' and the administrators' checks) lists the files
-applied with when and the ones pending in the order they will run (`whole`:
-false for one still uploading, which waits with every one after it), and
-**Apply pending** (`upkeep_apply()`, through `upkeep_apply_ready()`) takes
-the upkeep's lock (`upkeep_lock()`: it waits up to `UPKEEP_LOCK_WAIT_MS`,
-10 s, since every request with data takes the lock for a moment to look
-while a migration waits; 409 `busy` when another Apply, the setup page or
-`manage.php` holds it longer), the raw copy of every table
-(`upkeep_copy_before()`: one copy for one upload however often it is tried,
-a new one when the files or the pending list changed), then applies each
-file under a savepoint: the first that fails is rolled back whole and named
-(`failed`), the ones before it stay; why (`error`, PostgreSQL's own words)
-goes to the ADMIN on this computer and on a website alike, and the page
-shows it in a box under "Stopped at …", as the IAM's does (the owner's
-decision of 2026-10-04); the site's error log has it too (`[upkeep] a migration
-failed: …`). The setup page and `manage.php` apply the same way, under the
-same lock (`upkeep_migrate()`, which throws naming the failed file), so no
-two ever run at once. The page says "Up to date" only when nothing is left
-pending; a file still uploading after the ones applied reads "Applied - one
-still waits" and names it. After an Apply that left nothing whole waiting,
-the page asks for the app's words again (`TranslationService.reload()`): a
-panel opened while the update waited started without them, and the
-learner's pages it links back to (no page load) would be drawn in keys. The
-next request then rebuilds the content and saves the stamp, as after any
-change of the files. The page is the IAM's model, in its words.
+owner's decision; until then the first request after an upload applied it),
+and since 2026-10-07 the anotoki library says what the site does meanwhile,
+as every anotoki site does ([decisions.md](decisions.md)). The engine is the
+library's `Migrator`, set up for this site by `db_migrator()`
+(`backend/src/db.php`): the one folder `backend/migrations/` (the set
+`academy`), the table `migrations (name, applied_at)` as it has always been
+(made in that shape on a new database, its `prepare` hook), each file sent
+to PostgreSQL whole in one statement (`split` off) in a transaction of its
+own with its row, a file without its last line a draft (its `ready` hook,
+`db_migration_ready()`), and one apply at a time under the upkeep's lock
+(`UPKEEP_LOCK`, which the content's rebuild takes too). While a file is
+whole and not applied, where the site stands is `update_pending` (the
+library's `SiteState`, `Migrator::applicable()`), and the SiteGate answers
+503 `{"code": "update_pending"}` with `Retry-After: 60` to every address but
+the ones that stay open (*The Slim app*, above); nothing rebuilds the
+content meanwhile (`upkeep_run()` stops at a waiting migration). The pages
+start as ever — how to sign in and the words answer — and the library's page
+stands in front of them: "The site is being updated" for a visitor, a
+learner, an editor (it asks again every 30 s and loads afresh once the site
+is back), with a quiet **Sign in** while nobody is signed in, and for the
+site's `ADMIN` "A database update is waiting" with **Open Migrations**, the
+one page that works then (`SiteGateComponent`; who is `ADMIN` is the
+token's roles). Until 2026-10-07 the start stopped on the problem page
+instead (the words answered 503 `not_up_to_date`), and an administrator who
+was signed out could not sign in at all. The **Migrations page**
+(`/admin/migrations`, `ADMIN`: the library's `<anotoki-migrations-page>`;
+the addresses `backend/api/routes/migrations.php`, the library's
+`MigrationsRoutes::admin()`, behind `migrations_admin_middleware()`, which
+reads `ADMIN` from the token alone — no table is needed, so it works on a
+database the migrations have yet to build) lists what is pending, in the
+order it will run (a draft: "a draft - it does not run until it is
+finished", and every file after it "waits"), what is applied with when (in
+the administrator's own date order and clock), each file's SQL (**View**,
+with **Copy**), and **Apply pending**, after a question. Apply (a connection
+of its own, `db_connect()`: the lock is the connection's) takes the lock or
+answers at once 409 `busy` (another Apply, the setup page, `manage.php` or
+the content's rebuild holds it), takes the raw copy of every table
+(`upkeep_before_apply()` → `upkeep_copy_before()`: one copy for one upload
+however often it is tried, a new one when the files or the pending list
+changed; the outcome's note names its file in `backups/`, and a copy that
+cannot be written stops the apply before anything runs), then applies each
+file in its own transaction: the first that fails is rolled back whole and
+named ("Stopped at …"), the ones before it stay; why (`error`,
+PostgreSQL's own words) goes to the ADMIN on this computer and on a website
+alike, in a box under it, as the IAM's page shows it (the owner's decision
+of 2026-10-04); the site's error log has it too (`[upkeep] a migration
+failed: …`). The setup page and `manage.php` apply the same way, with the
+same copy, under the same lock (`upkeep_migrate()`, which throws naming the
+failed file, or saying another apply is running), so no two ever run at
+once. "Up to date" once something was applied and nothing failed. When an
+Apply leaves nothing to apply, the site runs again without a page load
+(`SiteStatus.markReady()`), and the app's words are asked for again
+(`TranslationService.reload()`, the library's `onUpToDate`): the update may
+have brought some. The next request then rebuilds the content and saves the
+stamp, as after any change of the files.
 
 | Table | Contents |
 |---|---|
@@ -853,7 +958,7 @@ a rebuild needs the API key, from `GOOGLE_TTS_API_KEY` or the gitignored
 | Path | Contents |
 |---|---|
 | `backend/config/*.local.php` | this copy's settings (above), written by the setup page; on a website also its token file until the setup is done |
-| `backend/storage/` | what the backend writes for itself: `backups/` (copies of the study data, above, with the app's words in a copy of everybody; a deleted language's strings), the IAM's keys, cached, a website's setup lock |
+| `backend/storage/` | what the backend writes for itself: `backups/` (copies of the study data, above, with the app's words in a copy of everybody; a deleted language's strings), the IAM's keys, cached, a website's setup lock (`installed.lock`: the setup page is never offered again) |
 | `frontend/dist/`, `frontend/node_modules/` | the built app and its packages |
 | `backend/tools/pdf/node_modules/` | the PDF page tool's package (`sharp`) |
 | `dist/` | the upload for a hosted site (`backend/tools/build-dist.php`) |
@@ -871,7 +976,7 @@ sources changed), its unit tests, the browser suites (`playwright-core` with
 the installed Edge) and the PDF page tool (`sharp`, in
 `backend/tools/pdf/package.json`). Nothing at run time: the backend serves the
 build. The browser suites and the command line start PHP through
-`backend/tools/php.js`, which finds a PHP 8.1+ with the needed extensions
+`backend/tools/php.js`, which finds a PHP 8.2+ with the needed extensions
 (plain `php` may be an older one).
 
 ## Parts and lessons

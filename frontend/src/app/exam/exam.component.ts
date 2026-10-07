@@ -1,19 +1,25 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   ElementRef,
   HostListener,
   inject,
+  Injector,
   OnDestroy,
   OnInit,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { ApiError, ApiService, toApiError } from '../core/api/api.service';
 import { Attempt, Breakdown, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { clipUrl } from '../core/audio.service';
+import { AuthService } from '../core/auth/auth.service';
 import { PrivateLinksService } from '../core/auth/private-links.service';
 import { fmtClockSince, fmtDuration } from '../core/format';
 import { errorKey, errorParams } from '../core/i18n/error-text';
@@ -21,6 +27,7 @@ import { LocalDatePipe } from '../core/i18n/local-date.pipe';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { TranslationService } from '../core/i18n/translation.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
+import { readTabStorage, writeTabStorage } from '../core/storage';
 import { materialLang } from '../kanji/answer';
 
 type Screen = 'setup' | 'test' | 'result';
@@ -66,6 +73,49 @@ const COURSE = { kanji: 317, a: 1, b: 12, c: 13, d: 23 };
 /** A key of the keyboard: a–d or 1–4 choose an option. */
 const KEYS: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
 
+/** sessionStorage: the paper that was open when the site stopped for an update (ExamComponent.keepPaper()). */
+export const KEPT_PAPER_KEY = 'academy-exam-kept-paper';
+
+/** An open paper as this tab keeps it while the site is being updated: everything the page needs to put it back. */
+export interface KeptPaper {
+  /** Whose: the IAM user id signed in (AuthService.subject()); null for a visitor's. */
+  who: string | null;
+  exam: ExamPaper;
+  idx: number;
+  answers: Record<string, { choice: number | null; ms: number }>;
+  flags: string[];
+  startedAt: string | null;
+  candidate: string;
+}
+
+/** A kept paper read back, or null for nothing kept - or anything that is not one (another version's, cut short). */
+function keptPaperOf(raw: string | null): KeptPaper | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const kept = JSON.parse(raw) as Partial<KeptPaper> | null;
+    const questions = kept?.exam?.questions;
+    if (!kept || !Array.isArray(questions) || !questions.length || !kept.exam?.spec) {
+      return null;
+    }
+    if (typeof kept.idx !== 'number' || kept.idx < 0 || kept.idx >= questions.length || !kept.answers || typeof kept.answers !== 'object' || !Array.isArray(kept.flags)) {
+      return null;
+    }
+    return {
+      who: typeof kept.who === 'string' ? kept.who : null,
+      exam: kept.exam,
+      idx: kept.idx,
+      answers: kept.answers,
+      flags: kept.flags.filter((flag): flag is string => typeof flag === 'string'),
+      startedAt: typeof kept.startedAt === 'string' ? kept.startedAt : null,
+      candidate: typeof kept.candidate === 'string' ? kept.candidate : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The exam: set up a paper, sit it, see the result. Multiple choice, with
  * listening questions. The paper comes without its answers; submitting echoes
@@ -84,6 +134,13 @@ const KEYS: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2,
  * Nothing worded is kept: state holds keys, kinds and ApiErrors, and the
  * wording happens in the template or in a computed(), so it follows the
  * language. The two native dialogs are worded at the moment they are raised.
+ *
+ * A paper open while the site stops for an update stays the person's: the
+ * anotoki library's page stands in front of it, hears no key meant for it,
+ * and loads the page afresh once the site is back - so the paper is kept for
+ * this tab meanwhile (keepPaper(), sessionStorage) and put back as it was when
+ * the exam opens again, its handing in refused without a dialog (the
+ * library's page says what is going on).
  */
 @Component({
   selector: 'app-exam',
@@ -102,6 +159,11 @@ export class ExamComponent implements OnInit, OnDestroy {
   private readonly unwatch = this.saves.watch(() => (this.screen() === 'test' && !this.quitting() ? 'signOut.examOpen' : null));
   readonly privateLinks = inject(PrivateLinksService);
   readonly i18n = inject(TranslationService);
+  private readonly auth = inject(AuthService);
+  /** Where the site stands (the anotoki library's): while it is not ready, an open paper is kept for when it is back. */
+  private readonly site = inject(SiteStatus);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   private readonly audioRef = viewChild.required<ElementRef<HTMLAudioElement>>('audio');
 
@@ -208,14 +270,89 @@ export class ExamComponent implements OnInit, OnDestroy {
       .map((r) => ({ ...r, label: this.i18n.t('exam.result.rowLabel', { n: r.n, section: this.i18n.t('exam.section.' + r.sectionId) }) })),
   );
 
+  constructor() {
+    // The site stops (an update waits): the paper on the screen is kept, as it is now.
+    effect(() => {
+      if (this.site.blocked()) {
+        untracked(() => this.keepPaper());
+      }
+    });
+  }
+
   async ngOnInit(): Promise<void> {
+    this.putBackKeptPaper();
     await this.loadMeta();
   }
 
   ngOnDestroy(): void {
+    // Left while the site is not ready (an administrator on the way to the
+    // Migrations page, a copy whose settings went): the paper stays kept. Left
+    // any other way, it goes, as it always has - and a copy kept earlier with it.
+    if (this.site.blocked()) {
+      this.keepPaper();
+    } else {
+      writeTabStorage(KEPT_PAPER_KEY, null);
+    }
     this.unwatch();
     this.stopClock();
     this.audioRef().nativeElement.pause();
+  }
+
+  /**
+   * The paper on the screen, kept for this tab while the site is not ready,
+   * with the time on the question shown so far. Nothing while none is open.
+   */
+  private keepPaper(): void {
+    const exam = this.exam();
+    if (this.screen() !== 'test' || !exam) {
+      return;
+    }
+    const answers = { ...this.answers() };
+    const q = this.q();
+    if (q && this.shownAt) {
+      const dt = Date.now() - this.shownAt;
+      answers[q.id] = answers[q.id] ? { ...answers[q.id], ms: answers[q.id].ms + dt } : { choice: null, ms: dt };
+    }
+    const kept: KeptPaper = {
+      who: this.auth.subject(),
+      exam,
+      idx: this.idx(),
+      answers,
+      flags: [...this.flags()],
+      startedAt: this.startedAt,
+      candidate: this.candidate(),
+    };
+    writeTabStorage(KEPT_PAPER_KEY, JSON.stringify(kept));
+  }
+
+  /**
+   * The paper this tab kept (keepPaper()) back on the screen, on its question,
+   * with its answers, flags and clock - for the person it was kept for, or for
+   * whoever signs in where a visitor kept it (their studying moves into the
+   * account too). Kept no more either way.
+   */
+  private putBackKeptPaper(): void {
+    const kept = keptPaperOf(readTabStorage(KEPT_PAPER_KEY));
+    writeTabStorage(KEPT_PAPER_KEY, null);
+    if (!kept || (kept.who !== null && kept.who !== this.auth.subject())) {
+      return;
+    }
+    this.exam.set(kept.exam);
+    this.idx.set(kept.idx);
+    this.answers.set(kept.answers);
+    this.flags.set(new Set(kept.flags));
+    this.candidate.set(kept.candidate);
+    this.startedAt = kept.startedAt;
+    this.show('test');
+    const since = kept.startedAt ? Date.parse(kept.startedAt) : NaN;
+    // Its recording and its clock once the paper is drawn (the player is part of it).
+    afterNextRender(
+      () => {
+        this.render();
+        this.startClock(Number.isFinite(since) ? since : Date.now());
+      },
+      { injector: this.injector },
+    );
   }
 
   /* ------------------------------------------------------------- setup */
@@ -326,6 +463,7 @@ export class ExamComponent implements OnInit, OnDestroy {
       this.answers.set({});
       this.flags.set(new Set());
       this.startedAt = new Date().toISOString();
+      writeTabStorage(KEPT_PAPER_KEY, null);
       this.show('test');
       this.render();
       this.startClock();
@@ -341,11 +479,12 @@ export class ExamComponent implements OnInit, OnDestroy {
     window.scrollTo(0, 0);
   }
 
-  private startClock(): void {
-    const t0 = Date.now();
+  /** The clock of the paper, counting from $t0 (its start, for a paper put back). */
+  private startClock(t0 = Date.now()): void {
     this.stopClock();
-    this.clock.set('0:00');
-    this.timer = setInterval(() => this.clock.set(fmtClockSince(Math.floor((Date.now() - t0) / 1000))), 1000);
+    const tick = (): void => this.clock.set(fmtClockSince(Math.floor((Date.now() - t0) / 1000)));
+    tick();
+    this.timer = setInterval(tick, 1000);
   }
 
   private stopClock(): void {
@@ -520,13 +659,21 @@ export class ExamComponent implements OnInit, OnDestroy {
         responses: this.answers(),
       }));
     } catch (e) {
+      const error = toApiError(e);
+      this.quitting.set(false);
+      if (error.code === 'update_pending' || error.code === 'not_set_up') {
+        // The site is being updated (or lost its settings): the anotoki
+        // library's page takes the app's place and says so, without an error;
+        // the paper is kept for when the site is back.
+        this.keepPaper();
+        return;
+      }
       // The browser's own dialog: worded now, from the failure's code. The
       // reason the server gives the owner's own computer follows, as it came.
-      const error = toApiError(e);
       alert(this.i18n.t('exam.error.score', { reason: this.reason(error) }) + (error.body.detail ? `\n\n${error.body.detail}` : ''));
-      this.quitting.set(false);
       return;
     }
+    writeTabStorage(KEPT_PAPER_KEY, null);
     this.audioRef().nativeElement.pause();
     this.result.set(res);
     this.reviewMode.set('wrong');
@@ -575,7 +722,9 @@ export class ExamComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onKey(event: KeyboardEvent): void {
-    if (this.screen() !== 'test') {
+    // Not while the paper is off the page: the anotoki library's page stands
+    // in front of it while the site is not ready, and its keys are its own.
+    if (this.screen() !== 'test' || !this.host.nativeElement.isConnected) {
       return;
     }
     if ((event.target as HTMLElement | null)?.tagName === 'INPUT') {

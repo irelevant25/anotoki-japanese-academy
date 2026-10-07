@@ -60,8 +60,9 @@ test('the reason of a failure is for the owner’s own computer: PHP’s built-i
     }
     // nothing of the app names the built-in server for these: only a test does
     assert_match('/\$app->add\(errors_middleware\(\)\);/', (string) file_get_contents(BACKEND . '/api/app.php'), 'the app’s middleware: for the SAPI it runs under');
-    // The one exception: why an Apply failed goes to its administrator everywhere (tests/api/upkeep.test.php).
-    assert_match('/function upkeep_apply\(int \$waitMs = UPKEEP_LOCK_WAIT_MS\)/', (string) file_get_contents(BACKEND . '/src/upkeep.php'), 'an Apply: no SAPI to ask');
+    // The one exception: why an Apply failed goes to its administrator everywhere (tests/api/upkeep.test.php): the
+    // anotoki library's Migrations routes answer it as PostgreSQL said it, and ask no SAPI.
+    assert_match('/MigrationsRoutes::admin\(\$app, \'\/api\/admin\/migrations\'/', (string) file_get_contents(BACKEND . '/api/routes/migrations.php'), 'an Apply: the library\'s routes');
 });
 
 test('an HttpError: its sentence, its code, and a reason that reaches this computer only', function (): void {
@@ -84,7 +85,6 @@ test('an HttpError: its sentence, its code, and a reason that reaches this compu
         assert_same(['error' => 'It failed.', 'code' => 'not_up_to_date'], answer_to($why, $sapi)['body'], $sapi);
     }
 
-    assert_same(['error' => NOT_SET_UP, 'code' => 'not_set_up', 'setup' => '/setup.php'], answer_to(not_set_up(), 'cli-server')['body'], 'not set up: as it was');
     $role = answer_to(new HttpError(403, 'This is for the site\'s administrators.', [], 'admin_only'), 'cli-server');
     assert_same([403, ['error' => 'This is for the site\'s administrators.', 'code' => 'admin_only']], [$role['status'], $role['body']], 'a role the person lacks: as it was');
 });
@@ -128,15 +128,22 @@ test('anything else that goes wrong: 500 server_error, and what only on this com
     assert_same(['error' => 'Something went wrong on the server.', 'code' => 'server_error'], answer_to(new TypeError('not an int'))['body']);
 });
 
-test('a migration waiting for an administrator: 503 not_up_to_date, naming the files only to this computer', function (): void {
-    $waits = upkeep_waiting(['009_example.sql', '010_more.sql']);
-    assert_same([503, 'not_up_to_date', 'Waiting to be applied: 009_example.sql, 010_more.sql.'], [$waits->status, $waits->errorCode, $waits->detail]);
-    assert_same(UPKEEP_WAITING, $waits->getMessage());
-    foreach (NOT_THIS_COMPUTER as $sapi) {
-        assert_same(['error' => UPKEEP_WAITING, 'code' => 'not_up_to_date'], answer_to($waits, $sapi)['body'], "$sapi: the sentence, and no file");
+test('a migration waiting for an administrator: the anotoki library’s 503 update_pending, the same everywhere - no file named, nothing to log - through the app’s own headers', function (): void {
+    // 006 taken for not applied (no test writes into backend/migrations): a whole migration that waits.
+    test_db();
+    $name = '006_admin_panel_words.sql';
+    $when = db_value('SELECT applied_at FROM migrations WHERE name = ?', [$name]);
+    db_exec('DELETE FROM migrations WHERE name = ?', [$name]);
+    try {
+        $response = academy_app()->handle((new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/api/kanji/summary'));
+    } finally {
+        db_exec('INSERT INTO migrations (name, applied_at) VALUES (?, ?)', [$name, $when]);
     }
-    assert_same(['error' => UPKEEP_WAITING, 'code' => 'not_up_to_date', 'detail' => 'Waiting to be applied: 009_example.sql, 010_more.sql.'],
-        answer_to($waits, 'cli-server')['body'], 'this computer: which files, by themselves');
+    assert_same(503, $response->getStatusCode());
+    assert_same(['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'], json_decode((string) $response->getBody(), true));
+    assert_same(['60', 'no-store', 'nosniff', "default-src 'none'; frame-ancestors 'none'"], [$response->getHeaderLine('Retry-After'), $response->getHeaderLine('Cache-Control'),
+        $response->getHeaderLine('X-Content-Type-Options'), $response->getHeaderLine('Content-Security-Policy')], 'asked again in a minute, never kept; the security headers as on every answer');
+    assert_false(str_contains((string) file_get_contents($GLOBALS['log']), $name), 'and the log says nothing of it');
 });
 
 test('an unknown address and a wrong method keep their codes', function (): void {
@@ -160,4 +167,7 @@ test('for real, on this computer: a server whose database is not there says why,
     assert_same('The database is not reachable: ' . $r['body']['detail'], $r['body']['error'] ?? null, 'and the sentence, as it always was');
     assert_same(['error', 'code', 'detail'], array_keys($r['body']));
     assert_true(count(server_problems($app)) > 0, 'its log has it too');
+    // Where the site stands: unavailable (the settings are there; the database does not answer) - which the pages say
+    // in the anotoki library's words, asking again by themselves. Never the setup page.
+    assert_same([200, ['state' => 'unavailable', 'installed' => false]], array_values(array_slice(call($app['base'], 'GET', '/api/site-status', null, no_token()), 0, 2)));
 });

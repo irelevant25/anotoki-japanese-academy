@@ -9,7 +9,9 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ## Layout
 
 ```
-src/app/            app.component (the bar, the page, the foot), app.routes.ts, app.config.ts
+src/app/            app.component (the bar, the page - inside the anotoki library's <anotoki-site-gate>,
+                    which shows its own page instead while the site is not ready -, the foot),
+                    app.routes.ts, app.config.ts
   top-bar/          the anotoki family's top bar: brand, Kanji and Exam, language, theme, the person's menu;
                     on a phone (up to 760 px) one menu button; no key pressed in it reaches the page
   ui/               the family's pieces of the bar: brand/, theme-toggle/, icon/
@@ -23,15 +25,18 @@ src/app/            app.component (the bar, the page, the foot), app.routes.ts, 
                     the interceptor with the token - or a visitor's key - and X-Time-Zone, decided as a
                     request is issued (issued-as.ts), visitor-key.ts (the visitor key, the move at
                     sign-in), SignOutService, SignInService; sdk/ the IAM's browser SDK, never
-                    edited), storage.ts (localStorage that never throws), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
+                    edited), storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
                     the translation service, its pipes, the language chooser, failures worded from their
                     codes), theme/ (light, dark or the system's; signed in, the anotoki account's),
                     saves-in-flight.service.ts (the saves a sign-out waits for), time-zone.ts, boot.ts,
-                    format.ts (dates and clocks in the language's way, or the account's order and clock)
+                    format.ts (dates and clocks in the language's way, or the account's order and clock),
+                    site-status.config.ts and site-status.ts (the anotoki library's migrations module,
+                    @anotoki/lib/migrations, wired to this app: where the site stands, its gate and
+                    pages, the Migrations page), testing/ (the module as a spec needs it)
   admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN), Languages,
-                    People and Migrations (ADMIN); the top bar's links lead between them
-  standin/          the Sign in card, the not set up and problem pages; sign-in-failed/ (a refused
-                    sign-in said above a visitor's page)
+                    People and Migrations (ADMIN: the library's page); the top bar's links lead between them
+  standin/          the Sign in card and the problem page; sign-in-failed/ (a refused sign-in said
+                    above a visitor's page)
 src/styles/         _tokens.scss (every colour, light and dark; dark also by <html data-theme>), _base.scss,
                     _items.scss
 public/             favicon.svg, anotoki.png (the family's mark), theme-boot.js (the light/dark shown last,

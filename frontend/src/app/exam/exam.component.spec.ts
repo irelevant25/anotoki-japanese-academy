@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { SiteStatus } from '@anotoki/lib/migrations';
 import { ApiError, ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
@@ -9,10 +10,11 @@ import { fmtDateTime } from '../core/format';
 import { TranslationService } from '../core/i18n/translation.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { drawnFoot } from '../core/testing/foot-controls';
+import { provideTestSiteStatus } from '../core/testing/site-status';
 import { provideTestTranslations } from '../core/testing/test-translations';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { TopBarComponent } from '../top-bar/top-bar.component';
-import { ExamComponent } from './exam.component';
+import { ExamComponent, KEPT_PAPER_KEY, KeptPaper } from './exam.component';
 import { derivedFromState } from '../core/testing/auth-states';
 
 /** Intl writes a no-break space between the thousands, and before a unit, in Slovak. */
@@ -346,15 +348,21 @@ describe('ExamComponent', () => {
     await fixture.whenStable();
   }
 
-  async function open(language: 'en' | 'sk' = 'en'): Promise<void> {
+  /** The exam opened; $who: the IAM user id signed in, as AuthService.subject() names it (nobody: null). */
+  async function open(language: 'en' | 'sk' = 'en', who: string | null = null): Promise<void> {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         language === 'en' ? provideTestTranslations(ENGLISH) : provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
         { provide: ApiService, useValue: api },
         { provide: PrivateLinksService, useValue: { click: vi.fn() } },
+        // where the site stands (the anotoki library's): ready unless a test says otherwise
+        provideTestSiteStatus(),
       ],
     });
+    if (who !== null) {
+      vi.spyOn(TestBed.inject(AuthService), 'subject').mockReturnValue(who);
+    }
     i18n = TestBed.inject(TranslationService);
     fixture = TestBed.createComponent(ExamComponent);
     host = fixture.nativeElement;
@@ -376,6 +384,7 @@ describe('ExamComponent', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     api = { meta: vi.fn().mockResolvedValue(META), paper: vi.fn(), submit: vi.fn().mockResolvedValue(RESULT), attempts: vi.fn().mockResolvedValue([]) };
     confirmBox = vi.fn(() => true);
     alertBox = vi.fn();
@@ -391,6 +400,7 @@ describe('ExamComponent', () => {
     fixture?.destroy();
     host?.remove();
     localStorage.clear();
+    sessionStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -777,6 +787,116 @@ describe('ExamComponent', () => {
     });
   });
 
+  /* ------------------------------------------ while the site is updated */
+
+  describe('while the site is being updated', () => {
+    /** What this tab keeps (sessionStorage), read back; null for nothing. */
+    const kept = (): KeptPaper | null => {
+      const raw = sessionStorage.getItem(KEPT_PAPER_KEY);
+      return raw ? (JSON.parse(raw) as KeptPaper) : null;
+    };
+    const updatePending = new ApiError('The site is being updated. Try again in a few minutes.', 503, {
+      error: 'The site is being updated. Try again in a few minutes.',
+      code: 'update_pending',
+    });
+
+    it('a hand-in refused because an update waits: no dialog - the anotoki library’s page says what is going on - and the paper is kept for this tab, as it is', async () => {
+      api.submit.mockRejectedValue(updatePending);
+      await open('sk');
+      await start([question(1), question(2)]);
+      fixture.componentInstance.choose(2);
+      fixture.componentInstance.go(1);
+      fixture.componentInstance.toggleFlag();
+      one('#quitBtn').click();
+      await settle();
+      expect(api.submit).toHaveBeenCalledTimes(1);
+      expect(alertBox, 'no error for a learner to read').not.toHaveBeenCalled();
+      expect(one('#test').hidden, 'the paper stays, to be handed in once the site is back').toBe(false);
+      expect(one('#quitBtn').hasAttribute('disabled')).toBe(false);
+      const paper = kept()!;
+      expect([paper.who, paper.idx, paper.flags, paper.exam.spec, paper.answers['q1']?.choice]).toEqual([null, 1, ['q2'], { seed: 'abc' }, 2]);
+    });
+
+    it('the site stopping while a paper is open keeps it at once; off the page, the paper hears no key - the library’s page has them', async () => {
+      await open();
+      await start([question(1), question(2)]);
+      fixture.componentInstance.choose(3);
+      await settle();
+      expect(kept(), 'nothing kept while the site is ready').toBeNull();
+      TestBed.inject(SiteStatus).report('update_pending');
+      await settle();
+      expect(kept()?.answers['q1']?.choice).toBe(3);
+
+      // The gate takes the paper off the page: its keys are no longer the paper's.
+      host.remove();
+      for (const key of ['1', 'a', 'f', 'ArrowLeft', 'Enter', ' ']) {
+        press(document.body, key);
+      }
+      await settle();
+      expect(api.submit).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.answers()['q1']?.choice, 'nothing chosen').toBe(3);
+      expect(fixture.componentInstance.flags().size, 'nothing flagged').toBe(0);
+    });
+
+    it('left while the site is not ready (an administrator on the way to the Migrations page): still kept; left while it is ready: gone, as ever', async () => {
+      await open();
+      await start([question(1)]);
+      TestBed.inject(SiteStatus).report('update_pending');
+      await settle();
+      fixture.destroy();
+      expect(kept()?.exam.questions.map((q) => q.id)).toEqual(['q1']);
+
+      TestBed.resetTestingModule();
+      sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify(kept()));
+      await open();
+      expect(kept(), 'put back, and kept no more').toBeNull();
+      expect(one('#test').hidden).toBe(false);
+      fixture.destroy();
+      expect(kept(), 'the site ready: a paper left goes with the page').toBeNull();
+    });
+
+    it('the exam opened again (the page loaded afresh once the site is back): the kept paper on its question, with its answers, flags, name and clock - and kept no more', async () => {
+      const startedAt = new Date(Date.now() - 125_000).toISOString();
+      const paperKept: KeptPaper = {
+        who: '7',
+        exam: paper([question(1), question(2), question(3)]),
+        idx: 1,
+        answers: { q1: { choice: 2, ms: 1500 } },
+        flags: ['q2'],
+        startedAt,
+        candidate: 'Hana',
+      };
+      sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify(paperKept));
+      await open('en', '7');
+      expect(kept()).toBeNull();
+      expect(api.paper, 'no new paper asked for').not.toHaveBeenCalled();
+      expect(one('#test').hidden).toBe(false);
+      const exam = fixture.componentInstance;
+      expect([exam.idx(), exam.answers()['q1']?.choice, [...exam.flags()], exam.candidate()]).toEqual([1, 2, ['q2'], 'Hana']);
+      expect(text('#clock'), 'the clock counts from the paper’s start').toMatch(/^2:0\d$/);
+
+      // Handed in, it is the paper it was: its spec, its start, its answers.
+      exam.choose(0);
+      one('#quitBtn').click();
+      await settle();
+      const sent = api.submit.mock.calls[0][0];
+      expect([sent.spec, sent.startedAt, sent.meta, sent.responses['q1'].choice, sent.responses['q2'].choice]).toEqual([{ seed: 'abc' }, startedAt, { candidate: 'Hana' }, 2, 0]);
+      expect(one('#result').hidden).toBe(false);
+    });
+
+    it('a paper kept for somebody else is not put back, nor one that is not a paper: both go', async () => {
+      sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify({ who: '42', exam: paper([question(1)]), idx: 0, answers: {}, flags: [], startedAt: null, candidate: '' }));
+      await open('en', '7');
+      expect([kept(), one('#test').hidden, one('#setup').hidden]).toEqual([null, true, false]);
+
+      fixture.destroy();
+      TestBed.resetTestingModule();
+      sessionStorage.setItem(KEPT_PAPER_KEY, '{"who": null, "exam": {"questions": []}');
+      await open();
+      expect([sessionStorage.getItem(KEPT_PAPER_KEY), one('#test').hidden]).toEqual([null, true]);
+    });
+  });
+
   /* ------------------------------------------------------------ result */
 
   describe('the result', () => {
@@ -889,6 +1009,8 @@ describe('ExamComponent', () => {
       const played = vi.spyOn(fixture.componentInstance, 'playAudio');
       const bar = TestBed.createComponent(TopBarComponent);
       document.body.appendChild(bar.nativeElement);
+      // A second component of the TestBed takes the first one's root out of the page: the paper listens only while it is in one.
+      document.body.appendChild(host);
       await bar.whenStable();
       const top = bar.nativeElement as HTMLElement;
       const controls = (): HTMLElement[] => [
@@ -919,6 +1041,7 @@ describe('ExamComponent', () => {
       }
       // The foot under the paper: What's new, and the news it opens (its Close, its lines) - Enter there hands nothing in.
       const foot = await drawnFoot();
+      document.body.appendChild(host);
       for (const control of foot.controls) {
         for (const key of keys) {
           press(control, key);

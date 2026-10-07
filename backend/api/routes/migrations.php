@@ -1,47 +1,49 @@
 <?php
 /**
- * The admin panel's Migrations page (src/upkeep.php does the work), for the
- * administrators alone. A migration uploaded (or pulled) waits for them here:
- * no request applies one by itself, and every other address with data
- * answers 503 not_up_to_date meanwhile. So these two must answer while one
- * waits: their group has the set-up check, the tables' check
- * (tables_middleware(), in place of the upkeep), the person, the editors'
- * check and the administrators' check — anybody else 403 staff_only or
+ * The admin panel's Migrations page's addresses, for the administrators
+ * alone: the anotoki library's (MigrationsRoutes, anotoki/lib - every anotoki
+ * site's), on this site's engine (db_migrator() in src/db.php). A migration
+ * uploaded (or pulled) waits for them here: no request applies one by itself,
+ * and the rest of the site answers 503 update_pending meanwhile (the
+ * SiteGate, api/app.php, which lets these through). Their check is ADMIN in
+ * the person's token and nothing else (migrations_admin_middleware(),
+ * middleware/staff.php): it needs no table, since the migration that waits
+ * may be the one that makes them. Anybody else 401, or 403 staff_only or
  * admin_only.
  *
- *   GET  /api/admin/migrations         {applied: [{name, appliedAt}], pending: [{name, whole}]}: the files applied, the
- *                                      first first (appliedAt in milliseconds), and the ones pending in the order they
- *                                      will run (whole: false for a file without its last line, still on its way,
- *                                      which waits with every one after it)
- *   POST /api/admin/migrations/apply   {applied: [names], failed: name|null, error: string|null, backup: file|null}: the
- *                                      pending ones that are whole, in order, after a raw copy of every table (its
- *                                      file's name in backups/), each rolled back whole when it fails, which stops the
- *                                      run there; error: PostgreSQL's own words, on this computer and on a website alike
- *                                      (as the IAM's page; logged too); 409 busy while another Apply, or the content's
- *                                      rebuild, runs
+ *   GET  /api/admin/migrations         {sets: ["academy"], applied: [{set, name, applied_at}], pending: [{set, name, ready,
+ *                                      blocked}], missing: [{set, name, applied_at}]}: the files applied, in the order
+ *                                      they ran (applied_at ISO 8601, UTC); the ones pending, in the order they will run
+ *                                      (ready false: a draft - a file without its last line, still being written or
+ *                                      uploaded - which waits, and every one after it with it: blocked); the ones the
+ *                                      table lists that are no file here
+ *   GET  /api/admin/migrations/file?set=academy&name=…   {set, name, sql}: a file's text; 404 not_found for anything
+ *                                      that is not one of backend/migrations/'s files
+ *   POST /api/admin/migrations/apply   {applied: [{set, name}], failed: {set, name}|null, error: string|null, note:
+ *                                      string|null}: the pending ones up to the first draft, in order, after a raw copy
+ *                                      of every table (the note names its file in backups/), each in a transaction of
+ *                                      its own, rolled back whole when it fails, which stops the run there; error:
+ *                                      PostgreSQL's own words, on this computer and on a website alike (as the IAM's
+ *                                      page shows them; logged too); 409 busy while another apply, or the content's
+ *                                      rebuild, holds the lock
  */
 
 declare(strict_types=1);
 
-use Psr\Http\Message\ResponseInterface as Response;
+use Anotoki\Lib\Migrations\Http\MigrationsRoutes;
+use Anotoki\Lib\Migrations\Migrator;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Slim\Routing\RouteCollectorProxy;
 
 function academy_migration_routes(Slim\App $app): void
 {
-    $group = $app->group('/api/admin/migrations', static function (RouteCollectorProxy $group): void {
-        $group->get('', static function (Request $request, Response $response): Response {
-            return json_response($response, upkeep_migrations());
-        });
-
-        $group->post('/apply', static function (Request $request, Response $response): Response {
-            return json_response($response, upkeep_apply());
-        });
-    });
-    // Added in this order, they run the other way round: set-up, the tables, the person, the editors', the administrators'.
-    $group->add(admin_middleware());
-    $group->add(staff_middleware());
-    $group->add(person_middleware());
-    $group->add(tables_middleware());
-    $group->add(set_up_middleware());
+    MigrationsRoutes::admin($app, '/api/admin/migrations', static function (): Migrator {
+        // A connection of its own: an apply's lock is its connection's (db_migrator()).
+        return db_migrator(db_connect(), upkeep_before_apply());
+    }, static function (Request $request, array $result): void {
+        // The administrator reads why on the page; the site's error log has it as well. (A copy that could
+        // not be written logs itself: upkeep_before_apply().)
+        if ($result['failed'] !== null) {
+            error_log("[upkeep] a migration failed: backend/migrations/{$result['failed']['name']}: {$result['error']}");
+        }
+    })->add(migrations_admin_middleware());
 }

@@ -9,8 +9,10 @@
  *                                                with English under them and the languages on offer. "sk-sk"
  *                                                is answered by "sk" when only that is offered, anything the
  *                                                app does not offer in English. 404 not_found for what is no
- *                                                code; 503 not_up_to_date while migration 004 of an upload is
- *                                                still arriving (nothing is logged for it)
+ *                                                code; 503 not_up_to_date while the database has no words yet:
+ *                                                migration 004 of an upload still arriving, or waiting for its
+ *                                                Apply (nothing is logged for it). It answers while a migration
+ *                                                waits (the SiteGate, api/app.php): the pages need their words
  *
  * The admin area, in two route groups with the checks on the groups
  * (middleware/staff.php): the editors and the administrators (the IAM roles
@@ -72,7 +74,7 @@ function academy_translation_routes(Slim\App $app): void
             return with_headers($response->withStatus(304), $headers);
         }
         return json_response($response, $body, 200, $headers);
-    })->add(upkeep_middleware())->add(set_up_middleware());
+    })->add(upkeep_middleware());
 
     // Each of the admin area's handlers gives [status, body], as the kanji's do.
     // Who saved a string is the request's person, the token's, and nothing a body says.
@@ -86,8 +88,8 @@ function academy_translation_routes(Slim\App $app): void
 
     // Two groups, with the checks on the groups: an address added to one
     // later gets them without asking. The middleware of a group runs before
-    // its routes', the outer group's before the inner's: set-up, upkeep, the
-    // person, then the editors' check, then the administrators'.
+    // its routes', the outer group's before the inner's: upkeep, the person,
+    // then the editors' check, then the administrators'.
     $staff = $app->group('/api/admin', static function (RouteCollectorProxy $group) use ($admin): void {
         // The editors and the administrators: reading and rewording the strings.
         $group->get('/languages', $admin(static function (): array {
@@ -128,6 +130,6 @@ function academy_translation_routes(Slim\App $app): void
             academy_people_routes($only);
         })->add(admin_middleware());
     });
-    $staff->add(staff_middleware()); // added first, so it runs last of the group's: after set-up, upkeep and the person
+    $staff->add(staff_middleware()); // added first, so it runs last of the group's: after the upkeep and the person
     data_route($staff);
 }

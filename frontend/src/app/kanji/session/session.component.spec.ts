@@ -8,6 +8,7 @@ import { SignOutService } from '../../core/auth/sign-out.service';
 import { AudioService } from '../../core/audio.service';
 import { TranslationService } from '../../core/i18n/translation.service';
 import { drawnFoot } from '../../core/testing/foot-controls';
+import { provideTestSiteStatus } from '../../core/testing/site-status';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { SessionResult } from './session-engine';
@@ -152,6 +153,8 @@ describe('SessionComponent', () => {
         options.slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: api },
         { provide: AudioService, useValue: { play: vi.fn() } },
+        // the real top bar, in one of these tests, follows where the site stands
+        provideTestSiteStatus(),
       ],
     });
     TestBed.inject(KanjiStateService).items.set([ONE, WORD]);

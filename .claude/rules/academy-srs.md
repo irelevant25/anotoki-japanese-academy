@@ -46,7 +46,7 @@ Reference: `docs/kb/kanji-srs.md`. Read it before changing the trainer.
   files changed — an upload, a pull — rebuilds content, whatever request it
   is, on this computer as on a website — `backend/src/upkeep.php`; a new
   migration is never applied by a request: it waits for an ADMIN's Apply on
-  the Migrations page, and the pages say "not up to date" meanwhile). The item records keep the shape of `srs_blank()`,
+  the Migrations page, and the pages say "The site is being updated" meanwhile). The item records keep the shape of `srs_blank()`,
   which the browser (`ItemState` in `api.types.ts`), the export and the
   backups share.
 - `frontend/src/app/kanji/answer.ts`: every catalog item must accept its own

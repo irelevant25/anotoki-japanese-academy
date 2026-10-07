@@ -57,7 +57,10 @@ export function failureKey(status: number): string {
  *
  * What it says itself — the waiting tab's title, the alert when it fails — is
  * worded at the moment it is raised, in the language on the page; the server's
- * own English sentence is never shown.
+ * own English sentence is never shown. Nothing at all while the site is being
+ * updated (or lost its settings): the anotoki library's page takes the app's
+ * place and says so (AuthService.fetch() told it), and nobody is to read an
+ * error about it.
  */
 @Injectable({ providedIn: 'root' })
 export class PrivateLinksService {
@@ -89,6 +92,11 @@ export class PrivateLinksService {
         visitor.forget(key, true);
       }
       if (!r.ok) {
+        const code = await codeOf(r);
+        if (code === 'update_pending' || code === 'not_set_up') {
+          tab?.close();
+          return;
+        }
         this.failed(tab, failureKey(r.status));
         return;
       }

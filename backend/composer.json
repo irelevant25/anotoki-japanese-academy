@@ -5,8 +5,9 @@
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
-        "slim/slim": "^4.15",
-        "slim/psr7": "^1.8"
+        "anotoki/lib": "^0.1",
+        "slim/psr7": "^1.8",
+        "slim/slim": "^4.15"
     },
     "config": {
         "optimize-autoloader": true,
@@ -19,6 +20,12 @@
         ]
     },
     "scripts-descriptions": {
-        "start": "Japanese Academy on http://127.0.0.1:8200: brings the database up to date, then serves the app and the API (server.php)"
-    }
+        "start": "Japanese Academy on http://localhost:8200: the API, the setup page and the last build of the app (router.php); nothing happens at start, and a new migration waits for an ADMIN's Apply on the Migrations page"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/irelevant25/anotoki-lib"
+        }
+    ]
 }
