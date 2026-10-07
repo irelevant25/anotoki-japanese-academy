@@ -215,8 +215,14 @@ settings, Apache or the setup page; `architecture.md` for the map).
    - No screen asks the API for data before the app is ready (not set up,
      signed out). While the site is not ready (the anotoki library's
      `SiteStatus`: being updated, not set up, out of reach) its page stands
-     in (`<anotoki-site-gate>`), never the app's problem page; the library's
-     packages (`backend/vendor/anotoki/`, `@anotoki/lib`) are never edited.
+     in (`<anotoki-site-gate>`), never the app's problem page; the pages are
+     the gate's template (`<ng-template>`, control flow inside it), made only
+     while the site is open - a page keeps what it must across that in its
+     `ngOnDestroy()` (the exam's open paper), never by running on behind the
+     library's page; the library's packages (`backend/vendor/anotoki/`,
+     `@anotoki/lib`) are never edited.
+   - `frontend/public/changelog.json`: versions of three numbers
+     (MAJOR.MINOR.PATCH), newest first, the newest `frontend/package.json`'s.
 9. **Consistency.** The change matches the surrounding style and comment
    density. No dead code, no leftover debugging, no new dependency without a
    reason.

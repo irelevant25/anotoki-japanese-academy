@@ -295,9 +295,8 @@ function measureBar(page) {
       if (FILTER && !name.includes(FILTER)) continue;
       // the Sign in card: a browser of its own, nobody signed in, the IAM refusing
       let shown = page;
-      // While a database update waits, the pages behind the library's page ask for their data all the same: 503, on purpose.
-      const waitingAnswers = how.updating ? [/\/api\//] : [];
-      const errorsBefore = errors.length;
+      // While a database update waits no page is made behind the library's page (the pages are its gate's
+      // template), so nothing asks for data then: an answer that fails is a failure here too.
       if (how.updating) app.sql('DELETE FROM migrations WHERE name = ?', UPDATE);
       if (how.signedOut || how.visiting || how.learner) {
         if (how.signedOut) await iamState({ deny: true });
@@ -306,7 +305,7 @@ function measureBar(page) {
         if (how.learner) await plant(outContext, LEARNER, sk ? 'sk' : null);
         else if (sk) await outContext.addInitScript(SLOVAK);
         shown = await outContext.newPage();
-        const outErrors = watch(shown, { ignore: waitingAnswers });
+        const outErrors = watch(shown);
         shown.on('close', () => errors.push(...outErrors));
       }
       // a real page load for every screen (the same address twice would not load again)
@@ -351,8 +350,6 @@ function measureBar(page) {
       }
       if (how.updating) {
         app.sql('INSERT INTO migrations (name, applied_at) VALUES (?, ?)', UPDATE, updateAppliedAt);
-        // the reader's own page's answers while it waited: 503, on purpose
-        errors.splice(errorsBefore, errors.length - errorsBefore, ...errors.slice(errorsBefore).filter((e) => !/^503 /.test(e)));
       }
     }
     problems.push(...errors.map((e) => `${variant}: ${e}`));

@@ -48,7 +48,9 @@ The caller tells you what changed. Then:
    Languages, People deleting a person's data) for an ADMIN, Translations
    only for an EDITOR, nothing for a learner; a migration waiting (the
    anotoki library's "The site is being updated" for a visitor, a learner and
-   an EDITOR, with no error and no button but a visitor's quiet Sign in; an
+   an EDITOR, with no error and no button but a visitor's quiet Sign in, and
+   nothing of the pages made behind it (no request for their data); an exam
+   paper open as it lands, kept and back after the library's reload; an
    administrator who is signed out signing in from that page, opening
    Migrations, an Apply that fails and one that applies); two browsers in time zones on
    either side of the date line; a Slovak pass with no key-shaped text; then

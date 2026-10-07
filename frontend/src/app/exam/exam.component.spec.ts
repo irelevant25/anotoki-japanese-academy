@@ -1,7 +1,8 @@
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
-import { SiteStatus } from '@anotoki/lib/migrations';
+import { SiteGateComponent, SiteStatus } from '@anotoki/lib/migrations';
 import { ApiError, ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
@@ -259,6 +260,15 @@ function paper(questions: ExamQuestion[]): ExamPaper {
   return { spec: { seed: 'abc' }, seed: 'abc', size: questions.length, createdAt: '2026-09-30T10:00:00.000Z', questions };
 }
 
+/** The exam as the app draws it: the anotoki library's gate around it, as the gate's template - made only while the site is open (app.component.html). */
+@Component({
+  selector: 'app-test-gated-exam',
+  imports: [SiteGateComponent, ExamComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '<anotoki-site-gate><ng-template><app-exam /></ng-template></anotoki-site-gate>',
+})
+class GatedExamComponent {}
+
 /** A listening question of the greetings, with options in both scripts and in English; then a plain one. */
 const LISTENING = question(1, {
   section: 'listening-word',
@@ -329,6 +339,8 @@ const RESULT: ExamResult = {
 
 describe('ExamComponent', () => {
   let fixture: ComponentFixture<ExamComponent>;
+  /** The exam drawn the app's way instead (openGated()): inside the anotoki library's gate. */
+  let gated: ComponentFixture<GatedExamComponent> | null = null;
   let host: HTMLElement;
   let i18n: TranslationService;
   let api: { meta: ReturnType<typeof vi.fn>; paper: ReturnType<typeof vi.fn>; submit: ReturnType<typeof vi.fn>; attempts: ReturnType<typeof vi.fn> };
@@ -345,7 +357,7 @@ describe('ExamComponent', () => {
   /** Everything the page has to say has been drawn: the answers the mocks gave have been taken in. */
   async function settle(): Promise<void> {
     await new Promise((done) => setTimeout(done));
-    await fixture.whenStable();
+    await (gated ?? fixture).whenStable();
   }
 
   /** The exam opened; $who: the IAM user id signed in, as AuthService.subject() names it (nobody: null). */
@@ -364,8 +376,36 @@ describe('ExamComponent', () => {
       vi.spyOn(TestBed.inject(AuthService), 'subject').mockReturnValue(who);
     }
     i18n = TestBed.inject(TranslationService);
+    gated = null;
     fixture = TestBed.createComponent(ExamComponent);
     host = fixture.nativeElement;
+    document.body.appendChild(host);
+    await settle();
+  }
+
+  /**
+   * The exam opened the app's way: inside the anotoki library's gate, as its
+   * template (GatedExamComponent), so the site stopping takes the page down
+   * as it does in the app. In English; $who as open() has it.
+   */
+  async function openGated(who: string | null = null): Promise<void> {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideTestTranslations(ENGLISH),
+        { provide: ApiService, useValue: api },
+        { provide: PrivateLinksService, useValue: { click: vi.fn() } },
+        provideTestSiteStatus(),
+        // the gate follows the router (an ADMIN's way to the Migrations page)
+        provideRouter([]),
+      ],
+    });
+    if (who !== null) {
+      vi.spyOn(TestBed.inject(AuthService), 'subject').mockReturnValue(who);
+    }
+    i18n = TestBed.inject(TranslationService);
+    gated = TestBed.createComponent(GatedExamComponent);
+    host = gated.nativeElement;
     document.body.appendChild(host);
     await settle();
   }
@@ -398,6 +438,8 @@ describe('ExamComponent', () => {
 
   afterEach(() => {
     fixture?.destroy();
+    gated?.destroy();
+    gated = null;
     host?.remove();
     localStorage.clear();
     sessionStorage.clear();
@@ -800,45 +842,56 @@ describe('ExamComponent', () => {
       code: 'update_pending',
     });
 
-    it('a hand-in refused because an update waits: no dialog - the anotoki library’s page says what is going on - and the paper is kept for this tab, as it is', async () => {
-      api.submit.mockRejectedValue(updatePending);
-      await open('sk');
-      await start([question(1), question(2)]);
-      fixture.componentInstance.choose(2);
-      fixture.componentInstance.go(1);
-      fixture.componentInstance.toggleFlag();
-      one('#quitBtn').click();
-      await settle();
-      expect(api.submit).toHaveBeenCalledTimes(1);
-      expect(alertBox, 'no error for a learner to read').not.toHaveBeenCalled();
-      expect(one('#test').hidden, 'the paper stays, to be handed in once the site is back').toBe(false);
-      expect(one('#quitBtn').hasAttribute('disabled')).toBe(false);
-      const paper = kept()!;
-      expect([paper.who, paper.idx, paper.flags, paper.exam.spec, paper.answers['q1']?.choice]).toEqual([null, 1, ['q2'], { seed: 'abc' }, 2]);
-    });
+    /** The exam inside the gate (openGated()), while the gate makes it; null while the library's page stands in front of the pages. */
+    const exam = (): ExamComponent | null => (gated?.debugElement.query(By.directive(ExamComponent))?.componentInstance as ExamComponent | undefined) ?? null;
 
-    it('the site stopping while a paper is open keeps it at once; off the page, the paper hears no key - the library’s page has them', async () => {
-      await open();
+    it('the site stopping while a paper is open: the gate takes the paper down - nothing of it runs behind the library’s page, no key reaches it - and keeps it for this tab, as it is', async () => {
+      await openGated();
       await start([question(1), question(2)]);
-      fixture.componentInstance.choose(3);
+      exam()!.go(1);
+      exam()!.choose(3);
+      exam()!.toggleFlag();
       await settle();
       expect(kept(), 'nothing kept while the site is ready').toBeNull();
+
       TestBed.inject(SiteStatus).report('update_pending');
       await settle();
-      expect(kept()?.answers['q1']?.choice).toBe(3);
+      expect(exam(), 'the paper is taken down').toBeNull();
+      expect(text('anotoki-site-status h1')).toBe('The site is being updated');
+      const paper = kept()!;
+      expect([paper.idx, paper.answers['q2']?.choice, paper.flags, paper.exam.spec]).toEqual([1, 3, ['q2'], { seed: 'abc' }]);
 
-      // The gate takes the paper off the page: its keys are no longer the paper's.
-      host.remove();
+      // The library's page has the keys now: nothing of the paper hears them.
       for (const key of ['1', 'a', 'f', 'ArrowLeft', 'Enter', ' ']) {
         press(document.body, key);
       }
       await settle();
       expect(api.submit).not.toHaveBeenCalled();
-      expect(fixture.componentInstance.answers()['q1']?.choice, 'nothing chosen').toBe(3);
-      expect(fixture.componentInstance.flags().size, 'nothing flagged').toBe(0);
+      expect(kept(), 'the paper as it was kept').toEqual(paper);
     });
 
-    it('left while the site is not ready (an administrator on the way to the Migrations page): still kept; left while it is ready: gone, as ever', async () => {
+    it('a hand-in refused because an update waits: no dialog - the anotoki library’s page says what is going on - and the gate takes the paper down, kept for this tab as it is', async () => {
+      api.submit.mockImplementation(() => {
+        // What siteStatusInterceptor does with that answer, before the page hears of it.
+        TestBed.inject(SiteStatus).report('update_pending');
+        return Promise.reject(updatePending);
+      });
+      await openGated();
+      await start([question(1), question(2)]);
+      exam()!.choose(2);
+      exam()!.go(1);
+      exam()!.toggleFlag();
+      one('#quitBtn').click();
+      await settle();
+      expect(api.submit).toHaveBeenCalledTimes(1);
+      expect(alertBox, 'no error for a learner to read').not.toHaveBeenCalled();
+      expect(exam(), 'the paper is taken down, to be handed in once the site is back').toBeNull();
+      expect(text('anotoki-site-status h1')).toBe('The site is being updated');
+      const paper = kept()!;
+      expect([paper.who, paper.idx, paper.flags, paper.exam.spec, paper.answers['q1']?.choice]).toEqual([null, 1, ['q2'], { seed: 'abc' }, 2]);
+    });
+
+    it('taken down while the site is not ready: kept; left while it is ready: gone, as ever - and a copy kept earlier with it', async () => {
       await open();
       await start([question(1)]);
       TestBed.inject(SiteStatus).report('update_pending');
@@ -849,13 +902,40 @@ describe('ExamComponent', () => {
       TestBed.resetTestingModule();
       sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify(kept()));
       await open();
-      expect(kept(), 'put back, and kept no more').toBeNull();
+      expect(kept()?.exam.questions.map((q) => q.id), 'put back, and kept while it is open').toEqual(['q1']);
       expect(one('#test').hidden).toBe(false);
       fixture.destroy();
-      expect(kept(), 'the site ready: a paper left goes with the page').toBeNull();
+      expect(kept(), 'the site ready: a paper left goes with the page, and its copy with it').toBeNull();
     });
 
-    it('the exam opened again (the page loaded afresh once the site is back): the kept paper on its question, with its answers, flags, name and clock - and kept no more', async () => {
+    it('the site back: the gate makes the exam again for the moment before the library’s page loads it afresh - the paper put back there keeps its copy, so the fresh page puts it back again', async () => {
+      await openGated('7');
+      await start([question(1), question(2)]);
+      exam()!.go(1);
+      exam()!.choose(1);
+      const site = TestBed.inject(SiteStatus);
+      site.report('update_pending');
+      await settle();
+      const taken = kept()!;
+      expect([exam(), taken.who, taken.idx, taken.answers['q2']?.choice]).toEqual([null, '7', 1, 1]);
+
+      // The library's page asks again and hears "ready": the gate makes the pages again, and its reload follows.
+      site.markReady();
+      await settle();
+      expect(exam()?.idx(), 'the paper put back, in the page about to go').toBe(1);
+      const atReload = sessionStorage.getItem(KEPT_PAPER_KEY);
+      expect(atReload && (JSON.parse(atReload) as KeptPaper), 'still kept as the page goes').toEqual(taken);
+
+      // The page loaded afresh: nothing of the old one ran on its way out (a reload runs no ngOnDestroy).
+      gated!.destroy();
+      TestBed.resetTestingModule();
+      sessionStorage.setItem(KEPT_PAPER_KEY, atReload!);
+      await open('en', '7');
+      const again = fixture.componentInstance;
+      expect([one('#test').hidden, again.idx(), again.answers()['q2']?.choice]).toEqual([false, 1, 1]);
+    });
+
+    it('the exam opened again (the page loaded afresh once the site is back): the kept paper on its question, with its answers, flags, name and clock - its copy following it until it is handed in', async () => {
       const startedAt = new Date(Date.now() - 125_000).toISOString();
       const paperKept: KeptPaper = {
         who: '7',
@@ -868,20 +948,61 @@ describe('ExamComponent', () => {
       };
       sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify(paperKept));
       await open('en', '7');
-      expect(kept()).toBeNull();
+      expect(kept(), 'still kept: a page loaded afresh now would put it back again').toEqual(paperKept);
       expect(api.paper, 'no new paper asked for').not.toHaveBeenCalled();
       expect(one('#test').hidden).toBe(false);
       const exam = fixture.componentInstance;
       expect([exam.idx(), exam.answers()['q1']?.choice, [...exam.flags()], exam.candidate()]).toEqual([1, 2, ['q2'], 'Hana']);
       expect(text('#clock'), 'the clock counts from the paper’s start').toMatch(/^2:0\d$/);
 
-      // Handed in, it is the paper it was: its spec, its start, its answers.
+      // Handed in, it is the paper it was: its spec, its start, its answers. Its copy follows it until then.
       exam.choose(0);
+      expect(kept()?.answers['q2']?.choice, 'the copy follows the paper: a page loaded afresh now would find this answer too').toBe(0);
       one('#quitBtn').click();
       await settle();
       const sent = api.submit.mock.calls[0][0];
       expect([sent.spec, sent.startedAt, sent.meta, sent.responses['q1'].choice, sent.responses['q2'].choice]).toEqual([{ seed: 'abc' }, startedAt, { candidate: 'Hana' }, 2, 0]);
       expect(one('#result').hidden).toBe(false);
+      expect(kept(), 'handed in and scored: the copy goes').toBeNull();
+    });
+
+    it.each<[string, (exam: ExamComponent) => void, (paper: KeptPaper) => unknown, unknown]>([
+      ['an answer', (exam) => exam.choose(3), (paper) => paper.answers['q2']?.choice, 3],
+      ['another question', (exam) => exam.go(0), (paper) => paper.idx, 0],
+      ['a flag', (exam) => exam.toggleFlag(), (paper) => paper.flags, ['q2']],
+    ])('a paper put back from the copy: %s, and the copy follows', async (_, move, read, expected) => {
+      sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify({ who: null, exam: paper([question(1), question(2)]), idx: 1, answers: {}, flags: [], startedAt: null, candidate: '' }));
+      await open();
+      move(fixture.componentInstance);
+      expect(read(kept()!)).toEqual(expected);
+    });
+
+    it('an answer’s step on to the next question, still waiting its moment when the gate takes the paper down, does nothing', async () => {
+      await openGated();
+      await start([question(1), question(2)]);
+      const taken = exam()!;
+      const go = vi.spyOn(taken, 'go');
+      taken.choose(1);
+      TestBed.inject(SiteStatus).report('update_pending');
+      await settle();
+      expect(exam(), 'taken down').toBeNull();
+      await new Promise((done) => setTimeout(done, 250));
+      expect(go, 'no step on: nothing of the paper runs behind the library’s page').not.toHaveBeenCalled();
+      expect(kept()?.idx).toBe(0);
+    });
+
+    it('a visitor’s paper put back for whoever signed in where it was kept: its copy is theirs from then on - somebody signing in after them in that tab does not get it', async () => {
+      sessionStorage.setItem(KEPT_PAPER_KEY, JSON.stringify({ who: null, exam: paper([question(1), question(2)]), idx: 1, answers: {}, flags: [], startedAt: null, candidate: 'Hana' }));
+      await open('en', '7');
+      expect([one('#test').hidden, fixture.componentInstance.idx(), kept()?.who, kept()?.candidate]).toEqual([false, 1, '7', 'Hana']);
+
+      // The tab loaded afresh (nothing of the page ran on its way out), somebody else signed in now.
+      const atReload = sessionStorage.getItem(KEPT_PAPER_KEY);
+      fixture.destroy();
+      TestBed.resetTestingModule();
+      sessionStorage.setItem(KEPT_PAPER_KEY, atReload!);
+      await open('en', '8');
+      expect([kept(), one('#test').hidden]).toEqual([null, true]);
     });
 
     it('a paper kept for somebody else is not put back, nor one that is not a paper: both go', async () => {

@@ -17,7 +17,7 @@ export interface DrawnFoot {
  */
 export async function drawnFoot(): Promise<DrawnFoot> {
   const changelog = TestBed.inject(ChangelogService);
-  changelog.load = () => Promise.resolve(changelog.entries.set([{ version: '0.2', date: '2026-10-04', changes: { added: ['Something new'] } }]));
+  changelog.load = () => Promise.resolve(changelog.entries.set([{ version: '0.2.0', date: '2026-10-04', changes: { added: ['Something new'] } }]));
   // jsdom may lack the modal dialog: open is all this needs
   const proto = HTMLDialogElement.prototype as { showModal?: () => void };
   if (typeof proto.showModal !== 'function') {

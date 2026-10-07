@@ -1418,3 +1418,73 @@ waits for an administrator*):
   problem page's link to the Migrations page. Their words go with migration
   008 — a draft: its last line, `-- end of 008`, is the owner's to write once
   they accept that, and the upload is refused until then.
+
+**2026-10-07 — anotoki-lib 0.1.1: the pages are the gate's template, and
+what the app did about pages running behind the library's page goes (follows
+the entry above).** 0.1.1 is the library's Angular half alone: `@anotoki/lib`
+moved to 0.1.1, `backend/vendor/anotoki/lib` stays at 0.1.0, unchanged.
+`<anotoki-site-gate>` makes the pages only while the site is open when it is
+given them as a template, and `app.component.html` does so now
+(`<anotoki-site-gate><ng-template>…</ng-template></anotoki-site-gate>`, the
+`@switch` over the sign-in's states inside it). With 0.1.0 the gate only hid what it was
+given: the router's outlet and the page in it were made all the same and ran
+behind the library's page, asking for their data (503 `update_pending`) and
+hearing the keys pressed on `document`. What the app had done about that:
+
+- **Gone**: the exam paper's and the lesson batch's check that their page was
+  still in the document before taking a key (`isConnected`): no page is
+  made behind the library's page now, so no key reaches one. The exam's
+  effect that kept an open paper the moment the site stopped, and the copy a
+  refused hand-in kept itself: the gate takes the exam page down now, and its
+  `ngOnDestroy()` keeps the paper as it goes (as it did before for a page left
+  while the site was not ready). The browser suite's "waiting answers", the
+  503s of those pages it left out of its error check: it checks instead that
+  nothing behind the library's page asks for data, and that no answer fails.
+- **Kept**, as they do something still: the hand-in refused without a dialog
+  (the refusal reaches the page before the gate takes it down); the guard
+  that sends nobody to the IAM while the site is not ready (the router goes
+  on navigating, with no outlet to draw in); the bar and the tab's title
+  following the gate's rule (they are outside it); the words not asked for
+  again while the site is not ready; a private link's tab closed without an
+  error.
+- **New, because the pages are made again when the site is back**: the
+  library's waiting page hears "ready", which opens the gate, and then loads
+  the page afresh — in between, the pages are made once more. An exam that
+  put a kept paper back then and dropped its copy would lose the paper with
+  the page that goes: seen in a real browser, where the exam is drawn three
+  times in the tab (before, in the page about to go, after the reload), and a
+  build that dropped the copy as it put the paper back came back to the setup
+  screen. So the copy stays, and follows the paper while it is open (each
+  answer, question and flag rewrites it), until it is handed in or left with
+  the site ready; until now it went the moment the paper was put back. A key
+  pressed in the page about to go is in the copy too (the code review's
+  finding: dropping the copy at the paper's first move, as first written,
+  lost it then). A put-back paper also comes back after a reload of the tab,
+  or a sign-out and the same person's sign-in in it. A visitor's copy put
+  back for whoever signed in is rewritten as theirs, so that somebody signing
+  in after them in that tab does not get it. And an answer's step on to the
+  next question, still waiting its 170 ms when the gate takes the page down,
+  does nothing now (it could play the next recording behind the library's
+  page).
+- The `@switch` cannot stay directly inside the gate, as 0.1.0 had it, even
+  though the library's changelog says the old form still works: 0.1.1 looks
+  for the pages' template among what it is given (`contentChild(TemplateRef)`)
+  and takes a control-flow block's for it — the gate then showed the first
+  `@case`, the signed-in page's outlet, to everybody (seen in
+  `app.component.spec.ts`). The wrapping `<ng-template>` is what makes it
+  work.
+- The `ADMIN`'s "A database update is waiting" asks again by itself now, as
+  the visitors' page does (0.1.1): another administrator may apply the update
+  meanwhile, and the page loads afresh once it is.
+
+**2026-10-07 — Versions have three numbers: MAJOR.MINOR.PATCH.** The
+owner's decision: the first number for big changes, the second for new
+features, the third for bug fixes. The changelog's entries
+were renamed (`0.1` → `0.1.0` … `0.4` → `0.4.0`, no new entry: 0.4.0 holds
+this round's line) and `frontend/package.json` already said 0.4.0. A browser
+remembers the version whose news it last opened (`academy-changelog-seen`):
+it is compared with the newest entry number by number, a missing number
+counting as 0 (`compareVersions()`), so a browser that read "0.4" does not
+get the dot for "0.4.0" just because it was renamed. A unit test holds every
+entry to three numbers, newest first, and the newest to
+`frontend/package.json`'s version (`changelog.service.spec.ts`).

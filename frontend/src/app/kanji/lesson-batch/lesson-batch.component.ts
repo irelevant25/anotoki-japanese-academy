@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, input, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, OnInit, signal } from '@angular/core';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -27,7 +27,6 @@ export class LessonBatchComponent implements OnInit {
   private readonly kanji = inject(KanjiStateService);
   private readonly screen = inject(KanjiScreenService);
   private readonly audio = inject(AudioService);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly items = input.required<CatalogItem[]>();
 
@@ -100,10 +99,6 @@ export class LessonBatchComponent implements OnInit {
   onKey(event: KeyboardEvent): void {
     const t = event.target as HTMLElement | null;
     if (t && /^(TEXTAREA|INPUT)$/.test(t.tagName)) {
-      return;
-    }
-    // Not while the batch is off the page (the anotoki library's page stands in front of it while the site is not ready).
-    if (!this.host.nativeElement.isConnected) {
       return;
     }
     if (event.key === 'ArrowRight' || event.key === 'Enter') {

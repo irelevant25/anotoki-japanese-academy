@@ -1,26 +1,32 @@
 <app-top-bar />
 
-<!-- The anotoki library's gate: while the site is not ready, its page in the place of all of this (and of the router's outlet). -->
+<!--
+  The anotoki library's gate: while the site is not ready, its page in the place of all of this (and of the router's outlet).
+  All of this is its template, made only while the site is open: no page runs behind the library's page. The @switch stays
+  inside the <ng-template> - given to the gate as it is, its first block would be taken for the pages.
+-->
 <anotoki-site-gate>
-  @switch (auth.state()) {
-    @case ('ready') {
-      <router-outlet />
-    }
-    @case ('visiting') {
-      <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor; a sign-in that came back without one is said above it. -->
-      <app-sign-in-failed />
-      <router-outlet />
-    }
-    @case ('signed-out') {
-      <!-- On the way to the IAM (signInGuard) nothing is drawn; the card only after a failed sign-in, or a session that ended here. -->
-      @if (auth.showSignIn()) {
-        <app-sign-in />
+  <ng-template>
+    @switch (auth.state()) {
+      @case ('ready') {
+        <router-outlet />
+      }
+      @case ('visiting') {
+        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor; a sign-in that came back without one is said above it. -->
+        <app-sign-in-failed />
+        <router-outlet />
+      }
+      @case ('signed-out') {
+        <!-- On the way to the IAM (signInGuard) nothing is drawn; the card only after a failed sign-in, or a session that ended here. -->
+        @if (auth.showSignIn()) {
+          <app-sign-in />
+        }
+      }
+      @case ('problem') {
+        <app-problem />
       }
     }
-    @case ('problem') {
-      <app-problem />
-    }
-  }
+  </ng-template>
 </anotoki-site-gate>
 
 <footer class="foot">

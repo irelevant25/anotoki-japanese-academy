@@ -1,4 +1,4 @@
-import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentProviders, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
+import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentProviders, OnDestroy, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, Routes } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
@@ -29,9 +29,21 @@ function session(roles: string[] = []): string {
   });
 }
 
+/** How many of the pages below were made, and are alive: the gate makes the pages only while the site is open. */
+const pages = { made: 0, alive: 0 };
+
 /** A page of the app, as the router draws it in the outlet. */
 @Component({ selector: 'app-test-page', changeDetection: ChangeDetectionStrategy.OnPush, template: '<p id="a-page">a page</p>' })
-class TestPageComponent {}
+class TestPageComponent implements OnDestroy {
+  constructor() {
+    pages.made += 1;
+    pages.alive += 1;
+  }
+
+  ngOnDestroy(): void {
+    pages.alive -= 1;
+  }
+}
 
 /** The admin panel's Migrations page, standing in for the real one (the library's page has a spec of its own). */
 @Component({ selector: 'app-test-migrations', changeDetection: ChangeDetectionStrategy.OnPush, template: '<p id="the-migrations-page">Migrations</p>' })
@@ -210,6 +222,29 @@ describe('AppComponent: while a database update waits', () => {
     await settle();
     expect(statusPage(el).title).toBe('A database update is waiting');
     expect(el.querySelector('#a-page')).toBeNull();
+  });
+
+  it('the pages are the gate’s template: none runs behind the library’s page - the one open when an update stops the site is taken down, none is made while it waits, and the page is made again once the site is back', async () => {
+    const el = await draw();
+    expect(el.querySelector('#a-page')).not.toBeNull();
+    const { made, alive } = pages;
+
+    TestBed.inject(SiteStatus).report('update_pending');
+    await settle();
+    expect(statusPage(el).title).toBe('The site is being updated');
+    expect([el.querySelector('#a-page'), el.querySelector('router-outlet'), pages.alive], 'taken down, its outlet with it').toEqual([null, null, alive - 1]);
+
+    // Addresses followed while it waits (Back, Forward): the router goes on, and makes no page.
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/admin/migrations');
+    await router.navigateByUrl('/exam');
+    await settle();
+    expect([pages.made, pages.alive], 'nothing made behind the library’s page').toEqual([made, alive - 1]);
+
+    TestBed.inject(SiteStatus).markReady();
+    await settle();
+    expect(el.querySelector('#a-page')).not.toBeNull();
+    expect([pages.made, pages.alive], 'the page of the address, made again').toEqual([made + 1, alive]);
   });
 });
 

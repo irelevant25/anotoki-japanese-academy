@@ -25,7 +25,11 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * core/site-status.config.ts): while the site is not ready - being updated,
  * not set up, its database out of reach - the library's page stands in its
  * place, in its own words, and only the site's ADMIN gets through, to the
- * Migrations page, while an update waits. The bar and the foot stay.
+ * Migrations page, while an update waits. The bar and the foot stay. All of
+ * it is the gate's template (anotoki-lib 0.1.1), made only while the site is
+ * open: no page runs behind the library's page - asks for its data, hears a
+ * key, ticks a clock - and a page open when the site stops is taken down
+ * (an open exam paper is kept for the tab as it goes: exam/exam.component.ts).
  *
  * The bar and the foot are drawn in every state, so their words have their
  * English in the code too (standin/kept-word.ts).

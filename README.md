@@ -255,7 +255,9 @@ recording again, **Enter** on the last question finishes.
 
 The foot of every page shows the version and **What's new**, which opens the
 list of what changed, release by release (`frontend/public/changelog.json`). A
-small dot beside it means there is news you haven't opened yet.
+small dot beside it means there is news you haven't opened yet. The version
+has three numbers: the first changes with big changes, the second with new
+features, the third with bug fixes (0.4.0, then 0.4.1 or 0.5.0).
 
 ---
 
@@ -299,9 +301,11 @@ apply it by itself: until an `ADMIN` presses **Apply pending** there (the
 server keeps a copy of every table first, and says which), everybody else
 reads, in their language, that the site is being updated - a calm page that
 asks again by itself and comes back once it is done, with only a quiet
-**Sign in** while nobody is signed in. Signed in as an `ADMIN`, that page
-says "A database update is waiting" instead, with the way to this page, the
-one page that works meanwhile. So an `ADMIN` who is signed out presses
+**Sign in** while nobody is signed in (an exam paper they were in the middle
+of is kept for that tab, and is back with the site). Signed in as an `ADMIN`,
+that page says "A database update is waiting" instead, with the way to this
+page, the one page that works meanwhile (it too asks again by itself, in case
+another `ADMIN` applies the update). So an `ADMIN` who is signed out presses
 **Sign in** there, comes back to it, and goes on to the Migrations page. That
 behaviour, and the page itself, are the anotoki library's (`anotoki-lib`, the
 same on every anotoki site; *Development* below).

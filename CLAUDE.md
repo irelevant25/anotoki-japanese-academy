@@ -147,14 +147,15 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
 node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (247): after every change
-cd frontend && npm test                      the Angular unit tests (667 in 44 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (678 in 45 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (178 checks), signed in through the stand-in IAM: a
+                                             Edge end to end (183 checks), signed in through the stand-in IAM: a
                                              deep link signed out, lessons → reviews → practice → exam, the bar's
                                              keys and menus, Your data, sign-out, the admin panel by role, People,
                                              a migration waiting (the library's page for a visitor, a learner and an
-                                             editor; a signed-out ADMIN signs in from it), failing and applied, two time
+                                             editor, no page made behind it; an open exam paper kept and back after
+                                             the library's reload; a signed-out ADMIN signs in from it), failing and applied, two time
                                              zones, a Slovak pass; then visitors (sign-in not required): study,
                                              an exam, Sign in moving it all, sign-in switched on with a key held
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
@@ -414,7 +415,11 @@ Tests enforce most of these. Never weaken a test to make it pass.
   pass) - which sends nobody to the IAM while the site is not ready
   (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>` around the
   pages, `core/site-status.config.ts`) shows its page then, with its own
-  Sign in; a save in the background tells `SavesInFlight`, which a
+  Sign in. The pages are the gate's template (`<ng-template>` inside it,
+  anotoki-lib 0.1.1): made only while the site is open, so no page runs,
+  asks for data or hears a key behind the library's page, and one open when
+  the site stops is taken down (the exam keeps an open paper for the tab as
+  it goes). A save in the background tells `SavesInFlight`, which a
   sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog)
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
@@ -439,7 +444,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   informal Slovak (`DEV.md`; `docs/kb/architecture.md`, *The app's words*).
 - The owner writes in non-native English: keep UI text and explanations plain
   and short. `frontend/public/changelog.json` gets an entry, in plain words,
-  for each release the owner will notice.
+  for each release the owner will notice. Its version has three numbers,
+  MAJOR.MINOR.PATCH (big changes, new features, bug fixes: `0.4.0`, `0.4.1`,
+  `0.5.0`), the same as `version` in `frontend/package.json` (a unit test
+  holds both, `DEV.md`, *The changelog*).
 - Japanese data follows the book: readings in hiragana, English glosses as
   printed.
 

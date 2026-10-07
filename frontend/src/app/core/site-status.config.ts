@@ -12,8 +12,9 @@ import { MIGRATIONS_ROUTE, SITE_STATUS_URL } from './site-status';
  * asked first thing at the start, core/boot.ts, and told by every answer that
  * says so: siteStatusInterceptor, reportSiteState() in core/site-status.ts);
  * the gate in front of the pages (<anotoki-site-gate>, app.component.html),
- * which shows the library's page instead of them while the site is not ready;
- * and the admin panel's Migrations page (admin/migrations/).
+ * which shows the library's page instead of them while the site is not ready
+ * - the pages are its template, made only while the site is open -; and the
+ * admin panel's Migrations page (admin/migrations/).
  *
  *   update pending   a visitor, a learner, an editor: "The site is being
  *                    updated" in the language on the page, which asks again by
@@ -22,6 +23,8 @@ import { MIGRATIONS_ROUTE, SITE_STATUS_URL } from './site-status';
  *                    sign-in, SignInService: to the IAM and back to the page);
  *                    the site's ADMIN: "A database update is waiting" and the
  *                    way to the Migrations page, which works then, alone
+ *                    (asking again by itself too: another administrator may
+ *                    apply the update meanwhile)
  *   not set up       "This site is not set up yet" and the way to /setup.php -
  *                    only while the site was never installed (a website's setup
  *                    leaves a lock; this computer's never does)

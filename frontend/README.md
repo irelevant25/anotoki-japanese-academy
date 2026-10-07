@@ -9,9 +9,9 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ## Layout
 
 ```
-src/app/            app.component (the bar, the page - inside the anotoki library's <anotoki-site-gate>,
-                    which shows its own page instead while the site is not ready -, the foot),
-                    app.routes.ts, app.config.ts
+src/app/            app.component (the bar, the page - the template of the anotoki library's
+                    <anotoki-site-gate>, made only while the site is open; the gate shows its own page
+                    instead while the site is not ready -, the foot), app.routes.ts, app.config.ts
   top-bar/          the anotoki family's top bar: brand, Kanji and Exam, language, theme, the person's menu;
                     on a phone (up to 760 px) one menu button; no key pressed in it reaches the page
   ui/               the family's pieces of the bar: brand/, theme-toggle/, icon/

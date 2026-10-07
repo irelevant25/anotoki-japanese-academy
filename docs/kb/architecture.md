@@ -428,10 +428,18 @@ tests run in Vitest with jsdom (`ng test`).
   updated", which asks again by itself and loads afresh once the site is
   back, with a quiet **Sign in** while nobody is signed in, and for the site's
   `ADMIN` "A database update is waiting" and the way to the Migrations page,
-  the one page that works then; not set up: "This site is not set up yet" and
+  the one page that works then (it asks again by itself too, since
+  anotoki-lib 0.1.1: another administrator may apply the update meanwhile);
+  not set up: "This site is not set up yet" and
   the setup page, only while the copy was never installed; unavailable: "not
-  available right now". Behind the gate, the screen of the address, or what
-  stands in for the app
+  available right now". Everything under the bar is the gate's template
+  (`<anotoki-site-gate><ng-template>…</ng-template></anotoki-site-gate>`,
+  anotoki-lib 0.1.1): it is made only while the site is open, so nothing of
+  the pages runs behind the library's page — no page asks for its data,
+  hears a key or ticks a clock there — and a page open when the site stops is
+  taken down (an open exam paper is kept for the tab as it goes:
+  [exam.md](exam.md), *In the browser*). Behind the gate, the screen of the
+  address, or what stands in for the app
   (`standin/`: the Sign in card after a failed sign-in or a session that
   ended, a problem page; on the way to the IAM, nothing; for a visitor the
   screen, with a
@@ -571,7 +579,7 @@ that same page. The brand, the language, the theme and the person's menu stay.
 The site's `ADMIN` on the Migrations page while an update waits — the one page
 that works then — has its link alone, and **Back to Japanese Academy**. The
 tab's title is the app's name alone meanwhile (`AcademyTitleStrategy`), not
-the title of the page behind the library's.
+the title of the page the address names (which is not made then).
 
 **The fold.** Up to `PHONE_BAR_MAX` = 760 px (a `matchMedia` signal, and the
 same number in the scss) the bar is a phone's: the brand, the language, the
@@ -646,7 +654,13 @@ the bar: the title strategy tells the translation service the address
 **The foot** of every page: the version and **What's new**, which opens the
 changelog dialog, with a dot beside the words until this version's news has
 been opened (`whatsNew.title`, `whatsNew.unseen`; the dot sits on the words'
-span, not the button, which is 44 px high on a touch screen).
+span, not the button, which is 44 px high on a touch screen). The version is
+the newest entry's of `frontend/public/changelog.json`: three numbers,
+MAJOR.MINOR.PATCH (since 2026-10-07; `frontend/package.json`'s `version` the
+same). The version a browser last read is compared with it number by number,
+a missing number counting as 0 (`compareVersions()` in
+`core/changelog/changelog.service.ts`): a browser that read "0.4", as the
+changelog wrote it before, has read "0.4.0".
 
 **The mark in dark.** The family's mark is a dark navy picture: in light it
 has the soft shadow the survey's brand gives it; in dark a light halo
@@ -873,8 +887,9 @@ stands in front of them: "The site is being updated" for a visitor, a
 learner, an editor (it asks again every 30 s and loads afresh once the site
 is back), with a quiet **Sign in** while nobody is signed in, and for the
 site's `ADMIN` "A database update is waiting" with **Open Migrations**, the
-one page that works then (`SiteGateComponent`; who is `ADMIN` is the
-token's roles). Until 2026-10-07 the start stopped on the problem page
+one page that works then, asking again the same way (`SiteGateComponent`;
+who is `ADMIN` is the token's roles). Nothing of the pages is made behind
+the library's page (they are the gate's template). Until 2026-10-07 the start stopped on the problem page
 instead (the words answered 503 `not_up_to_date`), and an administrator who
 was signed out could not sign in at all. The **Migrations page**
 (`/admin/migrations`, `ADMIN`: the library's `<anotoki-migrations-page>`;

@@ -4,7 +4,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   ElementRef,
   HostListener,
   inject,
@@ -12,7 +11,6 @@ import {
   OnDestroy,
   OnInit,
   signal,
-  untracked,
   viewChild,
 } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
@@ -136,11 +134,12 @@ function keptPaperOf(raw: string | null): KeptPaper | null {
  * language. The two native dialogs are worded at the moment they are raised.
  *
  * A paper open while the site stops for an update stays the person's: the
- * anotoki library's page stands in front of it, hears no key meant for it,
- * and loads the page afresh once the site is back - so the paper is kept for
- * this tab meanwhile (keepPaper(), sessionStorage) and put back as it was when
- * the exam opens again, its handing in refused without a dialog (the
- * library's page says what is going on).
+ * anotoki library's gate takes the page down (it makes the pages only while
+ * the site is open), and its own page loads the page afresh once the site is
+ * back - so the paper is kept for this tab as the page goes (ngOnDestroy(),
+ * keepPaper(), sessionStorage) and put back as it was when the exam opens
+ * again; its handing in, refused meanwhile, raises no dialog (the library's
+ * page says what is going on).
  */
 @Component({
   selector: 'app-exam',
@@ -162,7 +161,6 @@ export class ExamComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   /** Where the site stands (the anotoki library's): while it is not ready, an open paper is kept for when it is back. */
   private readonly site = inject(SiteStatus);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
   private readonly audioRef = viewChild.required<ElementRef<HTMLAudioElement>>('audio');
@@ -197,6 +195,10 @@ export class ExamComponent implements OnInit, OnDestroy {
   readonly playerErr = signal(false);
   private shownAt = 0;
   private startedAt: string | null = null;
+  /** The paper on the screen came back from this tab's copy, which follows it until it is handed in or left (keepCurrent()). */
+  private fromCopy = false;
+  /** Taken down (ngOnDestroy()): a step on to the next question still waiting its moment does nothing then. */
+  private gone = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private readonly preloaded = new Set<string>();
 
@@ -270,24 +272,18 @@ export class ExamComponent implements OnInit, OnDestroy {
       .map((r) => ({ ...r, label: this.i18n.t('exam.result.rowLabel', { n: r.n, section: this.i18n.t('exam.section.' + r.sectionId) }) })),
   );
 
-  constructor() {
-    // The site stops (an update waits): the paper on the screen is kept, as it is now.
-    effect(() => {
-      if (this.site.blocked()) {
-        untracked(() => this.keepPaper());
-      }
-    });
-  }
-
   async ngOnInit(): Promise<void> {
     this.putBackKeptPaper();
     await this.loadMeta();
   }
 
   ngOnDestroy(): void {
-    // Left while the site is not ready (an administrator on the way to the
-    // Migrations page, a copy whose settings went): the paper stays kept. Left
-    // any other way, it goes, as it always has - and a copy kept earlier with it.
+    this.gone = true;
+    // Taken down while the site is not ready - the anotoki library's gate makes
+    // the pages only while it is open, so this is how a paper on the screen
+    // ends when an update stops the site (or its settings go): kept for this
+    // tab, as it is. Left any other way, it goes, as it always has - and a
+    // copy kept earlier with it.
     if (this.site.blocked()) {
       this.keepPaper();
     } else {
@@ -299,8 +295,9 @@ export class ExamComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The paper on the screen, kept for this tab while the site is not ready,
-   * with the time on the question shown so far. Nothing while none is open.
+   * The paper on the screen, kept for this tab while the site is not ready
+   * (and while a paper that came back from it is open: keepCurrent()), with
+   * the time on the question shown so far. Nothing while none is open.
    */
   private keepPaper(): void {
     const exam = this.exam();
@@ -329,14 +326,27 @@ export class ExamComponent implements OnInit, OnDestroy {
    * The paper this tab kept (keepPaper()) back on the screen, on its question,
    * with its answers, flags and clock - for the person it was kept for, or for
    * whoever signs in where a visitor kept it (their studying moves into the
-   * account too). Kept no more either way.
+   * account too). Anybody else's, or what is no paper, goes at once.
+   *
+   * The copy stays, and follows the paper while it is open (keepCurrent()),
+   * until it is handed in or left with the site ready (ngOnDestroy()): once
+   * the site is back, the library's gate makes the pages again for the moment
+   * before its page loads the page afresh - so the exam puts the paper back in
+   * the page about to go too, and a copy given up there would go with that
+   * page, the paper with it.
    */
   private putBackKeptPaper(): void {
     const kept = keptPaperOf(readTabStorage(KEPT_PAPER_KEY));
-    writeTabStorage(KEPT_PAPER_KEY, null);
-    if (!kept || (kept.who !== null && kept.who !== this.auth.subject())) {
+    const who = kept ? this.auth.subject() : null;
+    if (!kept || (kept.who !== null && kept.who !== who)) {
+      writeTabStorage(KEPT_PAPER_KEY, null);
       return;
     }
+    if (kept.who !== who) {
+      // A visitor's, put back for whoever signed in: the copy is theirs from now on, as the visitor's studying is.
+      writeTabStorage(KEPT_PAPER_KEY, JSON.stringify({ ...kept, who }));
+    }
+    this.fromCopy = true;
     this.exam.set(kept.exam);
     this.idx.set(kept.idx);
     this.answers.set(kept.answers);
@@ -353,6 +363,17 @@ export class ExamComponent implements OnInit, OnDestroy {
       },
       { injector: this.injector },
     );
+  }
+
+  /**
+   * The paper moved on (an answer, another question, a flag): when it came
+   * back from this tab's copy, the copy follows it, so a page loaded afresh -
+   * the library's reload, or the reader's own - finds it as it is now.
+   */
+  private keepCurrent(): void {
+    if (this.fromCopy) {
+      this.keepPaper();
+    }
   }
 
   /* ------------------------------------------------------------- setup */
@@ -463,6 +484,7 @@ export class ExamComponent implements OnInit, OnDestroy {
       this.answers.set({});
       this.flags.set(new Set());
       this.startedAt = new Date().toISOString();
+      this.fromCopy = false;
       writeTabStorage(KEPT_PAPER_KEY, null);
       this.show('test');
       this.render();
@@ -512,6 +534,7 @@ export class ExamComponent implements OnInit, OnDestroy {
     this.recordTime();
     this.idx.set(i);
     this.render();
+    this.keepCurrent();
   }
 
   next(): void {
@@ -536,10 +559,12 @@ export class ExamComponent implements OnInit, OnDestroy {
     const dt = this.shownAt ? Date.now() - this.shownAt : 0;
     this.answers.update((a) => ({ ...a, [q.id]: { choice: i, ms: (a[q.id]?.ms || 0) + dt } }));
     this.shownAt = Date.now();
-    // On by itself, so a long paper stays a flow rather than a chore.
+    this.keepCurrent();
+    // On by itself, so a long paper stays a flow rather than a chore - not
+    // once the page is taken down (the library's page stands in for it).
     if (this.idx() < this.total() - 1) {
       setTimeout(() => {
-        if (this.answers()[q.id]?.choice === i && this.q()?.id === q.id) {
+        if (!this.gone && this.answers()[q.id]?.choice === i && this.q()?.id === q.id) {
           this.go(this.idx() + 1);
         }
       }, 170);
@@ -550,6 +575,7 @@ export class ExamComponent implements OnInit, OnDestroy {
     const q = this.q();
     if (q) {
       this.flags.update((set) => toggled(set, q.id));
+      this.keepCurrent();
     }
   }
 
@@ -663,9 +689,9 @@ export class ExamComponent implements OnInit, OnDestroy {
       this.quitting.set(false);
       if (error.code === 'update_pending' || error.code === 'not_set_up') {
         // The site is being updated (or lost its settings): the anotoki
-        // library's page takes the app's place and says so, without an error;
-        // the paper is kept for when the site is back.
-        this.keepPaper();
+        // library's page takes the app's place and says so, without an error.
+        // Its gate takes this page down then, which keeps the paper for when
+        // the site is back (ngOnDestroy()).
         return;
       }
       // The browser's own dialog: worded now, from the failure's code. The
@@ -673,6 +699,8 @@ export class ExamComponent implements OnInit, OnDestroy {
       alert(this.i18n.t('exam.error.score', { reason: this.reason(error) }) + (error.body.detail ? `\n\n${error.body.detail}` : ''));
       return;
     }
+    // Scored: nothing of it is kept any more (a copy it came back from, or one kept while the answer was on its way).
+    this.fromCopy = false;
     writeTabStorage(KEPT_PAPER_KEY, null);
     this.audioRef().nativeElement.pause();
     this.result.set(res);
@@ -722,9 +750,7 @@ export class ExamComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onKey(event: KeyboardEvent): void {
-    // Not while the paper is off the page: the anotoki library's page stands
-    // in front of it while the site is not ready, and its keys are its own.
-    if (this.screen() !== 'test' || !this.host.nativeElement.isConnected) {
+    if (this.screen() !== 'test') {
       return;
     }
     if ((event.target as HTMLElement | null)?.tagName === 'INPUT') {

@@ -93,18 +93,32 @@ question's clip is fetched meanwhile. "Finish now" asks first when questions
 are unanswered.
 
 **A paper open while the site stops for an update** (since 2026-10-07): the
-anotoki library's page stands in front of it ("The site is being updated"),
-its handing in is refused without a dialog (503 `update_pending`: the library's
-page says what is going on), and no key reaches the hidden paper. The paper is
-kept for the tab meanwhile (`sessionStorage`, `academy-exam-kept-paper`: the
-paper, the question it is on, the answers with their times, the flags, the
-name, its start) — the library's page loads the page afresh once the site is
-back, which would lose a paper held only in memory — and put back as it was
+anotoki library's page takes its place ("The site is being updated"), and its
+handing in is refused without a dialog (503 `update_pending`: the library's
+page says what is going on). The library's gate takes the exam page down
+then (the pages are its template, made only while the site is open: anotoki-lib
+0.1.1), and the paper is kept for the tab as the page goes
+(`ExamComponent.ngOnDestroy()`; `sessionStorage`, `academy-exam-kept-paper`:
+the paper, the question it is on, the answers with their times, the flags,
+the name, its start) — the library's page loads the page afresh once the site
+is back, which would lose a paper held only in memory — and put back as it was
 when the exam opens again, for the person it was kept for (or whoever signs
-in where a visitor kept it), its clock counting from its start; then it is
-handed in as ever. A paper left the usual way, the site ready, goes as it
-always has. Until then the refusal said "not up to date" in a dialog and the
-paper stayed on the page.
+in where a visitor kept it — whose the copy is from then on), its clock
+counting from its start; then it is handed in as ever. The copy stays, and
+follows the paper while it is open (each answer, question and flag rewrites
+it), until it is handed in or left with the site ready: once the site is
+back the gate makes the pages again for the moment before the library's
+reload, so the paper is put back in the page about to go too, and a copy
+given up there would go with that page (a browser shows it: the exam is drawn
+three times in the tab). So a reload of the tab while a put-back paper is
+open puts it back again, and so does a sign-out followed by the same person's
+sign-in in that tab, whatever the sign-out's question says. An answer's step
+on to the next question, still waiting its moment when the gate takes the
+page down, does nothing. A paper left the usual way, the site ready, goes as
+it always has. Until then the refusal said "not up to date" in a dialog and
+the paper stayed on the page; with anotoki-lib 0.1.0 the gate only hid the
+page, which ran on behind its page (the paper was kept the moment the site
+stopped, and its keys were stopped by hand).
 
 The page's frame is in the language on the page (setup, the running paper's
 chrome, the result, the history); the questions, options, hints and

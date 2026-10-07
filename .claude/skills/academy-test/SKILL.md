@@ -59,7 +59,7 @@ Always finish with the full PHP tests, and the full frontend tests when
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
   `Tests` lines. Report the real numbers of both (at the last count, on
-  2026-10-07: 247 backend tests; 667 frontend tests in 44 files; 178
+  2026-10-07: 247 backend tests; 678 frontend tests in 45 files; 183
   browser checks in `run.js`, 42 in `setup.js` — `docs/kb/testing.md`).
 - `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.
@@ -79,9 +79,10 @@ Always finish with the full PHP tests, and the full frontend tests when
   - 409 from `/api/kanji/learn` or `/review`, which the suite ignores by design;
   - `[auth] a token was refused: …` in a server's log: the sign-in tests send
     bad tokens on purpose;
-  - 503 from `/api/auth/config` on the setup suite's "not set up" pages, and
-    503 `update_pending` in the browser suite while it makes a migration
-    wait (its "waiting answers", left out of the error check).
+  - 503 from `/api/auth/config` on the setup suite's "not set up" pages. (A
+    503 `update_pending` in the browser suite while it makes a migration wait
+    is a failure: the pages are the gate's template, so nothing behind the
+    library's page asks for data.)
 - `No Edge/Chrome found` means the browser wasn't found. Set `BROWSER_PATH` to
   its executable.
 - `No PHP 8.2+ … found` comes from `backend/tools/php.js`: set `ACADEMY_PHP` to

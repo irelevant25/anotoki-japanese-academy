@@ -90,7 +90,14 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   bar in `app.component.html`, and while the site is not ready (being
   updated, not set up, out of reach) the library's page stands in, in its
   own words - never the app's problem page, and never a redirect to the IAM
-  (the page has its own Sign in). `/api/site-status` goes bare (no token, no
+  (the page has its own Sign in). Everything under the bar is the gate's
+  template (`<ng-template>`, anotoki-lib 0.1.1): made only while the site is
+  open, so no page runs behind the library's page, and one open when the
+  site stops is taken down - a page that must keep something across that
+  does it in its `ngOnDestroy()` (the exam's open paper), never by staying
+  alive; keep control flow (`@switch`, `@if`) inside the `<ng-template>`,
+  never directly in the gate (0.1.1 would take its block for the pages).
+  `/api/site-status` goes bare (no token, no
   visitor key). The Migrations page is the library's
   `<anotoki-migrations-page>`; its looks come from the `--anotoki-*` tokens,
   mapped to this app's in `_tokens.scss`, light and dark. The library is a
@@ -132,8 +139,11 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   where it was. The five kanji tabs fit 390 px in Slovak (360 px in
   English).
 - `frontend/public/changelog.json`: an entry, in plain words, for every
-  release the owner will notice; keep its version and the `version` of
-  `frontend/package.json` in step (there is no package at the top any more).
+  release the owner will notice; its version has three numbers,
+  MAJOR.MINOR.PATCH (big changes, new features, bug fixes), and the newest is
+  the `version` of `frontend/package.json` (there is no package at the top
+  any more; `changelog.service.spec.ts` holds both). A browser's "read"
+  version compares number by number (`compareVersions()`: `0.4` is `0.4.0`).
 - The backend serves the last build: run `node frontend/scripts/ensure-build.mjs` (or work at
   http://localhost:4400 with `npm start` in `frontend/`). Run it before the
   browser suites: it builds only when the sources changed.

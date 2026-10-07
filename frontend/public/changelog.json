@@ -1,16 +1,16 @@
 [
   {
-    "version": "0.4",
+    "version": "0.4.0",
     "date": "2026-10-07",
     "changes": {
       "added": [],
       "updated": [
-        "While Japanese Academy is being updated, the page says so in your language instead of showing an error, and comes back by itself when the update is done; an administrator can always sign in to apply the update"
+        "While Japanese Academy is being updated, the page says so in your language instead of showing an error, and comes back by itself when the update is done"
       ]
     }
   },
   {
-    "version": "0.3",
+    "version": "0.3.0",
     "date": "2026-10-06",
     "changes": {
       "added": [
@@ -20,32 +20,29 @@
     }
   },
   {
-    "version": "0.2",
+    "version": "0.2.0",
     "date": "2026-10-04",
     "changes": {
       "added": [
         "The app speaks Slovak too: choose the language at the top of the page",
         "Your data, at the foot of the home page: download all your progress and exam history as a file, and bring it back from one",
         "A light and a dark look, or your system's: the switch at the top of the page",
-        "Where the site allows it, you can study without signing in: your progress and exams are kept for this browser for 30 days after your last visit, and they move into your account when you sign in",
-        "For administrators: the admin panel, from your menu: the app's words and its languages, the people, and a Migrations page to see and apply the updates of the database"
+        "Where the site allows it, you can study without signing in: your progress and exams are kept for this browser for 30 days after your last visit, and they move into your account when you sign in"
       ],
       "updated": [
         "Unless the site lets you study without signing in, you sign in with your anotoki account: the app takes you to the sign-in and back to the page you opened",
         "Days and review times follow your own time zone, the one your browser is in",
         "One top bar, as on the other anotoki sites; on a phone the links are in its menu, and the reviews due are on its button",
-        "The version and What's new are at the foot of the page",
-        "An update of the database waits for an administrator to apply it; until then the app says it is not up to date"
+        "The version and What's new are at the foot of the page"
       ]
     }
   },
   {
-    "version": "0.1",
+    "version": "0.1.0",
     "date": "2026-09-29",
     "changes": {
       "added": [
         "On the website, you sign in with your anotoki account, and your kanji progress and exam results are your own",
-        "A setup page (/setup.php) that sets the app up in the browser, with buttons that test the database and the sign-in before you save",
         "This list of what is new: the version number at the bottom of every page opens it"
       ],
       "updated": [

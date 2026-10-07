@@ -132,6 +132,15 @@ page is the newest entry's, and **What's new** beside it opens the list. Add an
 entry with every release the owner will notice, and keep `version` in
 `frontend/package.json` in step.
 
+A version has three numbers, MAJOR.MINOR.PATCH (the owner's decision of
+2026-10-07): the first for big changes, the second for new features, the
+third for bug fixes — `0.4.0`, then `0.4.1` for a fix or `0.5.0` for a
+feature. A browser that read a version's news is not shown the dot again for
+the same version written otherwise (`0.4` is `0.4.0`: the numbers are
+compared one by one, a missing one 0), and `npm test` fails when an entry's
+version has fewer or more than three numbers, the entries are not newest
+first, or the newest is not `frontend/package.json`'s.
+
 ### The app's words
 
 What a learner reads is not written in the templates: each word is a key,
@@ -178,7 +187,10 @@ never keys. The command line also exports and imports a language
 
 The database migrations are the anotoki library's (`anotoki-lib`, shared by
 every anotoki site: https://github.com/irelevant25/anotoki-lib, a clone of it
-beside this repository in `../anotoki-lib`), in two halves with one version:
+beside this repository in `../anotoki-lib`), in two halves with one version -
+though a release may change one half alone, and then only that half moves:
+since 2026-10-07 the npm half is 0.1.1 (its gate makes the pages only while
+the site is open) and the Composer half 0.1.0 (0.1.1 left it unchanged):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -190,10 +202,14 @@ beside this repository in `../anotoki-lib`), in two halves with one version:
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
   shows, and the Migrations page - wired to this app in
-  `frontend/src/app/core/site-status.config.ts`.
+  `frontend/src/app/core/site-status.config.ts`. The pages are the gate's
+  template (`<anotoki-site-gate><ng-template>…</ng-template></anotoki-site-gate>`
+  in `app.component.html`): made only while the site is open, so none runs
+  behind the library's page.
 
-To update it, both halves together (while its version is 0.x a new minor
-version may need changes here: read its `CHANGELOG.md` first):
+To update it, both halves together, or the one a release changes (while its
+version is 0.x a new minor version may need changes here: read its
+`CHANGELOG.md` first):
 
 1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.1"`)
    if the new one needs it, then `composer update anotoki/lib

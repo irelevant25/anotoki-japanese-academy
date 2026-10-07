@@ -32,9 +32,13 @@
  *   update    a database update waiting (the anotoki library's gate): a
  *             visitor, a learner and an editor read that the site is being
  *             updated - no error, no button but a visitor's quiet Sign in,
- *             no trip to the IAM; a signed-out ADMIN signs in from that page,
+ *             no trip to the IAM, no page made behind it (none asks for its
+ *             data); a signed-out ADMIN signs in from that page,
  *             comes back to it, and reaches the Migrations page: Apply fails
- *             (PostgreSQL's words), then applies; the app back, in words
+ *             (PostgreSQL's words), then applies; the app back, in words; a
+ *             paper open as the update lands: its hand-in refused without an
+ *             error, kept for the tab, back once the library's page loads it
+ *             afresh, then handed in
  *   time zone a browser on Kiritimati (UTC+14) and one on Pago Pago (UTC-11):
  *             each sees its own today, and the server keeps the zone
  *   Slovak    the learner's pages, the bar's menus and Your data's question
@@ -66,6 +70,8 @@ const { launch, newContext, watch, reporter, keyShaped, SHOTS } = require('./bro
 const LEA = { sub: 4101, name: 'lea', roles: ['MEMBER'] };
 const MAX = { sub: 4102, name: 'max', roles: ['MEMBER'] };
 const NOA = { sub: 4103, name: 'noa', roles: ['MEMBER'] };
+/** Sits an exam paper when a database update starts waiting. */
+const PIA = { sub: 4104, name: 'pia', roles: ['MEMBER'] };
 const ADA = { sub: 4201, name: 'ada', roles: ['MEMBER', 'ADMIN'] };
 const EDDIE = { sub: 4202, name: 'eddie', roles: ['MEMBER', 'EDITOR'] };
 const KIRI = { sub: 4301, name: 'kiri', roles: ['MEMBER'] };
@@ -527,7 +533,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click('#whatsNew');
   await page.waitForSelector('dialog.changelog[open]');
   const news = await page.textContent('dialog.changelog');
-  ck("it opens what's new", news.includes(`v${latest.version}`) && news.includes(latest.changes.added[0]));
+  // The release's first line, of whatever kind: one may have no "added" line (0.4.0 has "updated" ones alone).
+  const firstLine = ['added', 'updated', 'fixed'].flatMap((kind) => latest.changes[kind] ?? [])[0];
+  ck("it opens what's new", news.includes(`v${latest.version}`) && !!firstLine && news.includes(firstLine), firstLine);
   await shot('changelog');
   await page.keyboard.press('Escape');
   ck('Escape closes it, and the dot is gone',
@@ -893,6 +901,36 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // 006 adds a key and rewords strings, each only where that is not done yet: applied again, it changes
   // nothing. Taken off the list, with the stamp of the files forgotten, it is what an upload looks like.
   const WAITS = '006_admin_panel_words.sql';
+  // Pia sits an exam paper as the upload lands: two answers and a flag so far.
+  const asSitter = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  await plant(asSitter, PIA);
+  const sitter = await asSitter.newPage();
+  // her hand-in refused while the update waits: 503, on purpose
+  const sitterErrors = watch(sitter, { ignore: [/\/api\/submit$/] });
+  const sitterAsked = [];
+  sitter.on('dialog', (d) => {
+    sitterAsked.push(d.type());
+    void d.accept();
+  });
+  await sitter.goto(app.base + '/exam');
+  await sitter.waitForSelector('#bookChips .chip');
+  await sitter.click('[data-size="40"]');
+  await sitter.click('#startBtn');
+  await sitter.waitForSelector('#test:not([hidden])');
+  for (const key of ['2', '3', 'f']) {
+    await sitter.keyboard.press(key);
+    await sitter.waitForTimeout(300);
+  }
+  /** The paper as a tab shows it: the question it is on, how many answered, which flagged. */
+  const paperShown = (pg) =>
+    pg.evaluate(() => ({
+      counter: document.querySelector('#counter')?.textContent.trim(),
+      done: document.querySelectorAll('#gridNav .done').length,
+      flags: [...document.querySelectorAll('#gridNav .flag')].map((e) => e.textContent.trim()),
+    }));
+  const keptOf = async (pg) => JSON.parse((await pg.evaluate(() => sessionStorage.getItem('academy-exam-kept-paper'))) || 'null');
+  const sitting = await paperShown(sitter);
+
   app.sql('DELETE FROM migrations WHERE name = ?', WAITS);
   app.sql("UPDATE content_state SET stamp = 'before the upload'");
   const waiting = await app.api('/api/kanji/summary', NOA);
@@ -906,16 +944,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       text: el.textContent.replace(/\s+/g, ' ').trim(),
       actions: [...el.querySelectorAll('a, button')].map((a) => a.textContent.trim()),
     }));
-  // The pages behind the library's page are made all the same (the gate only hides them), and ask for their
-  // data: answered 503 update_pending, on purpose.
-  const WAITING_ANSWERS = [/\/api\/(kanji|meta|attempts|me\/data|admin\/(translations|languages|people|visitors))\b/];
+  // The pages are the gate's template (anotoki-lib 0.1.1): none is made while the library's page stands in front
+  // of them, so none asks for its data - no answer here is a failure, and an address with data is never asked.
+  const PAGE_DATA = /\/api\/(kanji|meta|exam|submit|attempts|me\/data|visitor|admin\/(translations|languages|people|visitors))\b/;
+  const askedForData = (sent) => sent.filter((url) => PAGE_DATA.test(new URL(url).pathname));
+
+  // Pia hands her paper in: refused (503 update_pending), and the library's page stands in - the gate takes the
+  // exam down, which keeps the paper for her tab.
+  await sitter.click('#quitBtn'); // "questions unanswered: finish anyway?" - yes
+  await sitter.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
+  ck('a paper open as the update lands: its hand-in refused with no error (the “unanswered?” question alone), the library’s page in its place, the paper kept for the tab',
+    (await libraryPage(sitter)).title === 'The site is being updated' && sitterAsked.join(',') === 'confirm'
+      && (await sitter.$('app-exam')) === null && (await keptOf(sitter))?.idx === 2,
+    `${sitterAsked.join(',')} ${JSON.stringify(sitting)}`);
 
   // A visitor - nobody signed in, sign-in required here: never sent to the IAM while the site is being updated.
   const asVisitor = await newContext(browser, { viewport: { width: 390, height: 844 } });
   const visitorSent = [];
   asVisitor.on('request', (request) => visitorSent.push(request.url()));
   const waitingVisitor = await asVisitor.newPage();
-  const visitorErrors = watch(waitingVisitor, { ignore: WAITING_ANSWERS });
+  const visitorErrors = watch(waitingVisitor);
   await waitingVisitor.goto(app.base + '/kanji/reviews');
   await waitingVisitor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByVisitor = await libraryPage(waitingVisitor);
@@ -930,8 +978,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // A signed-in learner: the same page, and no button at all.
   const asLearner = await newContext(browser, { viewport: { width: 390, height: 844 } });
   await plant(asLearner, NOA);
+  const learnerSent = [];
+  asLearner.on('request', (request) => learnerSent.push(request.url()));
   const waitingLearner = await asLearner.newPage();
-  const learnerErrors = watch(waitingLearner, { ignore: WAITING_ANSWERS });
+  const learnerErrors = watch(waitingLearner);
   await waitingLearner.goto(app.base + '/');
   await waitingLearner.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByLearner = await libraryPage(waitingLearner);
@@ -939,14 +989,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     seenByLearner.title === 'The site is being updated' && seenByLearner.actions.length === 0 && !/error|update_pending|setup|Migrations/i.test(seenByLearner.text),
     JSON.stringify(seenByLearner));
   await waitingLearner.screenshot({ path: path.join(SHOTS, 'waiting-learner.png') });
-  ck('no browser errors for the learner but the waiting answers', learnerErrors.length === 0, learnerErrors.join(' | '));
+  ck('nothing of the pages behind it is made: the home page asks for no data, and no answer fails',
+    askedForData(learnerSent).length === 0 && learnerErrors.length === 0, [...askedForData(learnerSent), ...learnerErrors].join(' | '));
   await asLearner.close();
 
   // An EDITOR rewords strings, and applies nothing: the same page everywhere, with no way to the Migrations page.
   await iamState({ user: asUser(EDDIE) });
   const asEditor = await newContext(browser, { viewport: { width: 1100, height: 860 } });
   await plant(asEditor, EDDIE);
+  const waitingEditorSent = [];
+  asEditor.on('request', (request) => waitingEditorSent.push(request.url()));
   const waitingEditor = await asEditor.newPage();
+  const waitingEditorErrors = watch(waitingEditor);
   for (const where of ['/', '/admin/migrations', '/admin/translations']) {
     await waitingEditor.goto(app.base + where);
     await waitingEditor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
@@ -955,6 +1009,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       seen.title === 'The site is being updated' && seen.actions.length === 0 && (await waitingEditor.$('main.admin')) === null,
       `${new URL(waitingEditor.url()).pathname}: ${JSON.stringify(seen)}`);
   }
+  ck('and no page behind it asks for data (Translations would), nor does an answer fail',
+    askedForData(waitingEditorSent).length === 0 && waitingEditorErrors.length === 0, [...askedForData(waitingEditorSent), ...waitingEditorErrors].join(' | '));
   await asEditor.close();
 
   // A signed-out administrator: the visitors' page, whose Sign in goes to the IAM and back to it - signed in, the
@@ -962,7 +1018,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await iamState({ user: asUser(ADA), deny: false });
   const asAdmin = await newContext(browser, { viewport: { width: 1100, height: 860 } });
   const migrations = await asAdmin.newPage();
-  const migrationErrors = watch(migrations, { ignore: WAITING_ANSWERS });
+  const migrationErrors = watch(migrations);
   await migrations.goto(app.base + '/');
   await migrations.waitForSelector('anotoki-site-status button', { timeout: 15000 });
   ck('a signed-out administrator: the visitors’ page, its quiet Sign in the way in', (await libraryPage(migrations)).actions.join(',') === 'Sign in');
@@ -1026,10 +1082,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('back to the app by the menu, no page load: its words at once, no key on the page',
     keysBack.length === 0 && new URL(migrations.url()).pathname === '/' && (await migrations.$('anotoki-site-status')) === null, keysBack.join(' | '));
   ck('and the app is back, for everybody', (await app.api('/api/kanji/summary', NOA)).status === 200);
-  ck('no browser errors on the way but the waiting answers', migrationErrors.length === 0, migrationErrors.join(' | '));
+  ck('no browser errors on the way: no page behind the library’s page asked for anything', migrationErrors.length === 0, migrationErrors.join(' | '));
   const editorMigrations = await app.api('/api/admin/migrations', EDDIE);
   ck('the Migrations page’s addresses are an administrator’s: an EDITOR 403 admin_only', editorMigrations.status === 403 && (await editorMigrations.json()).code === 'admin_only');
   await asAdmin.close();
+
+  // Pia's tab asks again by itself (every 30 s) and loads afresh once the site is back. The gate makes the exam
+  // again just before that reload, in the page about to go - the paper put back there must not lose its copy.
+  await sitter.waitForSelector('#test:not([hidden])', { timeout: 45000 });
+  const satAgain = await paperShown(sitter);
+  ck('Pia’s tab, the site back: loaded afresh by itself, her paper on its question with its answers and flag',
+    JSON.stringify(satAgain) === JSON.stringify(sitting) && (await sitter.$('anotoki-site-status')) === null, JSON.stringify(satAgain));
+  await sitter.keyboard.press('1');
+  await sitter.waitForFunction((done) => document.querySelectorAll('#gridNav .done').length === done + 1, sitting.done);
+  const following = await keptOf(sitter);
+  await sitter.click('#quitBtn');
+  await sitter.waitForSelector('#result:not([hidden])', { timeout: 15000 });
+  ck('its copy follows it (her new answer in it) until it is handed in, scored, and gone then',
+    Object.values(following?.answers ?? {}).filter((a) => a.choice !== null).length === sitting.done + 1 && (await keptOf(sitter)) === null
+      && Number(app.sql('SELECT count(*) AS n FROM exam_attempts WHERE user_id = ?', PIA.sub)[0].n) === 1);
+  ck('no browser errors on her tab but the refused hand-in', sitterErrors.length === 0, sitterErrors.join(' | '));
+  await asSitter.close();
 
   /* -------------------------------------------------------- time zones */
   console.log('time zones');

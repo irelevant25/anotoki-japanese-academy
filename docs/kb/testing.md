@@ -78,8 +78,8 @@ named after a stand-in asks the stand-in (`GET
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 247 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 667 tests in 44 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (the anotoki library's page for a visitor, a learner and an EDITOR everywhere, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 178 checks | ~4 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 678 tests in 45 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 183 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
 | `node frontend/e2e/screens.js [filter]` | 23 screens × light/dark/phone and Slovak phone light/dark (115 shots; a visitor's home and the library's update-waiting page among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
@@ -614,7 +614,10 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   button and a quiet Sign in — this app's own, back to the page —, in
   Slovak too, a learner's and an editor's with no button at all, and the
   ADMIN's "A database update is waiting" and the way to the Migrations page,
-  which opens, alone of the app's pages);
+  which opens, alone of the app's pages; the pages the gate's template — the
+  page open when an update stops the site taken down with its outlet, none
+  made for an address followed while it waits, the page of the address made
+  again once the site is back: it fails with the 0.1.0 form);
   `admin/migrations/migrations.component.spec.ts` (the library's page in the
   panel's frame, English whatever the learner reads: a draft shown as one,
   the dates in the administrator's own order, Apply asked first, what was
@@ -657,14 +660,23 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   card's keys on every control of the real bar over an open paper (a spoken
   last question: nothing chosen, played or handed in) and a review (nothing
   checked), then the same keys on the page doing their work.
-  `exam.component.spec.ts` also: while the site is being updated, a hand-in
-  refused (503 `update_pending`) with no dialog and the paper kept for the
-  tab as it is; the site stopping keeps an open paper at once, and the
-  paper off the page hears no key; left while the site is not ready it stays
-  kept, left while it is ready it goes; put back when the exam opens again —
-  its question, answers, flags, name and clock, then handed in with its spec
-  and start — for the person it was kept for alone; a kept paper of somebody
-  else's, or one that is not a paper, gone.
+  `exam.component.spec.ts` also, the exam inside the real gate as the app has
+  it (`GatedExamComponent`): while the site is being updated, the paper is
+  taken down at once and kept for the tab as it is, and no key reaches it; a
+  hand-in refused (503 `update_pending`) raises no dialog, and the gate takes
+  the paper down, kept; taken down while the site is not ready it stays
+  kept, left while it is ready it goes, its copy with it; the site back, the
+  gate makes the exam again before the library's reload, and the paper put
+  back there keeps its copy, which the fresh page puts back again; put back
+  when the exam opens again — its question, answers, flags, name and clock,
+  its copy following it (an answer, another question, a flag: each) until
+  it is handed in and scored, then handed in with its spec and start — for
+  the person it was kept for alone; an answer's step on to the next
+  question, still waiting when the gate takes the paper down, does nothing;
+  a visitor's paper put back
+  for whoever signed in is theirs from then on (somebody signing in after
+  them in that tab does not get it); a kept paper of somebody else's, or one
+  that is not a paper, gone.
   `ui/theme-toggle/theme-toggle.component.spec.ts` (the three choices,
   `data-theme` and the device's choice, the arrow keys, English in the admin
   area; signed in, the account's theme over the device's and kept for the
@@ -696,7 +708,12 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   moment),
   `core/changelog/app-version.component.spec.ts` (the
   foot: the version, "What's new" and its dot until the news is read, the
-  dialog).
+  dialog; news read when the version had two numbers, "0.2", stays read for
+  "0.2.0", and "0.2.1" has its dot), `core/changelog/changelog.service.spec.ts`
+  (versions compared number by number, a missing one 0, `0.4` the same as
+  `0.4.0`, `0.10.0` after `0.9.0`, what is no version the same only as
+  itself; every entry of `public/changelog.json` three numbers, newest first,
+  the newest `package.json`'s version).
 
 A spec gets its strings from `core/testing/test-translations.ts`
 (`provideTestTranslations()`): the real `TranslationService` with the
@@ -766,7 +783,9 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   or migrations button, a quiet Sign in and no trip to the IAM; a signed-in
   learner the same page with no button at all; an EDITOR the same at `/`,
   `/admin/migrations` and `/admin/translations`, with no way to the
-  Migrations page; then **an administrator who is signed out** (no session
+  Migrations page; for the learner and the editor nothing of the pages behind
+  it is made — no address with data asked for (the home page and
+  Translations would), no answer failing; then **an administrator who is signed out** (no session
   planted: the trip itself is what is tried) gets the visitors' page, its
   Sign in goes to the IAM and back to the same page, signed in, "A database
   update is waiting" and the way to the Migrations page, which opens while
@@ -775,7 +794,14 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   applied, the fixed file then applies (up to date, nothing pending), and
   the menu leads back to the app with its words and no page load; the app
   back for everybody, the Migrations page's addresses 403 `admin_only` to an
-  EDITOR. **Time zones**: a browser on Pacific/Kiritimati (UTC+14) and
+  EDITOR. Meanwhile **a paper open as the update lands** (Pia's: two answers
+  and a flag): its hand-in refused with no error but the "unanswered?"
+  question, the library's page in its place and the paper kept for the tab;
+  once the ADMIN has applied, her tab asks again and loads afresh by itself,
+  the paper back on its question with its answers and flag (the gate made
+  the exam once more in the page about to go: its copy has to survive that),
+  the copy following one more answer, then handed in and scored, the copy
+  gone. **Time zones**: a browser on Pacific/Kiritimati (UTC+14) and
   one on Pacific/Pago_Pago (UTC-11) — never the same day — each sees its own
   today's count on the dashboard, and the server keeps the zone; the second
   in Slovak: no key-shaped text on the learner's pages, in the person's menu,
@@ -911,9 +937,12 @@ after `node frontend/scripts/ensure-build.mjs`.
 - `[auth] a token was refused: …` in a server's log is the sign-in tests at
   work: they send bad tokens on purpose.
 - The setup suite's "not set up" pages answer `/api/auth/config` with 503: that
-  is what they are for, and its error check ignores it. So do the browser
-  suite's pages while a migration waits (503 `update_pending`, the
-  "waiting answers" its error check leaves out).
+  is what they are for, and its error check ignores it. The browser suite's
+  pages while a migration waits have no such allowance: the pages are the
+  gate's template, none is made behind the library's page, and a 503
+  `update_pending` there is a failure (until anotoki-lib 0.1.1 the pages
+  behind it asked for their data, and the suite left those "waiting answers"
+  out of its error check).
 - `[i18n] no string for …` in a browser suite is a failure, not noise: a key
   the page asks for has no string in the database.
 - The native file picker on the admin panel's Translations page speaks the

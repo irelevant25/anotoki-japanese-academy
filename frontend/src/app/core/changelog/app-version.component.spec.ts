@@ -6,8 +6,8 @@ import { AppVersionComponent } from './app-version.component';
 import { ChangelogEntry, ChangelogService } from './changelog.service';
 
 const ENTRIES: ChangelogEntry[] = [
-  { version: '0.2', date: '2026-10-06', changes: { added: ['A setup page'], fixed: ['A missing space'] } },
-  { version: '0.1', date: '2026-09-29', changes: { updated: ['Sign-in'] } },
+  { version: '0.2.0', date: '2026-10-06', changes: { added: ['A setup page'], fixed: ['A missing space'] } },
+  { version: '0.1.0', date: '2026-09-29', changes: { updated: ['Sign-in'] } },
 ];
 
 /** The app with these entries for its changelog, and whatever else a test provides (its strings). */
@@ -53,7 +53,7 @@ describe('AppVersionComponent', () => {
     const fixture = TestBed.createComponent(AppVersionComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2');
+    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2.0');
     const news = el.querySelector('#whatsNew') as HTMLButtonElement;
     expect(news.textContent?.trim()).toBe('What’s new');
     expect(el.querySelector('#whatsNew .dot')).not.toBeNull();
@@ -62,11 +62,25 @@ describe('AppVersionComponent', () => {
     await fixture.whenStable();
     const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
     expect(dialog.hasAttribute('open')).toBe(true);
-    expect(dialog.textContent).toContain('v0.2');
+    expect(dialog.textContent).toContain('v0.2.0');
     expect(dialog.textContent).toContain('A setup page');
     expect(dialog.querySelectorAll('.release').length).toBe(2);
     expect(el.querySelector('#whatsNew .dot'), 'read: the dot is gone').toBeNull();
-    expect(localStorage.getItem('academy-changelog-seen')).toBe('0.2');
+    expect(localStorage.getItem('academy-changelog-seen')).toBe('0.2.0');
+  });
+
+  it('news read when its version had two numbers stays read with three: "0.2" read, "0.2.0" has no dot - "0.2.1" has', async () => {
+    localStorage.setItem('academy-changelog-seen', '0.2');
+    setUp();
+    const fixture = TestBed.createComponent(AppVersionComponent);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2.0');
+    expect(el.querySelector('#whatsNew .dot'), 'its news read already').toBeNull();
+
+    TestBed.inject(ChangelogService).entries.set([{ version: '0.2.1', date: '2026-10-08', changes: { fixed: ['A fault put right'] } }, ...ENTRIES]);
+    await fixture.whenStable();
+    expect(el.querySelector('#whatsNew .dot'), 'a newer version: news').not.toBeNull();
   });
 
   it('with no strings (the foot is drawn whatever became of them): its frame in the English it keeps, word for word, and no key', async () => {
@@ -119,7 +133,7 @@ describe('AppVersionComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('#whatsNew')?.textContent?.trim()).toBe('Čo je nové');
     expect(el.querySelector('#whatsNew .dot')?.getAttribute('title')).toBe('Niečo nové');
-    expect(el.querySelector('#version')?.textContent?.trim(), 'the version itself is the same everywhere').toBe('v0.2');
+    expect(el.querySelector('#version')?.textContent?.trim(), 'the version itself is the same everywhere').toBe('v0.2.0');
 
     (el.querySelector('#whatsNew') as HTMLButtonElement).click();
     await fixture.whenStable();
