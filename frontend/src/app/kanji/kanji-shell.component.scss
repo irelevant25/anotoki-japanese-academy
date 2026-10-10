@@ -35,13 +35,16 @@
   }
 }
 // All five tabs fit a 390 px screen in Slovak too (its words are about 50 px
-// wider than the English); in English they fit 360 px.
+// wider than the English); in English they fit 360 px. Measured in Manrope,
+// the family's font since anotoki-lib 0.2.0, which is wider than the system
+// font they were measured in before (5 px a tab and 10 at the sides left the
+// Slovak 6 px short).
 @media (max-width: 440px) {
   .subnav .in {
-    padding: 0 10px;
+    padding: 0 6px;
     gap: 0;
   }
   .subnav a {
-    padding: 10px 5px;
+    padding: 10px 4px;
   }
 }

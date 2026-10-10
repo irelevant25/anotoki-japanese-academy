@@ -1,4 +1,6 @@
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, InjectionToken, Injector, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, InjectionToken, output, signal, viewChild } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
+import { DialogComponent } from '@anotoki/lib/ui/dialog';
 import { ApiError, ApiService, errorCode, toApiError } from '../../core/api/api.service';
 import { ApiErrorBody, BroughtBack } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
@@ -165,7 +167,7 @@ function scalar(value: unknown): boolean {
  *
  * Bringing a file back replaces all of the learner's data, never merges: so
  * the file is read here first, the card says what it holds, and nothing is
- * sent until the learner says yes (a dialog of its own, in their language). A
+ * sent until the learner says yes (the kit's dialog, in their language). A
  * copy of what it replaces is kept on the server first. A file too big for
  * the server is not sent (IMPORT_CEILING, or the limit a 413 named).
  *
@@ -174,7 +176,7 @@ function scalar(value: unknown): boolean {
  */
 @Component({
   selector: 'app-your-data',
-  imports: [TranslatePipe],
+  imports: [ButtonComponent, DialogComponent, TranslatePipe],
   templateUrl: './your-data.component.html',
   styleUrl: './your-data.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -183,11 +185,8 @@ export class YourDataComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(TranslationService);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('confirm');
   private readonly picker = viewChild.required<ElementRef<HTMLInputElement>>('file');
-  private readonly keepMine = viewChild<ElementRef<HTMLButtonElement>>('keepMine');
   private readonly limit = inject(IMPORT_LIMIT);
-  private readonly injector = inject(Injector);
 
   /** A file came back and replaced the learner's data: the page around it loads what it shows again. */
   readonly brought = output<BroughtBack>();
@@ -197,7 +196,7 @@ export class YourDataComponent {
 
   readonly downloading = signal(false);
   readonly downloadFailed = signal<ApiError | null>(null);
-  /** The file chosen and read, waiting for the learner's yes. */
+  /** The file chosen and read, waiting for the learner's yes: the question is drawn while it is there, the focus on Keep mine (`autofocus`). */
   readonly holds = signal<FileHolds | null>(null);
   readonly bringing = signal(false);
   readonly refusal = signal<Refusal | null>(null);
@@ -275,26 +274,12 @@ export class YourDataComponent {
       this.holds.set(readDataFile(file.name, await file.text(), self));
     } catch (e) {
       this.refusal.set({ kind: 'failed', error: toApiError(e) });
-      return;
     }
-    const dialog = this.dialog().nativeElement;
-    if (!dialog.open) {
-      dialog.showModal();
-    }
-    // The focus on the safe answer, Keep mine, once the question is drawn in it — never on the dialog itself.
-    afterNextRender(() => this.keepMine()?.nativeElement.focus(), { injector: this.injector });
   }
 
-  /** No: nothing is sent, nothing changes. */
+  /** No - Keep mine, Escape, the dialog's Close: nothing is sent, nothing changes. Not while the file is on its way (the dialog is busy). */
   cancel(): void {
     this.holds.set(null);
-    this.close();
-  }
-
-  /** Escape on the question: a no. */
-  cancelled(event: Event): void {
-    event.preventDefault();
-    this.cancel();
   }
 
   /** Yes: the file replaces the learner's data. */
@@ -320,7 +305,6 @@ export class YourDataComponent {
     } finally {
       this.bringing.set(false);
       this.holds.set(null);
-      this.close();
     }
   }
 
@@ -332,13 +316,6 @@ export class YourDataComponent {
   /** "2.5 MB" / "2,5 MB": a size as the language writes numbers. */
   private megabytes(bytes: number): string {
     return this.i18n.t('yourData.megabytes', { n: this.i18n.number(bytes / (1024 * 1024), { maximumFractionDigits: 1 }) });
-  }
-
-  private close(): void {
-    const dialog = this.dialog().nativeElement;
-    if (dialog.open) {
-      dialog.close();
-    }
   }
 }
 

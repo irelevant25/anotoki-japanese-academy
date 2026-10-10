@@ -39,7 +39,7 @@
                   <span class="small muted id">#{{ person.id }}</span>
                   <!-- Under the name, not in a column of its own: the one action is never off the screen, at 390 px too. -->
                   <div class="row-action">
-                    <button type="button" class="link danger" [disabled]="deleting() !== null" (click)="remove(person)">
+                    <button anotokiButton variant="link" size="sm" class="delete" [disabled]="deleting() !== null" (click)="remove(person)">
                       {{ deleting() === person.id ? 'Deleting…' : 'Delete data' }}
                     </button>
                   </div>
@@ -61,5 +61,4 @@
     <p class="muted">Loading…</p>
   }
 
-  <app-admin-confirm />
 </main>

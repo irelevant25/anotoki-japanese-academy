@@ -4,7 +4,7 @@
 
   @if (loadError(); as message) {
     <p class="err" role="alert">The languages could not be loaded: {{ message }}</p>
-    <p><button type="button" class="ghost sm" (click)="load()">Try again</button></p>
+    <p><button anotokiButton size="sm" (click)="load()">Try again</button></p>
   } @else if (!loaded()) {
     <p class="muted">Loading…</p>
   } @else {
@@ -28,56 +28,58 @@
           </div>
 
           <div class="fields">
-            <label class="field">
-              <span class="lbl">Name in English</span>
-              <input type="text" autocomplete="off" maxlength="50" [value]="draft(language).name" (input)="edit(language, 'name', $event)" />
-            </label>
-            <label class="field">
-              <span class="lbl">Name as its speakers write it <em>what the chooser shows</em></span>
-              <input type="text" autocomplete="off" maxlength="50" [value]="draft(language).nativeName" (input)="edit(language, 'nativeName', $event)" />
-            </label>
-            <label class="field order">
-              <span class="lbl">Order <em>lowest first</em></span>
-              <input type="text" inputmode="numeric" autocomplete="off" maxlength="4" [value]="draft(language).sortOrder" (input)="edit(language, 'sortOrder', $event)" />
-            </label>
+            <anotoki-text-field
+              label="Name in English"
+              autocomplete="off"
+              [maxlength]="50"
+              [value]="draft(language).name"
+              (valueChange)="edit(language, 'name', $event)"
+            />
+            <anotoki-text-field
+              label="Name as its speakers write it"
+              hint="what the chooser shows"
+              autocomplete="off"
+              [maxlength]="50"
+              [value]="draft(language).nativeName"
+              (valueChange)="edit(language, 'nativeName', $event)"
+            />
+            <anotoki-text-field
+              label="Order"
+              hint="lowest first"
+              inputmode="numeric"
+              autocomplete="off"
+              [maxlength]="4"
+              [value]="draft(language).sortOrder"
+              (valueChange)="edit(language, 'sortOrder', $event)"
+            />
           </div>
 
           <div class="foot">
-            <label class="offered">
-              <input
-                type="checkbox"
-                [checked]="language.enabled"
-                [disabled]="language.code === fallback || (switching() !== null && switching() !== language.code)"
-                (change)="setOffered(language, $event)"
-              />
-              <span>
-                Offered to readers
-                <span class="muted small hint">
-                  {{
-                    language.code === fallback
-                      ? 'Always: every other language falls back to it.'
-                      : language.enabled
-                        ? 'Readers can choose it.'
-                        : 'Hidden: readers are not offered it.'
-                  }}
-                </span>
-              </span>
-            </label>
+            <anotoki-checkbox
+              #offered
+              [checked]="language.enabled"
+              [disabled]="language.code === fallback || (switching() !== null && switching() !== language.code)"
+              [hint]="
+                language.code === fallback
+                  ? 'Always: every other language falls back to it.'
+                  : language.enabled
+                    ? 'Readers can choose it.'
+                    : 'Hidden: readers are not offered it.'
+              "
+              (change)="setOffered(language, $event, offered)"
+            >
+              Offered to readers
+            </anotoki-checkbox>
 
             <div class="actions">
               @if (isChanged(language)) {
-                <button type="button" class="ghost sm" [disabled]="saving() === language.code" (click)="undo(language)">Undo</button>
+                <button anotokiButton size="sm" [disabled]="saving() === language.code" (click)="undo(language)">Undo</button>
               }
-              <button
-                type="button"
-                class="primary sm"
-                [disabled]="!isChanged(language) || saving() !== null"
-                (click)="save(language)"
-              >
+              <button anotokiButton variant="primary" size="sm" [disabled]="!isChanged(language) || saving() !== null" (click)="save(language)">
                 {{ saving() === language.code ? 'Saving…' : 'Save' }}
               </button>
               @if (!language.seeded && language.code !== fallback) {
-                <button type="button" class="ghost sm" [disabled]="deleting() === language.code" (click)="remove(language)">
+                <button anotokiButton size="sm" [disabled]="deleting() === language.code" (click)="remove(language)">
                   {{ deleting() === language.code ? 'Deleting…' : 'Delete' }}
                 </button>
               }
@@ -95,40 +97,47 @@
       <h2>Add a language</h2>
       <form (submit)="$event.preventDefault(); add()">
         <div class="fields">
-          <label class="field code">
-            <span class="lbl">Code <em>cs, de, pt-br</em></span>
-            <input
-              type="text"
-              autocomplete="off"
-              autocapitalize="none"
-              maxlength="5"
-              placeholder="cs"
-              [value]="newCode()"
-              [attr.aria-invalid]="newCodeError() ? 'true' : null"
-              (input)="setNew('code', $event)"
-            />
-          </label>
-          <label class="field">
-            <span class="lbl">Name in English</span>
-            <input type="text" autocomplete="off" maxlength="50" placeholder="Czech" [value]="newName()" (input)="setNew('name', $event)" />
-          </label>
-          <label class="field">
-            <span class="lbl">Name as its speakers write it</span>
-            <input type="text" autocomplete="off" maxlength="50" placeholder="Čeština" [value]="newNativeName()" (input)="setNew('nativeName', $event)" />
-          </label>
+          <anotoki-text-field
+            label="Code"
+            hint="cs, de, pt-br"
+            autocomplete="off"
+            autocapitalize="none"
+            [maxlength]="5"
+            placeholder="cs"
+            [value]="newCode()"
+            (valueChange)="newCode.set($event)"
+          />
+          <anotoki-text-field
+            label="Name in English"
+            autocomplete="off"
+            [maxlength]="50"
+            placeholder="Czech"
+            [value]="newName()"
+            (valueChange)="newName.set($event)"
+          />
+          <anotoki-text-field
+            label="Name as its speakers write it"
+            autocomplete="off"
+            [maxlength]="50"
+            placeholder="Čeština"
+            [value]="newNativeName()"
+            (valueChange)="newNativeName.set($event)"
+          />
         </div>
         @if (newCodeError(); as message) {
           <p class="err" role="alert">{{ message }}</p>
         }
-        <label class="offered">
-          <input type="checkbox" [checked]="newOffered()" [disabled]="adding()" (change)="setNewOffered($event)" />
-          <span>
-            Offer it to readers right away
-            <span class="muted small hint">Off: it starts hidden. Write its strings, then offer it.</span>
-          </span>
-        </label>
+        <anotoki-checkbox
+          class="offered"
+          [checked]="newOffered()"
+          [disabled]="adding()"
+          hint="Off: it starts hidden. Write its strings, then offer it."
+          (checkedChange)="newOffered.set($event)"
+        >
+          Offer it to readers right away
+        </anotoki-checkbox>
         <div class="actions">
-          <button type="submit" class="primary" [disabled]="!canAdd() || newCodeError() !== null || adding()">
+          <button anotokiButton type="submit" variant="primary" [disabled]="!canAdd() || newCodeError() !== null || adding()">
             {{ adding() ? 'Adding…' : 'Add the language' }}
           </button>
         </div>
@@ -138,5 +147,4 @@
       }
     </section>
   }
-  <app-admin-confirm />
 </main>

@@ -413,7 +413,9 @@ they are. For Claude Code, `CLAUDE.md` holds the project rules, and `.claude/`
 the rest.
 
 The database migrations - applying them, and what the site does while one
-waits - are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
+waits -, and the family's UI kit the pages are drawn with (buttons, dialogs,
+fields, menus), its styles and font (Manrope) and the top bar, in this app's
+own colours, are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
 site; its repository is `../anotoki-lib`, published as
 https://github.com/irelevant25/anotoki-lib): the Composer package
 `anotoki/lib` in `backend/vendor/` and the npm package `@anotoki/lib` in

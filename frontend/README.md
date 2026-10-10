@@ -9,12 +9,13 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ## Layout
 
 ```
-src/app/            app.component (the bar, the page - the template of the anotoki library's
+src/app/            app.component (the bar, the page - the marked template of the anotoki library's
                     <anotoki-site-gate>, made only while the site is open; the gate shows its own page
-                    instead while the site is not ready -, the foot), app.routes.ts, app.config.ts
-  top-bar/          the anotoki family's top bar: brand, Kanji and Exam, language, theme, the person's menu;
-                    on a phone (up to 760 px) one menu button; no key pressed in it reaches the page
-  ui/               the family's pieces of the bar: brand/, theme-toggle/, icon/
+                    instead while the site is not ready -, the foot, the kit's question), app.routes.ts,
+                    app.config.ts
+  top-bar/          the anotoki family's top bar, the library's <anotoki-top-bar> worded and wired: brand,
+                    Kanji (the reviews due) and Exam, language, theme, the person's menu; on a phone (up to
+                    760 px; 960 in the admin panel) one menu button; no key pressed in it reaches the page
   home/             the home page; visitor-notice/ (studying without signing in: the notice, the notes
                     after a move)
   kanji/            the kanji SRS: dashboard, lessons, reviews, practice, browse, the item page;
@@ -26,21 +27,28 @@ src/app/            app.component (the bar, the page - the template of the anoto
                     request is issued (issued-as.ts), visitor-key.ts (the visitor key, the move at
                     sign-in), SignOutService, SignInService; sdk/ the IAM's browser SDK, never
                     edited), storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
-                    the translation service, its pipes, the language chooser, failures worded from their
-                    codes), theme/ (light, dark or the system's; signed in, the anotoki account's),
+                    the translation service, its pipes, failures worded from their codes), kit.config.ts
+                    (the anotoki library's kit wired to this app: its words are the app's, the theme -
+                    light, dark or the system's; signed in, the anotoki account's - and the languages),
                     saves-in-flight.service.ts (the saves a sign-out waits for), time-zone.ts, boot.ts,
                     format.ts (dates and clocks in the language's way, or the account's order and clock),
                     site-status.config.ts and site-status.ts (the anotoki library's migrations module,
                     @anotoki/lib/migrations, wired to this app: where the site stands, its gate and
-                    pages, the Migrations page), testing/ (the module as a spec needs it)
+                    pages, the Migrations page), testing/ (the module and the kit's question as a spec
+                    needs them)
   admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN), Languages,
-                    People and Migrations (ADMIN: the library's page); the top bar's links lead between them
+                    People and Migrations (ADMIN: the library's page); the top bar's links lead between them;
+                    page-question.ts (the kit's question, answered no when the page that asked goes)
   standin/          the Sign in card and the problem page; sign-in-failed/ (a refused sign-in said
                     above a visitor's page)
-src/styles/         _tokens.scss (every colour, light and dark; dark also by <html data-theme>), _base.scss,
-                    _items.scss
-public/             favicon.svg, anotoki.png (the family's mark), theme-boot.js (the light/dark shown last,
-                    before the first paint), changelog.json (the releases; the version at the foot)
+src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope), then src/styles/
+src/styles/         _tokens.scss (Japanese's palette given to the library's tokens, anotoki.root(), and the
+                    study colours, light and dark; dark also by <html data-theme>), _base.scss (the page,
+                    panels, chips, tables - kept out of the kit's components), _items.scss
+src/testing/        browser-parts.ts (what jsdom lacks for the kit), the catalog fixture
+public/             favicon.svg, anotoki.png (the family's mark), changelog.json (the releases; the version at
+                    the foot); the library's theme-boot.js (the light/dark shown last, before the first
+                    paint) is copied into the build by angular.json
 e2e/                the browser suites: run.js, setup.js, screens.js (Edge, playwright-core)
 scripts/            ensure-build.mjs (builds only when the sources changed), catalog-fixture.mjs
                     (the catalog the answer-checking tests use, built by PHP from ../backend/data/)

@@ -1,40 +1,161 @@
 // The colours and fonts of the whole app, each defined for light and for dark.
 // Nothing else anywhere names a colour.
 //
+// The palette is Japanese Academy's own (warm paper), given to the anotoki
+// library's tokens - anotoki.root(), the owner's decision of 2026-10-08: one
+// library palette, which a site overrides where it wants colours of its own -
+// so the library's kit (the top bar and its menus, the buttons, the dialogs,
+// the fields, the library's pages) draws in it. This app's own names for those
+// colours (--bg, --card, --ink, --accent ...) are the library's tokens under the
+// names its pages have always used; what the library has no name for (the
+// study colours, the stages, the review's bars) is this app's alone, light and
+// dark. The font is the family's, Manrope, with the Japanese faces after it
+// for the kana and kanji it has none of.
+//
 // Dark is the system's setting (prefers-color-scheme), unless the reader chose
 // in the top bar's theme switch: their choice is <html data-theme="light|dark">
-// (core/theme/theme.service.ts, and public/theme-boot.js before the first
-// paint). So the dark tokens stand twice: under the media query for a page
-// that is not told light, and for a page that is told dark.
+// (the kit's ThemeService, and its theme-boot.js before the first paint). So
+// the dark tokens stand twice: under the media query for a page that is not
+// told light, and for a page that is told dark - root() writes the library's
+// so, and the dark mixin below this app's own.
+
+@use '@anotoki/lib/styles' as anotoki;
+
+@include anotoki.root(
+  (
+    light: (
+      bg: #f6f5f2,
+      surface: #fff,
+      // fields switched off, a dialog's foot, the theme switch's track; hover (surface-3)
+      surface-2: #efede8,
+      surface-3: #efede8,
+      surface-raised: #fff,
+      border: #e3e1dc,
+      // the edge of every control - fields, the bar's round buttons, the theme switch: 3.3:1 on --bg, 3.6:1 on --card, 3.1:1 on --soft
+      border-strong: #8a8780,
+      text: #1d1d1f,
+      muted: #6b6b70,
+      subtle: #6b6b70,
+      primary: #3a5f8a,
+      // the accent's hover, as this app's buttons always had it: 7% brighter
+      primary-hover: #3e6694,
+      primary-contrast: #fff,
+      primary-soft: #e2eaf4,
+      primary-soft-text: #2b4a6f,
+      accent: #3a5f8a,
+      link: #3a5f8a,
+      danger: #b4453c,
+      danger-hover: #c14a40,
+      danger-contrast: #fff,
+      success: #2e7d5b,
+      // on the success badge's pale ground: 5.6:1 (the green itself is 4.4)
+      success-text: #256b4d,
+      warning: #8a6417,
+      warning-text: #7a5814,
+      info: #3a5f8a,
+      info-soft: #e2eaf4,
+      ring: rgb(58 95 138 / 32%),
+      focus: #3a5f8a,
+      backdrop: rgb(29 29 31 / 38%),
+      shadow-sm: 0 1px 3px rgb(29 29 31 / 18%),
+      shadow: 0 8px 28px rgb(29 29 31 / 14%),
+      shadow-lg: 0 8px 28px rgb(29 29 31 / 14%),
+      brand-area: #3a5f8a,
+      // the anotoki mark (a dark navy picture) in the bar: a soft shadow; in dark a light halo, or it sinks into the bar
+      mark-shadow: drop-shadow(0 2px 6px rgb(0 0 0 / 18%)),
+    ),
+    dark: (
+      bg: #16161a,
+      surface: #1e1e23,
+      surface-2: #26262c,
+      surface-3: #26262c,
+      surface-raised: #1e1e23,
+      border: #32323a,
+      // 3.8:1 on --bg, 3.5:1 on --card, 3.1:1 on --soft
+      border-strong: #737179,
+      text: #eceaf0,
+      muted: #9a98a3,
+      subtle: #9a98a3,
+      primary: #6b9fd8,
+      primary-hover: #72aae7,
+      primary-contrast: #10131a,
+      primary-soft: #22324a,
+      primary-soft-text: #a9c7ec,
+      accent: #6b9fd8,
+      link: #6b9fd8,
+      // a red to fill a button under white words (--bad-fill); this app's red for words on the page is --bad
+      danger: #ae4a3f,
+      danger-hover: #ba4f43,
+      danger-contrast: #fff,
+      success: #5fc094,
+      success-text: #5fc094,
+      warning: #ddab52,
+      warning-text: #ddab52,
+      info: #6b9fd8,
+      info-soft: #22324a,
+      ring: rgb(107 159 216 / 45%),
+      focus: #6b9fd8,
+      backdrop: rgb(0 0 0 / 60%),
+      shadow-sm: 0 1px 3px rgb(0 0 0 / 50%),
+      shadow: 0 8px 28px rgb(0 0 0 / 55%),
+      shadow-lg: 0 8px 28px rgb(0 0 0 / 55%),
+      brand-area: #6b9fd8,
+      // given here as a plain value: the library's own default (a one-item list) reaches the CSS as "(…,)", which no browser
+      // takes, and the mark would have no halo at all
+      mark-shadow: drop-shadow(0 0 1px rgb(255 255 255 / 70%)) drop-shadow(0 0 6px rgb(255 255 255 / 22%)),
+    ),
+    // Manrope (the family's font; anotoki.fonts in styles.scss), then the stack this app had before it,
+    // whose Japanese faces (--jp-sans below) draw the kana and kanji Manrope has none of
+    font-sans: (
+        'Manrope Variable',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        system-ui,
+        'Hiragino Kaku Gothic ProN',
+        'Yu Gothic UI',
+        'Yu Gothic',
+        'Meiryo',
+        'Noto Sans JP',
+        sans-serif,
+      ),
+    font-mono: (ui-monospace, SFMono-Regular, Consolas, monospace),
+    // this app's corners are 10 px all round: its menus and dialogs too (the family's are 16 and 20)
+    radius-lg: 10px,
+    radius-xl: 10px,
+  )
+);
 
 :root {
-  --bg: #f6f5f2;
-  --card: #fff;
-  --ink: #1d1d1f;
-  --muted: #6b6b70;
-  --line: #e3e1dc;
-  --soft: #efede8;
-  --accent: #3a5f8a;
-  --accent-ink: #fff;
-  --good: #2e7d5b;
+  // The library's tokens under this app's names (anotoki.root() above writes them, light and dark).
+  --bg: var(--anotoki-bg);
+  --card: var(--anotoki-surface);
+  --ink: var(--anotoki-text);
+  --muted: var(--anotoki-muted);
+  --line: var(--anotoki-border);
+  --soft: var(--anotoki-surface-2);
+  --accent: var(--anotoki-primary);
+  --accent-ink: var(--anotoki-primary-contrast);
+  /* the top bar: the section the page is in, the role in the person's menu */
+  --accent-soft: var(--anotoki-primary-soft);
+  --accent-soft-ink: var(--anotoki-primary-soft-text);
+  --good: var(--anotoki-success);
+  --ok-text: var(--anotoki-warning); /* --ok as small text on the page: the amber alone is too light to read */
+  --ok-text-on-tint: var(--anotoki-warning-text); /* --ok-text on its own pale tint: 5:1, where --ok-text is 4.2 */
+  --bad-fill: var(--anotoki-danger); /* a verdict's fill (the review's answer bar), dark enough under --item-ink in both themes */
+  --radius: var(--anotoki-radius);
+  --shadow: var(--anotoki-shadow); /* what floats over the page */
+  --shadow-sm: var(--anotoki-shadow-sm);
+  --scrim: var(--anotoki-backdrop); /* behind a dialog */
+  /* the anotoki mark (a dark navy picture) in the bar: a soft shadow as on the family's other sites; in dark a light halo, or it sinks into the bar */
+  --mark-shadow: var(--anotoki-mark-shadow);
+  --topbar-height: var(--anotoki-topbar-height); /* what sticks under it (the exam's progress) starts there */
+
+  // This app's own.
   --ok: #b8862b;
   --bad: #b4453c;
-  --ok-text: #8a6417; /* --ok as small text on the page: the amber alone is too light to read */
-  --ok-text-on-tint: #7a5814; /* --ok-text on its own pale tint (the Migrations page's "pending" badge): 5:1, where --ok-text is 4.2 */
-  /* a verdict's fill (the review's answer bar), dark enough under --item-ink in both themes */
   --good-fill: #2e7d5b;
-  --bad-fill: #b4453c;
   --ok-fill: #946a1b;
-  --radius: 10px;
-  --shadow: 0 8px 28px rgba(29, 29, 31, 0.14); /* menus that float over the page */
-  --shadow-sm: 0 1px 3px rgba(29, 29, 31, 0.18); /* the theme switch's choice, raised a little */
-  /* the top bar: the section the page is in, the role in the person's menu */
-  --accent-soft: #e2eaf4;
-  --accent-soft-ink: #2b4a6f;
-  --topbar-height: 60px; /* what sticks under it (the exam's progress) starts there */
-  --scrim: rgba(29, 29, 31, 0.38); /* behind a dialog */
-  /* the anotoki mark (a dark navy picture) in the bar: a soft shadow as on the family's other sites; in dark a light halo, or it sinks into the bar */
-  --mark-shadow: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
 
   /* study items */
   --kanji: #c0412a; /* vermilion — kanji */
@@ -61,48 +182,13 @@
 
   --jp-serif: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'Noto Serif JP', 'MS Mincho', serif;
   --jp-sans: 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
-
-  /* The anotoki library's pages (@anotoki/lib: the page while the site is not
-     ready, the admin panel's Migrations page) in this app's colours. Each names
-     a token above, so the dark ones below reach them too. */
-  --anotoki-bg: var(--bg);
-  --anotoki-surface: var(--card);
-  --anotoki-text: var(--ink);
-  --anotoki-muted: var(--muted);
-  --anotoki-border: var(--line);
-  --anotoki-primary: var(--accent);
-  --anotoki-primary-contrast: var(--accent-ink);
-  --anotoki-danger: var(--bad-fill);
-  --anotoki-danger-contrast: var(--item-ink);
-  --anotoki-success: var(--good);
-  --anotoki-warning: var(--ok-text-on-tint);
-  --anotoki-radius: var(--radius);
-  --anotoki-font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 @mixin dark {
-  --bg: #16161a;
-  --card: #1e1e23;
-  --ink: #eceaf0;
-  --muted: #9a98a3;
-  --line: #32323a;
-  --soft: #26262c;
-  --accent: #6b9fd8;
-  --accent-ink: #10131a;
-  --good: #5fc094;
   --ok: #ddab52;
   --bad: #e2786d;
-  --ok-text: #ddab52;
-  --ok-text-on-tint: #ddab52;
   --good-fill: #2b7654;
-  --bad-fill: #ae4a3f;
   --ok-fill: #8e671d;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --scrim: rgba(0, 0, 0, 0.6);
-  --mark-shadow: drop-shadow(0 0 1px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22));
-  --accent-soft: #22324a;
-  --accent-soft-ink: #a9c7ec;
 
   --kanji: #b8472f;
   --vocab: #1d7a72;

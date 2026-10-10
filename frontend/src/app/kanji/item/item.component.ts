@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
+import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiService } from '../../core/api/api.service';
 import { Tally } from '../../core/api/api.types';
 import { fmtDate, fmtIn, fmtWeekdayClock, pct } from '../../core/format';
@@ -14,7 +16,7 @@ import { WordedComponent } from '../shared/worded/worded.component';
 /** One item: everything about it, its progress, and the answers the learner added for it. */
 @Component({
   selector: 'app-item',
-  imports: [ItemDetailsComponent, TranslatePipe, WordedComponent],
+  imports: [ButtonComponent, ItemDetailsComponent, TextFieldComponent, TranslatePipe, WordedComponent],
   templateUrl: './item.component.html',
   styleUrl: './item.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

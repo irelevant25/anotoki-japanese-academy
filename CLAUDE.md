@@ -9,7 +9,9 @@ signals (`frontend/`), built once and served by the backend. The database
 migrations - applying them, and what the site does while one waits - are the
 **anotoki library**'s (`anotoki-lib`, every anotoki site's: the Composer
 package `anotoki/lib`, the npm package `@anotoki/lib`; `../anotoki-lib`,
-`DEV.md`, *The anotoki library*). It runs two ways:
+`DEV.md`, *The anotoki library*), and so are the family's UI kit the pages
+are drawn with (buttons, dialogs, fields, menus), its styles and the top bar
+(since anotoki-lib 0.2.0), in this app's own palette. It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -27,8 +29,9 @@ Every page sends a signed-out visitor straight to the IAM and back
 (`signInGuard`, `docs/kb/sign-in.md`) - unless the IAM says sign-in is not
 required here: then nobody signed in studies as a visitor (the state
 `visiting`; never the admin panel), *Visitors in the browser* there. The top bar is the anotoki family's
-one bar (`frontend/src/app/top-bar/`, `docs/kb/architecture.md`, *The top
-bar*): the brand, Kanji and Exam, the language, a light/dark switch and the
+one bar, the library's (`<anotoki-top-bar>`, worded and wired in
+`frontend/src/app/top-bar/`; `docs/kb/architecture.md`, *The top bar*): the
+brand, Kanji and Exam, the language, the light/dark/system switch and the
 person's menu; the version and "What's new" are at the foot of the page.
 
 It replaced the earlier N4 Coach app on 2026-09-23, because the owner found
@@ -89,12 +92,13 @@ count wrong, fix it in the same piece of work.
   (gitignored contents: `backups/`, the IAM's keys, cached; a website's
   setup lock). `backend/README.md` maps it.
 - `frontend/` — the Angular app: `src/app/` (`home/`, `kanji/`, `exam/`,
-  `top-bar/` (the anotoki family's bar), `ui/` (the family's pieces it is
-  made of: brand, theme switch, icons), `core/` — API, sign-in, the
-  changelog (the foot), `i18n/` (the app's words: the translation service,
-  its pipes, the language chooser, failures worded from their codes),
-  `theme/` (light, dark or the system's - the anotoki account's while signed
-  in), `saves-in-flight.service.ts` (the
+  `top-bar/` (the anotoki family's bar - the library's - worded and wired:
+  the sections, the reviews due, the person, Sign in and Sign out), `core/` —
+  API, sign-in, the changelog (the foot), `i18n/` (the app's words: the
+  translation service, its pipes, failures worded from their codes),
+  `kit.config.ts` (the anotoki library's kit wired to this app: its words
+  are the app's, the theme - light, dark or the system's, the anotoki
+  account's while signed in - and the languages), `saves-in-flight.service.ts` (the
   saves a sign-out waits for), `time-zone.ts`, `site-status.config.ts` (the
   anotoki library's migrations module wired to this app: the gate around the
   pages, its page while the site is not ready, the Migrations page) —, `admin/` — the admin panel, in English:
@@ -102,8 +106,9 @@ count wrong, fix it in the same piece of work.
   library's page in the panel's frame) —, `standin/`
   — the Sign in card and the problem page; `home/your-data/` is a
   person's own data file, down and back),
-  `src/styles/` (tokens, base, items), `public/`
-  (favicon, the family's mark, `theme-boot.js`, `changelog.json`), `e2e/`
+  `src/styles/` (tokens - the palette given to the library's - base,
+  items), `public/` (favicon, the family's mark, `changelog.json`; the
+  library's `theme-boot.js` is copied in by `angular.json`), `e2e/`
   (the browser suites), `scripts/`
   (`ensure-build.mjs`, which builds only when the sources changed), `.nvmrc`.
   `frontend/README.md` maps it.
@@ -147,10 +152,10 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
 node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (247): after every change
-cd frontend && npm test                      the Angular unit tests (678 in 45 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (656 in 44 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (183 checks), signed in through the stand-in IAM: a
+                                             Edge end to end (184 checks), signed in through the stand-in IAM: a
                                              deep link signed out, lessons → reviews → practice → exam, the bar's
                                              keys and menus, Your data, sign-out, the admin panel by role, People,
                                              a migration waiting (the library's page for a visitor, a learner and an
@@ -415,23 +420,35 @@ Tests enforce most of these. Never weaken a test to make it pass.
   pass) - which sends nobody to the IAM while the site is not ready
   (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>` around the
   pages, `core/site-status.config.ts`) shows its page then, with its own
-  Sign in. The pages are the gate's template (`<ng-template>` inside it,
-  anotoki-lib 0.1.1): made only while the site is open, so no page runs,
-  asks for data or hears a key behind the library's page, and one open when
-  the site stops is taken down (the exam keeps an open paper for the tab as
-  it goes). A save in the background tells `SavesInFlight`, which a
+  Sign in. The pages are the gate's marked template
+  (`<ng-template anotokiSitePages>` inside it, anotoki-lib 0.2.0): made only
+  while the site is open, so no page runs, asks for data or hears a key
+  behind the library's page, and one open when the site stops is taken down
+  (the exam keeps an open paper for the tab as it goes, and puts it back,
+  once, when the page is loaded afresh). A save in the background tells `SavesInFlight`, which a
   sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog)
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
-  admin panel (`TranslationService.pageLanguage`). No CDN: the app
-  runs offline (wanakana and the IAM's SDK are bundled).
+  admin panel (`TranslationService.pageLanguage`). Buttons, dialogs and
+  questions, form fields, the spinner and menus are the anotoki library's kit
+  (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field`
+  …): never a button or field style of the app's own; the study components
+  (tiles, readings, the session, the lesson batch, the exam's paper), the
+  chips, the panels and the changelog are the app's. The kit's words are the
+  app's (`core/kit.config.ts`: its `lookup` reads the app's strings). No CDN:
+  the app runs offline (wanakana, the IAM's SDK, the kit and Manrope are
+  bundled).
 - JS/TS: 2-space indent, single quotes, semicolons. Node tools and the browser
   suites are CommonJS (`frontend/e2e/`) or ES modules (`.mjs`).
 - Colours come only from tokens in `frontend/src/styles/_tokens.scss`, each
-  defined for light and dark (the anotoki library's pages read them through
-  the `--anotoki-*` properties mapped there). Every screen must work at phone
-  width (390 px).
+  defined for light and dark: Japanese's palette given to the anotoki
+  library's tokens (`anotoki.root()`, the `--anotoki-*` properties the kit
+  and the library's pages draw with), the app's own names (`--bg`, `--ink`,
+  `--accent` …) those tokens, and the study colours its own. The font is the
+  family's, Manrope, with the Japanese faces after it. A global rule of the
+  app keeps out of the kit's components (`_base.scss`). Every screen must
+  work at phone width (390 px).
 - The UI is in English and Slovak (informal "ty"), English the fallback. The
   app's own words live in the database (migration 004 and later ones: a key,
   an English string, a Slovak one) and EDITOR and ADMIN reword them in the

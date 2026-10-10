@@ -1488,3 +1488,97 @@ counting as 0 (`compareVersions()`), so a browser that read "0.4" does not
 get the dot for "0.4.0" just because it was renamed. A unit test holds every
 entry to three numbers, newest first, and the newest to
 `frontend/package.json`'s version (`changelog.service.spec.ts`).
+
+**2026-10-10 — anotoki-lib 0.2.0: the family's kit, its styles and its top
+bar; the pages as the gate's marked template; the Migrations page on its own
+entry point.** The owner's request (round 2): one UI kit for the family,
+built from the IAM's, in every site. Japanese Academy had copied only the
+bar's pieces (brand, icons, theme switch, language chooser) and written the
+rest as global CSS. What changed, and what the owner decided:
+
+- **The palette stays Japanese's** (the owner: one library palette, which a
+  site overrides where it wants colours of its own): `_tokens.scss` gives the
+  warm-paper colours, light and dark, to `anotoki.root()`, so the kit and the
+  library's pages draw in them; the app's own names (`--bg`, `--card`,
+  `--ink`, `--accent` …) are those tokens under the names its pages always
+  used, and the study colours (kanji, vocabulary, the stages, the review's
+  bars) stay this app's alone. New in it: `border-strong`, the edge of every
+  control, at 3:1 on every ground (WCAG 1.4.11: light `#8a8780`, dark
+  `#737179`); the menus' and dialogs' corners stay this app's 10 px
+  (`radius-lg`, `radius-xl`), their shadow this app's `--shadow`.
+- **Manrope on every site** (the owner): the library's `anotoki.fonts`, the
+  files from the package (`@fontsource-variable/manrope`); the Japanese faces
+  stand after it in `font-sans` for the kana and kanji it has none of, and
+  `--jp-sans` / `--jp-serif` are as they were. The library's `base`,
+  `utilities` and `tables` are not taken: this app's own page styles stay.
+- **The kit's pieces where the app had its own**: the bar (the library's
+  `<anotoki-top-bar>`, worded and wired in `top-bar/`), its brand, icons,
+  theme switch and language switcher (`ui/` and `core/i18n/language-chooser/`
+  gone), the theme service (`core/theme/` gone: the kit's `ThemeService`,
+  the storage key `academy-theme` kept, its `auto` the app's "System"; the
+  kit's `theme-boot.js` in place of `public/theme-boot.js`), the admin
+  panel's question (`admin/confirm/` gone: `ConfirmService`, drawn by
+  `<anotoki-confirm-host>` in `AppComponent` - so it would outlive the page
+  that asked: `admin/page-question.ts` answers a page's open question no
+  when the page goes, as the old question, which lived in the page, went
+  with it), Your data's question (the
+  kit's dialog), the buttons (`anotokiButton`: `.primary`, `.ghost`, `.btn`
+  and `.link` gone), the spinner, and the form fields of the exam's setup,
+  the item page, Browse and the admin panel (`anotoki-text-field`,
+  `anotoki-select`, `anotoki-checkbox`). **Kept as the app's own**: the study
+  components (tiles, readings, the session and its answer box, the lesson
+  batch, the exam's paper and its flag), the chips, the panels, the notes
+  editor, the translation grid's cells, `keptWord()` and the changelog
+  foot and its dialog (a candidate for a later library module).
+- **The kit's words are the app's** (the owner: every word the site shows
+  today must still show): `core/kit.config.ts` answers the kit's `lookup`
+  with the app's strings from its database - the owner's rewordings with
+  them ("Tvoj účet anotoki", "Administrátorský panel", "Systémový") - and
+  their seeded English while there are no strings; only a word the app has
+  none of is the kit's own (informal Slovak, as this app speaks). The kit's
+  note under the theme switch says why the account refused a choice, in the
+  sentences failures already have, as the app's own switch did.
+- **The bar keeps everything Japanese's did**: the reviews due on Kanji and
+  on the phone's menu button, named ("Menu: 125 reviews due"), in the kanji's
+  vermilion (the kit draws its badges in the primary colour: the bar
+  overrides it); no key of the bar reaches `document` (`isolateKeys`); Sign in
+  and Sign out wait in the open menu ("Saving…") and ask before losing work;
+  the way into the admin panel only while the site is ready; "Back to
+  Japanese Academy"; the folds at 760 px and 960 px in the admin panel, the
+  person's name from 961 px in both (`nameMin`); the row 1040 px wide. **The
+  admin wordmark** is the family's "anotoki Japanese · admin panel" (the
+  owner), folded "Japanese" with "admin panel" under it - the library's short
+  form, up to 960 px.
+- **Global rules out of the kit**: some of the app's global class names are
+  the names of parts inside the kit's components (a dialog's and a menu's
+  `.panel`, the bar's and an alert's `.actions`, a field's `.field` and its
+  input, `.lead`, `.empty`), and the app's rules for buttons, inputs, selects
+  and textareas would reach into them: `_base.scss` keeps each of those rules
+  out of the kit (`:where(:not(…))`: an element with an `anotoki-` class, all
+  that is inside one, and the library's pages).
+- **Migrations 0.2.0**: the pages are the gate's marked template
+  (`<ng-template anotokiSitePages>`; an unmarked one draws nothing since
+  0.2.0); the Migrations page comes from `@anotoki/lib/migrations/page`, out of
+  the first load. 0.2.0's waiting page reloads **without** opening the gate
+  first, so nothing of the pages is made in the page about to go - which is
+  what made the exam's kept paper stay and follow the paper while it was open
+  (the entry of 2026-10-07 above). That goes: the copy is used once, when the
+  exam opens again and puts the paper back, as before 0.1.1; a paper put back
+  is an open paper like any other again (a reload of the tab, or a sign-out,
+  does not bring it back), and a visitor's copy needs no rewriting for whoever
+  signed in.
+- **The look, before and after** (`screens.js`, every screen in light,
+  dark and on a phone, English and Slovak, compared shot by shot): what
+  differs is Manrope (wider than the system font: a chip row or a label
+  wraps one line sooner on a phone), the controls' edges at 3:1, the kit's
+  fields (white, 44 px, the hint under the field), the kit's buttons (44 px
+  high where this app's were 48, 10 px corners where they were 8, the
+  disabled ones faded), the kit's dialogs (a close button, a foot), the
+  family's theme switch and admin wordmark, and the 0.2.0 Migrations page.
+  Four things the comparison found were put right: the anotoki mark had no
+  halo in the dark bar (the library's dark `mark-shadow` reaches the CSS as
+  "(…,)", which a browser drops: `_tokens.scss` gives it), the five kanji
+  tabs no longer fitted 390 px in Slovak (narrower padding, measured in
+  Manrope), End fell to a line of its own in a review's header on a phone (a
+  narrower gap there), and Your data's two answers are one under the other
+  on a phone again.

@@ -43,14 +43,12 @@
   gap: 10px;
   margin-bottom: 14px;
 }
-.tools input {
+.tools .find {
   flex: 1 1 240px;
-  width: auto;
   min-width: 0;
 }
-.tools select {
+.tools .which {
   flex: 0 1 220px;
-  width: auto;
   min-width: 0;
 }
 .tools .shown {

@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { ApiError } from '../../core/api/api.service';
 import { fmtClock, fmtIn, pct } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
@@ -27,7 +28,7 @@ export type Move = { kind: 'stays'; parts: Part[] } | { kind: 'moved'; from: str
 /** A finished lesson quiz, review session or practice: what was learned, missed and saved, and what next. */
 @Component({
   selector: 'app-summary',
-  imports: [NgTemplateOutlet, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, WordedComponent],
+  imports: [ButtonComponent, NgTemplateOutlet, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, WordedComponent],
   templateUrl: './summary.component.html',
   styleUrl: './summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

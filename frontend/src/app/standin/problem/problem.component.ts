@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { AuthService, StartProblem } from '../../core/auth/auth.service';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
 import { TranslationService } from '../../core/i18n/translation.service';
@@ -34,6 +35,7 @@ const ENGLISH: Record<string, string> = {
  */
 @Component({
   selector: 'app-problem',
+  imports: [ButtonComponent],
   templateUrl: './problem.component.html',
   styleUrl: './problem.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

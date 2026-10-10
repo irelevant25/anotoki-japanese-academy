@@ -33,31 +33,13 @@ p {
   display: none;
 }
 
-.confirm {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-  padding: 20px 22px;
-  width: min(460px, calc(100vw - 32px));
-}
-.confirm::backdrop {
-  background: var(--scrim);
-}
-// The focus is on the safe answer (Keep mine), never on the dialog itself: no frame round the whole question.
-.confirm:focus,
-.confirm:focus-visible {
-  outline: none;
-}
-// Its two answers ring in the accent, which reads on the card in light and in dark (a browser's own dark ring vanished on it).
-.confirm button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.confirm .actions {
+// The question is the kit's dialog (its frame, its foot and the buttons' rings); here what it says, and
+// its two answers as this page had them: 10 px apart at the right, one under the other on a phone.
+.answers {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  margin-bottom: 0;
+  gap: 10px;
 }
 .holds {
   margin: 0 0 14px;
@@ -67,17 +49,16 @@ p {
 .filename {
   overflow-wrap: anywhere;
 }
-.primary.danger {
-  background: var(--bad-fill);
-  border-color: var(--bad-fill);
-  color: var(--item-ink);
-}
 
 @media (max-width: 440px) {
   .yourdata {
     padding: 16px;
   }
-  .actions button {
+  .answers {
+    width: 100%;
+  }
+  .actions button,
+  .answers button {
     flex: 1 1 100%;
   }
 }

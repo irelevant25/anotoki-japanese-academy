@@ -29,8 +29,9 @@ td.who {
 .row-action {
   margin-top: 2px;
 }
-.link.danger {
-  color: var(--bad);
+// The kit's link button, in this app's red for what takes something away, in the table's small type.
+.row-action .delete {
+  --anotoki-link: var(--bad);
   font-size: 13px;
   white-space: nowrap;
 }

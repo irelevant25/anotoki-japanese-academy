@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, viewChild } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { keptWord } from '../../standin/kept-word';
 import { LocalDatePipe } from '../i18n/local-date.pipe';
 import { TranslationService } from '../i18n/translation.service';
@@ -15,7 +16,7 @@ import { ChangelogService } from './changelog.service';
  */
 @Component({
   selector: 'app-changelog-dialog',
-  imports: [LocalDatePipe],
+  imports: [ButtonComponent, LocalDatePipe],
   templateUrl: './changelog-dialog.component.html',
   styleUrl: './changelog-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

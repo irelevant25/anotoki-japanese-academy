@@ -5,6 +5,7 @@ import { ApiError, ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { AdminLanguage, TranslationGrid, TranslationKeyRow } from '../../core/i18n/translation.model';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { drawKitQuestion, KitQuestion } from '../../core/testing/kit-question';
 import { AdminDrafts } from '../admin-drafts.service';
 import { TranslationsComponent } from './translations.component';
 
@@ -41,6 +42,8 @@ describe('TranslationsComponent', () => {
   let host: HTMLElement;
   let api: { translationGrid: ReturnType<typeof vi.fn>; saveTranslations: ReturnType<typeof vi.fn>; exportTranslations: ReturnType<typeof vi.fn>; importTranslations: ReturnType<typeof vi.fn> };
   let reloaded: ReturnType<typeof vi.fn>;
+  /** The kit's question, drawn over the page as the app draws it (ConfirmService). */
+  let asked: KitQuestion | null = null;
 
   const clean = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
   const text = (selector: string, within: ParentNode = host) => clean(within.querySelector(selector)?.textContent);
@@ -62,11 +65,11 @@ describe('TranslationsComponent', () => {
   }
 
   /** The question that is open, and the button that answers it. */
-  const question = () => text('dialog.confirm h2');
+  const question = () => asked!.title();
   async function answer(label: string): Promise<void> {
-    Array.from(host.querySelectorAll<HTMLButtonElement>('dialog.confirm button'))
-      .find((candidate) => clean(candidate.textContent) === label)!
-      .click();
+    const answers = asked!.buttons();
+    expect(answers, `${label} among the answers`).toContain(label);
+    asked!.answer(answers.indexOf(label) === 1);
     await settle();
   }
 
@@ -90,6 +93,7 @@ describe('TranslationsComponent', () => {
     fixture = TestBed.createComponent(TranslationsComponent);
     host = fixture.nativeElement;
     document.body.appendChild(host);
+    asked = drawKitQuestion(host);
     await settle();
   }
 
@@ -111,6 +115,8 @@ describe('TranslationsComponent', () => {
 
   afterEach(() => {
     host.remove();
+    asked?.remove();
+    asked = null;
     vi.restoreAllMocks();
     sessionStorage.clear();
   });

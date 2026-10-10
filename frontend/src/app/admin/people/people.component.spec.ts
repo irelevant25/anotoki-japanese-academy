@@ -1,10 +1,11 @@
 import { ApplicationRef, provideZonelessChangeDetection, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
+import { drawKitQuestion, KitQuestion } from '../../core/testing/kit-question';
 import { provideTestTranslations } from '../../core/testing/test-translations';
 import { PeopleComponent } from './people.component';
 
@@ -13,6 +14,7 @@ const ONE: Person = { id: 12, username: null, createdAt: null, lastSeenAt: null,
 
 describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
   let host: HTMLElement;
+  let page: ComponentFixture<PeopleComponent>;
   const api = {
     people: vi.fn<() => Promise<Person[]>>(),
     deletePerson: vi.fn<(id: number) => Promise<{ deleted: number; copy: string }>>(),
@@ -20,6 +22,8 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
   };
   /** The administrator's own account preferences, as the IAM sends them (null: none). */
   const preferences = signal<AnotokiPreferences | null>(null);
+  /** The kit's question, drawn over the page as the app draws it (ConfirmService). */
+  let question: KitQuestion | null = null;
 
   async function draw(): Promise<void> {
     TestBed.configureTestingModule({
@@ -33,8 +37,10 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
       ],
     });
     const fixture = TestBed.createComponent(PeopleComponent);
+    page = fixture;
     host = fixture.nativeElement;
     document.body.appendChild(host);
+    question = drawKitQuestion(host);
     await vi.waitFor(async () => {
       await fixture.whenStable();
       expect(host.querySelector('#people, .err:not(:empty)')).not.toBeNull();
@@ -63,15 +69,17 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
   });
   afterEach(() => {
     host.remove();
+    question?.remove();
+    question = null;
     vi.restoreAllMocks();
   });
 
-  /** The confirm dialog's words, and its answer. */
+  /** The question's words, and its answer. */
   async function answer(yes: boolean): Promise<{ title: string; message: string }> {
     await settle();
-    const dialog = host.querySelector<HTMLDialogElement>('dialog.confirm')!;
-    const said = { title: dialog.querySelector('h2')?.textContent ?? '', message: dialog.querySelector('p')?.textContent ?? '' };
-    (dialog.querySelectorAll<HTMLButtonElement>('.actions button')[yes ? 1 : 0]).click();
+    expect(question!.buttons()).toEqual(['Cancel', 'Delete']);
+    const said = { title: question!.title(), message: question!.message() };
+    question!.answer(yes);
     return said;
   }
 
@@ -153,6 +161,19 @@ describe('PeopleComponent: the admin area’s People page (ADMIN)', () => {
     await settle();
     expect(api.deletePerson).not.toHaveBeenCalled();
     expect(rows()).toHaveLength(2);
+  });
+
+  it('a question still open when the page goes (Back pressed) is answered no with it: nothing deleted, nothing left over the next page', async () => {
+    await draw();
+    host.querySelectorAll<HTMLButtonElement>('#people tbody tr')[1].querySelector('button')!.click();
+    await settle();
+    expect(question!.open()).toBe(true);
+    page.destroy();
+    await vi.waitFor(async () => {
+      await settle();
+      expect(question!.open()).toBe(false);
+    });
+    expect(api.deletePerson).not.toHaveBeenCalled();
   });
 
   it('a refusal is the server’s own sentence, English as the page', async () => {

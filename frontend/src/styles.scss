@@ -1,6 +1,12 @@
 // Japanese Academy — the styles every page shares. What only one screen uses
-// is in that component's own .scss.
+// is in that component's own .scss. The anotoki library's kit (@anotoki/lib)
+// draws its own pieces, in this app's palette (styles/tokens).
 
+@use '@anotoki/lib/styles' as anotoki;
 @use 'styles/tokens';
 @use 'styles/base';
 @use 'styles/items';
+
+// Manrope, the anotoki family's font: its files come with the library, and the
+// build copies those a page needs (each subset with its unicode-range).
+@include anotoki.fonts;

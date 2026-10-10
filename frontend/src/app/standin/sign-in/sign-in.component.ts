@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { signInFailureKey, signInFailureParams } from '../../core/i18n/error-text';
 import { TranslationParams, TranslationService } from '../../core/i18n/translation.service';
@@ -44,6 +45,7 @@ export function signInFailureWords(i18n: TranslationService, code: string): stri
  */
 @Component({
   selector: 'app-sign-in',
+  imports: [ButtonComponent],
   templateUrl: './sign-in.component.html',
   styleUrl: './sign-in.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

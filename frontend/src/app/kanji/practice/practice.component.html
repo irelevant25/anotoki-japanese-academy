@@ -3,7 +3,7 @@
 @if (!learned().length) {
   <section class="panel empty">
     <p>{{ 'practice.nothingLearned' | translate }}</p>
-    <div class="actions"><a class="btn primary" routerLink="/kanji/lessons">{{ 'practice.goToLessons' | translate }}</a></div>
+    <div class="actions"><a anotokiButton variant="primary" routerLink="/kanji/lessons">{{ 'practice.goToLessons' | translate }}</a></div>
   </section>
 } @else {
   <section class="panel">
@@ -52,7 +52,7 @@
     </div>
     <p class="small muted">{{ info() }}</p>
     <div class="actions">
-      <button class="primary" type="button" [disabled]="!take()" (click)="start()">
+      <button anotokiButton variant="primary" [disabled]="!take()" (click)="start()">
         {{ take() ? ('practice.start' | translate: { n: take() }) : ('practice.nothing' | translate) }}
       </button>
     </div>

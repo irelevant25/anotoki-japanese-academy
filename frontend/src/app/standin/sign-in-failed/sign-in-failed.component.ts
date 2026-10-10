@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslationService } from '../../core/i18n/translation.service';
@@ -16,7 +17,7 @@ import { signInFailureWords } from '../sign-in/sign-in.component';
  */
 @Component({
   selector: 'app-sign-in-failed',
-  imports: [TranslatePipe],
+  imports: [ButtonComponent, TranslatePipe],
   templateUrl: './sign-in-failed.component.html',
   styleUrl: './sign-in-failed.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

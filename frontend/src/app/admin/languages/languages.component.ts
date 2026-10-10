@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
+import { CheckboxComponent, TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiService, toApiError } from '../../core/api/api.service';
 import { LanguageChanges, AdminLanguage } from '../../core/i18n/translation.model';
 import { FALLBACK_LANGUAGE, TranslationService } from '../../core/i18n/translation.service';
-import { ConfirmComponent } from '../confirm/confirm.component';
 import { LanguageDraft, AdminDrafts } from '../admin-drafts.service';
+import { pageQuestion } from '../page-question';
 import { reason, refusedPerson } from '../reason';
 import { HoldsUnsavedChanges } from '../unsaved-changes.guard';
 
@@ -44,10 +46,13 @@ function sameDraft(a: LanguageDraft, b: LanguageDraft): boolean {
  * What is typed in a row and not saved is held in AdminDrafts, not here: the
  * app takes its page away, with no question, when a session ends, and the
  * rows must be as they were typed when the page is back.
+ *
+ * Its buttons, fields, boxes and questions are the anotoki library's kit
+ * (anotokiButton, anotoki-text-field, anotoki-checkbox, ConfirmService).
  */
 @Component({
   selector: 'app-languages',
-  imports: [ConfirmComponent],
+  imports: [ButtonComponent, CheckboxComponent, TextFieldComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './languages.component.html',
   styleUrl: './languages.component.scss',
@@ -55,7 +60,8 @@ function sameDraft(a: LanguageDraft, b: LanguageDraft): boolean {
 export class LanguagesComponent implements HoldsUnsavedChanges {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(TranslationService);
-  private readonly confirm = viewChild.required(ConfirmComponent);
+  /** The kit's question, answered no if the page goes while it is open. */
+  private readonly ask = pageQuestion();
 
   private readonly list = signal<AdminLanguage[] | null>(null);
   /** The rows whose fields do not say what is saved, by code. Kept outside the page, so they outlive it. */
@@ -102,20 +108,18 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
     if (!unsaved) {
       return true;
     }
-    return this.confirm()
-      .ask({
-        title: 'Leave without saving?',
-        message: `${unsaved === 1 ? '1 language has' : `${unsaved} languages have`} changes that are not saved yet, and leaving loses them.`,
-        confirm: 'Leave',
-        cancel: 'Stay here',
-        danger: true,
-      })
-      .then((leave) => {
-        if (leave) {
-          this.drafts.set({});
-        }
-        return leave;
-      });
+    return this.ask({
+      title: 'Leave without saving?',
+      message: `${unsaved === 1 ? '1 language has' : `${unsaved} languages have`} changes that are not saved yet, and leaving loses them.`,
+      confirmLabel: 'Leave',
+      cancelLabel: 'Stay here',
+      tone: 'danger',
+    }).then((leave) => {
+      if (leave) {
+        this.drafts.set({});
+      }
+      return leave;
+    });
   }
 
   protected async load(): Promise<void> {
@@ -154,8 +158,8 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
     return Object.hasOwn(errors, language.code) ? errors[language.code] : null;
   }
 
-  protected edit(language: AdminLanguage, field: keyof LanguageDraft, event: Event): void {
-    this.keep(language, { ...this.draft(language), [field]: (event.target as HTMLInputElement).value });
+  protected edit(language: AdminLanguage, field: keyof LanguageDraft, value: string): void {
+    this.keep(language, { ...this.draft(language), [field]: value });
     this.done.set(null);
   }
 
@@ -214,11 +218,13 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
   }
 
   /**
-   * Offered or hidden, saved the moment the box is ticked. The row says the
-   * new state at once and goes back to the old one if the server refuses.
+   * Offered or hidden, saved the moment the box is ticked (the `change` of the
+   * kit's checkbox, from its native box). The row says the new state at once
+   * and goes back to the old one if the server refuses.
    */
-  protected async setOffered(language: AdminLanguage, event: Event): Promise<void> {
-    const enabled = (event.target as HTMLInputElement).checked;
+  protected async setOffered(language: AdminLanguage, event: Event, box: CheckboxComponent): Promise<void> {
+    const ticked = event.target as HTMLInputElement;
+    const enabled = ticked.checked;
     if (enabled === language.enabled) {
       return;
     }
@@ -233,8 +239,10 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
       void this.i18n.reload();
     } catch (error) {
       this.patch(language.code, { enabled: !enabled });
-      // The box is drawn from the row, which did not change back as far as the page knows: put it right.
-      (event.target as HTMLInputElement).checked = !enabled;
+      // The box is drawn from the row, which did not change back as far as the page drew it (a refusal may come
+      // before the next drawing): the box itself and the kit's own state of it put right.
+      ticked.checked = !enabled;
+      box.checked.set(!enabled);
       this.setError(language.code, reason(toApiError(error)));
     } finally {
       this.switching.set(null);
@@ -243,11 +251,12 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
 
   /** Never English or Slovak (the server refuses them too); the server keeps a copy of the strings first. */
   protected async remove(language: AdminLanguage): Promise<void> {
-    const sure = await this.confirm().ask({
+    const sure = await this.ask({
       title: `Delete ${language.name} (${language.code})?`,
       message: 'Every string of the app written in it goes with it. The server keeps a copy of them in backups/ first.',
-      confirm: 'Delete',
-      danger: true,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
     });
     if (!sure) {
       return;
@@ -269,15 +278,6 @@ export class LanguagesComponent implements HoldsUnsavedChanges {
   }
 
   /* --------------------------------------------------------- a new language */
-
-  protected setNew(field: 'code' | 'name' | 'nativeName', event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    (field === 'code' ? this.newCode : field === 'name' ? this.newName : this.newNativeName).set(value);
-  }
-
-  protected setNewOffered(event: Event): void {
-    this.newOffered.set((event.target as HTMLInputElement).checked);
-  }
 
   protected async add(): Promise<void> {
     if (!this.canAdd() || this.newCodeError() !== null || this.adding()) {

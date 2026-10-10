@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { SignInService } from '../../core/auth/sign-in.service';
 import { VisitorKey } from '../../core/auth/visitor-key';
@@ -25,7 +26,7 @@ import { TranslationService } from '../../core/i18n/translation.service';
  */
 @Component({
   selector: 'app-visitor-notice',
-  imports: [TranslatePipe],
+  imports: [ButtonComponent, TranslatePipe],
   templateUrl: './visitor-notice.component.html',
   styleUrl: './visitor-notice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

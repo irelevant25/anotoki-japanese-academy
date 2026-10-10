@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { AudioService } from '../../../core/audio.service';
 import { CatalogItem } from '../../../core/api/api.types';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -16,7 +17,7 @@ import { TileComponent } from '../tile/tile.component';
  */
 @Component({
   selector: 'app-item-details',
-  imports: [RouterLink, ReadingsComponent, TileComponent, NotesEditorComponent, TranslatePipe],
+  imports: [ButtonComponent, RouterLink, ReadingsComponent, TileComponent, NotesEditorComponent, TranslatePipe],
   templateUrl: './item-details.component.html',
   styleUrl: './item-details.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

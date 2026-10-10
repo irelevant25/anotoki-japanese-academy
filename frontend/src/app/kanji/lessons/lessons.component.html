@@ -37,7 +37,7 @@
     </div>
   </div>
   <div class="actions">
-    <button class="primary" type="button" [disabled]="!next().length" (click)="start()">
+    <button anotokiButton variant="primary" [disabled]="!next().length" (click)="start()">
       @if (next().length) {
         {{ 'lessons.start' | translatePlural: next().length }}
       } @else {

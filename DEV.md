@@ -189,8 +189,9 @@ The database migrations are the anotoki library's (`anotoki-lib`, shared by
 every anotoki site: https://github.com/irelevant25/anotoki-lib, a clone of it
 beside this repository in `../anotoki-lib`), in two halves with one version -
 though a release may change one half alone, and then only that half moves:
-since 2026-10-07 the npm half is 0.1.1 (its gate makes the pages only while
-the site is open) and the Composer half 0.1.0 (0.1.1 left it unchanged):
+the npm half is 0.2.0 (the family's UI kit, its styles and top bar, and the
+migrations module's 0.2.0) and the Composer half 0.1.0 (0.1.1 and 0.2.0 left
+it unchanged):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -201,11 +202,18 @@ the site is open) and the Composer half 0.1.0 (0.1.1 left it unchanged):
   and the Migrations page's addresses;
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
-  shows, and the Migrations page - wired to this app in
-  `frontend/src/app/core/site-status.config.ts`. The pages are the gate's
-  template (`<anotoki-site-gate><ng-template>…</ng-template></anotoki-site-gate>`
+  shows, and the Migrations page (`@anotoki/lib/migrations/page`) - wired to
+  this app in `frontend/src/app/core/site-status.config.ts`. The pages are
+  the gate's marked template
+  (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
   in `app.component.html`): made only while the site is open, so none runs
-  behind the library's page.
+  behind the library's page. And the family's UI kit (`@anotoki/lib/ui` and
+  its entry points: buttons, dialogs, fields, menus …), its styles
+  (`@anotoki/lib/styles`, in `src/styles.scss` and `src/styles/_tokens.scss`:
+  Japanese's palette given to `anotoki.root()`, Manrope) and its top bar and
+  theme (`@anotoki/lib/shell`) - wired in `core/kit.config.ts` (the kit's
+  words are the app's) and `top-bar/`; `angular.json` copies its
+  `theme-boot.js` into the build.
 
 To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
@@ -284,9 +292,11 @@ node backend/tools/pdf/pages.js textbook-1 12-14          # page images; the aca
   checks with one); `backend/tests/unit/php74-syntax.test.php` checks it.
 - **Frontend**: standalone components, `OnPush`, signals for state, no
   zone.js. Every component is three files — `.ts`, `.html`, `.scss` — never
-  an inline template or style. Colours come only from the tokens in
-  `frontend/src/styles/_tokens.scss`, each defined for light and dark; every
-  screen works at phone width (390 px). The app talks to the backend through
+  an inline template or style. Buttons, dialogs, fields and menus are the
+  anotoki library's kit (`anotokiButton`, `<anotoki-dialog>` …). Colours come
+  only from the tokens in `frontend/src/styles/_tokens.scss`, each defined
+  for light and dark (the palette is given to the library's tokens there);
+  every screen works at phone width (390 px). The app talks to the backend through
   `ApiService` and the HTTP interceptor, which adds the sign-in's token to this
   site's `/api` and `/report` addresses only.
 - **Migrations** are numbered SQL files in `backend/migrations/`; a committed

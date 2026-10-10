@@ -7,29 +7,29 @@
 <div class="actions">
   @switch (result().mode) {
     @case ('lesson') {
-      <button class="primary" type="button" [disabled]="!more().length" (click)="nextLessons()">
+      <button anotokiButton variant="primary" [disabled]="!more().length" (click)="nextLessons()">
         @if (more().length) {
           {{ 'summary.nextLessons' | translatePlural: more().length }}
         } @else {
           {{ 'summary.allCaughtUp' | translate }}
         }
       </button>
-      <button class="ghost" type="button" (click)="practiseLessons()">{{ 'summary.practiseThese' | translate }}</button>
+      <button anotokiButton (click)="practiseLessons()">{{ 'summary.practiseThese' | translate }}</button>
     }
     @case ('practice') {
-      <button class="primary" type="button" (click)="sameAgain()">{{ 'summary.sameAgain' | translate }}</button>
+      <button anotokiButton variant="primary" (click)="sameAgain()">{{ 'summary.sameAgain' | translate }}</button>
       @if (missed().length) {
-        <button class="ghost" type="button" (click)="justMissed()">{{ 'summary.justMissed' | translate: { n: missed().length } }}</button>
+        <button anotokiButton (click)="justMissed()">{{ 'summary.justMissed' | translate: { n: missed().length } }}</button>
       }
-      <a class="btn ghost" routerLink="/kanji/practice">{{ 'summary.newPractice' | translate }}</a>
+      <a anotokiButton routerLink="/kanji/practice">{{ 'summary.newPractice' | translate }}</a>
     }
     @default {
       @if (summary()?.reviewsDue; as due) {
-        <button class="primary" type="button" (click)="moreReviews()">{{ 'summary.moreDue' | translate: { n: due } }}</button>
+        <button anotokiButton variant="primary" (click)="moreReviews()">{{ 'summary.moreDue' | translate: { n: due } }}</button>
       }
     }
   }
-  <a class="btn ghost" routerLink="/kanji">{{ 'kanji.tab.dashboard' | translate }}</a>
+  <a anotokiButton routerLink="/kanji">{{ 'kanji.tab.dashboard' | translate }}</a>
 </div>
 
 @if (missed().length) {

@@ -32,7 +32,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { BACKEND, BUILD, php, findPhp, freePort, startStandIn, drafts } = require('./helpers');
-const { launch, newContext, watch, reporter, SHOTS } = require('./browser');
+const { launch, newContext, watch, reporter, BAR, barLink, SHOTS } = require('./browser');
 
 const TESTDB = path.join(BACKEND, 'tests', 'tools', 'testdb.php');
 const WEBSITE = 'academy.example.test';
@@ -224,10 +224,10 @@ async function cleanup() {
   await page.screenshot({ path: path.join(SHOTS, 'setup-done.png'), fullPage: true });
 
   await page.click('text=Open Japanese Academy');
-  await page.waitForSelector('#userButton', { timeout: 15000 });
+  await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await page.waitForSelector('.homecards');
-  ck('then the app: to the IAM and back, signed in', (await page.textContent('.user-name')).trim() === 'owner' && (await iam.state()).log.includes('POST /api/oidc/token'));
-  await page.click('#nav-kanji');
+  ck('then the app: to the IAM and back, signed in', (await page.textContent(BAR.userName)).trim() === 'owner' && (await iam.state()).log.includes('POST /api/oidc/token'));
+  await page.click(barLink('/kanji'));
   await page.waitForSelector('.cards3');
   ck('with its content: lessons to learn', Number((await page.textContent('.c-lessons .bc-num')).trim()) > 0);
 
@@ -302,9 +302,9 @@ async function cleanup() {
   await iam.state({ user: { id: 7, username: 'reader', roles: ['MEMBER'] } });
   await site.click('text=Open Japanese Academy');
   await site.waitForSelector('.homecards, #signin-button, main', { timeout: 15000 });
-  await site.waitForSelector('#userButton, #signin-button', { timeout: 15000 }).catch(() => undefined);
+  await site.waitForSelector(`${BAR.userButton}, #signin-button`, { timeout: 15000 }).catch(() => undefined);
   ck('the app on the website: to the IAM and back, signed in',
-    (await site.$('.homecards')) !== null && (await site.textContent('.user-name', { timeout: 2000 }).catch(() => '')).trim() === 'reader',
+    (await site.$('.homecards')) !== null && (await site.textContent(BAR.userName, { timeout: 2000 }).catch(() => '')).trim() === 'reader',
     `${site.url()} ${(await site.textContent('body')).replace(/\s+/g, ' ').slice(0, 200)} | IAM: ${(await iam.state()).log.slice(-6).join(', ')}`);
   await site.screenshot({ path: path.join(SHOTS, 'setup-website-app.png') });
   ck('no browser errors on the website', siteErrors.length === 0, siteErrors.join(' | '));

@@ -13,6 +13,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { bind, toKana, unbind } from 'wanakana';
 import { ApiError, ApiService, toApiError } from '../../core/api/api.service';
 import { CatalogItem } from '../../core/api/api.types';
@@ -73,7 +74,7 @@ export interface Feedback {
  */
 @Component({
   selector: 'app-session',
-  imports: [ItemDetailsComponent, TranslatePipe, WordedComponent],
+  imports: [ButtonComponent, ItemDetailsComponent, TranslatePipe, WordedComponent],
   templateUrl: './session.component.html',
   styleUrl: './session.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

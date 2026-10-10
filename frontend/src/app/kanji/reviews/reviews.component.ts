@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { CatalogItem } from '../../core/api/api.types';
 import { fmtClock, fmtIn } from '../../core/format';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -12,7 +13,7 @@ import { SessionResult } from '../session/session-engine';
 /** The reviews that are due, as a session — the only thing that moves items between SRS stages. */
 @Component({
   selector: 'app-reviews',
-  imports: [RouterLink, SessionComponent, TranslatePipe],
+  imports: [ButtonComponent, RouterLink, SessionComponent, TranslatePipe],
   templateUrl: './reviews.component.html',
   styleUrl: './reviews.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

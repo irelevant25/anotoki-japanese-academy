@@ -78,8 +78,8 @@ named after a stand-in asks the stand-in (`GET
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 247 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 678 tests in 45 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 183 checks | ~4 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 656 tests in 44 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 184 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
 | `node frontend/e2e/screens.js [filter]` | 23 screens × light/dark/phone and Slovak phone light/dark (115 shots; a visitor's home and the library's update-waiting page among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
@@ -568,7 +568,10 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   every refusal worded from its code.
 - `admin/people/people.component.spec.ts` — the list in English, the one
   looking marked; a delete only after a question that names what goes, and a
-  refusal in the server's words; the visitors line (none while 007 waits);
+  refusal in the server's words; a question still open when the page goes
+  answered no with it (`admin/page-question.ts`: the kit's question is drawn
+  in the app's root and would outlive the page); the visitors line (none
+  while 007 waits);
   the moments in the date order and clock the administrator chose for their
   account, the rest still English, following a change.
 - `core/i18n/translation.service.spec.ts` — which language a page takes
@@ -596,8 +599,14 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   (every code worded, an unknown one `error.unknown`; `visitor_limit` by its
   `limit`, with its `max`; a refused save of the account's preferences,
   `preferencesFailure()`),
-  `language-chooser.component.spec.ts` (the chooser and its keys; signed in,
-  the choice saved to the account too, a visitor's not),
+  `core/kit.config.spec.ts` (the anotoki library's kit in this app's words:
+  every word of the kit the app has words for is the app's, from its
+  database, the owner's rewordings included, the kit's own Slovak only for a
+  word the app lacks; English in the admin panel, and the English the app
+  keeps with no strings; the theme - the device's, kept for the boot script,
+  signed in the account's, a choice saved to it, a refusal worded in the
+  app's sentences; the languages on offer under their own names, a choice
+  the translation service's),
   `core/boot.spec.ts` (the start, in order, in every state — where the site
   stands first; not set up or out of reach, nothing more asked; an update
   waiting, the start going on as ever, never the problem page, whatever the
@@ -614,10 +623,11 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   button and a quiet Sign in — this app's own, back to the page —, in
   Slovak too, a learner's and an editor's with no button at all, and the
   ADMIN's "A database update is waiting" and the way to the Migrations page,
-  which opens, alone of the app's pages; the pages the gate's template — the
-  page open when an update stops the site taken down with its outlet, none
-  made for an address followed while it waits, the page of the address made
-  again once the site is back: it fails with the 0.1.0 form);
+  which opens, alone of the app's pages; the pages the gate's marked template
+  (`anotokiSitePages`) — the page open when an update stops the site taken
+  down with its outlet, none made for an address followed while it waits, the
+  page of the address made again once the site is back: it fails with the
+  0.1.0 form); the kit's question host after the foot;
   `admin/migrations/migrations.component.spec.ts` (the library's page in the
   panel's frame, English whatever the learner reads: a draft shown as one,
   the dates in the administrator's own order, Apply asked first, what was
@@ -629,17 +639,21 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   days, no Your data for a visitor, Sign in waiting for the saves and asking
   about an open paper, the notes after a move, the page loaded again; the
   dashboard's hour axis, two digits or the account's 12-hour clock).
-- The top bar: `top-bar/top-bar.component.spec.ts` — one row in the
+- The top bar: `top-bar/top-bar.component.spec.ts` — the library's bar
+  (`<anotoki-top-bar>`) as this app words and wires it: one row in the
   family's order; Kanji (with the reviews due, three digits) and Exam, the
   section and the page marked, the brand on the home page; the admin panel's
-  links by role (Languages and People for ADMIN only), English there, no
-  chooser; the person's menu (name, address, role pill, Your anotoki
+  links by role (Languages and People for ADMIN only), English there - the
+  kit's words too -, no language, "anotoki Japanese · admin panel"; the
+  language button holding its code, the theme's "System" the app's word; the
+  person's menu (name, address, role pill, Your anotoki
   account, Admin / Back to Japanese Academy, Sign out) in Slovak and English;
   focus into a menu, the arrows, Home and End, Escape back to its button;
   **Tab and Shift+Tab from the first, a middle and the last item of both
   menus: `defaultPrevented`, the menu closed, `document.activeElement` the
-  menu button**; a click outside; no strings (the English it keeps, no
-  warning); signed out (Sign in, in the reader's language), visiting (Kanji,
+  menu button**; a click outside; a change of language followed; no strings
+  (the English it keeps - never the kit's English for a word the app has -,
+  no warning); signed out (Sign in, in the reader's language), visiting (Kanji,
   Exam and Sign in — which waits for the saves on their way, asks about an open
   paper, and is in the phone's menu, **which stays open while it waits (the
   item's spinner and "Saving…", the focus on the menu button, never on
@@ -649,10 +663,12 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   buttons, the person's button, the items — reaches `document`, and Enter and
   Space keep their own action**; on a phone the row, the reviews due on the
   menu button and in its name (one, few, other), the menu's contents, a link
-  chosen, the Tab rule, signed out; the desktop bar from 761 px; **a crossing
-  of 760 px closes the open menu**; Sign out waiting (spinner, "Saving…")
-  and asking over an open paper; Escape on any of its controls puts the
-  theme switch's refusal line away; while the site is being updated no
+  chosen, the Tab rule, signed out; the desktop bar from 761 px, the admin
+  panel's from 961 ("Japanese" and "admin panel" beside the menu button up
+  to 960); **a crossing of 760 px closes the open menu**; Sign out waiting
+  (spinner, "Saving…") and asking over an open paper; a theme the account
+  refuses said under the switch in the app's words, and Escape on any of its
+  controls puts it away; while the site is being updated no
   section and no Admin panel (all of it back once it is ready), and the
   ADMIN on the Migrations page that link alone (an editor nothing).
   `exam.component.spec.ts` and
@@ -666,33 +682,27 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   hand-in refused (503 `update_pending`) raises no dialog, and the gate takes
   the paper down, kept; taken down while the site is not ready it stays
   kept, left while it is ready it goes, its copy with it; the site back, the
-  gate makes the exam again before the library's reload, and the paper put
-  back there keeps its copy, which the fresh page puts back again; put back
+  library's page loads the page afresh without the gate making the pages
+  first (anotoki-lib 0.2.0), and the fresh page puts the paper back; put back
   when the exam opens again — its question, answers, flags, name and clock,
-  its copy following it (an answer, another question, a flag: each) until
-  it is handed in and scored, then handed in with its spec and start — for
-  the person it was kept for alone; an answer's step on to the next
-  question, still waiting when the gate takes the paper down, does nothing;
-  a visitor's paper put back
-  for whoever signed in is theirs from then on (somebody signing in after
+  then handed in with its spec and start — for the person it was kept for
+  alone, its copy used then: from there it is an open paper like any other
+  (an answer, another question, a flag keep nothing while the site is
+  ready); an answer's step on to the next question, still waiting when the
+  gate takes the paper down, does nothing; a visitor's paper put back for
+  whoever signed in is theirs (its copy used, so somebody signing in after
   them in that tab does not get it); a kept paper of somebody else's, or one
   that is not a paper, gone.
-  `ui/theme-toggle/theme-toggle.component.spec.ts` (the three choices,
-  `data-theme` and the device's choice, the arrow keys, English in the admin
-  area; signed in, the account's theme over the device's and kept for the
-  first paint, followed when it changes — `auto` the system's —, a choice
-  saved to it, in the admin panel too, with no flicking back while it is on
-  its way, one save at a time and the latest last, a refusal put back and
-  said under the switch (Slovak, with no strings the kept English) until a
-  click elsewhere, Escape or the next choice, or the account gone, and not
-  said for a save refused after it; no preferences, or signed out:
-  the device's, nothing saved), `language-chooser.component.spec.ts` (the button named with its code,
-  the menu, its keys and the Tab rule, a failed switch said in the menu, the
-  last choice winning), `translation.service.spec.ts` (the admin panel reads
-  in English, `pageLanguage`).
+  The theme switch and the language switcher are the anotoki library's,
+  tested there (the three choices, `data-theme`, the arrow keys, the
+  account's theme followed and saved one at a time, the latest last; the
+  switcher's menu, its keys and the Tab rule); here, how this app wires them
+  (`core/kit.config.spec.ts`, above) and `translation.service.spec.ts` (the
+  admin panel reads in English, `pageLanguage`).
 - The admin panel: `admin/translation-grid.spec.ts` (plural families,
   search, changed cells), `translations.component.spec.ts`,
-  `languages.component.spec.ts` (their links are the top bar's),
+  `languages.component.spec.ts` (their links are the top bar's; the kit's
+  question - `ConfirmService` - answered through `core/testing/kit-question.ts`),
   `admin-drafts.service.spec.ts` (drafts surviving a session's end and a
   sign-in as the same person), `unsaved-changes.guard.spec.ts`.
 - Every screen's component in English and Slovak: home, exam, the kanji
@@ -873,9 +883,10 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   button; measured last, at the five widths that are shot) and in the admin
   panel — one row (at most 72 px high), in order,
   nothing overlapping or off the screen, no sideways scroll, the brand whole;
-  up to 760 px the menu button with the due count on it and no links, from 761
-  the links (or the area's three) and the person's button, the name beside it
-  from 961; `bar-<mode>-<lang>-<width>-<light|dark>.png`. Then the menus open
+  up to 760 px the menu button with the due count on it and no links (the
+  admin panel's up to 960, "Japanese" with "admin panel" under it), from 761
+  the links (the admin panel's four from 961) and the person's button, the
+  name beside it from 961; `bar-<mode>-<lang>-<width>-<light|dark>.png`. Then the menus open
   at 390 (Slovak, light and dark), 1280 (English, light and dark) and 360
   (dark), shot (`menu-*.png`), and a real Tab and Shift+Tab from an item: the
   menu closed, the focus on its button. `node frontend/e2e/screens.js room`
@@ -939,7 +950,7 @@ after `node frontend/scripts/ensure-build.mjs`.
 - The setup suite's "not set up" pages answer `/api/auth/config` with 503: that
   is what they are for, and its error check ignores it. The browser suite's
   pages while a migration waits have no such allowance: the pages are the
-  gate's template, none is made behind the library's page, and a 503
+  gate's marked template, none is made behind the library's page, and a 503
   `update_pending` there is a failure (until anotoki-lib 0.1.1 the pages
   behind it asked for their data, and the suite left those "waiting answers"
   out of its error check).

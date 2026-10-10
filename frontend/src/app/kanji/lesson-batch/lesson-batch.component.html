@@ -52,7 +52,7 @@
   }
 </div>
 <div class="lnav">
-  <button class="ghost" type="button" [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">{{ 'lesson.back' | translate }}</button>
+  <button anotokiButton [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">{{ 'lesson.back' | translate }}</button>
   <span class="small muted lhint">{{ 'lesson.keysHint' | translate }}</span>
-  <button class="primary" type="button" (click)="step(1)">{{ (last() ? 'lesson.startQuiz' : 'lesson.next') | translate }}</button>
+  <button anotokiButton variant="primary" (click)="step(1)">{{ (last() ? 'lesson.startQuiz' : 'lesson.next') | translate }}</button>
 </div>

@@ -1,12 +1,14 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter, TitleStrategy, withDisabledInitialNavigation, withInMemoryScrolling } from '@angular/router';
 import { siteStatusInterceptor } from '@anotoki/lib/migrations';
+import { ThemeService } from '@anotoki/lib/shell';
 import { routes } from './app.routes';
 import { notSetUpInterceptor } from './core/api/not-set-up.interceptor';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { boot } from './core/boot';
 import { AcademyTitleStrategy } from './core/i18n/title.strategy';
+import { provideKit } from './core/kit.config';
 import { provideSiteStatus } from './core/site-status.config';
 
 export const appConfig: ApplicationConfig = {
@@ -18,6 +20,11 @@ export const appConfig: ApplicationConfig = {
     // coming back from the IAM finished, with the address it started from put
     // back in the address bar; then the language and its strings.
     provideAppInitializer(boot),
+    // The theme - this device's, or the anotoki account's once the start has
+    // signed somebody in - before the first frame (the kit's ThemeService,
+    // core/kit.config.ts); the kit's theme-boot.js (index.html) painted the
+    // stored choice until then.
+    provideAppInitializer(() => void inject(ThemeService)),
     // The first navigation waits until the start has settled the sign-in
     // (AppComponent starts it): then every page's guard sends anybody not
     // signed in to the IAM - not while the site is being updated: its gate's
@@ -33,5 +40,7 @@ export const appConfig: ApplicationConfig = {
     // nothing of the app goes on either.
     provideHttpClient(withInterceptors([siteStatusInterceptor, notSetUpInterceptor, authInterceptor])),
     provideSiteStatus(),
+    // The anotoki library's kit, its bar and its theme, in this app's words.
+    provideKit(),
   ],
 };

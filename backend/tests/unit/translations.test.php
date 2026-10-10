@@ -696,17 +696,17 @@ test('every string the migrations wrote passes the checks a save makes, as it is
 
 /**
  * The frontend's files that keep English for what they draw while there may be no strings (keptWord()),
- * in a `const ENGLISH` map, and how many entries each has at least.
+ * in a `const ENGLISH` map, and how many entries each has at least. core/kit.config.ts keeps the words
+ * the anotoki library's kit says in the app's words (the theme switch, the language, the bar's menus).
  */
 const KEPT_ENGLISH_FILES = [
     'standin/problem/problem.component.ts' => 5,
     'standin/sign-in/sign-in.component.ts' => 2,
-    'top-bar/top-bar.component.ts' => 15,
-    'ui/theme-toggle/theme-toggle.component.ts' => 5,
-    'core/i18n/language-chooser/language-chooser.component.ts' => 2,
+    'top-bar/top-bar.component.ts' => 9,
+    'core/kit.config.ts' => 24,
 ];
 
-test('the English kept for a page drawn with no strings (the problem page, the Sign in card, the top bar) is the seeded English, word for word', function (): void {
+test('the English kept for a page drawn with no strings (the problem page, the Sign in card, the top bar and the kit\'s words) is the seeded English, word for word', function (): void {
     // It is what a start that failed shows while the browser kept no strings; reworded in one place only,
     // the page would say one thing before the strings come and another after.
     test_db();

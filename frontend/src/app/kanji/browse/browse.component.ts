@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { toHiragana } from 'wanakana';
 import { CatalogItem } from '../../core/api/api.types';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -18,7 +19,7 @@ interface StatusChoice {
 /** Every item, filterable by type, lesson and stage, and searchable by kanji, reading (romaji or kana) or meaning. */
 @Component({
   selector: 'app-browse',
-  imports: [TileComponent, TranslatePipe, TranslatePluralPipe],
+  imports: [TextFieldComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

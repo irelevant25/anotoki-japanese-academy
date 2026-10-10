@@ -26,13 +26,7 @@
   color: var(--bad);
 }
 
-// Close rings in the accent, which reads on the card in light and in dark (a browser's own dark ring vanishes there).
-.failed button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-// A finger needs more than the small button a mouse is happy with.
+// A finger needs more than the small button (the kit's) a mouse is happy with.
 @media (pointer: coarse) {
   .failed button {
     min-height: 44px;

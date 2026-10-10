@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { CatalogItem } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { fmtClock, fmtHour, fmtIn, fmtWeekdayOf, pct } from '../../core/format';
@@ -19,7 +20,7 @@ import { TileComponent } from '../shared/tile/tile.component';
  */
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, VisitorNoticeComponent],
+  imports: [ButtonComponent, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, VisitorNoticeComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

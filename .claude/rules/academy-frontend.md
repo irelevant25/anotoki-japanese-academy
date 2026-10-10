@@ -12,14 +12,27 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   (`provideZonelessChangeDetection`; no zone.js). **Every component is three
   files** — `.ts`, `.html`, `.scss` — never an inline template or style, even
   for a small one.
-- Styles: the tokens, the page's base and what several screens share are
-  global, in `frontend/src/styles/` (`_tokens.scss`, `_base.scss`,
-  `_items.scss`); a component's own styles in its `.scss`. Colours come only
-  from the tokens, each defined for light and dark (the dark ones under
+- Styles: the anotoki library's first (`@use "@anotoki/lib/styles" as
+  anotoki` in `src/styles.scss`: its tokens and Manrope), then the tokens,
+  the page's base and what several screens share, global, in
+  `frontend/src/styles/` (`_tokens.scss`: Japanese's palette given to
+  `anotoki.root()` and the study colours; `_base.scss`, `_items.scss`); a
+  component's own styles in its `.scss`. Colours come only from the tokens,
+  each defined for light and dark (the dark ones under
   `prefers-color-scheme: dark` unless `<html data-theme="light">`, and under
   `[data-theme="dark"]`: the theme switch's choice).
   Use `--kanji`/`--vocab` for item types and the stage tokens for SRS stages.
   Check contrast in dark mode.
+- Buttons, dialogs and questions, form fields, the spinner and menus are the
+  library's kit (`anotokiButton` with `variant` / `size` / `[loading]`,
+  `<anotoki-dialog>`, `ConfirmService` - its host is in `app.component.html`
+  -, `anotoki-text-field`, `anotoki-select`, `anotoki-checkbox`,
+  `<anotoki-spinner>`): never a button or field style of the app's own. Its
+  words are the app's (`core/kit.config.ts`: the kit's `lookup` reads the
+  app's strings; a kit word the app has no key for is the kit's own English
+  or informal Slovak). A global rule of the app never reaches inside a kit
+  component: `_base.scss` keeps its element and shared-class rules out of
+  them (`$app-only`), and a new one does the same.
 - The app talks to the backend only through `ApiService` (HttpClient) —
   except the bundle of words, `GET /api/translations/{code}`, which the
   translation service asks with a plain `fetch()` and no token. The
@@ -91,16 +104,18 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   updated, not set up, out of reach) the library's page stands in, in its
   own words - never the app's problem page, and never a redirect to the IAM
   (the page has its own Sign in). Everything under the bar is the gate's
-  template (`<ng-template>`, anotoki-lib 0.1.1): made only while the site is
-  open, so no page runs behind the library's page, and one open when the
+  marked template (`<ng-template anotokiSitePages>`, `SitePagesDirective`
+  in `AppComponent`'s imports; anotoki-lib 0.2.0): made only while the site
+  is open, so no page runs behind the library's page, and one open when the
   site stops is taken down - a page that must keep something across that
   does it in its `ngOnDestroy()` (the exam's open paper), never by staying
-  alive; keep control flow (`@switch`, `@if`) inside the `<ng-template>`,
-  never directly in the gate (0.1.1 would take its block for the pages).
-  `/api/site-status` goes bare (no token, no
+  alive; keep control flow (`@switch`, `@if`) inside the marked template:
+  an unmarked one, or content given as it is, would be made whether the
+  site is open or not. `/api/site-status` goes bare (no token, no
   visitor key). The Migrations page is the library's
-  `<anotoki-migrations-page>`; its looks come from the `--anotoki-*` tokens,
-  mapped to this app's in `_tokens.scss`, light and dark. The library is a
+  `<anotoki-migrations-page>` (`@anotoki/lib/migrations/page`); its looks,
+  like the kit's, come from the `--anotoki-*` tokens, which `_tokens.scss`
+  gives Japanese's palette, light and dark. The library is a
   package (`@anotoki/lib`, from its release's `.tgz`): never edit
   `node_modules/`; `DEV.md`, *The anotoki library*, says how to update it.
 - State holds keys, kinds and `ApiError`s, never a worded sentence: wording
@@ -108,33 +123,36 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   of language without being made again. A failed request is worded from its
   code (`core/i18n/error-text.ts`), never with the server's sentence (the
   admin panel excepted).
-- The top bar (`top-bar/`) is the anotoki family's one bar (the survey's
-  `layouts/top-bar` is the reference; `docs/kb/architecture.md`, *The top
-  bar*): one row — the brand, Kanji (the reviews due) and Exam, the language,
-  the theme, the person's menu or Sign in. Keep its rules:
-  - **No key pressed anywhere in the bar reaches `document`** (the header's
-    `keydown()` stops them, and handles Escape itself; the chooser does the
-    same): Enter there submits a card or hands a paper in, Space plays a word.
-    A control added to the bar is covered by that; a key listener added on
+- The top bar is the anotoki family's one bar, the library's
+  (`<anotoki-top-bar>`, `@anotoki/lib/shell`), worded and wired in
+  `top-bar/` (`docs/kb/architecture.md`, *The top bar*): one row — the
+  brand, Kanji (the reviews due) and Exam, the language, the theme, the
+  person's menu or Sign in. The wrapper gives it words, links, the person,
+  the menu's items and the two actions; never restyle or rebuild the
+  library's parts. Keep its rules:
+  - **No key pressed anywhere in the bar reaches `document`** (the library's
+    `isolateKeys`, on by default - never switch it off): Enter there submits
+    a card or hands a paper in, Space plays a word. A key listener added on
     `document` must not count on hearing the bar's keys.
-  - The menus: focus to the first item on open (`afterNextRender`), the
-    arrows round and round, Home / End, Escape back to the button, **Tab and
-    Shift+Tab from any item: `preventDefault()`, closed, the focus on the
-    menu button** (never `<body>`), a click outside, a crossing of 760 px
-    closes. Sign out and Sign in wait for the saves in the open menu (the
-    item's spinner and "Saving…"); the phone menu's Sign in keeps the focus
-    on the menu button meanwhile and closes the menu with it there.
-  - Up to `PHONE_BAR_MAX` = 760 px (the same number in the scss) the links and
-    the person's menu fold into one menu button, which carries the reviews
-    due and names them; above it only the person's name gives way (hidden up
-    to 960 px, an ellipsis after). Measured with the real labels in English
-    and Slovak and 999 due: a change to the bar's words or pieces is measured
-    again (the `academy-ui-check` skill).
+  - The menus are the library's (the focus in, the arrows, Home / End,
+    Escape and **Tab / Shift+Tab back to the menu button**, never `<body>`; a
+    click outside; a crossing of the fold closes). Sign out and Sign in
+    return the promise of `SignOutService` / `SignInService`, so the open
+    menu waits for the saves (the item's spinner and "Saving…", the focus on
+    the menu button).
+  - Up to `PHONE_BAR_MAX` = 760 px (`ADMIN_PHONE_BAR_MAX` = 960 in the admin
+    panel) the links and the person's menu fold into one menu button, which
+    carries the reviews due and names them (`phoneMark`); above it only the
+    person's name gives way (`NAME_BAR_MIN` = 961). Measured with the real
+    labels in English and Slovak and 999 due: a change to the bar's words or
+    pieces is measured again (the `academy-ui-check` skill).
   - Its words are keys with their English in a `const ENGLISH` map
     (`keptWord()`; `backend/tests/unit/translations.test.php` holds it to the
-    seeded English); in the admin panel they read in English through the
-    translation service (`pageLanguage`), never through a case in the bar.
-    The language button's name holds the code it shows (`{code}`).
+    seeded English) - the bar's own in `top-bar.component.ts`, the kit's
+    (Sign out, the theme, the language …) in `core/kit.config.ts`; in the
+    admin panel they read in English through the translation service
+    (`pageLanguage`), never through a case in the bar. The language button's
+    name holds the code it shows (`{code}`).
 - Switching the language changes words only: a session or a paper goes on
   where it was. The five kanji tabs fit 390 px in Slovak (360 px in
   English).

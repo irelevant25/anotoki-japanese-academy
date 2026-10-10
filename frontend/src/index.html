@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <!-- Before anything is drawn: the stored light/dark choice (public/theme-boot.js). -->
-  <script src="theme-boot.js"></script>
+  <!-- Before anything is drawn: the stored light/dark choice (the anotoki library's theme-boot.js, copied by angular.json; its key is core/kit.config.ts's THEME_KEY). -->
+  <script src="theme-boot.js" data-storage-key="academy-theme"></script>
   <!-- The family's visitor counter (Umami). async: the app never waits for it. No query string or fragment: the sign-in's code arrives in the query. -->
   <script async src="https://umami.anotoki.eu/script.js" data-website-id="becc0177-05a7-4849-a988-c441cad79d27" data-exclude-search="true" data-exclude-hash="true"></script>
 </head>

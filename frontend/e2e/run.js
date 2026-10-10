@@ -64,7 +64,7 @@ const { isolate, startApp, closeAll, iamState, iamSession, plant, IAM, FRONTEND 
 isolate('academy-browser'); // before the server starts: a throwaway database
 
 const wk = require('wanakana');
-const { launch, newContext, watch, reporter, keyShaped, SHOTS } = require('./browser');
+const { launch, newContext, watch, reporter, keyShaped, BAR, barLink, themeChoice, focusedOn, SHOTS } = require('./browser');
 
 /** The people of this run. Roles are the IAM's: everybody holds MEMBER, and MEMBER alone is a learner. */
 const LEA = { sub: 4101, name: 'lea', roles: ['MEMBER'] };
@@ -132,7 +132,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const shot = (name, fullPage = false) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
 
   await page.goto(app.base + '/kanji/reviews');
-  await page.waitForSelector('#userButton', { timeout: 15000 });
+  await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await page.waitForSelector('main');
   const authorizeAt = sent.findIndex((r) => r.url.startsWith(`${IAM.issuer}/api/oidc/authorize`));
   const askedBefore = sent.slice(0, authorizeAt).filter((r) => r.url.startsWith(`${app.base}/api/`) || r.url.startsWith(`${app.base}/report/`));
@@ -142,7 +142,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const drawn = await page.evaluate(() => sessionStorage.getItem('drawn-signed-out'));
   ck('and no page of the app drawn before it', drawn === null, drawn || '');
   ck('back from the IAM on the page asked for, signed in',
-    new URL(page.url()).pathname === '/kanji/reviews' && (await page.textContent('.user-name')).trim() === 'lea', page.url());
+    new URL(page.url()).pathname === '/kanji/reviews' && (await page.textContent(BAR.userName)).trim() === 'lea', page.url());
   let log = await iamLog();
   ck('the IAM was asked: authorize, then its code for tokens', log.includes('GET /api/oidc/authorize') && log.includes('POST /api/oidc/token'));
 
@@ -157,12 +157,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const refusedWords = (await denied.textContent('#signin .err')).trim();
   ck('refused at the IAM: the Sign in card says so', refusedWords === 'Signing in was not completed. Try again.', refusedWords);
   ck('with nothing of the app behind it, and Sign in in the bar',
-    (await denied.$('#bookChips')) === null && (await denied.$('#userButton')) === null && (await denied.isVisible('#signInButton')));
+    (await denied.$('#bookChips')) === null && (await denied.$(BAR.userButton)) === null && (await denied.isVisible(BAR.signInButton)));
   await denied.screenshot({ path: path.join(SHOTS, 'signed-out.png') });
   await iamState({ deny: false });
   await denied.click('#signin-button');
-  await denied.waitForSelector('#userButton', { timeout: 15000 });
-  ck('its button signs in once the IAM lets them: the app, signed in', (await denied.textContent('.user-name')).trim() === 'lea', denied.url());
+  await denied.waitForSelector(BAR.userButton, { timeout: 15000 });
+  ck('its button signs in once the IAM lets them: the app, signed in', (await denied.textContent(BAR.userName)).trim() === 'lea', denied.url());
   ck('and back on the page asked for before the refusal, not on /', new URL(denied.url()).pathname === '/exam', denied.url());
   ck('no browser errors on the way', deniedErrors.length === 0, deniedErrors.join(' | '));
   await deniedContext.close();
@@ -174,8 +174,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await again.goto(app.base + '/kanji/item/' + encodeURIComponent('k:大'));
   await again.waitForSelector('#signin-button', { timeout: 15000 });
   await iamState({ deny: false });
-  await again.click('#signInButton');
-  await again.waitForSelector('#userButton', { timeout: 15000 });
+  await again.click(BAR.signInButton);
+  await again.waitForSelector(BAR.userButton, { timeout: 15000 });
   ck('refused on /kanji/item, the bar’s Sign in comes back there, signed in',
     decodeURIComponent(new URL(again.url()).pathname) === '/kanji/item/k:大' && againErrors.length === 0, again.url() + ' ' + againErrors.join(' | '));
   await deniedAgain.close();
@@ -220,17 +220,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.goto('about:blank');
     await page.goto(app.base + url);
   };
-  const focused = () =>
-    page.evaluate(() => {
-      const el = document.activeElement;
-      return { id: (el && el.id) || '', role: (el && el.getAttribute('role')) || '', tag: el ? el.tagName.toLowerCase() : '' };
-    });
+  /** Where the focus is: its id, or the bar's part (BAR's name for it: the bar is the library's, its parts have no ids). */
+  const focused = () => focusedOn(page);
   // The language chooser, worked with the keys alone: Enter opens it on the
   // language in use, ↓ goes to the next one, Enter chooses it. Its keys stay
   // its own: the session and the paper listen for Enter on the whole page.
   // True once the page is in Slovak.
   const chooseByKeys = async () => {
-    await page.focus('#langButton');
+    await page.focus(BAR.langButton);
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'menuitemradio', null, { timeout: 3000 });
     await page.keyboard.press('ArrowDown');
@@ -239,8 +236,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   };
   // and back to English with the mouse: the choice is kept in this browser
   const backToEnglish = async () => {
-    await page.click('#langButton');
-    await page.click('#langmenu [role="menuitemradio"][lang="en"]');
+    await page.click(BAR.langButton);
+    await page.click(`${BAR.menu} [role="menuitemradio"][lang="en"]`);
     await page.waitForFunction(() => document.documentElement.lang === 'en', null, { timeout: 5000 });
   };
   // Enter and Space on the bar's controls: each does what the control does
@@ -252,23 +249,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       .then(() => mode, () => page.evaluate(() => document.documentElement.getAttribute('data-theme')));
   const barKeys = async () => {
     await page.waitForTimeout(300); // the page's words settled (a language just chosen draws the bar again)
-    await page.focus('[role="radio"][data-mode="dark"]');
+    await page.focus(themeChoice('dark'));
     await page.keyboard.press('Enter');
     const dark = await theme('dark');
-    await page.focus('[role="radio"][data-mode="light"]');
+    await page.focus(themeChoice('light'));
     await page.keyboard.press('Space');
     const light = await theme('light');
-    await page.focus('#userButton');
+    await page.focus(BAR.userButton);
     await page.keyboard.press('Enter');
-    const menu = await until('#user-menu');
+    const menu = await until(BAR.menu);
     await page.keyboard.press('Escape');
-    const closed = await until('#user-menu', 'detached');
+    const closed = await until(BAR.menu, 'detached');
     const back = (await focused()).id;
-    await page.focus('#nav-kanji');
+    await page.focus(barLink('/kanji'));
     await page.keyboard.press('Space');
-    await page.focus('#nav-exam');
+    await page.focus(barLink('/exam'));
     await page.keyboard.press('Space');
-    await page.click('[role="radio"][data-mode="system"]'); // the system's look again
+    await page.click(themeChoice('auto')); // the system's look again
     return { dark, light, menu, closed, back };
   };
   const barDidItsOwn = (r) => r.dark === 'dark' && r.light === 'light' && r.menu && r.closed && r.back === 'userButton';
@@ -321,7 +318,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await open('/kanji');
   await page.waitForSelector('.cards3');
   ck('dashboard shows 5 due', (await page.textContent('.c-reviews .bc-num')).trim() === '5');
-  ck('and so does the top bar', (await page.textContent('#navDue')).trim() === '5');
+  ck('and so does the top bar', (await page.textContent(BAR.navDue)).trim() === '5');
   await page.click('text=Start reviews');
   await page.waitForSelector('.mode-review');
   ck('reviews have an address of their own', new URL(page.url()).pathname === '/kanji/reviews', page.url());
@@ -486,12 +483,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     asked = d.message();
     d.dismiss();
   };
-  await page.click('#userButton');
-  await page.click('#signOut');
+  await page.click(BAR.userButton);
+  await page.click(BAR.signOut);
   await page.waitForTimeout(300);
   onDialog = (d) => d.accept();
   ck('Sign out over an open paper asks first', asked === 'Your exam is not finished, and signing out loses the test. Sign out anyway?', asked);
-  ck('and "no" keeps the paper and the sign-in', (await paperOpen()) && (await page.isVisible('#userButton')));
+  ck('and "no" keeps the paper and the sign-in', (await paperOpen()) && (await page.isVisible(BAR.userButton)));
   await page.keyboard.press('Escape'); // the menu, if it stayed open
   await page.evaluate(() => document.activeElement && document.activeElement.blur()); // the paper's keys again
   await page.keyboard.press('Enter'); // the last question: Enter finishes
@@ -517,13 +514,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.evaluate(() => {
     window.stayed = true;
   });
-  await page.click('#nav-exam');
+  await page.click(barLink('/exam'));
   await page.waitForSelector('#bookChips .chip');
-  await page.click('#nav-kanji');
+  await page.click(barLink('/kanji'));
   await page.waitForSelector('.cards3');
   await page.click('.subnav a[data-route="browse"]');
   await page.waitForSelector('.bgrid');
-  await page.click('app-brand a');
+  await page.click(BAR.brand);
   await page.waitForSelector('.homecards');
   ck('moving between the sections, the brand home: no page loads', await page.evaluate(() => window.stayed === true));
 
@@ -550,7 +547,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.waitForSelector(menu);
     await page.waitForFunction((m) => document.querySelector(m)?.contains(document.activeElement), menu, { timeout: 3000 });
   };
-  await openBy('#userButton', '#user-menu');
+  await openBy(BAR.userButton, BAR.menu);
   const firstItem = await focused();
   await page.keyboard.press('End');
   const lastItem = await focused();
@@ -562,40 +559,40 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     firstItem.role === 'menuitem' && firstItem.id === 'accountLink' && lastItem.id === 'signOut' && homeItem.id === 'accountLink' && round.id === 'signOut',
     JSON.stringify([firstItem, lastItem, homeItem, round]));
   await page.keyboard.press('Escape');
-  ck('Escape closes it, the focus on its button', (await until('#user-menu', 'detached')) && (await focused()).id === 'userButton');
+  ck('Escape closes it, the focus on its button', (await until(BAR.menu, 'detached')) && (await focused()).id === 'userButton');
   for (const [key, from] of [['Tab', 'first'], ['Shift+Tab', 'first'], ['Tab', 'last'], ['Shift+Tab', 'last']]) {
-    await openBy('#userButton', '#user-menu');
+    await openBy(BAR.userButton, BAR.menu);
     if (from === 'last') await page.keyboard.press('End');
     await page.keyboard.press(key); // a real key press: the browser moves the focus unless the menu stops it
     await page.waitForTimeout(100);
     const where = await focused();
     ck(`a real ${key} from the ${from} item closes the menu, the focus on its button (never <body>)`,
-      (await page.$('#user-menu')) === null && where.id === 'userButton', JSON.stringify(where));
+      (await page.$(BAR.menu)) === null && where.id === 'userButton', JSON.stringify(where));
   }
-  await openBy('#langButton', '#langmenu');
+  await openBy(BAR.langButton, BAR.menu);
   const inUse = await page.evaluate(() => document.activeElement?.getAttribute('lang'));
   await page.keyboard.press('Tab');
   await page.waitForTimeout(100);
   ck('the language menu opens on the language in use; a real Tab closes it on its button',
-    inUse === 'en' && (await page.$('#langmenu')) === null && (await focused()).id === 'langButton', `${inUse} ${JSON.stringify(await focused())}`);
+    inUse === 'en' && (await page.$(BAR.menu)) === null && (await focused()).id === 'langButton', `${inUse} ${JSON.stringify(await focused())}`);
   // a phone: the links and the person's menu are in one menu
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForSelector('#menuButton');
+  await page.waitForSelector(BAR.menuButton);
   ck('at 390 px: the menu button, no links and no person’s button in the row',
-    (await page.$('.topbar-nav')) === null && (await page.$('#userButton')) === null);
-  await openBy('#menuButton', '#topbar-menu');
+    (await page.$(BAR.nav)) === null && (await page.$(BAR.userButton)) === null);
+  await openBy(BAR.menuButton, BAR.menu);
   const phoneFirst = await page.evaluate(() => document.activeElement?.textContent.trim());
-  const phoneItems = await page.$$eval('#topbar-menu [role="menuitem"]', (els) => els.map((e) => e.id || e.textContent.trim()));
+  const phoneItems = await page.$$eval(`${BAR.menu} [role="menuitem"]`, (els, bar) => els.map((e) => Object.keys(bar).find((name) => e.matches(bar[name])) || e.id || e.textContent.trim()), BAR);
   ck('its menu: Kanji and Exam, then the person’s items; the focus on the first',
     /^Kanji/.test(phoneFirst) && /^Kanji/.test(phoneItems[0]) && phoneItems[1] === 'Exam' && phoneItems.includes('accountLink') && phoneItems.at(-1) === 'signOut', phoneItems.join(', '));
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Tab');
   await page.waitForTimeout(100);
-  ck('a real Tab closes it, the focus on the menu button', (await page.$('#topbar-menu')) === null && (await focused()).id === 'menuButton', JSON.stringify(await focused()));
-  await openBy('#menuButton', '#topbar-menu');
+  ck('a real Tab closes it, the focus on the menu button', (await page.$(BAR.menu)) === null && (await focused()).id === 'menuButton', JSON.stringify(await focused()));
+  await openBy(BAR.menuButton, BAR.menu);
   await page.keyboard.press('Shift+Tab');
   await page.waitForTimeout(100);
-  ck('and a real Shift+Tab too', (await page.$('#topbar-menu')) === null && (await focused()).id === 'menuButton', JSON.stringify(await focused()));
+  ck('and a real Shift+Tab too', (await page.$(BAR.menu)) === null && (await focused()).id === 'menuButton', JSON.stringify(await focused()));
   await page.setViewportSize({ width: 1100, height: 860 });
   ck('no browser errors in the study flow', errors.length === 0, errors.join(' | '));
 
@@ -623,15 +620,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const puts = () => sent.filter((r) => r.method === 'PUT' && r.url === `${app.base}/api/me/data`).length;
   const putsBefore = puts();
   await page.setInputFiles('#your-data input[type=file]', saved);
-  await page.waitForSelector('dialog.confirm[open]');
-  const question = (await page.textContent('dialog.confirm[open]')).replace(/\s+/g, ' ');
+  await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
+  const question = (await page.textContent('#your-data anotoki-dialog dialog[open]')).replace(/\s+/g, ' ');
   ck('Bring back asks first, with what the file holds', question.includes(download.suggestedFilename()) && question.includes('lea') && question.includes(String(inFile)), question);
   await shot('your-data-question');
   await page.click('#keepMine');
   ck('"Keep mine": nothing sent, nothing changed',
-    (await until('dialog.confirm[open]', 'detached')) && puts() === putsBefore && Object.keys(await progressOf(LEA)).length === itemsBefore + 3);
+    (await until('#your-data anotoki-dialog dialog[open]', 'detached')) && puts() === putsBefore && Object.keys(await progressOf(LEA)).length === itemsBefore + 3);
   await page.setInputFiles('#your-data input[type=file]', saved);
-  await page.waitForSelector('dialog.confirm[open]');
+  await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
   await page.click('#replaceMine');
   await page.waitForSelector('#yourDataDone', { timeout: 10000 });
   ck('"Replace": done, a copy of what it replaced kept', /^Done: your data is now what the file held\./.test((await page.textContent('#yourDataDone')).trim()), await page.textContent('#yourDataDone'));
@@ -644,7 +641,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.setInputFiles('#your-data input[type=file]', { name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"notes": [1, 2, 3]}') });
   const refused = await page.waitForFunction(() => document.getElementById('yourDataError')?.textContent.trim(), null, { timeout: 5000 }).then(() => true, () => false);
   ck('a file that is not one: refused here, before anything is sent',
-    refused && (await page.textContent('#yourDataError')).trim() === 'The file was not brought back: That is not a Japanese Academy data file, or it is damaged.' && puts() === putsThen && (await page.$('dialog.confirm[open]')) === null,
+    refused && (await page.textContent('#yourDataError')).trim() === 'The file was not brought back: That is not a Japanese Academy data file, or it is damaged.' && puts() === putsThen && (await page.$('#your-data anotoki-dialog dialog[open]')) === null,
     await page.textContent('#yourDataError'));
 
   /* -------------------------------------------------------- sign-out */
@@ -667,10 +664,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   // after the sign-out the IAM refuses, so the page stays on the Sign in card rather than signing in again at once
   await iamState({ deny: true });
-  await page.click('#userButton');
-  await page.click('#signOut');
-  const waited = await page.waitForSelector('#signOut[aria-busy="true"]', { timeout: 1000 }).then(() => true, () => false);
-  const waitWords = waited ? (await page.textContent('#signOut')).trim() : '';
+  await page.click(BAR.userButton);
+  await page.click(BAR.signOut);
+  const waited = await page.waitForSelector(`${BAR.signOut}[aria-busy="true"]`, { timeout: 1000 }).then(() => true, () => false);
+  const waitWords = waited ? (await page.textContent(BAR.signOut)).trim() : '';
   ck('Sign out with an answer on its way: it waits, saying so', waited && waitWords === 'Saving…', waitWords);
   await page.waitForSelector('#signin-button', { timeout: 15000 });
   const answersAfter = Number(app.sql("SELECT count(*) AS n FROM srs_log WHERE user_id = ? AND kind = 'practice'", LEA.sub)[0].n);
@@ -687,7 +684,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('reports, fetched with the token');
   await iamState({ deny: false, user: asUser(LEA) });
   await page.click('#signin-button');
-  await page.waitForSelector('#userButton', { timeout: 15000 });
+  await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await open('/exam');
   await page.waitForSelector('#bookChips .chip');
   await page.click('[data-size="40"]');
@@ -734,8 +731,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the browser’s time zone went with every call to this site’s API, and never to the IAM',
     requests.filter(ours).every((r) => r.headers['x-time-zone'] === zone) && !requests.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-time-zone']));
 
-  await page.click('#userButton');
-  ck('the menu: her IAM account page', (await page.getAttribute('#accountLink', 'href')) === `${IAM.issuer}/account`);
+  await page.click(BAR.userButton);
+  ck('the menu: her IAM account page', (await page.getAttribute(BAR.accountLink, 'href')) === `${IAM.issuer}/account`);
   await shot('account-menu');
   await page.keyboard.press('Escape');
 
@@ -745,20 +742,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // screen, or be sent as hers.
   console.log('another tab');
   await iamState({ deny: true });
-  await page.click('#userButton');
-  await page.click('#signOut');
+  await page.click(BAR.userButton);
+  await page.click(BAR.signOut);
   await page.waitForSelector('#signin-button', { timeout: 15000 });
   const tab = await context.newPage();
   await tab.goto(app.base + '/favicon.svg');
   await tab.evaluate(({ key, value }) => localStorage.setItem(key, value), iamSession(4203, { name: 'bob' }));
-  await page.waitForSelector('#userButton', { timeout: 10000 });
+  await page.waitForSelector(BAR.userButton, { timeout: 10000 });
   await page.waitForFunction(() => /\/ \d/.test(document.getElementById('kLearned')?.textContent || ''));
-  ck('signed in, in another tab: the app starts here too, as him', (await page.textContent('.user-name')).trim() === 'bob');
+  ck('signed in, in another tab: the app starts here too, as him', (await page.textContent(BAR.userName)).trim() === 'bob');
   await page.evaluate(() => {
     window.stayed = true;
   });
   await tab.evaluate(({ key, value }) => localStorage.setItem(key, value), iamSession(4204, { name: 'cleo' }));
-  await page.waitForFunction(() => document.querySelector('.user-name')?.textContent.trim() === 'cleo', null, { timeout: 10000 });
+  await page.waitForFunction((name) => document.querySelector(name)?.textContent.trim() === 'cleo', BAR.userName, { timeout: 10000 });
   ck('somebody else signs in there: this page loads again, as her', (await page.evaluate(() => window.stayed)) === undefined);
   await tab.close();
   ck('no browser errors after it', errors.length === 0, errors.join(' | '));
@@ -783,48 +780,48 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await otherTab.close();
   ck('the Slovak home page: no key where a word should be', (await keyShaped(admin)).length === 0, (await keyShaped(admin)).join(' | '));
 
-  await admin.click('#userButton');
-  ck('Admin panel in her menu, in Slovak', (await admin.textContent('#adminLink')).trim() === 'Administrátorský panel', await admin.textContent('#adminLink'));
-  await admin.click('#adminLink');
+  await admin.click(BAR.userButton);
+  ck('Admin panel in her menu, in Slovak', (await admin.textContent(BAR.adminLink)).trim() === 'Administrátorský panel', await admin.textContent(BAR.adminLink));
+  await admin.click(BAR.adminLink);
   await admin.waitForSelector('table.grid');
   ck('Admin panel: the Translations page, at /admin/translations, its title naming the panel',
     new URL(admin.url()).pathname === '/admin/translations' && (await admin.title()) === 'Translations · Admin panel · Japanese Academy', `${admin.url()} ${await admin.title()}`);
   ck('the admin area is English with Slovak chosen: the page, its <html lang>, the bar',
     (await admin.getAttribute('main', 'lang')) === 'en' && (await admin.textContent('h1')).trim() === 'Translations' && (await admin.getAttribute('html', 'lang')) === 'en'
-      && (await admin.$('#langButton')) === null);
-  const adminLinks = await admin.$$eval('.topbar-nav a', (els) => els.map((e) => e.textContent.trim()));
+      && (await admin.$(BAR.langButton)) === null);
+  const adminLinks = await admin.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
   ck('the bar holds the panel’s sections: Translations, Languages, People, Migrations; beside the mark its name',
-    adminLinks.join(',') === 'Translations,Languages,People,Migrations' && (await admin.textContent('app-brand .area')).trim() === 'Japanese admin panel', adminLinks.join(','));
-  await admin.click('#userButton');
-  ck('and her menu says it in English, with the way back', (await admin.textContent('#accountLink')).trim() === 'Your anotoki account' && (await admin.textContent('#backLink')).trim() === 'Back to Japanese Academy');
+    adminLinks.join(',') === 'Translations,Languages,People,Migrations' && (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel', adminLinks.join(','));
+  await admin.click(BAR.userButton);
+  ck('and her menu says it in English, with the way back', (await admin.textContent(BAR.accountLink)).trim() === 'Your anotoki account' && (await admin.textContent(BAR.backLink)).trim() === 'Back to Japanese Academy');
   await admin.keyboard.press('Escape');
   await admin.screenshot({ path: path.join(SHOTS, 'admin-translations.png') });
 
   await admin.fill('input[type=search]', 'common.lesson');
   const lessonCell = admin.locator('textarea[aria-label="Slovak: common.lesson"]');
   await lessonCell.fill('Lekcia {x}');
-  await admin.click('.save-bar button.primary');
+  await admin.click('.save-bar button.is-primary');
   const refusal = admin.locator('tr.row:has(code.key-name:text-is("common.lesson")) td.key .err');
   const refusedText = await refusal.textContent({ timeout: 5000 }).catch(() => '');
   ck('a refused string: the reason stands beside its key', /^Nothing was saved\. .*\{x\}/.test(refusedText), refusedText);
 
-  await admin.click('#nav-languages');
-  const leaveAsked = await admin.waitForSelector('dialog.confirm[open]', { timeout: 3000 }).then(() => true, () => false);
-  const words = leaveAsked ? { title: await admin.textContent('#confirm-title'), message: await admin.textContent('#confirm-message') } : {};
+  await admin.click(barLink('/admin/languages'));
+  const leaveAsked = await admin.waitForSelector('anotoki-confirm-host dialog[open]', { timeout: 3000 }).then(() => true, () => false);
+  const words = leaveAsked ? { title: await admin.textContent('anotoki-confirm-host h2'), message: await admin.textContent('anotoki-confirm-host .message') } : {};
   ck('leaving with a string not saved asks, in a modal <dialog>, with its words',
-    leaveAsked && (await admin.$eval('dialog.confirm', (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
+    leaveAsked && (await admin.$eval('anotoki-confirm-host dialog', (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
     JSON.stringify(words));
   await admin.keyboard.press('Escape');
-  const closed = await admin.waitForSelector('dialog.confirm[open]', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
+  const closed = await admin.waitForSelector('anotoki-confirm-host dialog[open]', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
   ck('Escape counts as "no": the page and the string stay',
     closed && new URL(admin.url()).pathname === '/admin/translations' && (await lessonCell.inputValue()) === 'Lekcia {x}', admin.url());
-  await admin.click('#nav-languages');
-  await admin.waitForSelector('dialog.confirm[open]');
-  await admin.click('dialog.confirm[open] button.primary');
+  await admin.click(barLink('/admin/languages'));
+  await admin.waitForSelector('anotoki-confirm-host dialog[open]');
+  await admin.click('anotoki-confirm-host [data-answer="yes"]');
   await admin.waitForSelector('section.add form');
   ck('and "Leave" leaves', new URL(admin.url()).pathname === '/admin/languages', admin.url());
 
-  await admin.fill('section.add .field.code input', 'cs');
+  await admin.fill('section.add input[placeholder="cs"]', 'cs');
   await admin.fill('section.add input[placeholder="Czech"]', 'Czech');
   await admin.fill('section.add input[placeholder="Čeština"]', 'Čeština');
   ck('a new language is not offered unless ticked', !(await admin.isChecked('section.add .offered input')));
@@ -836,17 +833,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       && !offered.includes('cs') && offered.includes('sk'), offered.join(','));
 
   // People: an ADMIN deletes a person's data, after a copy of it
-  await admin.click('#nav-people');
+  await admin.click(barLink('/admin/people'));
   await admin.waitForSelector('#people');
   const listed = await admin.$$eval('#people tbody tr', (rows) => rows.map((r) => r.getAttribute('data-id')));
   ck('People: everybody who signed in, her too', [LEA, MAX, ADA].every((x) => listed.includes(String(x.sub))) && (await admin.textContent(`#people tr[data-id="${ADA.sub}"]`)).includes('you'), listed.join(','));
   await admin.screenshot({ path: path.join(SHOTS, 'admin-people.png'), fullPage: true });
   const leaBefore = Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n);
   await admin.click(`#people tr[data-id="${MAX.sub}"] button`);
-  await admin.waitForSelector('dialog.confirm[open]');
-  const deleteWords = (await admin.textContent('#confirm-message')).replace(/\s+/g, ' ');
+  await admin.waitForSelector('anotoki-confirm-host dialog[open]');
+  const deleteWords = (await admin.textContent('anotoki-confirm-host .message')).replace(/\s+/g, ' ');
   ck('Delete data asks first, saying what goes', /2 items learned/.test(deleteWords) && /copy/.test(deleteWords), deleteWords);
-  await admin.click('dialog.confirm[open] button.primary');
+  await admin.click('anotoki-confirm-host [data-answer="yes"]');
   const deletedSaid = await admin.waitForFunction(() => /data is deleted/.test(document.querySelector('p.status')?.textContent || ''), null, { timeout: 10000 }).then(() => true, () => false);
   ck('then deletes: said so, and the row gone', deletedSaid && (await admin.$(`#people tr[data-id="${MAX.sub}"]`)) === null, await admin.textContent('p.status'));
   ck('his data is gone, a copy of it kept, nobody else’s touched',
@@ -864,11 +861,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const editor = await editorContext.newPage();
   const editorErrors = watch(editor);
   await editor.goto(app.base + '/');
-  await editor.waitForSelector('#userButton');
-  await editor.click('#userButton');
-  await editor.click('#adminLink');
+  await editor.waitForSelector(BAR.userButton);
+  await editor.click(BAR.userButton);
+  await editor.click(BAR.adminLink);
   await editor.waitForSelector('table.grid');
-  const editorLinks = await editor.$$eval('.topbar-nav a', (els) => els.map((e) => e.textContent.trim()));
+  const editorLinks = await editor.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
   ck('an EDITOR: Admin opens Translations, the only section in the bar', new URL(editor.url()).pathname === '/admin/translations' && editorLinks.join(',') === 'Translations', editorLinks.join(','));
   for (const url of ['/admin/people', '/admin/languages']) {
     await editor.goto(app.base + url);
@@ -886,10 +883,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await plant(learnerContext, NOA);
   const learner = await learnerContext.newPage();
   await learner.goto(app.base + '/');
-  await learner.waitForSelector('#userButton');
-  await learner.click('#userButton');
-  await learner.waitForSelector('#user-menu #signOut');
-  ck('a learner: no Admin in the menu', (await learner.$('#adminLink')) === null);
+  await learner.waitForSelector(BAR.userButton);
+  await learner.click(BAR.userButton);
+  await learner.waitForSelector(BAR.signOut);
+  ck('a learner: no Admin in the menu', (await learner.$(BAR.adminLink)) === null);
   await learner.goto(app.base + '/admin/translations');
   await learner.waitForSelector('.homecards');
   ck('and /admin sends them home; the API says 403 staff_only',
@@ -1029,7 +1026,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page',
     (await iamLog()).slice(iamBefore).includes('GET /api/oidc/authorize') && new URL(migrations.url()).pathname === '/'
       && seenByAdmin.title === 'A database update is waiting' && seenByAdmin.actions.join(',') === 'Open Migrations'
-      && (await migrations.textContent('.user-name')).trim() === 'ada', `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
+      && (await migrations.textContent(BAR.userName)).trim() === 'ada', `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'waiting-admin.png') });
   await migrations.click('anotoki-site-status a');
   await migrations.waitForSelector('[data-pending] .file', { timeout: 15000 });
@@ -1040,8 +1037,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy', `${pendingFiles.join(',')} ${await migrations.title()}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
   await migrations.click('[data-apply]');
-  await migrations.waitForSelector('dialog[data-confirm][open]');
-  ck('Apply asks first', (await migrations.textContent('dialog[data-confirm] h2')).trim() === 'Apply 1 pending migration?');
+  await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');
+  ck('Apply asks first', (await migrations.textContent('[data-confirm] h2')).trim() === 'Apply 1 pending migration?');
 
   // A migration that fails: 006's own gate, with the Slovak string it rewords taken away. Rolled back whole and named.
   const SK_ADMIN = "SELECT value FROM translations WHERE key_name = 'topbar.admin' AND language_code = ?";
@@ -1049,11 +1046,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const enAdmin = app.sql(SK_ADMIN, 'en')[0].value;
   app.sql("DELETE FROM translations WHERE key_name = 'topbar.admin' AND language_code = 'sk'");
   await migrations.click('[data-confirm-apply]');
-  await migrations.waitForSelector('[data-result] .result-title', { timeout: 15000 });
+  await migrations.waitForSelector('[data-result] .heading', { timeout: 15000 });
   await migrations.waitForFunction(() => !document.querySelector('[data-apply]').textContent.includes('Applying'));
   const stopped = (await migrations.textContent('[data-result]')).replace(/\s+/g, ' ').trim();
   ck('a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
-    (await migrations.textContent('[data-result] .result-title')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
+    (await migrations.textContent('[data-result] .heading')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
       && (await migrations.getAttribute('[data-result]', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
       && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('[data-apply]'))
       && (await migrations.$$eval('[data-pending] .file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
@@ -1065,9 +1062,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   app.sql("INSERT INTO translations (key_name, language_code, value) VALUES ('topbar.admin', 'sk', ?)", skAdmin);
 
   await migrations.click('[data-apply]');
-  await migrations.waitForSelector('dialog[data-confirm][open]');
+  await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');
   await migrations.click('[data-confirm-apply]');
-  await migrations.waitForFunction(() => document.querySelector('[data-result] .result-title')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
+  await migrations.waitForFunction(() => document.querySelector('[data-result] .heading')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
   await migrations.waitForFunction(() => /Nothing pending/.test(document.querySelector('[data-pending]')?.textContent ?? ''));
   ck('then applies it: up to date, nothing pending, the file applied, Apply off',
     /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
@@ -1075,8 +1072,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations.png'), fullPage: true });
   // Back to the app without a page load (the menu's link): the gate is open again, and the app's words were asked
   // for anew - the learner's page is drawn in words, not keys, from the start.
-  await migrations.click('#userButton');
-  await migrations.click('#backLink');
+  await migrations.click(BAR.userButton);
+  await migrations.click(BAR.backLink);
   await migrations.waitForSelector('.homecards', { timeout: 15000 });
   const keysBack = await keyShaped(migrations);
   ck('back to the app by the menu, no page load: its words at once, no key on the page',
@@ -1087,20 +1084,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the Migrations page’s addresses are an administrator’s: an EDITOR 403 admin_only', editorMigrations.status === 403 && (await editorMigrations.json()).code === 'admin_only');
   await asAdmin.close();
 
-  // Pia's tab asks again by itself (every 30 s) and loads afresh once the site is back. The gate makes the exam
-  // again just before that reload, in the page about to go - the paper put back there must not lose its copy.
+  // Pia's tab asks again by itself (every 30 s) and loads afresh once the site is back - without the gate making the
+  // pages first in the page about to go (anotoki-lib 0.2.0): the fresh page puts her paper back, its copy used then.
   await sitter.waitForSelector('#test:not([hidden])', { timeout: 45000 });
   const satAgain = await paperShown(sitter);
   ck('Pia’s tab, the site back: loaded afresh by itself, her paper on its question with its answers and flag',
     JSON.stringify(satAgain) === JSON.stringify(sitting) && (await sitter.$('anotoki-site-status')) === null, JSON.stringify(satAgain));
+  ck('its copy used once: an open paper again, which nothing keeps for the tab while the site is ready', (await keptOf(sitter)) === null);
   await sitter.keyboard.press('1');
   await sitter.waitForFunction((done) => document.querySelectorAll('#gridNav .done').length === done + 1, sitting.done);
-  const following = await keptOf(sitter);
   await sitter.click('#quitBtn');
   await sitter.waitForSelector('#result:not([hidden])', { timeout: 15000 });
-  ck('its copy follows it (her new answer in it) until it is handed in, scored, and gone then',
-    Object.values(following?.answers ?? {}).filter((a) => a.choice !== null).length === sitting.done + 1 && (await keptOf(sitter)) === null
-      && Number(app.sql('SELECT count(*) AS n FROM exam_attempts WHERE user_id = ?', PIA.sub)[0].n) === 1);
+  ck('then handed in, and scored once', (await keptOf(sitter)) === null && Number(app.sql('SELECT count(*) AS n FROM exam_attempts WHERE user_id = ?', PIA.sub)[0].n) === 1);
   ck('no browser errors on her tab but the refused hand-in', sitterErrors.length === 0, sitterErrors.join(' | '));
   await asSitter.close();
 
@@ -1125,12 +1120,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       // the Slovak pass: the learner's pages, the bar's menus, Your data's question - no key anywhere
       const found = [];
       found.push(...(await keyShaped(z)));
-      await z.click('#userButton');
-      await z.waitForSelector('#user-menu');
+      await z.click(BAR.userButton);
+      await z.waitForSelector(BAR.menu);
       found.push(...(await keyShaped(z)));
       await z.keyboard.press('Escape');
-      await z.click('#langButton');
-      await z.waitForSelector('#langmenu');
+      await z.click(BAR.langButton);
+      await z.waitForSelector(BAR.menu);
       found.push(...(await keyShaped(z)));
       await z.keyboard.press('Escape');
       await z.goto(app.base + '/');
@@ -1138,12 +1133,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       ck('Your data in Slovak names the zone', (await z.textContent('#yourZone')).includes(timezoneId) && (await z.getAttribute('html', 'lang')) === 'sk');
       const own = await (await app.api('/api/me/data', KIRI)).text();
       await z.setInputFiles('#your-data input[type=file]', { name: 'kiri.json', mimeType: 'application/json', buffer: Buffer.from(own) });
-      await z.waitForSelector('dialog.confirm[open]');
+      await z.waitForSelector('#your-data anotoki-dialog dialog[open]');
       found.push(...(await keyShaped(z)));
       await z.click('#keepMine');
       await z.setViewportSize({ width: 390, height: 844 });
-      await z.click('#menuButton');
-      await z.waitForSelector('#topbar-menu');
+      await z.click(BAR.menuButton);
+      await z.waitForSelector(BAR.menu);
       found.push(...(await keyShaped(z)));
       for (const url of ['/kanji/lessons', '/kanji/browse', '/exam']) {
         await z.goto(app.base + url);
@@ -1191,8 +1186,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the notice: kept for this browser for 30 days after the last visit; signing in keeps it',
     noticeWords === 'You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.', noticeWords);
   ck('no Your data, no person’s menu, no way to the admin panel; Sign in in the bar and in the notice',
-    (await vPage.$('#your-data')) === null && (await vPage.$('#userButton')) === null && (await vPage.$('#adminLink')) === null
-      && (await vPage.isVisible('#signInButton')) && (await vPage.isVisible('#visitorSignIn')));
+    (await vPage.$('#your-data')) === null && (await vPage.$(BAR.userButton)) === null && (await vPage.$(BAR.adminLink)) === null
+      && (await vPage.isVisible(BAR.signInButton)) && (await vPage.isVisible('#visitorSignIn')));
   ck('a page looked at makes nobody: no key, no visitor', (await heldKey()) === null && visitorRows().length === 0, visitorRows().join(','));
   await vPage.screenshot({ path: path.join(SHOTS, 'home-visitor.png') });
 
@@ -1277,13 +1272,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   const visitorBefore = rowsOf('srs_progress', visitor);
   mark = vSent.length;
-  await vPage.click('#signInButton');
-  const signInWaited = await vPage.waitForSelector('#signInButton[aria-busy="true"]', { timeout: 1000 }).then(() => true, () => false);
-  const signInWaitWords = signInWaited ? (await vPage.textContent('#signInButton')).trim() : '';
+  await vPage.click(BAR.signInButton);
+  const signInWaited = await vPage.waitForSelector(`${BAR.signInButton}[aria-busy="true"]`, { timeout: 1000 }).then(() => true, () => false);
+  const signInWaitWords = signInWaited ? (await vPage.textContent(BAR.signInButton)).trim() : '';
   ck('Sign in with answers on their way: it waits for them, saying so', signInWaited && signInWaitWords === 'Saving…' && visitorBefore < 10, `${signInWaitWords} (${visitorBefore} kept before)`);
-  await vPage.waitForSelector('#userButton', { timeout: 20000 });
+  await vPage.waitForSelector(BAR.userButton, { timeout: 20000 });
   await vPage.unroute('**/api/kanji/learn');
-  ck('then to the IAM and back, signed in, on the page it left', toIam(mark) && (await vPage.textContent('.user-name')).trim() === 'vera' && new URL(vPage.url()).pathname === '/kanji', vPage.url());
+  ck('then to the IAM and back, signed in, on the page it left', toIam(mark) && (await vPage.textContent(BAR.userName)).trim() === 'vera' && new URL(vPage.url()).pathname === '/kanji', vPage.url());
   const movedShown = await vPage.waitForSelector('#visitorMoved', { timeout: 10000 }).then(() => true, () => false);
   const movedWords = movedShown ? (await vPage.textContent('#visitorMoved p')).replace(/\s+/g, ' ').trim() : '';
   ck('the note: what moved into the account', movedWords === 'What you studied without signing in is now in your account. Kanji and words: 10, exam attempts: 1.', movedWords);
@@ -1293,13 +1288,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the kanji dashboard shows them as hers, the notice gone', (await vPage.$('#visitorNotice')) === null && (await vPage.isVisible('.cards3')));
 
   // Signing out: a fresh visitor's page, with nothing of hers.
-  await vPage.click('#userButton');
-  await vPage.click('#signOut');
+  await vPage.click(BAR.userButton);
+  await vPage.click(BAR.signOut);
   await vPage.waitForSelector('#visitorNotice', { timeout: 15000 });
   await vOpen('/');
   await vPage.waitForFunction(() => /\d/.test(document.getElementById('kLearned')?.textContent || ''));
   ck('signed out: a visitor’s page again, nothing learned, no key, nobody made',
-    (await vPage.$('#userButton')) === null && (await vPage.textContent('#kLearned')).trim().startsWith('0 /') && (await heldKey()) === null && visitorRows().length === 0,
+    (await vPage.$(BAR.userButton)) === null && (await vPage.textContent('#kLearned')).trim().startsWith('0 /') && (await heldKey()) === null && visitorRows().length === 0,
     await vPage.textContent('#kLearned'));
 
   // Sign-in required again, with a visitor's key held: the page goes to the IAM, and the sign-in moves it.
@@ -1313,10 +1308,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await app.signInRequired(true);
   mark = vSent.length;
   await vOpen('/kanji');
-  await vPage.waitForSelector('#userButton', { timeout: 20000 });
+  await vPage.waitForSelector(BAR.userButton, { timeout: 20000 });
   await vPage.waitForSelector('.cards3');
   const sentSince = await Promise.all(vSent.slice(mark).map(async (r) => ({ url: r.url, method: r.method, headers: await r.headers })));
-  ck('switched on: the page goes to the IAM first, and comes back signed in', toIam(mark) && (await vPage.textContent('.user-name')).trim() === 'wren', vPage.url());
+  ck('switched on: the page goes to the IAM first, and comes back signed in', toIam(mark) && (await vPage.textContent(BAR.userName)).trim() === 'wren', vPage.url());
   ck('the key went only with the move, never as a visitor’s while sign-in is required',
     sentSince.filter((r) => r.headers['x-visitor-key']).every((r) => r.method === 'POST' && r.url === `${app.base}/api/visitor/move` && /^Bearer /.test(r.headers.authorization || '')),
     sentSince.filter((r) => r.headers['x-visitor-key']).map((r) => r.url).join(' '));
@@ -1344,10 +1339,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     (await skPage.getAttribute('html', 'lang')) === 'sk' && skNotice === 'Študuješ bez prihlásenia. To, čo sa naučíš, uchováme pre tento prehliadač 30 dní po tvojej poslednej návšteve. Prihlás sa a zostane ti vo tvojom účte.', skNotice);
   ck('and no sideways scroll at 390 px', await skPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await skPage.screenshot({ path: path.join(SHOTS, 'home-visitor-sk-phone.png'), fullPage: true });
-  await skPage.click('#menuButton');
-  await skPage.waitForSelector('#topbar-menu');
+  await skPage.click(BAR.menuButton);
+  await skPage.waitForSelector(BAR.menu);
   skFound.push(...(await keyShaped(skPage)));
-  ck('the phone menu: Sign in, no person’s items', (await skPage.isVisible('#signInItem')) && (await skPage.$('#signOut')) === null);
+  ck('the phone menu: Sign in, no person’s items', (await skPage.isVisible(BAR.signInItem)) && (await skPage.$(BAR.signOut)) === null);
   ck('no key-shaped text on the visitor’s Slovak page or in its menu', skFound.length === 0, [...new Set(skFound)].join(' | '));
   ck('no browser errors in Slovak as a visitor', skErrors.length === 0, skErrors.join(' | '));
   await skVisitor.close();

@@ -14,10 +14,10 @@
 
   <div class="actions">
     @if (stage()) {
-      <button class="primary" type="button" (click)="practise()">{{ 'item.practiseNow' | translate }}</button>
-      <button class="ghost" type="button" (click)="reset()">{{ 'item.reset' | translate }}</button>
+      <button anotokiButton variant="primary" (click)="practise()">{{ 'item.practiseNow' | translate }}</button>
+      <button anotokiButton (click)="reset()">{{ 'item.reset' | translate }}</button>
     } @else if (available()) {
-      <button class="primary" type="button" (click)="learn()">{{ 'item.learnNow' | translate }}</button>
+      <button anotokiButton variant="primary" (click)="learn()">{{ 'item.learnNow' | translate }}</button>
     } @else {
       <p class="small muted"><app-worded [parts]="kanjiFirst()" /></p>
     }
@@ -62,14 +62,15 @@
       }
     </div>
     <div class="addrow">
-      <input
-        type="text"
+      <anotoki-text-field
+        [label]="'item.addMeaning' | translate"
+        hideLabel
         [placeholder]="'item.addMeaning' | translate"
         [value]="added()"
-        (input)="added.set($any($event.target).value)"
+        (valueChange)="added.set($event)"
         (keydown.enter)="addSynonym()"
       />
-      <button class="ghost" type="button" (click)="addSynonym()">{{ 'item.add' | translate }}</button>
+      <button anotokiButton (click)="addSynonym()">{{ 'item.add' | translate }}</button>
     </div>
   </section>
 } @else {

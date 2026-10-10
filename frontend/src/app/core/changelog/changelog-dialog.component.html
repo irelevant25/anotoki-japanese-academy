@@ -2,7 +2,7 @@
   <div class="box">
     <div class="head">
       <h2 id="changelog-title">{{ words().title }}</h2>
-      <button type="button" class="ghost sm" (click)="close()">{{ words().close }}</button>
+      <button anotokiButton size="sm" (click)="close()">{{ words().close }}</button>
     </div>
     @for (entry of changelog.entries(); track entry.version; let first = $first) {
       <section class="release" [class.latest]="first">

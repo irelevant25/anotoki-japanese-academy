@@ -429,12 +429,16 @@ tests run in Vitest with jsdom (`ng test`).
   back, with a quiet **Sign in** while nobody is signed in, and for the site's
   `ADMIN` "A database update is waiting" and the way to the Migrations page,
   the one page that works then (it asks again by itself too, since
-  anotoki-lib 0.1.1: another administrator may apply the update meanwhile);
+  anotoki-lib 0.1.1: another administrator may apply the update meanwhile;
+  the site back, the library's page loads the tab afresh - since 0.2.0
+  without making the pages first);
   not set up: "This site is not set up yet" and
   the setup page, only while the copy was never installed; unavailable: "not
-  available right now". Everything under the bar is the gate's template
-  (`<anotoki-site-gate><ng-template>…</ng-template></anotoki-site-gate>`,
-  anotoki-lib 0.1.1): it is made only while the site is open, so nothing of
+  available right now". Everything under the bar is the gate's marked
+  template
+  (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`,
+  `SitePagesDirective`; anotoki-lib 0.1.1, marked since 0.2.0): it is made
+  only while the site is open, so nothing of
   the pages runs behind the library's page — no page asks for its data,
   hears a key or ticks a clock there — and a page open when the site stops is
   taken down (an open exam paper is kept for the tab as it goes:
@@ -445,11 +449,26 @@ tests run in Vitest with jsdom (`ng test`).
   screen, with a
   sign-in that came back without one said above it, `standin/sign-in-failed/`), then the foot: the version and
   **What's new** (`core/changelog/app-version.component`, which opens the
-  changelog dialog). The bar and the foot are drawn in every state.
-- `top-bar/` — the bar (*The top bar* below); `ui/` — the anotoki family's
-  UI pieces it is made of, in this app's tokens: `brand/` (the mark,
-  "anotoki" and "Japanese"), `theme-toggle/` (light, dark, the system's),
-  `icon/` (the bar's line icons, as paths).
+  changelog dialog). The bar and the foot are drawn in every state; after
+  the foot, the kit's question host (`<anotoki-confirm-host>`: the one
+  question `ConfirmService` asks - the admin panel's "Delete …?").
+- `top-bar/` — the bar (*The top bar* below): the anotoki library's
+  `<anotoki-top-bar>` (`@anotoki/lib/shell`, with its brand, theme switch,
+  language switcher and icons), worded and wired by this app.
+- `core/kit.config.ts` — the anotoki library's UI kit (`@anotoki/lib/ui`,
+  since anotoki-lib 0.2.0) and its shell, wired to this app
+  (`provideKit()`): the kit's words are the app's (its `lookup` maps each
+  word of the kit to the app's key - "Sign out" is `account.signOut`, the
+  theme's "System" `theme.system` - read from the translation service, the
+  owner's rewordings included; with no strings, the seeded English kept in
+  the code; a word the app has no key for is the kit's own English or
+  informal Slovak), the language on the page (English in the admin panel),
+  the theme (`ThemeService`: `academy-theme` on the device, the anotoki
+  account's while signed in, a choice saved to it, a refusal worded in the
+  app's sentences) and the languages on offer (the translation service's).
+  Buttons, dialogs, questions, fields, the spinner and menus everywhere are
+  the kit's (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
+  `anotoki-text-field` …).
 - `app.routes.ts` — the learner's pages under one parent whose
   `canActivateChild` is `signInGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
@@ -471,20 +490,24 @@ tests run in Vitest with jsdom (`ng test`).
   IAM's browser SDK in `sdk/`), `saves-in-flight.service.ts`
   (the saves on their way, which a sign-out — and a visitor's sign-in — waits for), `storage.ts`
   (localStorage and sessionStorage that never throw), `time-zone.ts` (the
-  browser's IANA zone), `i18n/` (the app's words, below; the language
-  chooser), `theme/` (`ThemeService`: light, dark or the system's — the
-  anotoki account's while somebody is signed in, else kept per device),
+  browser's IANA zone), `i18n/` (the app's words, below),
+  `kit.config.ts` (above),
   `changelog/` (the foot's version and "What's new", the dialog),
   `audio.service.ts` (the two voices take turns),
   `format.ts` (times, dates and percentages in the language on the page, or
   in the date order and clock of a signed-in person's account),
   `testing/` (the specs' translation service, stand-ins of the sign-in's
-  states, the library's module as a spec needs it).
+  states, the library's module as a spec needs it, the kit's question
+  answered: `kit-question.ts`).
 - `admin/` — the admin panel, in English: Translations (EDITOR, ADMIN),
   Languages, People and Migrations (ADMIN: the anotoki library's
   `<anotoki-migrations-page>` in the panel's frame); the bar's links lead between
   them (below). Its titles are "<page> · Admin panel · Japanese Academy"
-  (`core/i18n/title.strategy.ts`).
+  (`core/i18n/title.strategy.ts`). Its questions ("Delete …?", "Import …?",
+  "Leave without saving?") are the kit's (`ConfirmService`), asked through
+  `admin/page-question.ts`: the kit draws its one question in the app's root,
+  so a question still open when its page goes (Back pressed) is answered no
+  with it, never left over the next page to act for a page that is gone.
 - `home/` — the home page (kanji summary, exam history) and, at its foot,
   Your data (`your-data/`, above; a signed-in person's only); at its top (and
   the kanji dashboard's) the visitor notice (`visitor-notice/`: kept for this
@@ -503,11 +526,19 @@ tests run in Vitest with jsdom (`ng test`).
   to the address already shown (the router fires nothing for it).
 - `exam/` — the exam: setup, the paper (keys: 1–4 or A–D, ←/→, Enter, F, R),
   the result, all one component with three screens.
-- `styles/` — `_tokens.scss` (every colour, light and dark: the dark ones
-  under `prefers-color-scheme: dark` unless the page is told light, and under
-  `[data-theme='dark']`), `_base.scss` (the page, buttons, chips, panels,
-  tables, the sign-in page, the spinner), `_items.scss` (tiles and stage
-  colours shared by the kanji screens).
+- `styles.scss` and `styles/` — the anotoki library's styles first
+  (`@use "@anotoki/lib/styles" as anotoki`: its tokens, base and Manrope,
+  the family's font, bundled), then `_tokens.scss` (Japanese's palette given
+  to the library's tokens, `anotoki.root()`, light and dark - the kit and
+  the library's pages draw with them -, the app's own names for them
+  (`--bg`, `--ink`, `--accent` …), and the study colours, kanji, vocabulary
+  and the stages, the app's alone: the dark ones under
+  `prefers-color-scheme: dark` unless the page is told light, and under
+  `[data-theme='dark']`), `_base.scss` (the page, chips, panels, tables,
+  the sign-in page - its element and shared-class rules kept out of the
+  kit's components, `$app-only`: an app's `button` or `.panel` rule never
+  reaches inside a kit button or the library's page), `_items.scss` (tiles
+  and stage colours shared by the kanji screens).
 - `standin/` — the two pages of the app's own that stand in for it, the Sign
   in card and the problem page (and `sign-in-failed/`, the Sign in card's
   words above a visitor's page; a site not set up, being updated or out of
@@ -518,51 +549,60 @@ tests run in Vitest with jsdom (`ng test`).
   `const ENGLISH` map in each; `backend/tests/unit/translations.test.php`
   holds it to the seeded English), never a key.
 - `public/` — `favicon.svg` (the 日 stays the tab's icon), `anotoki.png` (the
-  family's mark), `theme-boot.js` (the stored light/dark choice, before the
-  first paint), `changelog.json`.
+  family's mark), `changelog.json`; `angular.json` copies the library's
+  `theme-boot.js` (the stored light/dark choice, before the first paint;
+  `data-storage-key="academy-theme"` in `index.html`) beside them.
 
-wanakana (romaji → kana as you type) comes from npm and is bundled; the IAM's
-browser SDK is a copy (`core/auth/sdk/`), so the built app needs nothing from
-the network.
+wanakana (romaji → kana as you type) comes from npm and is bundled, and so
+are the anotoki library's kit and Manrope; the IAM's browser SDK is a copy
+(`core/auth/sdk/`), so the built app needs nothing from the network.
 
 ## The top bar
 
-The anotoki family's one bar (since 2026-10-04; the survey's
-`layouts/top-bar` is the family's reference), in Japanese Academy's tokens:
-`frontend/src/app/top-bar/`, drawn by `AppComponent` in every state, sticky
-at the top (`--topbar-height`, 60 px; the exam's progress sticks under it).
-One row, in this order:
+The anotoki family's one bar (since 2026-10-04), and since anotoki-lib 0.2.0
+the library's own: `<anotoki-top-bar>` (`@anotoki/lib/shell`), worded and
+wired by this app in `frontend/src/app/top-bar/` - the wrapper gives it the
+brand, the links, the person, the menu's items, Sign in and Sign out, and
+the library draws them, in Japanese Academy's palette (`_tokens.scss`).
+`AppComponent` draws it in every state, sticky at the top (`--topbar-height`,
+60 px; the exam's progress sticks under it). One row, in this order:
 
-- **the brand** (`ui/brand/`): the family's mark, "anotoki" and "Japanese" —
-  a name, the same in every language; on a phone "Japanese" alone. It links
-  home (`topbar.home`, "anotoki Japanese: home", which holds the words it
-  shows; `aria-current` on the home page): the app has no Home link of its
-  own. In the admin panel it reads "anotoki Japanese admin panel" ("admin
-  panel" alone on a phone; the anotoki family's name for the area, since
-  2026-10-04) and links to `/admin` ("anotoki Japanese admin panel: home").
-- **the links**: **Kanji** (a term, never translated; the reviews due on it,
-  `#navDue`) and **Exam** (`topbar.exam`), the section the page is in marked,
+- **the brand** (the library's `<anotoki-brand>`): the family's mark,
+  "anotoki" and "Japanese" — a name, the same in every language; on a phone
+  "Japanese" alone. It links home (`topbar.home`, "anotoki Japanese: home",
+  which holds the words it shows; `aria-current` on the home page): the app
+  has no Home link of its own. In the admin panel it is the family's one
+  form, "anotoki Japanese · admin panel" ("Japanese" with "admin panel" small
+  under it while the bar is folded), and links to `/admin` ("anotoki Japanese
+  admin panel: home").
+- **the links**: **Kanji** (a term, never translated; the reviews due beside
+  it, in the vermilion of kanji - the wrapper gives the library's badge
+  `--kanji`) and **Exam** (`topbar.exam`), the section the page is in marked,
   the page's own link `aria-current`. In the admin panel the area's sections:
   Translations, and for ADMIN Languages, People and Migrations — English
   words, as the area is, not keys.
-- **the language** (`core/i18n/language-chooser/`): a round button with the
-  code ("SK"), named "Language: Slovenčina (SK)" (`language.button` holds
-  `{code}`: a voice user says what they see), a menu of the languages; only
-  where the learner's pages are, and only with two or more. A signed-in
-  person's choice goes to their anotoki account too (*The app's words*).
-- **the theme** (`ui/theme-toggle/`): light, dark or the system's, a radio
-  group of three icons (102 × 40); `<html data-theme>` for light or dark,
-  nothing for the system's (`core/theme/theme.service.ts`). Signed in, it is
-  the anotoki account's — one theme for every anotoki site, this one's admin
-  panel too (the owner's decision of 2026-10-06): taken from the account, and
-  a choice here saved to it; a refusal puts the account's theme back, with a
-  line under the switch that says why (`.refused`, hung from its right edge,
-  over the page), until the next choice, a click elsewhere, Escape on any of
-  the bar's controls (`TopBarComponent.keydown()`) or anywhere else, or the
-  account gone (signed out). Nobody signed in, or an IAM that sends no
-  preferences: per device, as before. The theme shown is kept in `localStorage`
-  (`academy-theme`), and `public/theme-boot.js` sets it before the first
-  paint ([sign-in.md](sign-in.md), *The account's preferences*).
+- **the language** (the library's language switcher, offered the translation
+  service's languages in `core/kit.config.ts`): a round button with the code
+  ("SK"), named "Language: Slovenčina (SK)" (`language.button` holds
+  `{code}`: a voice user says what they see), a menu of the languages under
+  their own names; only where the learner's pages are, and only with two or
+  more. A signed-in person's choice goes to their anotoki account too (*The
+  app's words*); a language whose words cannot be had leaves the page as it
+  is, with a note under the button (`language.notLoaded`).
+- **the theme** (the library's switch and `ThemeService`, wired in
+  `core/kit.config.ts`): light, dark or the system's, a segmented radio group
+  of three icons (102 × 40), "System" the app's `theme.system`;
+  `<html data-theme>` for light or dark, nothing for the system's. Signed in,
+  it is the anotoki account's — one theme for every anotoki site, this one's
+  admin panel too (the owner's decision of 2026-10-06): taken from the
+  account, and a choice here saved to it; a refusal puts the account's theme
+  back, with a note under the switch that says why in the app's sentences
+  (`preferencesFailure()`, through `THEME_REFUSAL`), until the next choice, a
+  click elsewhere, Escape on any of the bar's controls, or the account gone
+  (signed out). Nobody signed in, or an IAM that sends no preferences: per
+  device, as before. The theme shown is kept in `localStorage`
+  (`academy-theme`), and the library's `theme-boot.js` sets it before the
+  first paint ([sign-in.md](sign-in.md), *The account's preferences*).
 - **the person's menu** (a round button with their initial, their name beside
   it from 961 px): their name, address and role (Administrator / Editor);
   **Your anotoki account** (the IAM's account page, a new tab); **Admin panel**
@@ -570,7 +610,8 @@ One row, in this order:
   EDITOR and ADMIN, or **Back to Japanese Academy** in the admin panel; **Sign
   out** (`SignOutService`: it waits for the answers and notes on their way —
   a spinner and "Saving…" — and asks first when something would be lost). —
-  Signed out with the Sign in card on the page: **Sign in** instead.
+  Signed out with the Sign in card on the page, or visiting: **Sign in**
+  instead (a visitor's through `SignInService`, which waits for the saves too).
 
 **While the site is not ready** (the anotoki library's page stands in front
 of the pages: `pagesShut()` in `core/site-status.ts`, the library gate's own
@@ -581,75 +622,82 @@ that works then — has its link alone, and **Back to Japanese Academy**. The
 tab's title is the app's name alone meanwhile (`AcademyTitleStrategy`), not
 the title of the page the address names (which is not made then).
 
-**The fold.** Up to `PHONE_BAR_MAX` = 760 px (a `matchMedia` signal, and the
-same number in the scss) the bar is a phone's: the brand, the language, the
-theme and one menu button holding the links, a separator and the person's
-menu (or Sign in). **The reviews due stand on the menu button** (`#menuDue`),
-and its name says them ("Menu: 125 reviews due", `topbar.phoneMenuDue`, a
-plural family), so the count a phone hides with the links is still in sight.
+**The fold.** Up to `PHONE_BAR_MAX` = 760 px (the library's `phoneMax`) the
+bar is a phone's: the brand, the language, the theme and one menu button
+holding the links, a separator and the person's menu (or Sign in). **The
+reviews due stand on the menu button** (the library's `phoneMark`), and its
+name says them ("Menu: 125 reviews due", `topbar.phoneMenuDue`, a plural
+family), so the count a phone hides with the links is still in sight.
 Crossing 760 px closes an open menu. What gives way on a crowded desktop row
 is the person's name: from 761 to 960 px the round button alone, from 961 px
+(`NAME_BAR_MIN`; the library's own default would be 201 px past the fold)
 the name beside it (ellipsis at 12rem); the brand, the links, the language
 and the theme never shrink. **The admin panel folds later**, up to
-`ADMIN_PHONE_BAR_MAX` = 960 px: its four links and "anotoki Japanese admin
-panel" need 886 px at 761 (measured 2026-10-04: brand 20-300, links 316-698,
-theme 714-816); from 761 to 960 the whole brand stands beside the menu
-button (brand 20-300, theme 589-691, menu 701-741), and at 360 and 390 the
-brand is "admin panel" (12-152).
+`ADMIN_PHONE_BAR_MAX` = 960 px: its four links and "anotoki Japanese · admin
+panel" fill the row at 961 (brand 20-318, links 334-727, theme 743-845, the
+person 854-941, the name cut short); folded, "Japanese" and "admin panel"
+stand beside the menu button (the
+library shows a phone's bar with the short brand, so the whole brand of
+761-960 px before anotoki-lib 0.2.0 is gone).
 
-760 is the family's number, and Japanese keeps it: measured in Edge on
-2026-10-04 with the real labels, a three-digit due count and the longest name
-the family measures (20 characters), the desktop row needs about 653 px in
-Slovak and 642 px in English, so at 761 px there is room to spare. In pixels,
-left-right:
+760 is the family's number, and Japanese keeps it: measured again in Edge on
+2026-10-10 in Manrope, the family's font, with the real labels, a three-digit
+due count and the longest name the family measures (20 characters), at 761 px
+the English row has 108 px to spare and the Slovak 96 (beyond the 16 px gap).
+In pixels, left-right:
 
 | Width | Measured |
 | --- | --- |
-| 360 (phone) | brand 12-125 ("Japanese"), language 153-193, theme 200-302, menu button 308-348 (the due count on its corner) |
-| 390 (phone) | brand 12-125, language 183-223, theme 230-332, menu button 338-378 |
-| 761, signed in, 999 due | brand 20-201, Kanji 217-313, Exam 317-377 (Slovak "Skúška" 317-388), language 512-552, theme 561-663, the person 673-741: 119 px to spare in English, 108 in Slovak (beyond the 16 px gap) |
-| 761, signed out (the card) | brand 20-201, language 492-532 (Slovak 469-509), theme 542-644 (518-620), Sign in 653-741 (Slovak "Prihlásiť sa" 630-741) |
-| 761, the admin panel (ADMIN) | folded (above): brand 20-300 ("anotoki Japanese admin panel"), theme 589-691, menu button 701-741 |
-| 961, the admin panel (ADMIN) | brand 20-300, links 316-698 (Translations, Languages, People, Migrations), theme 714-816, the person 825-941 |
-| 961 | language 544-584, theme 594-696, the person 706-941 with the name |
-| 1280 | brand 140-321, links 337-497 (Slovak 337-508), language 743-783, theme 793-895, the person 905-1140 |
+| 360 (phone) | brand 12-132 ("Japanese"), language 153-193, theme 200-302, menu button 308-348 (the due count on its corner) |
+| 390 (phone) | brand 12-132, language 183-223, theme 230-332, menu button 338-378 |
+| 761, signed in, 999 due | brand 20-207, Kanji and Exam 223-388 (Slovak "Skúška" 223-400), language 512-552, theme 561-663, the person 673-741 |
+| 761, signed out (the card) | brand 20-207, language 486-526 (Slovak 457-497), theme 536-638 (507-609), Sign in 648-741 (Slovak "Prihlásiť sa" 619-741) |
+| 761, the admin panel (ADMIN) | folded (above): brand 12-132 ("Japanese" / "admin panel"), theme 601-703, menu button 709-749 |
+| 961, the admin panel (ADMIN) | brand 20-318, links 334-727 (Translations, Languages, People, Migrations), theme 743-845, the person 854-941 |
+| 961 | language 529-569, theme 579-681, the person 691-941 with the name |
+| 1280 | brand 140-327, links 343-508 (Slovak 343-520), language 728-768, theme 778-880, the person 890-1140 |
 
 **The keys.** No key pressed anywhere in the bar reaches `document`: the
 lesson quiz, the reviews and the exam listen there (Enter submits a card or
 hands a paper in, Space plays a word, 1-4 and A-D choose), and Enter or Space
-on a button of the bar would do that instead of pressing it. So the header
-stops every key (`keydown()`, `stopPropagation()`) and handles Escape itself,
+on a button of the bar would do that instead of pressing it. So the library's
+bar stops every key (`isolateKeys`, on by default) and handles Escape itself,
 which no document listener would hear; what the key does on the control is
-the browser's and stays so. The chooser does the same on its own, and so
-does the foot (`app-version`: What's new and the changelog dialog it opens —
-Enter there opens or closes the news, never hands a paper in). Specs prove
-it with the real exam (a spoken last question: nothing chosen, played or
-handed in) and the real review session (nothing checked), for the bar's
-controls and the foot's (`core/testing/foot-controls.ts`).
+the browser's and stays so. The foot does the same on its own
+(`app-version`: What's new and the changelog dialog it opens — Enter there
+opens or closes the news, never hands a paper in). Specs prove it with the
+real exam (a spoken last question: nothing chosen, played or handed in) and
+the real review session (nothing checked), for the bar's controls and the
+foot's (`core/testing/foot-controls.ts`).
 
-**The menus** are the IAM's pattern: a menu button (`aria-haspopup`,
-`aria-expanded`, `aria-controls`); the focus to the first item when it opens
-(in `afterNextRender`: with no zone a microtask runs before the menu is
-drawn); ArrowDown/ArrowUp round and round, Home and End; Escape closes it with
-the focus back on its button; **Tab and Shift+Tab from any item close it with
-the focus on its button** (`preventDefault()`: left to the browser the focus
-would land on the next item of a menu about to go, then on `<body>`); a
-click outside closes it where the focus is; choosing an item closes it — but
-Sign out and Sign in, which wait for the saves on their way first: the menu
-stays open meanwhile, the item disabled with its spinner and "Saving…" (else
-a phone would show the wait nowhere). Sign in in the phone's menu puts the
-focus on the menu button as it starts (a disabled item would drop it on
-`<body>`) and closes the menu with the focus there once the wait is over. The
-language chooser follows the same rules (its items `menuitemradio`).
+**The menus** are the library's (`@anotoki/lib/ui/menu`), with the family's
+rules: a menu button (`aria-haspopup`, `aria-expanded`, `aria-controls`); the
+focus to the first item when it opens; ArrowDown/ArrowUp round and round,
+Home and End; Escape closes it with the focus back on its button; **Tab and
+Shift+Tab from any item close it with the focus on its button** (left to the
+browser the focus would land on the next item of a menu about to go, then on
+`<body>`); a click outside closes it where the focus is; choosing an item
+closes it — but Sign out and Sign in, which wait for the saves on their way
+first (the wrapper hands the library the promise of `SignOutService` /
+`SignInService`): the menu stays open meanwhile, the item disabled with its
+spinner and "Saving…", the focus on the menu's button (a disabled item would
+drop it on `<body>`), and the menu closes with the focus there once the wait
+is over. The language menu follows the same rules (its items
+`menuitemradio`).
 
-**Its words** are keys (`topbar.*`, `theme.*`, `account.*`,
+**Its words** are keys (`topbar.*`, `theme.*`, `language.*`, `account.*`,
 `signIn.button`, `signOut.saving`; migration 005), each with its English in
-the code for a bar drawn with no strings (`keptWord()`). **In the admin
-area** the bar reads in English, whatever the reader chose, with no case in
-the bar: the title strategy tells the translation service the address
-(`noteAddress()`), and under `/admin` it answers from the bundle's English
-(`pageLanguage`; `<html lang>` follows). The reader's own language stays
-(`language()`): the IAM's pages still open in it.
+the code for a bar drawn with no strings (`keptWord()`): the bar's own in
+`top-bar.component.ts`, those the library's pieces say (Sign out, Saving…,
+the theme's, the language's, Close) in `core/kit.config.ts`, whose `lookup`
+gives the kit the app's strings, the owner's rewordings included. A word of
+the kit the app has no key for is the kit's own (English, or informal
+Slovak). **In the admin area** the bar reads in English, whatever the reader
+chose, with no case in the bar: the title strategy tells the translation
+service the address (`noteAddress()`), and under `/admin` it answers from the
+bundle's English (`pageLanguage`; `<html lang>` follows), and so does the
+kit's `language`. The reader's own language stays (`language()`): the IAM's
+pages still open in it.
 
 **The foot** of every page: the version and **What's new**, which opens the
 changelog dialog, with a dot beside the words until this version's news has
@@ -664,7 +712,10 @@ changelog wrote it before, has read "0.4.0".
 
 **The mark in dark.** The family's mark is a dark navy picture: in light it
 has the soft shadow the survey's brand gives it; in dark a light halo
-(`--mark-shadow`, a token of both themes), or it sinks into the dark bar.
+(`--anotoki-mark-shadow`, given for both themes in `_tokens.scss`), or it
+sinks into the dark bar. Given here, not left to the library: anotoki-lib
+0.2.0's own dark value (a one-item list) reaches the CSS as "(…,)", which a
+browser drops, and the mark had no halo at all (screens.js checks it).
 
 ## The app's words
 
@@ -773,8 +824,11 @@ choice, no `?lang=`).
 - State holds keys, kinds and `ApiError`s, never a worded sentence, so a page
   follows a change of language without being made again; a failed request is
   worded from its code (`error-text.ts`), never with the server's sentence.
-- The chooser (`language-chooser/`) sits in the top bar in every state but
-  the admin panel's, and hides while fewer than two languages are on offer.
+- The chooser (the library's language switcher, offered the translation
+  service's languages under their own names in `core/kit.config.ts`) sits
+  in the top bar in every state but the admin panel's, and draws nothing
+  while fewer than two languages are on offer. A language whose words
+  cannot be had leaves the page as it is, with a note under the button.
   Like the whole bar it keeps its keys to itself: Enter on a language never
   submits a card or finishes a paper behind it, and switching changes words
   only. A signed-in person's choice, once the page has switched, also goes
@@ -889,7 +943,7 @@ is back), with a quiet **Sign in** while nobody is signed in, and for the
 site's `ADMIN` "A database update is waiting" with **Open Migrations**, the
 one page that works then, asking again the same way (`SiteGateComponent`;
 who is `ADMIN` is the token's roles). Nothing of the pages is made behind
-the library's page (they are the gate's template). Until 2026-10-07 the start stopped on the problem page
+the library's page (they are the gate's marked template). Until 2026-10-07 the start stopped on the problem page
 instead (the words answered 503 `not_up_to_date`), and an administrator who
 was signed out could not sign in at all. The **Migrations page**
 (`/admin/migrations`, `ADMIN`: the library's `<anotoki-migrations-page>`;

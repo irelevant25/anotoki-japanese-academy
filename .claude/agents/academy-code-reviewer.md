@@ -197,8 +197,14 @@ settings, Apache or the setup page; `architecture.md` for the map).
      `OnPush`, state in signals; no zone.js, no inline template or style.
    - Nothing bound with `[innerHTML]` that holds data; Angular's templates
      escape the rest.
-   - Colours come only from tokens (`frontend/src/styles/_tokens.scss`); dark
-     mode and phone width work.
+   - Colours come only from tokens (`frontend/src/styles/_tokens.scss`:
+     Japanese's palette given to the anotoki library's, the study colours);
+     dark mode and phone width work. Buttons, dialogs and questions, fields,
+     the spinner and menus are the library's kit (`anotokiButton`,
+     `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field` …), never an
+     own button or field style; a global rule of the app stays out of the
+     kit's components (`_base.scss`, `$app-only`); the kit's words are the
+     app's (`core/kit.config.ts`).
    - The words a learner reads are keys with an English and a Slovak string
      (a new key comes with a migration; `php backend/translations.php
      --status` is clean); no English written into a template, the kept terms
@@ -216,7 +222,8 @@ settings, Apache or the setup page; `architecture.md` for the map).
      signed out). While the site is not ready (the anotoki library's
      `SiteStatus`: being updated, not set up, out of reach) its page stands
      in (`<anotoki-site-gate>`), never the app's problem page; the pages are
-     the gate's template (`<ng-template>`, control flow inside it), made only
+     the gate's marked template (`<ng-template anotokiSitePages>`, control
+     flow inside it), made only
      while the site is open - a page keeps what it must across that in its
      `ngOnDestroy()` (the exam's open paper), never by running on behind the
      library's page; the library's packages (`backend/vendor/anotoki/`,

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { ApiService } from '../../core/api/api.service';
 import { LessonTypes, Settings } from '../../core/api/api.types';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -10,7 +11,7 @@ import { TileComponent } from '../shared/tile/tile.component';
 /** Choosing lessons: the batch size, which kinds, from which lesson — as many batches as wanted, no daily limit. */
 @Component({
   selector: 'app-lessons',
-  imports: [TileComponent, TranslatePipe, TranslatePluralPipe],
+  imports: [ButtonComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './lessons.component.html',
   styleUrl: './lessons.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

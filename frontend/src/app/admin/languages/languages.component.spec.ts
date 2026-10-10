@@ -5,6 +5,7 @@ import { ApiError, ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { AdminLanguage } from '../../core/i18n/translation.model';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { drawKitQuestion, KitQuestion } from '../../core/testing/kit-question';
 import { AdminDrafts } from '../admin-drafts.service';
 import { LanguagesComponent } from './languages.component';
 
@@ -17,6 +18,8 @@ describe('LanguagesComponent', () => {
   let host: HTMLElement;
   let api: { languages: ReturnType<typeof vi.fn>; createLanguage: ReturnType<typeof vi.fn>; updateLanguage: ReturnType<typeof vi.fn>; deleteLanguage: ReturnType<typeof vi.fn> };
   let reloaded: ReturnType<typeof vi.fn>;
+  /** The kit's question, drawn over the page as the app draws it (ConfirmService). */
+  let question: KitQuestion | null = null;
 
   const clean = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
   const text = (selector: string, within: ParentNode = host) => clean(within.querySelector(selector)?.textContent);
@@ -35,8 +38,11 @@ describe('LanguagesComponent', () => {
     await settle();
   }
 
+  /** The open question answered by the button with these words. */
   async function answer(label: string): Promise<void> {
-    button(label, host.querySelector('dialog.confirm')!)!.click();
+    const answers = question!.buttons();
+    expect(answers, `${label} among the answers`).toContain(label);
+    question!.answer(answers.indexOf(label) === 1);
     await settle();
   }
 
@@ -55,6 +61,7 @@ describe('LanguagesComponent', () => {
     fixture = TestBed.createComponent(LanguagesComponent);
     host = fixture.nativeElement;
     document.body.appendChild(host);
+    question = drawKitQuestion(host);
     await settle();
   }
 
@@ -75,6 +82,8 @@ describe('LanguagesComponent', () => {
 
   afterEach(() => {
     host.remove();
+    question?.remove();
+    question = null;
     vi.restoreAllMocks();
     sessionStorage.clear();
   });
@@ -155,7 +164,8 @@ describe('LanguagesComponent', () => {
 
     const staying = fixture.componentInstance.canLeave() as Promise<boolean>;
     await settle();
-    expect(text('dialog.confirm h2')).toBe('Leave without saving?');
+    expect(question!.title()).toBe('Leave without saving?');
+    expect(question!.buttons()).toEqual(['Stay here', 'Leave']);
     await answer('Stay here');
     await expect(staying).resolves.toBe(false);
     expect(TestBed.inject(AdminDrafts).count()).toBe(1);
@@ -173,7 +183,8 @@ describe('LanguagesComponent', () => {
 
     button('Delete', card('cs'))!.click();
     await settle();
-    expect(text('dialog.confirm h2')).toBe('Delete Czech (cs)?');
+    expect(question!.title()).toBe('Delete Czech (cs)?');
+    expect(question!.buttons()).toEqual(['Cancel', 'Delete']);
     await answer('Delete');
 
     expect(api.deleteLanguage).toHaveBeenCalledExactlyOnceWith('cs');

@@ -13,8 +13,9 @@ Angular build of `frontend/`, served by the backend in `backend/`), a study
 app. It has a kanji trainer (`/kanji`, with `/kanji/lessons`, `/reviews`,
 `/practice`, `/browse`, `/item/:id`), an exam (`/exam`) and a home page (`/`),
 the admin panel (`/admin/…`, English), the anotoki family's top bar
-(`frontend/src/app/top-bar/`: brand, Kanji and Exam, the language, a theme
-switch, the person's menu; one menu button up to 760 px), a foot with the
+(the anotoki library's, worded in `frontend/src/app/top-bar/`: brand, Kanji
+and Exam, the language, a theme switch, the person's menu; one menu button up
+to 760 px), buttons, dialogs and fields of the library's kit, a foot with the
 version and "What's new", and the setup page (`/setup.php`, plain PHP).
 Everybody signs in through the anotoki IAM, on a computer as on the website;
 a signed-out page goes straight to the IAM, and the Sign in card

@@ -6,7 +6,7 @@
 
   @if (loadError(); as message) {
     <p class="err" role="alert">The translations could not be loaded: {{ message }}</p>
-    <p><button type="button" class="ghost sm" (click)="load()">Try again</button></p>
+    <p><button anotokiButton size="sm" (click)="load()">Try again</button></p>
   } @else if (!loaded()) {
     <p class="muted">Loading…</p>
   } @else {
@@ -37,7 +37,7 @@
                 {{ item.written }} / {{ item.total }}
               </td>
               <td class="files">
-                <button type="button" class="ghost sm" [disabled]="exporting() === item.language.code" (click)="exportLanguage(item.language)">
+                <button anotokiButton size="sm" [disabled]="exporting() === item.language.code" (click)="exportLanguage(item.language)">
                   {{ exporting() === item.language.code ? 'Exporting…' : 'Export' }}
                 </button>
                 <label class="import">
@@ -58,14 +58,17 @@
     </div>
 
     <div class="tools">
-      <input type="search" placeholder="Find a key or a text" aria-label="Find a key or a text" [value]="search()" (input)="onSearch($event)" />
+      <anotoki-text-field
+        class="find"
+        type="search"
+        label="Find a key or a text"
+        hideLabel
+        placeholder="Find a key or a text"
+        [value]="search()"
+        (valueChange)="onSearch($event)"
+      />
       @if (missingChoices().length) {
-        <select aria-label="Which keys to show" [value]="missingIn()" (change)="onMissing($event)">
-          <option value="">Every key</option>
-          @for (language of missingChoices(); track language.code) {
-            <option [value]="language.code" [selected]="missingIn() === language.code">Missing in {{ language.name }}</option>
-          }
-        </select>
+        <anotoki-select class="which" label="Which keys to show" hideLabel [options]="missingOptions()" [value]="missingIn()" (valueChange)="onMissing($event)" />
       }
       <p class="muted small shown">{{ visibleKeys() }} / {{ total() }} keys</p>
     </div>
@@ -73,7 +76,7 @@
     @if (notice(); as problem) {
       <p class="err notice" role="alert">
         <span>{{ problem.heading }}: {{ problem.message }}</span>
-        <button type="button" class="link" (click)="notice.set(null)">Dismiss</button>
+        <button anotokiButton variant="link" size="sm" (click)="notice.set(null)">Dismiss</button>
       </p>
     }
 
@@ -155,7 +158,7 @@
               } @else {
                 <p>No key matches: neither a key's name, nor its description, nor its text in any language.</p>
               }
-              <button type="button" class="ghost sm" (click)="showEverything()">Show every key</button>
+              <button anotokiButton size="sm" (click)="showEverything()">Show every key</button>
             </td>
           </tr>
         </tbody>
@@ -180,11 +183,10 @@
       </p>
       <div class="actions">
         @if (changed()) {
-          <button type="button" class="ghost" [disabled]="saving()" (click)="discard()">Discard</button>
+          <button anotokiButton [disabled]="saving()" (click)="discard()">Discard</button>
         }
-        <button type="button" class="primary" [disabled]="!changed() || saving()" (click)="save()">Save</button>
+        <button anotokiButton variant="primary" [disabled]="!changed() || saving()" (click)="save()">Save</button>
       </div>
     </div>
   }
-  <app-admin-confirm />
 </main>

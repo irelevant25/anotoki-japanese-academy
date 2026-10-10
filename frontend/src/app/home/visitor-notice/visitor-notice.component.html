@@ -1,17 +1,7 @@
 @if (notice()) {
   <section class="note visiting" id="visitorNotice">
     <p>{{ notice() }}</p>
-    <button
-      type="button"
-      class="primary sm"
-      id="visitorSignIn"
-      [disabled]="signInFlow.waiting()"
-      [attr.aria-busy]="signInFlow.waiting()"
-      (click)="signIn()"
-    >
-      @if (signInFlow.waiting()) {
-        <span class="spinner" aria-hidden="true"></span>
-      }
+    <button anotokiButton variant="primary" size="sm" id="visitorSignIn" [loading]="signInFlow.waiting()" (click)="signIn()">
       {{ 'signIn.button' | translate }}
     </button>
   </section>
@@ -19,7 +9,7 @@
 @if (visitor.lost()) {
   <section class="note" id="visitorLost" role="status">
     <p>{{ 'visitor.lost' | translate }}</p>
-    <button type="button" class="ghost sm" (click)="visitor.lost.set(false)">{{ 'common.close' | translate }}</button>
+    <button anotokiButton size="sm" (click)="visitor.lost.set(false)">{{ 'common.close' | translate }}</button>
   </section>
 }
 @if (moved(); as move) {
@@ -30,6 +20,6 @@
         <br />{{ move.kept }}
       }
     </p>
-    <button type="button" class="ghost sm" (click)="visitor.moved.set(null)">{{ 'common.close' | translate }}</button>
+    <button anotokiButton size="sm" (click)="visitor.moved.set(null)">{{ 'common.close' | translate }}</button>
   </section>
 }

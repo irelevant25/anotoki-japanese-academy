@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { ApiService, toApiError } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { fmtAdminMoment } from '../../core/format';
 import { TranslationService } from '../../core/i18n/translation.service';
-import { ConfirmComponent } from '../confirm/confirm.component';
+import { pageQuestion } from '../page-question';
 import { reason } from '../reason';
 
 /** "1 item", "12 items": the admin area's English. */
@@ -18,7 +19,7 @@ function count(n: number, one: string, many: string): string {
  * server both say so). Deleting a person's data takes all of it — progress,
  * answers, exam attempts and their reports, their row — after a copy of it on
  * the server (backend/storage/backups/academy-before-delete-user-…); the
- * question names what goes. Their IAM account is the IAM's, and stays: when
+ * question (the kit's, ConfirmService) names what goes. Their IAM account is the IAM's, and stays: when
  * they sign in again, they start afresh. An admin page, in English, with the
  * server's own sentence when it refuses.
  *
@@ -29,7 +30,7 @@ function count(n: number, one: string, many: string): string {
  */
 @Component({
   selector: 'app-people',
-  imports: [ConfirmComponent],
+  imports: [ButtonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './people.component.html',
   styleUrl: './people.component.scss',
@@ -38,7 +39,8 @@ export class PeopleComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(TranslationService);
-  private readonly confirm = viewChild.required(ConfirmComponent);
+  /** The kit's question, answered no if the page goes while it is open. */
+  private readonly ask = pageQuestion();
 
   protected readonly people = signal<Person[] | null>(null);
   protected readonly loadError = signal<string | null>(null);
@@ -99,14 +101,15 @@ export class PeopleComponent implements OnInit {
   }
 
   protected async remove(person: Person): Promise<void> {
-    const sure = await this.confirm().ask({
+    const sure = await this.ask({
       title: `Delete ${this.name(person)}'s data?`,
       message:
         `Their progress (${this.items(person)} learned), every answer and their ${this.attempts(person)} at the exam, with the reports, go. ` +
         'The server keeps a copy of it first. Their account stays: signing in again, they start afresh.' +
         (this.isYou(person) ? ' This is you.' : ''),
-      confirm: 'Delete',
-      danger: true,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
     });
     if (!sure) {
       return;

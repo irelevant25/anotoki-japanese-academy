@@ -192,3 +192,12 @@
     font-size: 48px;
   }
 }
+// On a phone the header's line holds the counts, the accuracy, Wrap up and
+// End in English: the kit's small buttons (Manrope, 14 px) are wider than the
+// ones this app had, and with 14 px between the pieces End went to a line of
+// its own at 390 px.
+@media (max-width: 440px) {
+  .s-top {
+    column-gap: 10px;
+  }
+}

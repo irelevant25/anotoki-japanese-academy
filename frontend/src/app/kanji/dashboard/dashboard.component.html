@@ -18,7 +18,7 @@
         }
       </div>
       <div class="bc-foot">
-        <button class="primary" type="button" [disabled]="!next().length" (click)="learn(next())">
+        <button anotokiButton variant="primary" [disabled]="!next().length" (click)="learn(next())">
           @if (next().length) {
             {{ 'dashboard.learn' | translatePlural: next().length }}
           } @else {
@@ -35,7 +35,7 @@
       </div>
       <div class="bc-body"><p class="muted small">{{ reviewsText() }}</p></div>
       <div class="bc-foot">
-        <button class="primary" type="button" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">{{ 'dashboard.startReviews' | translate }}</button>
+        <button anotokiButton variant="primary" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">{{ 'dashboard.startReviews' | translate }}</button>
       </div>
     </div>
 
@@ -47,7 +47,7 @@
         <p class="muted small">{{ (s.learned ? 'dashboard.practiceReady' : 'dashboard.practiceEmpty') | translate }}</p>
       </div>
       <div class="bc-foot">
-        <button class="primary" type="button" [disabled]="!s.learned" (click)="go('/kanji/practice')">{{ 'kanji.tab.practice' | translate }}</button>
+        <button anotokiButton variant="primary" [disabled]="!s.learned" (click)="go('/kanji/practice')">{{ 'kanji.tab.practice' | translate }}</button>
       </div>
     </div>
   </div>

@@ -1,9 +1,10 @@
 <h1 class="page">{{ 'kanji.tab.browse' | translate }}</h1>
-<input
-  type="text"
+<anotoki-text-field
+  [label]="'browse.search' | translate"
+  hideLabel
   [placeholder]="'browse.search' | translate"
   [value]="query()"
-  (input)="query.set($any($event.target).value)"
+  (valueChange)="query.set($event)"
 />
 <div class="bfilters">
   <div class="chips">

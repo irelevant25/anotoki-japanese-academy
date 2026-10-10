@@ -2,11 +2,11 @@
 
 <!--
   The anotoki library's gate: while the site is not ready, its page in the place of all of this (and of the router's outlet).
-  All of this is its template, made only while the site is open: no page runs behind the library's page. The @switch stays
-  inside the <ng-template> - given to the gate as it is, its first block would be taken for the pages.
+  All of this is its marked template (anotokiSitePages), made only while the site is open: no page runs behind the
+  library's page. The @switch stays inside it: a control-flow block is a template too, and only the marked one is the pages.
 -->
 <anotoki-site-gate>
-  <ng-template>
+  <ng-template anotokiSitePages>
     @switch (auth.state()) {
       @case ('ready') {
         <router-outlet />
@@ -32,3 +32,6 @@
 <footer class="foot">
   <app-version />
 </footer>
+
+<!-- The kit's one question (ConfirmService: the admin panel's "Delete…?", "Leave without saving?"), drawn over the page. -->
+<anotoki-confirm-host />

@@ -141,15 +141,18 @@ variants. Always include the phone shots. Go through this list:
 - **The foot.** The version and **What's new** at the foot of every page, its
   dot while the news is unread; the dialog is readable in both themes and at
   390 px, in both languages (its entries stay English).
-- **The top bar** (the anotoki family's: `docs/kb/architecture.md`, *The top
-  bar*). One row: the mark, "anotoki" and "Japanese" (on a phone "Japanese"
-  alone), Kanji (the reviews due) and Exam only while the app can be used,
-  the language (not in the admin panel), the theme switch, the person's round
-  button (their name beside it from 961 px) or Sign in. Up to 760 px one menu
-  button instead of the links and the person, the reviews due on its corner;
-  its menu and the person's open inside the screen, above the page, readable
-  in dark mode (`--shadow`), the page's own link marked. In the admin panel
-  the area's links (Translations; Languages and People for ADMIN), English.
+- **The top bar** (the anotoki family's, the library's `<anotoki-top-bar>`:
+  `docs/kb/architecture.md`, *The top bar*). One row: the mark, "anotoki"
+  and "Japanese" (on a phone "Japanese" alone), Kanji (the reviews due, in
+  the vermilion of kanji) and Exam only while the app can be used, the
+  language (not in the admin panel), the theme switch (three segments: light,
+  dark, system), the person's round button (their name beside it from 961
+  px) or Sign in. Up to 760 px one menu button instead of the links and the
+  person, the reviews due on its corner; its menu and the person's open
+  inside the screen, above the page, readable in dark mode, the page's own
+  link marked. In the admin panel "anotoki Japanese · admin panel" (up to
+  960 px, folded: "Japanese" with "admin panel" under it), the area's links
+  (Translations; Languages, People and Migrations for ADMIN), English.
   Nothing overlaps, leaves the screen or is cut at 360, 390, 760, 761, 960,
   961 and 1280 px, in English and Slovak, with a three-digit due count.
   The five kanji tabs fit 390 px in Slovak.
@@ -160,8 +163,12 @@ variants. Always include the phone shots. Go through this list:
   token or after it.
 - **The admin panel's People page** at 390 px: the table scrolls sideways in
   its own box (`.scroll`), never the page.
-- **Consistency.** Same buttons, colours and headings as the other screens.
-  Use only colour tokens from `frontend/src/styles/_tokens.scss`.
+- **Consistency.** Same buttons, colours and headings as the other screens:
+  buttons, dialogs, fields and menus are the anotoki library's kit (its
+  fields' edges and the secondary button's at 3:1, 44 px targets, Manrope),
+  never one of the app's own drawn beside them. Use only colour tokens from
+  `frontend/src/styles/_tokens.scss` (Japanese's palette, given to the
+  library's tokens there).
 
 ## 3. Report
 

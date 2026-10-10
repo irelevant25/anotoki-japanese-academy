@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, untracked } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
-import { SiteGateComponent } from '@anotoki/lib/migrations';
+import { SiteGateComponent, SitePagesDirective } from '@anotoki/lib/migrations';
+import { ConfirmHostComponent } from '@anotoki/lib/ui/dialog';
 import { AdminDrafts } from './admin/admin-drafts.service';
 import { AuthService } from './core/auth/auth.service';
 import { AppVersionComponent } from './core/changelog/app-version.component';
@@ -26,17 +27,29 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * not set up, its database out of reach - the library's page stands in its
  * place, in its own words, and only the site's ADMIN gets through, to the
  * Migrations page, while an update waits. The bar and the foot stay. All of
- * it is the gate's template (anotoki-lib 0.1.1), made only while the site is
- * open: no page runs behind the library's page - asks for its data, hears a
- * key, ticks a clock - and a page open when the site stops is taken down
- * (an open exam paper is kept for the tab as it goes: exam/exam.component.ts).
+ * it is the gate's marked template (`anotokiSitePages`, anotoki-lib 0.2.0),
+ * made only while the site is open: no page runs behind the library's page -
+ * asks for its data, hears a key, ticks a clock - and a page open when the
+ * site stops is taken down (an open exam paper is kept for the tab as it goes:
+ * exam/exam.component.ts).
  *
  * The bar and the foot are drawn in every state, so their words have their
- * English in the code too (standin/kept-word.ts).
+ * English in the code too (standin/kept-word.ts). The kit's one question
+ * (ConfirmService, the admin panel's) is drawn here, over every page.
  */
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, SiteGateComponent, TopBarComponent, AppVersionComponent, SignInComponent, SignInFailedComponent, ProblemComponent],
+  imports: [
+    RouterOutlet,
+    SiteGateComponent,
+    SitePagesDirective,
+    ConfirmHostComponent,
+    TopBarComponent,
+    AppVersionComponent,
+    SignInComponent,
+    SignInFailedComponent,
+    ProblemComponent,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

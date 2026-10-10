@@ -14,6 +14,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { ButtonComponent } from '@anotoki/lib/ui';
+import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiError, ApiService, toApiError } from '../core/api/api.service';
 import { Attempt, Breakdown, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { clipUrl } from '../core/audio.service';
@@ -138,12 +140,13 @@ function keptPaperOf(raw: string | null): KeptPaper | null {
  * the site is open), and its own page loads the page afresh once the site is
  * back - so the paper is kept for this tab as the page goes (ngOnDestroy(),
  * keepPaper(), sessionStorage) and put back as it was when the exam opens
- * again; its handing in, refused meanwhile, raises no dialog (the library's
- * page says what is going on).
+ * again, in that fresh page (the library's page reloads without making the
+ * pages first: anotoki-lib 0.2.0); its handing in, refused meanwhile, raises
+ * no dialog (the library's page says what is going on).
  */
 @Component({
   selector: 'app-exam',
-  imports: [NgTemplateOutlet, TranslatePipe, LocalDatePipe],
+  imports: [ButtonComponent, NgTemplateOutlet, TextFieldComponent, TranslatePipe, LocalDatePipe],
   templateUrl: './exam.component.html',
   styleUrl: './exam.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -195,8 +198,6 @@ export class ExamComponent implements OnInit, OnDestroy {
   readonly playerErr = signal(false);
   private shownAt = 0;
   private startedAt: string | null = null;
-  /** The paper on the screen came back from this tab's copy, which follows it until it is handed in or left (keepCurrent()). */
-  private fromCopy = false;
   /** Taken down (ngOnDestroy()): a step on to the next question still waiting its moment does nothing then. */
   private gone = false;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -282,8 +283,7 @@ export class ExamComponent implements OnInit, OnDestroy {
     // Taken down while the site is not ready - the anotoki library's gate makes
     // the pages only while it is open, so this is how a paper on the screen
     // ends when an update stops the site (or its settings go): kept for this
-    // tab, as it is. Left any other way, it goes, as it always has - and a
-    // copy kept earlier with it.
+    // tab, as it is. Left any other way, it goes, as it always has.
     if (this.site.blocked()) {
       this.keepPaper();
     } else {
@@ -295,9 +295,8 @@ export class ExamComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The paper on the screen, kept for this tab while the site is not ready
-   * (and while a paper that came back from it is open: keepCurrent()), with
-   * the time on the question shown so far. Nothing while none is open.
+   * The paper on the screen, kept for this tab while the site is not ready,
+   * with the time on the question shown so far. Nothing while none is open.
    */
   private keepPaper(): void {
     const exam = this.exam();
@@ -328,25 +327,18 @@ export class ExamComponent implements OnInit, OnDestroy {
    * whoever signs in where a visitor kept it (their studying moves into the
    * account too). Anybody else's, or what is no paper, goes at once.
    *
-   * The copy stays, and follows the paper while it is open (keepCurrent()),
-   * until it is handed in or left with the site ready (ngOnDestroy()): once
-   * the site is back, the library's gate makes the pages again for the moment
-   * before its page loads the page afresh - so the exam puts the paper back in
-   * the page about to go too, and a copy given up there would go with that
-   * page, the paper with it.
+   * The copy is used once: from here on the paper is an open paper like any
+   * other, which a page loaded afresh does not keep. (Until anotoki-lib 0.2.0
+   * the library's page let the gate make the pages again in the page about to
+   * reload, so the copy had to stay and follow the paper; it reloads without
+   * that now.)
    */
   private putBackKeptPaper(): void {
     const kept = keptPaperOf(readTabStorage(KEPT_PAPER_KEY));
-    const who = kept ? this.auth.subject() : null;
-    if (!kept || (kept.who !== null && kept.who !== who)) {
-      writeTabStorage(KEPT_PAPER_KEY, null);
+    writeTabStorage(KEPT_PAPER_KEY, null);
+    if (!kept || (kept.who !== null && kept.who !== this.auth.subject())) {
       return;
     }
-    if (kept.who !== who) {
-      // A visitor's, put back for whoever signed in: the copy is theirs from now on, as the visitor's studying is.
-      writeTabStorage(KEPT_PAPER_KEY, JSON.stringify({ ...kept, who }));
-    }
-    this.fromCopy = true;
     this.exam.set(kept.exam);
     this.idx.set(kept.idx);
     this.answers.set(kept.answers);
@@ -363,17 +355,6 @@ export class ExamComponent implements OnInit, OnDestroy {
       },
       { injector: this.injector },
     );
-  }
-
-  /**
-   * The paper moved on (an answer, another question, a flag): when it came
-   * back from this tab's copy, the copy follows it, so a page loaded afresh -
-   * the library's reload, or the reader's own - finds it as it is now.
-   */
-  private keepCurrent(): void {
-    if (this.fromCopy) {
-      this.keepPaper();
-    }
   }
 
   /* ------------------------------------------------------------- setup */
@@ -484,7 +465,6 @@ export class ExamComponent implements OnInit, OnDestroy {
       this.answers.set({});
       this.flags.set(new Set());
       this.startedAt = new Date().toISOString();
-      this.fromCopy = false;
       writeTabStorage(KEPT_PAPER_KEY, null);
       this.show('test');
       this.render();
@@ -534,7 +514,6 @@ export class ExamComponent implements OnInit, OnDestroy {
     this.recordTime();
     this.idx.set(i);
     this.render();
-    this.keepCurrent();
   }
 
   next(): void {
@@ -559,7 +538,6 @@ export class ExamComponent implements OnInit, OnDestroy {
     const dt = this.shownAt ? Date.now() - this.shownAt : 0;
     this.answers.update((a) => ({ ...a, [q.id]: { choice: i, ms: (a[q.id]?.ms || 0) + dt } }));
     this.shownAt = Date.now();
-    this.keepCurrent();
     // On by itself, so a long paper stays a flow rather than a chore - not
     // once the page is taken down (the library's page stands in for it).
     if (this.idx() < this.total() - 1) {
@@ -575,7 +553,6 @@ export class ExamComponent implements OnInit, OnDestroy {
     const q = this.q();
     if (q) {
       this.flags.update((set) => toggled(set, q.id));
-      this.keepCurrent();
     }
   }
 
@@ -699,8 +676,7 @@ export class ExamComponent implements OnInit, OnDestroy {
       alert(this.i18n.t('exam.error.score', { reason: this.reason(error) }) + (error.body.detail ? `\n\n${error.body.detail}` : ''));
       return;
     }
-    // Scored: nothing of it is kept any more (a copy it came back from, or one kept while the answer was on its way).
-    this.fromCopy = false;
+    // Scored: nothing of it is kept any more (a copy kept while the answer was on its way).
     writeTabStorage(KEPT_PAPER_KEY, null);
     this.audioRef().nativeElement.pause();
     this.result.set(res);

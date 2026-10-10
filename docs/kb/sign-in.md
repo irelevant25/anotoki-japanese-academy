@@ -532,14 +532,17 @@ for), and the SDK hands them over with who is signed in:
   the one before it to settle. It resolves once the SDK has put the account
   as it now stands into `user()`, in every tab; it rejects with the IAM's or
   the SDK's code (`invalid_request`, `access_denied`, `network`, …).
-- **The theme** (`core/theme/theme.service.ts`): signed in, the account's
-  is shown at sign-in and whenever it changes (its `auto` is this app's
-  `system`), but not while a choice made here is being saved; a choice shows
-  at once and is saved, one save at a time and the latest last; a refusal
-  puts the account's theme back and a line under the switch says why, in the
-  sentences failures already have (`preferencesFailure()` in
-  `core/i18n/error-text.ts`). The theme shown is always written to
-  `academy-theme`, so `public/theme-boot.js` paints it first next time.
+- **The theme** (the anotoki library's `ThemeService`, wired in
+  `core/kit.config.ts`; since anotoki-lib 0.2.0): signed in, the account's
+  is shown at sign-in and whenever it changes (its `auto` is the switch's
+  "System", the app's word), but not while a choice made here is being
+  saved; a choice shows at once and is saved, one save at a time and the
+  latest last; a refusal puts the account's theme back and a note under the
+  switch says why, in the sentences failures already have
+  (`preferencesFailure()` in `core/i18n/error-text.ts`). The theme shown is
+  always written to `academy-theme` (nothing for the system's), so the
+  library's `theme-boot.js` (copied into the build by `angular.json`) paints
+  it first next time.
 - **Dates and clocks** (`core/format.ts`, the `localDate` pipe, the admin
   panel's moments): the account's `date_format` and `time_format` win over
   the language's way when chosen, through `TranslationService.dateFormat()`

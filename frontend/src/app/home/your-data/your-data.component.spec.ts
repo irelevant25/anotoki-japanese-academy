@@ -181,7 +181,8 @@ describe('YourDataComponent', () => {
   }
 
   const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-  const dialog = () => host.querySelector<HTMLDialogElement>('dialog')!;
+  /** The question, the kit's dialog: open while it is drawn. */
+  const questionOpen = () => host.querySelector<HTMLDialogElement>('anotoki-dialog dialog')?.open ?? false;
   const settle = () => TestBed.inject(ApplicationRef).whenStable();
 
   /** The learner picks this file in the file picker. */
@@ -250,9 +251,9 @@ describe('YourDataComponent', () => {
   it('Bring back: the file is read here, the question says what it holds, and No sends nothing', async () => {
     await draw();
     await pick(new File([dataFile([{ id: 7, username: 'hana', items: { 'k:大': { stage: 2 } }, attempts: 3 }])], 'japanese-academy-2026-10-03.json'));
-    expect(dialog().open).toBe(true);
-    expect(text('#your-data-confirm-title')).toBe('Replace your data with this file?');
-    const list = Array.from(dialog().querySelectorAll('.holds li')).map((li) => li.textContent?.trim());
+    expect(questionOpen()).toBe(true);
+    expect(text('anotoki-dialog h2')).toBe('Replace your data with this file?');
+    const list = Array.from(host.querySelectorAll('anotoki-dialog .holds li')).map((li) => li.textContent?.trim());
     expect(list[0]).toBe('japanese-academy-2026-10-03.json');
     expect(list).toContain('Account: hana');
     expect(list).toContain('Items learned: 1');
@@ -261,7 +262,7 @@ describe('YourDataComponent', () => {
 
     host.querySelector<HTMLButtonElement>('#keepMine')!.click();
     await settle();
-    expect(dialog().open).toBe(false);
+    expect(questionOpen()).toBe(false);
     expect(bringBack).not.toHaveBeenCalled();
   });
 
@@ -279,14 +280,14 @@ describe('YourDataComponent', () => {
     });
     expect(bringBack.mock.calls).toEqual([[file]]);
     expect(brought).toHaveLength(1);
-    expect(dialog().open).toBe(false);
+    expect(questionOpen()).toBe(false);
   });
 
   it('a file that is not a data file is refused here, before anything is sent', async () => {
     await draw();
     await pick(new File(['{"hello": 1}'], 'notes.json'));
     expect(text('#yourDataError')).toBe('The file was not brought back: That is not a Japanese Academy data file, or it is damaged.');
-    expect(dialog().open).toBe(false);
+    expect(questionOpen()).toBe(false);
     expect(bringBack).not.toHaveBeenCalled();
   });
 

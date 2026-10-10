@@ -3,7 +3,7 @@
     <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
     <p>{{ words().intro }}</p>
     <div class="actions">
-      <button class="primary" type="button" id="signin-button" [disabled]="busy()" (click)="signIn()">{{ words().button }}</button>
+      <button anotokiButton variant="primary" id="signin-button" [disabled]="busy()" (click)="signIn()">{{ words().button }}</button>
     </div>
     <p class="err" role="alert">{{ error() }}</p>
   </section>

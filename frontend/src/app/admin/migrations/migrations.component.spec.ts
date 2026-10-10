@@ -107,6 +107,8 @@ describe('MigrationsComponent: the admin panel’s Migrations page — the anoto
     await answer('/api/admin/migrations', WAITING);
     TestBed.inject(SiteStatus).report('update_pending');
     const reloaded = vi.spyOn(TestBed.inject(TranslationService), 'reload');
+    // Apply is the kit's button: on once the page has drawn what it read.
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('[data-apply]')!.disabled).toBe(false));
     host.querySelector<HTMLButtonElement>('[data-apply]')!.click();
     await settle();
     expect(text('[data-confirm] h2')).toBe('Apply 1 pending migration?');
@@ -123,7 +125,7 @@ describe('MigrationsComponent: the admin panel’s Migrations page — the anoto
       'POST',
     );
     await answer('/api/admin/migrations', APPLIED);
-    await vi.waitFor(() => expect(text('[data-result] h2')).toBe('Up to date'));
+    await vi.waitFor(() => expect(text('[data-result] .heading')).toBe('Up to date'));
     expect(text('[data-result]')).toContain('Applied: 006_admin_panel_words.sql.');
     expect(text('[data-result]')).toContain('A copy of every table from before is in backups/academy-before-migration-20261004-083000-000.raw.json.');
     expect(reloaded).toHaveBeenCalledTimes(1);

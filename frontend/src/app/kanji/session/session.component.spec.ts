@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { SignOutService } from '../../core/auth/sign-out.service';
 import { AudioService } from '../../core/audio.service';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { provideKit } from '../../core/kit.config';
 import { drawnFoot } from '../../core/testing/foot-controls';
 import { provideTestSiteStatus } from '../../core/testing/site-status';
 import { provideTestTranslations } from '../../core/testing/test-translations';
@@ -448,6 +449,7 @@ describe('SessionComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        provideKit(),
         {
           provide: AuthService,
           useValue: {
@@ -477,11 +479,11 @@ describe('SessionComponent', () => {
     await bar.whenStable();
     const top = bar.nativeElement as HTMLElement;
     const controls = [
-      top.querySelector<HTMLElement>('app-brand a')!,
-      ...Array.from(top.querySelectorAll<HTMLElement>('.topbar-nav a')),
-      top.querySelector<HTMLElement>('#langButton')!,
+      top.querySelector<HTMLElement>('anotoki-brand a')!,
+      ...Array.from(top.querySelectorAll<HTMLElement>('nav.nav a')),
+      top.querySelector<HTMLElement>('anotoki-language-switcher button')!,
       ...Array.from(top.querySelectorAll<HTMLElement>('[role="radio"]')),
-      top.querySelector<HTMLElement>('#userButton')!,
+      top.querySelector<HTMLElement>('.person-button')!,
     ];
     expect(controls).toHaveLength(8);
     expect(controls.every((control) => control !== null)).toBe(true);

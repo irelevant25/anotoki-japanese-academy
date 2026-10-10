@@ -39,7 +39,7 @@ const fs = require('fs');
 const { isolate, startApp, closeAll, iamState, plant } = require('./helpers');
 isolate('academy-screens'); // before the server starts: a throwaway database
 
-const { launch, newContext, watch, keyShaped, SHOTS } = require('./browser');
+const { launch, newContext, watch, keyShaped, BAR, focusedOn, SHOTS } = require('./browser');
 
 const FILTER = process.argv[2] || '';
 
@@ -67,7 +67,7 @@ const SCREENS = [
   ['kanji-lessons', '/kanji/lessons'],
   ['kanji-lesson-screen', '/kanji/lessons', async (page) => {
     // by its place, not its name: the Slovak pass takes this screen too
-    await page.click('section.panel .actions button.primary');
+    await page.click('section.panel .actions button.is-primary');
     await page.waitForSelector('.lband');
   }],
   ['kanji-review', '/kanji/reviews', async (page) => page.waitForSelector('.session')],
@@ -101,14 +101,14 @@ const SCREENS = [
     // the reader's own file chosen: the question before anything is replaced
     const own = await (await app.api('/api/me/data', READER)).text();
     await page.setInputFiles('#your-data input[type=file]', { name: 'japanese-academy-2026-10-04.json', mimeType: 'application/json', buffer: Buffer.from(own) });
-    await page.waitForSelector('dialog.confirm[open]');
+    await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
   }],
   ['bar-menu', '/kanji', async (page) => {
     // the person's menu, or on a phone the one menu with the links in it
     await page.waitForSelector('.cards3');
-    const phone = (await page.$('#menuButton')) !== null;
-    await page.click(phone ? '#menuButton' : '#userButton');
-    await page.waitForSelector(phone ? '#topbar-menu' : '#user-menu');
+    const phone = (await page.$(BAR.menuButton)) !== null;
+    await page.click(phone ? BAR.menuButton : BAR.userButton);
+    await page.waitForSelector(BAR.menu);
   }],
   ['signed-out', '/', async (page) => page.waitForSelector('#signin-button'), { signedOut: true }],
   // nobody signed in, where the IAM does not require it: a visitor's home, with the notice
@@ -185,7 +185,7 @@ function slovakProblems(page, bundle) {
  * ring, never on the dialog; in dark, the anotoki mark with its light halo.
  */
 function looks(page, dark) {
-  return page.evaluate((dark) => {
+  return page.evaluate(({ dark, bar }) => {
     const out = [];
     const people = document.querySelector('#people');
     if (people) {
@@ -215,21 +215,21 @@ function looks(page, dark) {
         }
       }
     }
-    const question = document.querySelector('dialog.confirm[open]');
+    const question = document.querySelector('#your-data anotoki-dialog dialog[open]');
     if (question && question.querySelector('#keepMine')) {
       const active = document.activeElement;
       if (!active || active.id !== 'keepMine') out.push(`the question's focus is on <${active ? active.tagName.toLowerCase() + (active.id ? '#' + active.id : '') : 'nothing'}>, not on Keep mine`);
       else if (active.matches(':focus-visible') && getComputedStyle(active).outlineStyle !== 'solid') out.push('Keep mine has the focus but not the accent ring');
     }
-    const mark = document.querySelector('app-brand img');
+    const mark = document.querySelector(bar.mark);
     if (dark && mark && !/255, 255, 255/.test(getComputedStyle(mark).filter)) out.push(`the anotoki mark has no light halo in the dark bar (filter: ${getComputedStyle(mark).filter})`);
     return out;
-  }, dark);
+  }, { dark, bar: BAR });
 }
 
 /** Where each piece of the bar is, left-right, and what is wrong with the row (overlap, off the screen, cut). */
 function measureBar(page) {
-  return page.evaluate(() => {
+  return page.evaluate((bar) => {
     const q = (s) => document.querySelector(s);
     const box = (el) => {
       if (!el) return null;
@@ -237,13 +237,13 @@ function measureBar(page) {
       return r.width ? [Math.round(r.left), Math.round(r.right)] : null;
     };
     const pieces = {
-      brand: box(q('app-brand a')),
-      links: box(q('.topbar-nav')),
-      language: box(q('#langButton')),
-      theme: box(q('app-theme-toggle .segmented')),
-      person: box(q('#userButton')),
-      signIn: box(q('#signInButton')),
-      menu: box(q('#menuButton')),
+      brand: box(q(bar.brand)),
+      links: box(q(bar.nav)),
+      language: box(q(bar.langButton)),
+      theme: box(q(bar.theme)),
+      person: box(q(bar.userButton)),
+      signIn: box(q(bar.signInButton)),
+      menu: box(q(bar.menuButton)),
     };
     const order = Object.entries(pieces).filter(([, v]) => v);
     const problems = [];
@@ -253,20 +253,20 @@ function measureBar(page) {
     const width = document.documentElement.clientWidth;
     for (const [k, v] of order) if (v[1] > width || v[0] < 0) problems.push(`${k} leaves the screen (${v[0]}..${v[1]})`);
     if (document.documentElement.scrollWidth > width) problems.push(`the page scrolls sideways: ${document.documentElement.scrollWidth} > ${width}`);
-    const wordmark = q('app-brand .wordmark');
+    const wordmark = q(bar.wordmark);
     if (wordmark && wordmark.scrollWidth > wordmark.clientWidth + 1) problems.push('the brand is cut');
-    const header = q('header.topbar');
+    const header = q(bar.header);
     const rows = header ? Math.round(header.getBoundingClientRect().height) : 0;
-    const name = q('#userButton .user-name');
+    const name = q(bar.userName);
     return {
       pieces: Object.fromEntries(order),
       problems,
       height: rows,
-      links: [...document.querySelectorAll('.topbar-nav a')].map((a) => a.id),
-      badge: (q('#navDue') || q('#menuDue'))?.textContent.trim() ?? null,
+      links: [...document.querySelectorAll(`${bar.nav} a`)].map((a) => a.getAttribute('href')),
+      badge: (q(bar.navDue) || q(bar.menuDue))?.textContent.trim() ?? null,
       nameShown: !!(name && getComputedStyle(name).display !== 'none' && name.getBoundingClientRect().width > 0),
     };
-  });
+  }, BAR);
 }
 
 (async () => {
@@ -397,9 +397,9 @@ function measureBar(page) {
       const page = await context.newPage();
       const errors = watch(page);
       await page.goto(app.base + c.url);
-      await page.waitForSelector(c.mode === 'signed-out' ? '#signin-button' : phone ? '#menuButton' : c.mode === 'visiting' ? '#signInButton' : '#userButton');
+      await page.waitForSelector(c.mode === 'signed-out' ? '#signin-button' : phone ? BAR.menuButton : c.mode === 'visiting' ? BAR.signInButton : BAR.userButton);
       if (c.mode === 'visiting') await page.waitForSelector('#visitorNotice');
-      if (c.mode === 'signed-in') await page.waitForSelector(phone ? '#menuDue' : '#navDue');
+      if (c.mode === 'signed-in') await page.waitForSelector(phone ? BAR.menuDue : BAR.navDue);
       if (c.mode === 'admin') await page.waitForSelector('#people');
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(150);
@@ -413,8 +413,8 @@ function measureBar(page) {
       if (!phone && ['signed-out', 'visiting'].includes(c.mode) && !m.pieces.signIn) found.push('no Sign in on a desktop');
       if (c.mode === 'visiting' && m.pieces.person) found.push('a person’s button for a visitor');
       if (c.mode === 'signed-in' && m.badge !== '999') found.push(`the due count says "${m.badge}", not 999`);
-      if (['signed-in', 'visiting'].includes(c.mode) && !phone && m.links.join(',') !== 'nav-kanji,nav-exam') found.push(`links ${m.links.join(',')}`);
-      if (c.mode === 'admin' && !phone && m.links.join(',') !== 'nav-translations,nav-languages,nav-people,nav-migrations') found.push(`admin links ${m.links.join(',')}`);
+      if (['signed-in', 'visiting'].includes(c.mode) && !phone && m.links.join(',') !== '/kanji,/exam') found.push(`links ${m.links.join(',')}`);
+      if (c.mode === 'admin' && !phone && m.links.join(',') !== '/admin/translations,/admin/languages,/admin/people,/admin/migrations') found.push(`admin links ${m.links.join(',')}`);
       if (!['signed-out', 'visiting'].includes(c.mode) && !phone && m.nameShown !== c.width >= 961) found.push(`the name ${m.nameShown ? 'shown' : 'hidden'} at ${c.width} px`);
       if (!m.pieces.brand || !m.pieces.theme) found.push('the brand or the theme switch missing');
       const lang = await page.getAttribute('html', 'lang');
@@ -441,7 +441,9 @@ function measureBar(page) {
       const page = await context.newPage();
       const errors = watch(page);
       await page.goto(app.base + '/');
-      const button = width <= 760 ? '#menuButton' : '#userButton';
+      // the button by BAR's name for it: the bar is the library's, its parts have no ids
+      const buttonName = width <= 760 ? 'menuButton' : 'userButton';
+      const button = BAR[buttonName];
       await page.waitForSelector(button);
       await page.click(button);
       await page.waitForSelector('[role="menu"]');
@@ -464,8 +466,8 @@ function measureBar(page) {
         }
         await page.keyboard.press(key);
         await page.waitForTimeout(100);
-        const after = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, open: !!document.querySelector('[role="menu"]') }));
-        if (after.open || `#${after.id}` !== button) problems.push(`${label}: a real ${key} from an item: ${JSON.stringify(after)}`);
+        const after = { ...(await focusedOn(page)), open: !!(await page.$('[role="menu"]')) };
+        if (after.open || after.id !== buttonName) problems.push(`${label}: a real ${key} from an item: ${JSON.stringify(after)}`);
       }
       if (first !== 'menuitem') problems.push(`${label}: the menu opened with the focus on ${first}, not its first item`);
       problems.push(...errors.map((e) => `${label}: ${e}`));

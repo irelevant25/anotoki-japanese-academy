@@ -1,7 +1,16 @@
-// The pieces every page shares: the page itself, panels, fields, chips and
-// buttons, tables, the admin pages' tags, the sign-in page and the spinner.
-// The top bar, the foot and the dialog have their own styles. Colours only
-// from the tokens.
+// The pieces every page shares: the page itself, panels, fields, chips,
+// tables, the admin pages' tags and the sign-in page. The buttons, the
+// dialogs, the form fields and the spinner are the anotoki library's kit
+// (@anotoki/lib/ui: anotokiButton, anotoki-dialog, anotoki-text-field,
+// anotoki-spinner …), drawn in this app's palette (_tokens.scss); the top bar
+// and the foot have their own styles. Colours only from the tokens.
+
+// The kit draws its own pieces - an element with its anotoki- class, all that
+// is inside one, and the library's pages - and some of their parts have this
+// app's names (a dialog's and a menu's .panel, the bar's and an alert's
+// .actions, a field's .field and its input): this app's rules of those names
+// keep out of them, without weighing more for it (:where).
+$app-only: ':where(:not([class^="anotoki-"], [class*=" anotoki-"], [class^="anotoki-"] *, [class*=" anotoki-"] *, anotoki-site-status *, anotoki-migrations-page *))';
 
 * {
   box-sizing: border-box;
@@ -14,7 +23,8 @@ body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, var(--jp-sans);
+  // Manrope, then the Japanese faces (_tokens.scss)
+  font: 16px/1.6 var(--anotoki-font-sans);
 }
 [hidden] {
   display: none !important;
@@ -35,14 +45,14 @@ a {
 }
 
 /* -------------------------------------------------------------- panels */
-.panel {
+.panel#{$app-only} {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 22px;
   margin: 22px 0;
 }
-.panel h2 {
+.panel#{$app-only} h2#{$app-only} {
   font-size: 17px;
   margin: 0 0 14px;
   padding-bottom: 8px;
@@ -58,16 +68,17 @@ h1.page {
   font-size: 26px;
   margin: 4px 0 8px;
 }
-.lead {
+.lead#{$app-only} {
   font-size: 18px;
   margin: 4px 0 18px;
 }
-.empty p {
+.empty#{$app-only} p {
   margin: 0 0 10px;
 }
 
 /* -------------------------------------------------------------- fields */
-.field {
+/* a label over what it names: a row of chips, or one of this app's own boxes (a note, the review's answer) */
+.field#{$app-only} {
   display: block;
   margin-bottom: 18px;
 }
@@ -91,11 +102,11 @@ h1.page {
 .lblrow .lbl {
   margin: 0;
 }
-input[type='text'],
-input[type='search'],
-input[type='file'],
-select,
-textarea {
+input[type='text']#{$app-only},
+input[type='search']#{$app-only},
+input[type='file']#{$app-only},
+select#{$app-only},
+textarea#{$app-only} {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -105,11 +116,11 @@ textarea {
   font: inherit;
   font-size: 15px;
 }
-input[type='file'] {
+input[type='file']#{$app-only} {
   padding: 6px 8px;
   font-size: 13px;
 }
-input[type='file']::file-selector-button {
+input[type='file']#{$app-only}::file-selector-button {
   font: inherit;
   margin-right: 8px;
   padding: 4px 10px;
@@ -119,16 +130,16 @@ input[type='file']::file-selector-button {
   color: var(--ink);
   cursor: pointer;
 }
-textarea {
+textarea#{$app-only} {
   resize: vertical;
   min-height: 70px;
   line-height: 1.5;
 }
-input[type='text']:focus,
-input[type='search']:focus,
-input[type='file']:focus-visible,
-select:focus,
-textarea:focus {
+input[type='text']#{$app-only}:focus,
+input[type='search']#{$app-only}:focus,
+input[type='file']#{$app-only}:focus-visible,
+select#{$app-only}:focus,
+textarea#{$app-only}:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
@@ -162,65 +173,19 @@ textarea:focus {
   opacity: 0.45;
   cursor: default;
 }
-.link {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-}
 
 /* ------------------------------------------------------------- buttons */
-.actions {
+/* the buttons are the kit's (anotokiButton); a row of them, and this app's own (the study's) */
+.actions#{$app-only} {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
 }
-button,
-.btn {
+button#{$app-only} {
   font: inherit;
   cursor: pointer;
   border-radius: 8px;
-}
-.primary {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: 1px solid var(--accent);
-  padding: 11px 22px;
-  font-weight: 600;
-  font-size: 15px;
-}
-.primary:hover {
-  filter: brightness(1.07);
-}
-.primary:disabled {
-  opacity: 0.45;
-  cursor: default;
-  filter: none;
-}
-.ghost {
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  padding: 11px 18px;
-}
-.ghost:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.ghost.sm,
-.primary.sm {
-  padding: 5px 11px;
-  font-size: 13px;
-}
-a.btn {
-  display: inline-block;
-  text-decoration: none;
-  padding: 11px 22px;
 }
 .err {
   color: var(--bad);
@@ -265,8 +230,8 @@ table.data td {
   max-width: 70ch;
   margin: 0 0 18px;
 }
-.admin code {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+.admin code#{$app-only} {
+  font-family: var(--anotoki-font-mono);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -280,11 +245,6 @@ table.data td {
   line-height: 18px;
   color: var(--muted);
   vertical-align: 1px;
-}
-.admin .ghost:disabled,
-.admin .link:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 .admin .err:empty {
   display: none;
@@ -311,27 +271,4 @@ table.data td {
 }
 .signin .err:empty {
   display: none;
-}
-
-/* Waiting for something on its way (a sign-out for the saves, a data file): a small ring in the text's colour. */
-.spinner {
-  display: inline-block;
-  width: 0.9em;
-  height: 0.9em;
-  margin-right: 0.45em;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  vertical-align: -0.1em;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 2.4s;
-  }
 }

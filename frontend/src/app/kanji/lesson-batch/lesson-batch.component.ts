@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, OnInit, signal } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -18,7 +19,7 @@ const TABS = ['kanji.meaning', 'kanji.reading', 'lesson.context'];
  */
 @Component({
   selector: 'app-lesson-batch',
-  imports: [TileComponent, ReadingsComponent, NotesEditorComponent, ItemDetailsComponent, TranslatePipe],
+  imports: [ButtonComponent, TileComponent, ReadingsComponent, NotesEditorComponent, ItemDetailsComponent, TranslatePipe],
   templateUrl: './lesson-batch.component.html',
   styleUrl: './lesson-batch.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

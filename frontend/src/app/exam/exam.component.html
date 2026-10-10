@@ -11,17 +11,17 @@
     </header>
 
     <section class="panel">
-      <label class="field">
-        <span class="lbl">{{ 'exam.candidate' | translate }} <em>{{ 'exam.candidateNote' | translate }}</em></span>
-        <input
+      <div class="field">
+        <anotoki-text-field
           id="candidate"
-          type="text"
+          [label]="'exam.candidate' | translate"
+          [hint]="'exam.candidateNote' | translate"
           [placeholder]="'exam.optional' | translate"
           autocomplete="name"
           [value]="candidate()"
-          (input)="candidate.set($any($event.target).value)"
+          (valueChange)="candidate.set($event)"
         />
-      </label>
+      </div>
 
       <div class="field">
         <span class="lbl">{{ 'exam.partLabel' | translate }}</span>
@@ -51,8 +51,8 @@
         <div class="field">
           <div class="lblrow">
             <span class="lbl">{{ 'exam.lessons' | translate }}</span>
-            <button type="button" class="link" data-all="lessons" (click)="allLessons(true)">{{ 'exam.all' | translate }}</button>
-            <button type="button" class="link" data-none="lessons" (click)="allLessons(false)">{{ 'exam.none' | translate }}</button>
+            <button anotokiButton variant="link" size="sm" data-all="lessons" (click)="allLessons(true)">{{ 'exam.all' | translate }}</button>
+            <button anotokiButton variant="link" size="sm" data-none="lessons" (click)="allLessons(false)">{{ 'exam.none' | translate }}</button>
           </div>
           <div class="chips" id="lessonChips">
             @for (l of lessonChoices(); track l.id) {
@@ -77,8 +77,8 @@
         <div class="field">
           <div class="lblrow">
             <span class="lbl">{{ 'exam.sections' | translate }}</span>
-            <button type="button" class="link" data-all="sections" (click)="allSections(true)">{{ 'exam.all' | translate }}</button>
-            <button type="button" class="link" data-none="sections" (click)="allSections(false)">{{ 'exam.none' | translate }}</button>
+            <button anotokiButton variant="link" size="sm" data-all="sections" (click)="allSections(true)">{{ 'exam.all' | translate }}</button>
+            <button anotokiButton variant="link" size="sm" data-none="sections" (click)="allSections(false)">{{ 'exam.none' | translate }}</button>
           </div>
           <div class="chips" id="sectionChips">
             @for (s of meta()?.sections ?? []; track s.id) {
@@ -96,17 +96,23 @@
           </div>
         </div>
 
-        <label class="field">
-          <span class="lbl">{{ 'exam.paperId' | translate }} <em>{{ 'exam.paperIdNote' | translate }}</em></span>
-          <input id="seed" type="text" [placeholder]="'exam.paperIdBlank' | translate" [value]="seed()" (input)="seed.set($any($event.target).value)" />
-        </label>
+        <div class="field">
+          <anotoki-text-field
+            id="seed"
+            [label]="'exam.paperId' | translate"
+            [hint]="'exam.paperIdNote' | translate"
+            [placeholder]="'exam.paperIdBlank' | translate"
+            [value]="seed()"
+            (valueChange)="seed.set($event)"
+          />
+        </div>
       </details>
 
       <div class="actions">
-        <button id="startBtn" class="primary" type="button" [disabled]="building()" (click)="start()">
+        <button anotokiButton variant="primary" id="startBtn" [disabled]="building()" (click)="start()">
           {{ (building() ? 'exam.building' : 'exam.start') | translate }}
         </button>
-        <button id="historyBtn" class="ghost" type="button" (click)="toggleHistory()">{{ 'exam.pastAttempts' | translate }}</button>
+        <button anotokiButton id="historyBtn" (click)="toggleHistory()">{{ 'exam.pastAttempts' | translate }}</button>
       </div>
       <!-- The page's own words; then, on the owner's own computer only, the server's reason as it came. -->
       <p class="err" id="setupErr">
@@ -172,7 +178,7 @@
       <span class="sect" id="sectionTag">{{ sectionTag() }}</span>
       <span class="spacer"></span>
       <span id="clock" class="clock">{{ clock() }}</span>
-      <button id="quitBtn" class="ghost sm" type="button" [disabled]="quitting()" (click)="quit()">{{ 'exam.finishNow' | translate }}</button>
+      <button anotokiButton size="sm" id="quitBtn" [disabled]="quitting()" (click)="quit()">{{ 'exam.finishNow' | translate }}</button>
     </div>
   </div>
 
@@ -206,11 +212,11 @@
     </div>
 
     <div class="navrow">
-      <button id="prevBtn" class="ghost" type="button" [disabled]="idx() === 0" (click)="go(idx() - 1)">&larr; {{ 'exam.back' | translate }}</button>
+      <button anotokiButton id="prevBtn" [disabled]="idx() === 0" (click)="go(idx() - 1)">&larr; {{ 'exam.back' | translate }}</button>
       <span class="flagwrap">
         <label><input type="checkbox" id="flagBox" [checked]="q() ? flags().has(q()!.id) : false" (change)="toggleFlag()" /> {{ 'exam.flag' | translate }}</label>
       </span>
-      <button id="nextBtn" class="primary" type="button" (click)="next()">{{ (isLast() ? 'exam.finish' : 'exam.next') | translate }} &rarr;</button>
+      <button anotokiButton variant="primary" id="nextBtn" (click)="next()">{{ (isLast() ? 'exam.finish' : 'exam.next') | translate }} &rarr;</button>
     </div>
 
     <div class="gridnav" id="gridNav">
@@ -306,10 +312,10 @@
       </div>
       <div class="actions">
         <!-- The report is the server's own English page: the link is translated and says what language it leads to. -->
-        <a id="reportLink" class="primary btn" hreflang="en" target="_blank" rel="noopener" [href]="res.reportUrl" (click)="privateLinks.click($event, res.reportUrl)">
+        <a anotokiButton variant="primary" id="reportLink" hreflang="en" target="_blank" rel="noopener" [href]="res.reportUrl" (click)="privateLinks.click($event, res.reportUrl)">
           {{ 'exam.result.openReport' | translate }}
         </a>
-        <button id="againBtn" class="ghost" type="button" (click)="again()">{{ 'exam.result.newTest' | translate }}</button>
+        <button anotokiButton id="againBtn" (click)="again()">{{ 'exam.result.newTest' | translate }}</button>
       </div>
       <p class="savedline" id="savedLine">{{ 'exam.result.saved' | translate: { id: res.id } }}</p>
     }

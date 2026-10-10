@@ -6,19 +6,11 @@
   }
 
   <div class="actions">
-    <button type="button" class="primary" id="downloadData" [disabled]="downloading()" [attr.aria-busy]="downloading()" (click)="download()">
-      @if (downloading()) {
-        <span class="spinner" aria-hidden="true"></span>{{ 'yourData.downloading' | translate }}
-      } @else {
-        {{ 'yourData.download' | translate }}
-      }
+    <button anotokiButton variant="primary" id="downloadData" [loading]="downloading()" (click)="download()">
+      {{ (downloading() ? 'yourData.downloading' : 'yourData.download') | translate }}
     </button>
-    <button type="button" class="ghost" id="bringBack" [disabled]="bringing()" [attr.aria-busy]="bringing()" (click)="choose()">
-      @if (bringing()) {
-        <span class="spinner" aria-hidden="true"></span>{{ 'yourData.bringing' | translate }}
-      } @else {
-        {{ 'yourData.bringBack' | translate }}
-      }
+    <button anotokiButton id="bringBack" [loading]="bringing()" (click)="choose()">
+      {{ (bringing() ? 'yourData.bringing' : 'yourData.bringBack') | translate }}
     </button>
     <input #file type="file" accept=".json,application/json" hidden (change)="chosen($event)" />
   </div>
@@ -34,9 +26,9 @@
     </p>
   }
 
-  <dialog #confirm class="confirm" aria-labelledby="your-data-confirm-title" (cancel)="cancelled($event)" (keydown)="keys($event)">
-    @if (holds(); as file) {
-      <h2 id="your-data-confirm-title">{{ 'yourData.confirmTitle' | translate }}</h2>
+  <!-- The question before a file replaces the data: the kit's dialog, drawn while a file waits for the answer. -->
+  @if (holds(); as file) {
+    <anotoki-dialog size="sm" [heading]="'yourData.confirmTitle' | translate" [busy]="bringing()" (dismiss)="cancel()" (keydown)="keys($event)">
       <p>{{ 'yourData.confirmText' | translate }}</p>
       <ul class="holds">
         <li><b class="filename">{{ file.name }}</b></li>
@@ -49,10 +41,10 @@
         <li>{{ 'yourData.fileItems' | translate: { n: file.items } }}</li>
         <li>{{ 'yourData.fileAttempts' | translate: { n: file.attempts } }}</li>
       </ul>
-      <div class="actions">
-        <button type="button" class="ghost" #keepMine id="keepMine" autofocus [disabled]="bringing()" (click)="cancel()">{{ 'yourData.cancel' | translate }}</button>
-        <button type="button" class="primary danger" id="replaceMine" [disabled]="bringing()" (click)="replace()">{{ 'yourData.replace' | translate }}</button>
+      <div dialogFooter class="answers">
+        <button anotokiButton id="keepMine" autofocus [disabled]="bringing()" (click)="cancel()">{{ 'yourData.cancel' | translate }}</button>
+        <button anotokiButton variant="danger" id="replaceMine" [disabled]="bringing()" (click)="replace()">{{ 'yourData.replace' | translate }}</button>
       </div>
-    }
-  </dialog>
+    </anotoki-dialog>
+  }
 </section>

@@ -1,9 +1,11 @@
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, signal, untracked, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, signal, untracked } from '@angular/core';
+import { ButtonComponent } from '@anotoki/lib/ui';
+import { SelectComponent, SelectOption, TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiError, ApiService, toApiError } from '../../core/api/api.service';
 import { AdminLanguage, TranslationChanges, TranslationGrid, TranslationKeyRow } from '../../core/i18n/translation.model';
 import { FALLBACK_LANGUAGE, TranslationService } from '../../core/i18n/translation.service';
-import { ConfirmComponent } from '../confirm/confirm.component';
 import { AdminDrafts } from '../admin-drafts.service';
+import { pageQuestion } from '../page-question';
 import { reason, refusedPerson } from '../reason';
 import { saveFile } from '../save-file';
 import { TranslationCellComponent } from '../translation-cell/translation-cell.component';
@@ -67,7 +69,7 @@ const plural = (count: number, one: string, many: string): string => (count === 
  */
 @Component({
   selector: 'app-translations',
-  imports: [ConfirmComponent, TranslationCellComponent],
+  imports: [ButtonComponent, SelectComponent, TextFieldComponent, TranslationCellComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './translations.component.html',
   styleUrl: './translations.component.scss',
@@ -76,7 +78,8 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(TranslationService);
   private readonly injector = inject(Injector);
-  private readonly confirm = viewChild.required(ConfirmComponent);
+  /** The kit's question, answered no if the page goes while it is open. */
+  private readonly ask = pageQuestion();
 
   private readonly grid = signal<TranslationGrid | null>(null);
   /** The boxes that do not say what the app has: key -> language -> text. Kept outside the page, so they outlive it. */
@@ -134,6 +137,11 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
 
   /** Every language that can miss a string: English cannot. */
   protected readonly missingChoices = computed(() => this.languages().filter((language) => language.code !== FALLBACK_LANGUAGE));
+  /** The choice of which keys to show: every key, or those missing in one language (the kit's select). */
+  protected readonly missingOptions = computed<SelectOption[]>(() => [
+    { value: '', label: 'Every key' },
+    ...this.missingChoices().map((language) => ({ value: language.code, label: `Missing in ${language.name}` })),
+  ]);
   protected readonly missingName = computed(() => this.languages().find((language) => language.code === this.missingIn())?.name ?? '');
 
   constructor() {
@@ -148,20 +156,18 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
     if (!changed) {
       return true;
     }
-    return this.confirm()
-      .ask({
-        title: 'Leave without saving?',
-        message: `${changed === 1 ? '1 changed string is' : `${changed} changed strings are`} not saved yet, and leaving loses ${changed === 1 ? 'it' : 'them'}.`,
-        confirm: 'Leave',
-        cancel: 'Stay here',
-        danger: true,
-      })
-      .then((leave) => {
-        if (leave) {
-          this.edits.set({});
-        }
-        return leave;
-      });
+    return this.ask({
+      title: 'Leave without saving?',
+      message: `${changed === 1 ? '1 changed string is' : `${changed} changed strings are`} not saved yet, and leaving loses ${changed === 1 ? 'it' : 'them'}.`,
+      confirmLabel: 'Leave',
+      cancelLabel: 'Stay here',
+      tone: 'danger',
+    }).then((leave) => {
+      if (leave) {
+        this.edits.set({});
+      }
+      return leave;
+    });
   }
 
   protected async load(): Promise<void> {
@@ -239,11 +245,12 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
   /** Every box back to what the app has. */
   protected async discard(): Promise<void> {
     const changed = this.changed();
-    const sure = await this.confirm().ask({
+    const sure = await this.ask({
       title: changed === 1 ? 'Discard the change?' : `Discard ${changed} changes?`,
       message: `${changed === 1 ? 'The box goes' : 'The boxes go'} back to what the app has now.`,
-      confirm: 'Discard',
-      danger: true,
+      confirmLabel: 'Discard',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
     });
     if (sure) {
       this.edits.set({});
@@ -257,12 +264,12 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
     this.missingIn.set('');
   }
 
-  protected onSearch(event: Event): void {
-    this.search.set((event.target as HTMLInputElement).value);
+  protected onSearch(text: string): void {
+    this.search.set(text);
   }
 
-  protected onMissing(event: Event): void {
-    this.missingIn.set((event.target as HTMLSelectElement).value);
+  protected onMissing(code: string): void {
+    this.missingIn.set(code);
   }
 
   /* --------------------------------------------------------------- saving */
@@ -401,10 +408,11 @@ export class TranslationsComponent implements HoldsUnsavedChanges {
       this.notice.set({ heading, message: 'It holds no string: every value in it is empty.' });
       return;
     }
-    const sure = await this.confirm().ask({
+    const sure = await this.ask({
       title: `Import ${plural(count, 'string', 'strings')} into ${language.name}?`,
       message: 'Each string in the file replaces the one the app has for its key. Keys the file leaves out, or leaves empty, stay as they are.',
-      confirm: 'Import',
+      confirmLabel: 'Import',
+      cancelLabel: 'Cancel',
     });
     if (!sure) {
       return;

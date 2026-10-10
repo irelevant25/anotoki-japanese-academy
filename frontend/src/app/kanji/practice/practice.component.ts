@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonComponent } from '@anotoki/lib/ui';
 import { CatalogItem, ItemState, LessonTypes } from '../../core/api/api.types';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslationService } from '../../core/i18n/translation.service';
@@ -38,7 +39,7 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
 /** Practice: drill what has been learned, any time, as many rounds as wanted. It never changes the SRS schedule. */
 @Component({
   selector: 'app-practice',
-  imports: [RouterLink, TranslatePipe, WordedComponent],
+  imports: [ButtonComponent, RouterLink, TranslatePipe, WordedComponent],
   templateUrl: './practice.component.html',
   styleUrl: './practice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

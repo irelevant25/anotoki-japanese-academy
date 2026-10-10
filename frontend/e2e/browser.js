@@ -106,6 +106,54 @@ function keyShaped(page) {
   });
 }
 
+/**
+ * The top bar is the anotoki family's, the library's (<anotoki-top-bar>,
+ * @anotoki/lib/shell): its parts have classes of the library's, and no ids.
+ * Where each one is, under the name the suites give it (the ids the parts had
+ * while the bar was this app's own). A menu is drawn only while it is open.
+ */
+const BAR = {
+  bar: 'anotoki-top-bar',
+  header: 'anotoki-top-bar header.topbar',
+  brand: 'anotoki-top-bar anotoki-brand a',
+  wordmark: 'anotoki-top-bar anotoki-brand .wordmark',
+  mark: 'anotoki-top-bar anotoki-brand img',
+  nav: 'anotoki-top-bar nav.nav',
+  navDue: 'anotoki-top-bar nav.nav .badge',
+  langButton: 'anotoki-top-bar anotoki-language-switcher button.switcher', // not its menu's items, buttons in it too
+  theme: 'anotoki-top-bar anotoki-theme-toggle .segmented',
+  userButton: 'anotoki-top-bar .person-button',
+  userName: 'anotoki-top-bar .person-name',
+  signInButton: 'anotoki-top-bar button.sign-in',
+  menuButton: 'anotoki-top-bar .menu-button',
+  menuDue: 'anotoki-top-bar .mark-badge',
+  menu: 'anotoki-top-bar [role="menu"]',
+  accountLink: 'anotoki-top-bar [role="menu"] a[target="_blank"]',
+  adminLink: 'anotoki-top-bar [role="menu"] a[href="/admin"]',
+  backLink: 'anotoki-top-bar [role="menu"] a[href="/"]',
+  signOut: 'anotoki-top-bar .sign-out-item',
+  signInItem: 'anotoki-top-bar .sign-in-item',
+};
+
+/** A section's link in the bar, by where it goes: barLink('/kanji'). */
+const barLink = (path) => `${BAR.nav} a[href="${path}"]`;
+
+/** The theme switch's choice: light, dark, or auto (as the device is set). */
+const themeChoice = (mode) => `anotoki-top-bar [role="radio"][data-value="${mode}"]`;
+
+/**
+ * The element that has the focus: for a part of the bar BAR's name for it
+ * ('userButton', 'signOut' ...: the ids the library gives its menu buttons are
+ * made up as it draws them), else its id; its role and its tag.
+ */
+function focusedOn(page) {
+  return page.evaluate((bar) => {
+    const el = document.activeElement;
+    const part = el ? Object.keys(bar).find((name) => el.matches(bar[name])) || '' : '';
+    return { id: part || (el && el.id) || '', role: (el && el.getAttribute('role')) || '', tag: el ? el.tagName.toLowerCase() : '' };
+  }, BAR);
+}
+
 const SHOTS = path.join(__dirname, 'shots');
 
-module.exports = { launch, newContext, watch, reporter, findBrowser, keyShaped, SHOTS };
+module.exports = { launch, newContext, watch, reporter, findBrowser, keyShaped, BAR, barLink, themeChoice, focusedOn, SHOTS };
