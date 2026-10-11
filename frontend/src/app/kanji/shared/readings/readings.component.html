@@ -11,7 +11,7 @@
     <div class="rd">
       <span class="rk">{{ 'kanji.reading' | translate }}</span><span class="rv" lang="ja">{{ wordReadings() }}</span>
       @if (item().audio) {
-        <button anotokiButton size="sm" class="play" (click)="listen()">{{ 'kanji.listen' | translate }}</button>
+        <button anotokiButton size="sm" (click)="listen()">{{ 'kanji.listen' | translate }}</button>
       }
     </div>
   </div>

@@ -621,10 +621,25 @@ tests run in Vitest with jsdom (`ng test`).
   Slovak), the language on the page (English in the admin panel), the theme
   (`ThemeService`: `academy-theme` on the device, the anotoki account's
   while signed in, a choice saved to it, a refusal said by the library's
-  note) and the languages on offer (`forShell()`). Buttons, dialogs,
-  questions, fields, the spinner and menus everywhere are the kit's
-  (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
-  `anotoki-text-field` …), its class names its own (`anotoki-<piece>__<part>`).
+  note) and the languages on offer (`forShell()`). The pages' building
+  blocks everywhere are the kit's - buttons, dialogs, questions, fields (text
+  fields, the notes' textareas, the exam's tick box), the spinner, menus, page
+  headers, cards, alerts, badges, empty states, segmented choices and the
+  family's table (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
+  `anotoki-text-field`, `<anotoki-card>`, `<anotoki-alert>` …), its class
+  names its own (`anotoki-<piece>__<part>`). A choice of the lessons, the
+  practice, Browse and the exam (once the app's chips) is the kit's
+  segmented choice where its few short options fit a phone in both languages
+  (the batch size, how many, Browse's type, the result's review), else a row
+  of the kit's small buttons, the chosen ones primary and `aria-pressed`, in
+  a `role="group"` named by the words over it (`.choice-label`, the app's:
+  the kit has no labelled group, and no chips that wrap or that one can
+  choose several of; Browse's choices, with no words over them, are named
+  by an `aria-label`). What is truly the study's stays the app's, drawn with
+  the tokens: the tiles, an item's head and details, the session and its
+  answer box, the lesson batch (its band and tabs), the exam's paper (the
+  question, the options, the player, the grid), the dashboard's section
+  cards, stages and forecast, the kanji tabs, the foot.
 - `app.routes.ts` — the learner's pages under one parent whose
   `canActivateChild` is the library's `personOrVisitorGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
@@ -695,18 +710,22 @@ tests run in Vitest with jsdom (`ng test`).
 - `exam/` — the exam: setup, the paper (keys: 1–4 or A–D, ←/→, Enter, F, R),
   the result, all one component with three screens.
 - `styles.scss` and `styles/` — the anotoki library's styles first
-  (`@use "@anotoki/lib/styles" as anotoki`: its tokens, base and Manrope,
-  the family's font, bundled), then `_tokens.scss` (Japanese's palette given
+  (`@use "@anotoki/lib/styles" as anotoki`: Manrope, the family's font,
+  bundled; the family's base - the page, the headings, links, code, the one
+  focus ring, motion off for those who ask -, its utilities - `.page`,
+  `.stack`, `.cluster`, `.muted`, `.small`, `.facts` … - and its tables -
+  `.table`, `.table-scroll`), then `_tokens.scss` (Japanese's palette given
   to the library's tokens, `anotoki.root()`, light and dark - the kit and
-  the library's pages draw with them -, the app's own names for them
+  the library's pages draw with them, its alerts' and badges' grounds in this
+  app's own hues -, the app's own names for them
   (`--bg`, `--ink`, `--accent` …), and the study colours, kanji, vocabulary
   and the stages, the app's alone: the dark ones under
   `prefers-color-scheme: dark` unless the page is told light, and under
-  `[data-theme='dark']`), `_base.scss` (the page, chips, panels, tables,
-  the sign-in page - its element and shared-class rules kept out of the
-  kit's components, `$app-only`: an app's `button` or `.panel` rule never
-  reaches inside a kit button or the library's page), `_items.scss` (tiles
-  and stage colours shared by the kanji screens).
+  `[data-theme='dark']`), and after the family's (`meta.load-css`)
+  `_base.scss` (the reading size, 16 px where the family's base says 15, the
+  frame `.wrap`, a choice's name `.choice-label`, `kbd`, the stand-in pages)
+  and `_items.scss` (tiles and an item's details, shared by the kanji
+  screens). No rule of the app reaches inside a kit component.
 - `standin/` — the two pages of the app's own that stand in for it, the Sign
   in card and the problem page (a failed sign-in is the anotoki library's
   screen since 2026-10-11, and a site not set up, being updated or out of
@@ -891,7 +910,9 @@ kit's `language`. The reader's own language stays (`language()`): the IAM's
 pages still open in it.
 
 **The foot** of every page: the version and **What's new**, which opens the
-changelog dialog, with a dot beside the words until this version's news has
+changelog dialog (the kit's `<anotoki-dialog>`, made while it is open: its
+Close and Escape and the backdrop close it; the newest release marked by
+the kit's badge), with a dot beside the words until this version's news has
 been opened (`whatsNew.title`, `whatsNew.unseen`; the dot sits on the words'
 span, not the button, which is 44 px high on a touch screen; while it shows
 the button keeps 10 px of room after it, so the '·' before Send feedback

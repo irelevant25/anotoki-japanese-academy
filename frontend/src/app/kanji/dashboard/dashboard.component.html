@@ -1,136 +1,135 @@
-<app-visitor-notice />
+<div class="page">
+  <app-visitor-notice />
 
-@if (s(); as s) {
-  <div class="cards3">
-    <div class="bigcard c-lessons">
-      <div class="bc-head">
-        <span class="bc-title">{{ 'kanji.tab.lessons' | translate }}</span><span class="bc-num">{{ s.lessonsAvailable }}</span>
+  @if (s(); as s) {
+    <div class="cards3">
+      <div class="bigcard c-lessons">
+        <div class="bc-head">
+          <span class="bc-title">{{ 'kanji.tab.lessons' | translate }}</span><span class="bc-num">{{ s.lessonsAvailable }}</span>
+        </div>
+        <div class="bc-body">
+          @if (next().length) {
+            <div class="preview">
+              @for (it of next(); track it.id) {
+                <app-tile [item]="it" />
+              }
+            </div>
+          } @else {
+            <p class="muted small">{{ 'dashboard.allLearned' | translate }}</p>
+          }
+        </div>
+        <div class="bc-foot">
+          <button anotokiButton variant="primary" [disabled]="!next().length" (click)="learn(next())">
+            @if (next().length) {
+              {{ 'dashboard.learn' | translatePlural: next().length }}
+            } @else {
+              {{ 'kanji.nothingToLearn' | translate }}
+            }
+          </button>
+          <a routerLink="/kanji/lessons" class="small">{{ 'dashboard.chooseLessons' | translate }}</a>
+        </div>
       </div>
-      <div class="bc-body">
-        @if (next().length) {
-          <div class="preview">
-            @for (it of next(); track it.id) {
+
+      <div class="bigcard c-reviews">
+        <div class="bc-head">
+          <span class="bc-title">{{ 'kanji.tab.reviews' | translate }}</span><span class="bc-num">{{ s.reviewsDue }}</span>
+        </div>
+        <div class="bc-body"><p class="muted small">{{ reviewsText() }}</p></div>
+        <div class="bc-foot">
+          <button anotokiButton variant="primary" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">{{ 'dashboard.startReviews' | translate }}</button>
+        </div>
+      </div>
+
+      <div class="bigcard c-practice">
+        <div class="bc-head">
+          <span class="bc-title">{{ 'kanji.tab.practice' | translate }}</span><span class="bc-num">{{ s.learned }}</span>
+        </div>
+        <div class="bc-body">
+          <p class="muted small">{{ (s.learned ? 'dashboard.practiceReady' : 'dashboard.practiceEmpty') | translate }}</p>
+        </div>
+        <div class="bc-foot">
+          <button anotokiButton variant="primary" [disabled]="!s.learned" (click)="go('/kanji/practice')">{{ 'kanji.tab.practice' | translate }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="today">
+      <span
+        >{{ learnedToday()[0] }}@if (learnedToday()[2]) {<b>{{ s.today.lessons }}</b>}{{ learnedToday()[1] }}</span
+      >
+      <span
+        >{{ reviewsToday()[0] }}@if (reviewsToday()[2]) {<b>{{ s.today.reviews }}</b>}{{ reviewsToday()[1] }}
+        @if (s.today.reviews) {
+          {{ 'dashboard.right' | translate: { pct: pct(s.today.reviewsCorrect, s.today.reviews) } }}
+        }
+      </span>
+      <span
+        >{{ practisedToday()[0] }}@if (practisedToday()[2]) {<b>{{ s.today.practice }}</b>}{{ practisedToday()[1] }}
+        @if (s.today.practice) {
+          {{ 'dashboard.right' | translate: { pct: pct(s.today.practiceCorrect, s.today.practice) } }}
+        }
+      </span>
+      <span class="muted">{{ 'dashboard.learnedOfTotal' | translate: { learned: s.learned, total: s.total } }}</span>
+    </div>
+
+    <anotoki-card [heading]="'dashboard.stages' | translate">
+      <div class="groups">
+        @for (g of kanji.groups(); track g.id) {
+          <div class="grp g-{{ g.id }}">
+            <span class="gn" lang="en">{{ g.name }}</span>
+            <span class="gc">{{ s.groups[g.id].total }}</span>
+            <span class="gs small">{{ 'dashboard.groupCounts' | translate: { kanji: s.groups[g.id].kanji, vocab: s.groups[g.id].vocab } }}</span>
+          </div>
+        }
+      </div>
+    </anotoki-card>
+
+    <anotoki-card [heading]="'dashboard.upcoming' | translate">
+      @if (anyAhead()) {
+        <div class="fchart">
+          @for (b of bars(); track $index) {
+            <div class="fb" [title]="b.title">
+              <div class="fbar" [style.height.%]="b.height"></div>
+              @if (b.label !== null) {
+                <span class="fl">{{ b.label }}</span>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="muted small">{{ 'dashboard.nothingAhead' | translate }}</p>
+      }
+      <div class="fdays">
+        @for (d of days(); track $index) {
+          <div class="fd"><span class="fdl">{{ d.label }}</span><b>{{ d.n }}</b></div>
+        }
+      </div>
+    </anotoki-card>
+
+    <anotoki-card [heading]="'dashboard.byLesson' | translate">
+      @for (row of lessonRows(); track row.L) {
+        <div class="lrow">
+          <a class="lname" routerLink="/kanji/browse" [queryParams]="{ lesson: row.L }">L{{ row.L }}</a>
+          <div class="tiles">
+            @for (it of row.kanji; track it.id) {
               <app-tile [item]="it" />
             }
           </div>
-        } @else {
-          <p class="muted small">{{ 'dashboard.allLearned' | translate }}</p>
-        }
-      </div>
-      <div class="bc-foot">
-        <button anotokiButton variant="primary" [disabled]="!next().length" (click)="learn(next())">
-          @if (next().length) {
-            {{ 'dashboard.learn' | translatePlural: next().length }}
-          } @else {
-            {{ 'kanji.nothingToLearn' | translate }}
-          }
-        </button>
-        <a routerLink="/kanji/lessons" class="small">{{ 'dashboard.chooseLessons' | translate }}</a>
-      </div>
-    </div>
-
-    <div class="bigcard c-reviews">
-      <div class="bc-head">
-        <span class="bc-title">{{ 'kanji.tab.reviews' | translate }}</span><span class="bc-num">{{ s.reviewsDue }}</span>
-      </div>
-      <div class="bc-body"><p class="muted small">{{ reviewsText() }}</p></div>
-      <div class="bc-foot">
-        <button anotokiButton variant="primary" [disabled]="!s.reviewsDue" (click)="go('/kanji/reviews')">{{ 'dashboard.startReviews' | translate }}</button>
-      </div>
-    </div>
-
-    <div class="bigcard c-practice">
-      <div class="bc-head">
-        <span class="bc-title">{{ 'kanji.tab.practice' | translate }}</span><span class="bc-num">{{ s.learned }}</span>
-      </div>
-      <div class="bc-body">
-        <p class="muted small">{{ (s.learned ? 'dashboard.practiceReady' : 'dashboard.practiceEmpty') | translate }}</p>
-      </div>
-      <div class="bc-foot">
-        <button anotokiButton variant="primary" [disabled]="!s.learned" (click)="go('/kanji/practice')">{{ 'kanji.tab.practice' | translate }}</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="today">
-    <span
-      >{{ learnedToday()[0] }}@if (learnedToday()[2]) {<b>{{ s.today.lessons }}</b>}{{ learnedToday()[1] }}</span
-    >
-    <span
-      >{{ reviewsToday()[0] }}@if (reviewsToday()[2]) {<b>{{ s.today.reviews }}</b>}{{ reviewsToday()[1] }}
-      @if (s.today.reviews) {
-        {{ 'dashboard.right' | translate: { pct: pct(s.today.reviewsCorrect, s.today.reviews) } }}
-      }
-    </span>
-    <span
-      >{{ practisedToday()[0] }}@if (practisedToday()[2]) {<b>{{ s.today.practice }}</b>}{{ practisedToday()[1] }}
-      @if (s.today.practice) {
-        {{ 'dashboard.right' | translate: { pct: pct(s.today.practiceCorrect, s.today.practice) } }}
-      }
-    </span>
-    <span class="muted">{{ 'dashboard.learnedOfTotal' | translate: { learned: s.learned, total: s.total } }}</span>
-  </div>
-
-  <section class="panel">
-    <h2>{{ 'dashboard.stages' | translate }}</h2>
-    <div class="groups">
-      @for (g of kanji.groups(); track g.id) {
-        <div class="grp g-{{ g.id }}">
-          <span class="gn" lang="en">{{ g.name }}</span>
-          <span class="gc">{{ s.groups[g.id].total }}</span>
-          <span class="gs small">{{ 'dashboard.groupCounts' | translate: { kanji: s.groups[g.id].kanji, vocab: s.groups[g.id].vocab } }}</span>
-        </div>
-      }
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>{{ 'dashboard.upcoming' | translate }}</h2>
-    @if (anyAhead()) {
-      <div class="fchart">
-        @for (b of bars(); track $index) {
-          <div class="fb" [title]="b.title">
-            <div class="fbar" [style.height.%]="b.height"></div>
-            @if (b.label !== null) {
-              <span class="fl">{{ b.label }}</span>
-            }
+          <div class="lvocab small" [title]="'dashboard.vocabTitle' | translate">
+            <span class="muted">{{ 'dashboard.vocab' | translate }} </span><b>{{ row.learned }}</b>/{{ row.total }}
+            <div class="mini"><div [style.width.%]="row.fill"></div></div>
           </div>
-        }
-      </div>
-    } @else {
-      <p class="muted small">{{ 'dashboard.nothingAhead' | translate }}</p>
-    }
-    <div class="fdays">
-      @for (d of days(); track $index) {
-        <div class="fd"><span class="fdl">{{ d.label }}</span><b>{{ d.n }}</b></div>
+        </div>
       }
-    </div>
-  </section>
+    </anotoki-card>
 
-  <section class="panel">
-    <h2>{{ 'dashboard.byLesson' | translate }}</h2>
-    @for (row of lessonRows(); track row.L) {
-      <div class="lrow">
-        <a class="lname" routerLink="/kanji/browse" [queryParams]="{ lesson: row.L }">L{{ row.L }}</a>
-        <div class="tiles">
-          @for (it of row.kanji; track it.id) {
-            <app-tile [item]="it" />
-          }
-        </div>
-        <div class="lvocab small" [title]="'dashboard.vocabTitle' | translate">
-          <span class="muted">{{ 'dashboard.vocab' | translate }} </span><b>{{ row.learned }}</b>/{{ row.total }}
-          <div class="mini"><div [style.width.%]="row.fill"></div></div>
-        </div>
-      </div>
+    @if (auth.signedIn()) {
+      <!-- Your data is a signed-in person's (a visitor's study has no file: the notice above says how it is kept). -->
+      <p class="small muted" id="keptLine">
+        {{ 'dashboard.saved' | translate }}
+        <a routerLink="/" fragment="your-data" id="yourDataLink">{{ 'dashboard.download' | translate }}</a
+        >.
+      </p>
     }
-  </section>
-
-  @if (auth.signedIn()) {
-    <!-- Your data is a signed-in person's (a visitor's study has no file: the notice above says how it is kept). -->
-    <p class="small muted foot">
-      {{ 'dashboard.saved' | translate }}
-      <a routerLink="/" fragment="your-data" id="yourDataLink">{{ 'dashboard.download' | translate }}</a
-      >.
-    </p>
   }
-}
+</div>

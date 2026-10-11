@@ -1,40 +1,18 @@
-// A card at the foot of the home page, with the question it asks over the page.
+// A card at the foot of the home page (the kit's, its alerts saying what came of a download or a file),
+// with the question it asks over the page.
 :host {
   display: block;
 }
 
-.yourdata {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px 22px;
-  margin: 26px 0 8px;
-}
-h2 {
-  font-size: 17px;
-  margin: 0 0 8px;
-}
 p {
-  margin: 0 0 10px;
   max-width: 70ch;
-}
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 14px 0 8px;
-}
-.ok {
-  color: var(--good);
-  font-size: 14px;
-  margin: 12px 0 0;
-}
-.err:empty {
-  display: none;
 }
 
 // The question is the kit's dialog (its frame, its foot and the buttons' rings); here what it says, and
 // its two answers as this page had them: 10 px apart at the right, one under the other on a phone.
+.question {
+  margin: 0 0 10px;
+}
 .answers {
   display: flex;
   flex-wrap: wrap;
@@ -51,13 +29,10 @@ p {
 }
 
 @media (max-width: 440px) {
-  .yourdata {
-    padding: 16px;
-  }
   .answers {
     width: 100%;
   }
-  .actions button,
+  .takes button,
   .answers button {
     flex: 1 1 100%;
   }

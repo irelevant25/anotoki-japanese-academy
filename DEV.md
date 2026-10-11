@@ -263,7 +263,8 @@ sign-in, the people and the admin tools; 0.4.1 a fix):
   `ui/forms`, `ui/config` …; never the `@anotoki/lib/ui` barrel, which
   would bring every piece into the first load), its styles
   (`@anotoki/lib/styles`, in `src/styles.scss` and `src/styles/_tokens.scss`:
-  Japanese's palette given to `anotoki.root()`, Manrope) and its top bar and
+  Japanese's palette given to `anotoki.root()`, Manrope, the family's base,
+  utilities and tables, this app's own styles after them) and its top bar and
   theme (`@anotoki/lib/shell`) - wired in `core/kit.config.ts` (the kit's
   words are the library's keys in this app's database, `forKit()`) and
   `top-bar/`; `angular.json` copies its `theme-boot.js` into the build. The
@@ -347,8 +348,11 @@ node backend/tools/pdf/pages.js textbook-1 12-14          # page images; the aca
   checks with one); `backend/tests/unit/php74-syntax.test.php` checks it.
 - **Frontend**: standalone components, `OnPush`, signals for state, no
   zone.js. Every component is three files — `.ts`, `.html`, `.scss` — never
-  an inline template or style. Buttons, dialogs, fields and menus are the
-  anotoki library's kit (`anotokiButton`, `<anotoki-dialog>` …). Colours come
+  an inline template or style. A page's building blocks - buttons, dialogs,
+  fields, menus, cards, alerts, badges, page headers, segmented choices, the
+  table - are the anotoki library's kit (`anotokiButton`, `<anotoki-dialog>`,
+  `<anotoki-card>` …); the study's own pieces (tiles, the session, the exam's
+  paper) are drawn with the tokens. Colours come
   only from the tokens in `frontend/src/styles/_tokens.scss`, each defined
   for light and dark (the palette is given to the library's tokens there);
   every screen works at phone width (390 px). The app talks to the backend through

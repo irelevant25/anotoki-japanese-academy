@@ -76,7 +76,7 @@ The caller tells you what changed. Then:
    a real Tab and Shift+Tab from an item of each open menu leaving the focus
    on its button).
 4. With the Read tool, open the screenshots of every affected screen in all
-   five variants (light, dark, phone, sk-phone, sk-phone-dark). Go through the `academy-ui-check`
+   six variants (light, dark, phone, phone-dark, sk-phone, sk-phone-dark). Go through the `academy-ui-check`
    checklist. Also look at the phone and dark shots of the other screens,
    because global styles (`frontend/src/styles/`) spread. A full-page phone
    shot is tall: crop its top to see the nav (for example with `sharp` from

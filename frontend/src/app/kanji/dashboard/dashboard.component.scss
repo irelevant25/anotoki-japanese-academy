@@ -5,7 +5,6 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin: 8px 0 14px;
 }
 .bigcard {
   background: var(--card);
@@ -202,9 +201,6 @@
 .mini div {
   height: 100%;
   background: var(--vocab);
-}
-.foot {
-  margin-top: 18px;
 }
 
 @media (max-width: 760px) {

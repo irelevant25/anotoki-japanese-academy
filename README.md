@@ -461,8 +461,10 @@ the rest.
 The database migrations - applying them, and what the site does while one
 waits -, the app's words (serving them, the Translations and Languages
 pages, the command line), the family's UI kit the pages are drawn with
-(buttons, dialogs, fields, menus), its styles and font (Manrope) and the top
-bar, in this app's own colours, the sign-in (the site's half of it), the
+(buttons, dialogs, fields, menus, cards, alerts, badges, choices; the study's
+own pieces - tiles, the sessions, the exam's paper - are the app's), its
+styles and font (Manrope) and the top bar, in this app's own colours, the
+sign-in (the site's half of it), the
 people (the People page, and blanking who somebody was once the IAM deleted
 their account) and the admin tools (the error log, the audit log, the
 feedback and its form, the backups) are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki

@@ -47,13 +47,24 @@
       danger: #b4453c,
       danger-hover: #c14a40,
       danger-contrast: #fff,
+      // the alerts' and the badges' grounds and edges, in this app's own hues (the family's are the IAM's
+      // blue-greys); the words on them: the danger words 4.7:1 on their ground, 5.4 on --card, the
+      // success words 5.5:1, the warning words 5.7:1, the page's ink 14:1 on every one
+      danger-text: #b4453c,
+      danger-soft: #f9ebe9,
+      danger-border: #ebc6c1,
       success: #2e7d5b,
-      // on the success badge's pale ground: 5.6:1 (the green itself is 4.4)
+      // on the success badge's pale ground: 5.5:1 (the green itself is 4.3)
       success-text: #256b4d,
+      success-soft: #e3f1ea,
+      success-border: #b9dccb,
       warning: #8a6417,
       warning-text: #7a5814,
+      warning-soft: #f8efdc,
+      warning-border: #e6d0a4,
       info: #3a5f8a,
       info-soft: #e2eaf4,
+      info-border: #c3d2e5,
       ring: rgb(58 95 138 / 32%),
       focus: #3a5f8a,
       backdrop: rgb(29 29 31 / 38%),
@@ -87,12 +98,23 @@
       danger: #ae4a3f,
       danger-hover: #ba4f43,
       danger-contrast: #fff,
+      // the words that say something went wrong are --bad's red, never the fill's (3:1 on --card): 5.6:1 on
+      // --card; on their own ground 4.7 over a card, 5.2 over the page; the grounds and edges are this
+      // app's hues, see-through (the page's ink on them 11 to 12.8:1, on the info ground 10.8)
+      danger-text: #e2786d,
+      danger-soft: rgb(226 120 109 / 12%),
+      danger-border: rgb(226 120 109 / 35%),
       success: #5fc094,
       success-text: #5fc094,
+      success-soft: rgb(95 192 148 / 12%),
+      success-border: rgb(95 192 148 / 35%),
       warning: #ddab52,
       warning-text: #ddab52,
+      warning-soft: rgb(221 171 82 / 12%),
+      warning-border: rgb(221 171 82 / 35%),
       info: #6b9fd8,
       info-soft: #22324a,
+      info-border: rgb(107 159 216 / 32%),
       ring: rgb(107 159 216 / 45%),
       focus: #6b9fd8,
       backdrop: rgb(0 0 0 / 60%),

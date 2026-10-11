@@ -10,8 +10,10 @@ migrations - applying them, and what the site does while one waits - are the
 **anotoki library**'s (`anotoki-lib`, every anotoki site's: the Composer
 package `anotoki/lib`, the npm package `@anotoki/lib`; `../anotoki-lib`,
 `DEV.md`, *The anotoki library*), and so are the family's UI kit the pages
-are drawn with (buttons, dialogs, fields, menus), its styles and the top bar
-(since anotoki-lib 0.2.0), in this app's own palette, the app's words -
+are drawn with (buttons, dialogs, fields, menus; since 2026-10-11 the cards,
+alerts, badges, page headers and choices of every page too), its styles - its
+base, utilities and tables with them - and the top bar (since anotoki-lib
+0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
 anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.4.1), the
@@ -137,8 +139,9 @@ count wrong, fix it in the same piece of work.
   the panel's frame) —, `standin/`
   — the Sign in card and the problem page; `home/your-data/` is a
   person's own data file, down and back),
-  `src/styles/` (tokens - the palette given to the library's - base,
-  items), `public/` (favicon, the family's mark, `changelog.json`; the
+  `src/styles/` (tokens - the palette given to the library's -, base - the
+  app's own after the family's base, utilities and tables -, items),
+  `public/` (favicon, the family's mark, `changelog.json`; the
   library's `theme-boot.js` is copied in by `angular.json`), `e2e/`
   (the browser suites), `scripts/`
   (`ensure-build.mjs`, which builds only when the sources changed), `.nvmrc`.
@@ -185,7 +188,7 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
 node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (252): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
-cd frontend && npm test                      the Angular unit tests (428 in 42 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (432 in 42 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              Edge end to end (203 checks), signed in through the library's stand-in
@@ -201,9 +204,10 @@ node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
                                              the setup page in Edge (42 checks): this computer's way and a website's
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
-                                             screenshots → frontend/e2e/shots/: 29 screens light/dark/phone and Slovak
-                                             phone light/dark, then the top bar measured at 360-1280 px (the admin
-                                             panel's to 1530) and its menus (room alone: room) - look at the shots
+                                             screenshots → frontend/e2e/shots/: 29 screens light/dark at 1280 px,
+                                             light/dark at 390 px and Slovak at 390 px light/dark, then the top bar
+                                             measured at 360-1280 px (the admin panel's to 1530) and its menus
+                                             (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
 node backend/tools/php.js backend/tools/build-audio.php   missing clips → backend/data/audio/ (Google TTS; --dry-run needs no key)
 node backend/tools/php.js backend/tools/build-dist.php    the upload for the website → dist/japanese-academy/ (academy-deploy)
@@ -541,16 +545,29 @@ Tests enforce most of these. Never weaken a test to make it pass.
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
-  admin panel (the library's `TranslationService.effectiveLanguage`). Buttons, dialogs and
-  questions, form fields, the spinner and menus are the anotoki library's kit
-  (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field`
-  …), each piece imported from its own entry point (`@anotoki/lib/ui/button`,
-  `ui/dialog`, `ui/forms`, `ui/config` - never the `@anotoki/lib/ui` barrel,
-  which would put every piece in the first load): never a button or field style of the app's own; the study components
-  (tiles, readings, the session, the lesson batch, the exam's paper), the
-  chips, the panels and the changelog are the app's. The kit's class names
-  are its own (`anotoki-<piece>__<part>`, since 0.3.0), and the specs and
-  browser suites read them so. The kit's words are the anotoki library's keys
+  admin panel (the library's `TranslationService.effectiveLanguage`). The
+  pages' building blocks are the anotoki library's kit: buttons, dialogs and
+  questions, form fields (text fields, textareas, the exam's tick box), the
+  spinner, menus, page headers, cards, alerts, badges, empty states,
+  segmented choices and the family's table (`anotokiButton`,
+  `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field`,
+  `<anotoki-card>`, `<anotoki-alert>`, `<anotoki-segmented>` …), each piece
+  imported from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
+  `ui/forms`, `ui/card`, `ui/config` - never the `@anotoki/lib/ui` barrel,
+  which would put every piece in the first load): never a style of the app's
+  own for one of them. A choice is a segmented choice where its few short
+  options fit a phone, else a row of the kit's buttons (`.cluster`), each
+  pressed or not (`aria-pressed`, the chosen ones `primary`) - the kit has no
+  chips; a choice's name over it is the app's `.choice-label`
+  (`styles/_base.scss`; Browse's choices, with none over them, an
+  `aria-label`). Words that may be long (an answer the learner added)
+  stand beside a kit button, never in it: its words stay on one line. The
+  study components (tiles, readings, the session
+  and its answer box, the lesson batch, the exam's paper, the dashboard's
+  section cards, stages and forecast), the kanji tabs, the foot and the
+  changelog's entries are the app's, drawn with the tokens. The kit's class
+  names are its own (`anotoki-<piece>__<part>`, since 0.3.0), and the specs
+  and browser suites read them so. The kit's words are the anotoki library's keys
   (`anotoki.topbar.*`, `anotoki.theme.*` …) in this app's database, which
   009 filled with the app's own words (`core/kit.config.ts`: the translation
   service's `forKit()`; the English the app says its own way while no words
@@ -567,9 +584,14 @@ Tests enforce most of these. Never weaken a test to make it pass.
   library's tokens (`anotoki.root()`, the `--anotoki-*` properties the kit
   and the library's pages draw with), the app's own names (`--bg`, `--ink`,
   `--accent` …) those tokens, and the study colours its own. The font is the
-  family's, Manrope, with the Japanese faces after it. A global rule of the
-  app keeps out of the kit's components (`_base.scss`). Every screen must
-  work at phone width (390 px).
+  family's, Manrope, with the Japanese faces after it. The page's global
+  styles are the family's - `anotoki.base` (the page, the headings, links, the
+  focus ring), `anotoki.utilities` (`.page`, `.stack`, `.cluster`, `.muted`,
+  `.small`, `.facts` …) and `anotoki.tables` - and the app's own come after
+  them (`_base.scss`: the reading size, 16 px, the frame `.wrap`, `.choice`,
+  `kbd`, the stand-in pages; `_items.scss`: the study's); no rule of the app
+  reaches inside a kit component. Every screen must work at phone width
+  (390 px).
 - The UI is in English and Slovak (informal "ty"), English the fallback. The
   app's own words live in the database (migration 004 and later ones: a key,
   an English string, a Slovak one) and EDITOR and ADMIN reword them in the

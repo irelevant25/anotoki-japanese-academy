@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, InjectionToken, output, signal, viewChild } from '@angular/core';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { AlertComponent } from '@anotoki/lib/ui/alert';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
 import { DialogComponent } from '@anotoki/lib/ui/dialog';
 import { ApiError, ApiService, errorCode, toApiError } from '../../core/api/api.service';
 import { ApiErrorBody, BroughtBack } from '../../core/api/api.types';
@@ -176,7 +178,7 @@ function scalar(value: unknown): boolean {
  */
 @Component({
   selector: 'app-your-data',
-  imports: [ButtonComponent, DialogComponent, TranslatePipe],
+  imports: [AlertComponent, ButtonComponent, CardComponent, DialogComponent, TranslatePipe],
   templateUrl: './your-data.component.html',
   styleUrl: './your-data.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

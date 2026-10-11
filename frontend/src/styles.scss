@@ -1,12 +1,22 @@
 // Japanese Academy — the styles every page shares. What only one screen uses
 // is in that component's own .scss. The anotoki library's kit (@anotoki/lib)
-// draws its own pieces, in this app's palette (styles/tokens).
+// draws its own pieces, in this app's palette (styles/tokens); the family's
+// global styles come first - its base (the page's font and colours, the
+// headings, links, code, the one focus ring), its utilities (.page, .stack,
+// .cluster, .muted, .small, .facts …) and its tables (.table, .table-scroll) -
+// and this app's own after them (styles/base, styles/items), so that where the
+// two speak of the same thing (the page's reading size) the app's word stands.
 
+@use 'sass:meta';
 @use '@anotoki/lib/styles' as anotoki;
 @use 'styles/tokens';
-@use 'styles/base';
-@use 'styles/items';
 
 // Manrope, the anotoki family's font: its files come with the library, and the
 // build copies those a page needs (each subset with its unicode-range).
 @include anotoki.fonts;
+@include anotoki.base;
+@include anotoki.utilities;
+@include anotoki.tables;
+
+@include meta.load-css('styles/base');
+@include meta.load-css('styles/items');

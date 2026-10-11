@@ -79,7 +79,7 @@ describe('the kanji section’s shell', () => {
       ['Browse', '/kanji/browse', 'browse'],
     ]);
     expect(el.querySelector('.subnav a[aria-current="page"]')?.getAttribute('data-route')).toBe('');
-    expect(el.querySelector('.err')).toBeNull();
+    expect(el.querySelector('#kanjiLoadError')).toBeNull();
     expect(load).toHaveBeenCalledTimes(1);
     expect(warn, 'no key of the shell is without a string').not.toHaveBeenCalled();
   });
@@ -96,12 +96,18 @@ describe('the kanji section’s shell', () => {
   it('a load that fails resolves to the failure itself, which the shell words from its code', async () => {
     load.mockImplementation(() => Promise.reject(new ApiError('the server does not answer', 0, {})));
     const el = await open(true);
-    expect(clean(el.querySelector('.err')?.textContent)).toBe('Údaje o kanji sa nepodarilo načítať: Server neodpovedá.');
+    expect(clean(el.querySelector('#kanjiLoadError')?.textContent)).toBe('Údaje o kanji sa nepodarilo načítať: Server neodpovedá.');
+    const alert = el.querySelector('#kanjiLoadError') as HTMLElement;
+    expect([alert.tagName.toLowerCase(), alert.getAttribute('data-tone')], 'the kit’s alert').toEqual(['anotoki-alert', 'danger']);
+    expect(
+      [alert.getAttribute('role'), alert.closest('main')?.getAttribute('aria-live')],
+      'said by the screen’s live region it is in, never by one of its own (a live region in another may be said twice)',
+    ).toEqual([null, 'polite']);
     expect(el.textContent).not.toContain('the server does not answer');
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await harness.fixture.whenStable();
-    expect(clean(el.querySelector('.err')?.textContent)).toBe('Could not load the kanji data: The server does not answer.');
+    expect(clean(el.querySelector('#kanjiLoadError')?.textContent)).toBe('Could not load the kanji data: The server does not answer.');
   });
 
   it('shows what the owner’s own computer adds after its own words, small, saying it is English', async () => {
@@ -110,9 +116,9 @@ describe('the kanji section’s shell', () => {
       Promise.reject(new ApiError(`The database is not reachable: ${detail}`, 503, { error: `The database is not reachable: ${detail}`, code: 'database_unavailable', detail })),
     );
     const el = await open(true);
-    const err = el.querySelector('.err') as HTMLElement;
+    const err = el.querySelector('#kanjiLoadError') as HTMLElement;
     expect(clean(err.textContent)).toBe(`Údaje o kanji sa nepodarilo načítať: Databáza nie je dostupná. ${detail}`);
-    const span = err.querySelector('span') as HTMLElement;
+    const span = err.querySelector('span[lang]') as HTMLElement;
     expect([span.textContent, span.getAttribute('lang'), span.className]).toEqual([detail, 'en', 'small']);
     expect(err.textContent, 'the server’s own sentence is not shown').not.toContain('The database is not reachable');
   });
@@ -120,12 +126,12 @@ describe('the kanji section’s shell', () => {
   it('words an answer that was not the app’s own by its status, and a fault of the page as the general sentence', async () => {
     load.mockImplementation(() => Promise.reject(new ApiError('Bad Gateway', 502, {})));
     let el = await open();
-    expect(clean(el.querySelector('.err')?.textContent)).toBe('Could not load the kanji data: The server answered with an error (502).');
+    expect(clean(el.querySelector('#kanjiLoadError')?.textContent)).toBe('Could not load the kanji data: The server answered with an error (502).');
 
     TestBed.resetTestingModule();
     load.mockImplementation(() => Promise.reject(new TypeError('x is not a function')));
     el = await open();
-    expect(clean(el.querySelector('.err')?.textContent)).toBe('Could not load the kanji data: Something went wrong.');
+    expect(clean(el.querySelector('#kanjiLoadError')?.textContent)).toBe('Could not load the kanji data: Something went wrong.');
     expect(el.textContent).not.toContain('not a function');
   });
 

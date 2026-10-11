@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, input, OnDestroy, OnInit, signal, WritableSignal } from '@angular/core';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { TextareaComponent } from '@anotoki/lib/ui/forms';
 import { ApiError, ApiService, toApiError } from '../../../core/api/api.service';
 import { CatalogItem } from '../../../core/api/api.types';
 import { errorKey, errorParams } from '../../../core/i18n/error-text';
@@ -34,10 +35,14 @@ const WORDS: Record<NotePart, { label: string; placeholder: string }> = {
  * they stop), and when they leave the field. A note waiting for its moment,
  * and one on its way, are known to SavesInFlight: signing out sends the first
  * at once and waits for both.
+ *
+ * Each note is the kit's textarea; where it stands is its hint. The kit's
+ * field says nothing when it is left, so the leaving is heard on the way up
+ * (focusout), and so are its keys, which go no further.
  */
 @Component({
   selector: 'app-notes-editor',
-  imports: [TranslatePipe],
+  imports: [TextareaComponent, TranslatePipe],
   templateUrl: './notes-editor.component.html',
   styleUrl: './notes-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -99,7 +104,7 @@ export class NotesEditorComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * What stands beside a note's label, in the language on the page: "…" while
+   * What stands under a note, in the language on the page: "…" while
    * the note is on its way, "saved", or why it was not. Called from the
    * template, so it follows the language.
    */

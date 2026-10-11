@@ -13,23 +13,45 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   files** — `.ts`, `.html`, `.scss` — never an inline template or style, even
   for a small one.
 - Styles: the anotoki library's first (`@use "@anotoki/lib/styles" as
-  anotoki` in `src/styles.scss`: its tokens and Manrope), then the tokens,
-  the page's base and what several screens share, global, in
-  `frontend/src/styles/` (`_tokens.scss`: Japanese's palette given to
-  `anotoki.root()` and the study colours; `_base.scss`, `_items.scss`); a
-  component's own styles in its `.scss`. Colours come only from the tokens,
+  anotoki` in `src/styles.scss`: its tokens, Manrope, and its global styles -
+  `anotoki.base`, `anotoki.utilities` (`.page`, `.stack`, `.cluster`,
+  `.muted`, `.small`, `.facts` …), `anotoki.tables` (`.table`,
+  `.table-scroll`)), then this app's, global, in `frontend/src/styles/`
+  (`_tokens.scss`: Japanese's palette given to `anotoki.root()` and the study
+  colours; `_base.scss`, loaded after the family's: the reading size, 16 px,
+  the frame `.wrap`, a choice's name `.choice-label`, `kbd`, the stand-in
+  pages; `_items.scss`: the study's); a component's own styles in its
+  `.scss`. Never a copy of what the family's base or utilities give (a
+  heading's margins, a link's colour, the focus ring, `.muted`). Colours come only from the tokens,
   each defined for light and dark (the dark ones under
   `prefers-color-scheme: dark` unless `<html data-theme="light">`, and under
   `[data-theme="dark"]`: the theme switch's choice).
   Use `--kanji`/`--vocab` for item types and the stage tokens for SRS stages.
   Check contrast in dark mode.
-- Buttons, dialogs and questions, form fields, the spinner and menus are the
-  library's kit (`anotokiButton` with `variant` / `size` / `[loading]`,
-  `<anotoki-dialog>`, `ConfirmService` - its host is in `app.component.html`
-  -, `anotoki-text-field`, `anotoki-select`, `anotoki-checkbox`,
-  `<anotoki-spinner>`): never a button or field style of the app's own. Each
+- A page's building blocks are the library's kit: buttons, dialogs and
+  questions, form fields, the spinner, menus, page headers, cards, alerts,
+  badges, empty states, segmented choices, the table (`anotokiButton` with
+  `variant` / `size` / `[loading]`, `<anotoki-dialog>`, `ConfirmService` - its
+  host is in `app.component.html` -, `anotoki-text-field`, `anotoki-textarea`,
+  `anotoki-checkbox`, `<anotoki-spinner>`, `<anotoki-page-header>`,
+  `<anotoki-card>`, `<anotoki-alert>`, `<anotoki-badge>`,
+  `<anotoki-empty-state>`, `<anotoki-segmented>`, `table.table`): never a
+  style of the app's own for one of them, never a restyling of one (a page
+  lays them out - a margin, a flex - and gives the tokens). A choice: the
+  kit's segmented choice where its few short options fit 390 px in both
+  languages (the batch size, how many, the review's filter, Browse's type),
+  else a row of the kit's `size="sm"` buttons (`.cluster`), the chosen ones
+  `variant="primary"` and `aria-pressed="true"`, the row `role="group"`
+  named by its `.choice-label` (`aria-labelledby`; over a segmented choice,
+  which names itself, the `.choice-label` is `aria-hidden`; Browse's
+  choices, with no words over them, an `aria-label`); a button whose words
+  mix languages keeps them in one `<span>` (the button is a flex row), and
+  words that may be long (an answer the learner added: 80 characters)
+  stand beside a kit button, never in it - its words stay on one line. The
+  study's own pieces (tiles, the session, the lesson batch, the exam's paper)
+  stay the app's, drawn with the tokens. Each
   piece comes from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
-  `ui/forms`, `ui/config` …), never the `@anotoki/lib/ui` barrel (it would put
+  `ui/forms`, `ui/card`, `ui/config` …), never the `@anotoki/lib/ui` barrel (it would put
   every piece in the first load); its class names are its own
   (`anotoki-<piece>__<part>`: a spec or a style reads them so). Its words are
   the anotoki library's keys in this app's database (`anotoki.topbar.*`,
@@ -37,8 +59,8 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   translation service's `forKit()` in `core/kit.config.ts`); with no strings,
   `KIT_ENGLISH` where the app says a word its own way, else the library's own
   English or informal Slovak. A global rule of the app never reaches inside a kit
-  component: `_base.scss` keeps its element and shared-class rules out of
-  them (`$app-only`), and a new one does the same.
+  component: `_base.scss` has no element rule a kit piece would feel (the
+  family's base gives those), and a new rule names the app's own classes.
 - The app talks to the backend only through `ApiService` (HttpClient) —
   except the bundle of words, `GET /api/translations/{code}`, which the
   translation service asks with a plain `fetch()` and no token. The

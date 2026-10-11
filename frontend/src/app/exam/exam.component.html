@@ -3,15 +3,15 @@
 
 <!-- ---------------------------------------------------------- setup ---- -->
 <main id="setup" class="screen" [hidden]="screen() !== 'setup'">
-  <div class="wrap">
+  <div class="wrap page">
     <header class="hero">
       <h1><span lang="ja">試験</span>&ngsp;<span class="word">{{ 'exam.heading' | translate }}</span></h1>
       <p class="tagline">{{ 'exam.tagline' | translate: course }}</p>
       <p class="bank" id="bankLine">{{ bankLine() }}</p>
     </header>
 
-    <section class="panel">
-      <div class="field">
+    <anotoki-card>
+      <div class="stack">
         <anotoki-text-field
           id="candidate"
           [label]="'exam.candidate' | translate"
@@ -21,150 +21,172 @@
           [value]="candidate()"
           (valueChange)="candidate.set($event)"
         />
-      </div>
 
-      <div class="field">
-        <span class="lbl">{{ 'exam.partLabel' | translate }}</span>
-        <div class="chips" id="bookChips">
-          @for (bk of parts(); track bk.id) {
-            <button type="button" class="chip" [class.is-on]="books().has(bk.id)" [attr.data-book]="bk.id" [title]="bk.title" (click)="toggleBook(bk.id)">
-              {{ bk.name }}
-            </button>
-          }
-        </div>
-      </div>
-
-      <div class="field">
-        <span class="lbl">{{ 'exam.length' | translate }}</span>
-        <div class="chips" id="sizeChips">
-          @for (s of sizes; track s[0]) {
-            <button type="button" class="chip" [class.is-on]="size() === s[0]" [attr.data-size]="s[0]" (click)="size.set(s[0])">
-              {{ s[1] | translate: { n: s[0] } }}
-            </button>
-          }
-        </div>
-      </div>
-
-      <details class="adv">
-        <summary>{{ 'exam.narrow' | translate }}</summary>
-
-        <div class="field">
-          <div class="lblrow">
-            <span class="lbl">{{ 'exam.lessons' | translate }}</span>
-            <button anotokiButton variant="link" size="sm" data-all="lessons" (click)="allLessons(true)">{{ 'exam.all' | translate }}</button>
-            <button anotokiButton variant="link" size="sm" data-none="lessons" (click)="allLessons(false)">{{ 'exam.none' | translate }}</button>
-          </div>
-          <div class="chips" id="lessonChips">
-            @for (l of lessonChoices(); track l.id) {
+        <!-- each choice a row of the kit's buttons, the chosen ones pressed -->
+        <div class="choice" role="group" aria-labelledby="exam-part">
+          <span class="choice-label" id="exam-part">{{ 'exam.partLabel' | translate }}</span>
+          <div class="cluster" id="bookChips">
+            @for (bk of parts(); track bk.id) {
               <button
-                type="button"
-                class="chip"
-                [class.is-on]="lessons().has(l.id)"
-                [attr.data-lesson]="l.id"
-                [attr.title]="l.id === 0 ? null : lessonLabel(l.id)"
-                (click)="toggleLesson(l.id)"
+                anotokiButton
+                size="sm"
+                [variant]="books().has(bk.id) ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="books().has(bk.id)"
+                [attr.data-book]="bk.id"
+                [title]="bk.title"
+                (click)="toggleBook(bk.id)"
               >
-                @if (l.id === 0) {
-                  {{ 'exam.greetings' | translate }} (<span lang="ja">あいさつ</span>)
-                } @else {
-                  L{{ l.id }}
+                {{ bk.name }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="choice" role="group" aria-labelledby="exam-length">
+          <span class="choice-label" id="exam-length">{{ 'exam.length' | translate }}</span>
+          <div class="cluster" id="sizeChips">
+            @for (s of sizes; track s[0]) {
+              <button
+                anotokiButton
+                size="sm"
+                [variant]="size() === s[0] ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="size() === s[0]"
+                [attr.data-size]="s[0]"
+                (click)="size.set(s[0])"
+              >
+                {{ s[1] | translate: { n: s[0] } }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <details class="adv">
+          <summary>{{ 'exam.narrow' | translate }}</summary>
+          <div class="stack">
+            <div class="choice" role="group" aria-labelledby="exam-lessons">
+              <div class="choice-head">
+                <span class="choice-label" id="exam-lessons">{{ 'exam.lessons' | translate }}</span>
+                <button anotokiButton variant="link" size="sm" data-all="lessons" (click)="allLessons(true)">{{ 'exam.all' | translate }}</button>
+                <button anotokiButton variant="link" size="sm" data-none="lessons" (click)="allLessons(false)">{{ 'exam.none' | translate }}</button>
+              </div>
+              <div class="cluster" id="lessonChips">
+                @for (l of lessonChoices(); track l.id) {
+                  <button
+                    anotokiButton
+                    size="sm"
+                    [variant]="lessons().has(l.id) ? 'primary' : 'secondary'"
+                    [attr.aria-pressed]="lessons().has(l.id)"
+                    [attr.data-lesson]="l.id"
+                    [attr.title]="l.id === 0 ? null : lessonLabel(l.id)"
+                    (click)="toggleLesson(l.id)"
+                  >
+                    @if (l.id === 0) {
+                      <!-- one piece of the button's row, so the brackets stay with the kana -->
+                      <span>{{ 'exam.greetings' | translate }} (<span lang="ja">あいさつ</span>)</span>
+                    } @else {
+                      L{{ l.id }}
+                    }
+                  </button>
                 }
-              </button>
+              </div>
+            </div>
+
+            <div class="choice" role="group" aria-labelledby="exam-sections">
+              <div class="choice-head">
+                <span class="choice-label" id="exam-sections">{{ 'exam.sections' | translate }}</span>
+                <button anotokiButton variant="link" size="sm" data-all="sections" (click)="allSections(true)">{{ 'exam.all' | translate }}</button>
+                <button anotokiButton variant="link" size="sm" data-none="sections" (click)="allSections(false)">{{ 'exam.none' | translate }}</button>
+              </div>
+              <div class="cluster" id="sectionChips">
+                @for (s of meta()?.sections ?? []; track s.id) {
+                  <button
+                    anotokiButton
+                    size="sm"
+                    [variant]="sections().has(s.id) ? 'primary' : 'secondary'"
+                    [attr.aria-pressed]="sections().has(s.id)"
+                    [attr.data-section]="s.id"
+                    [title]="'exam.available' | translate: { n: i18n.number(s.available) }"
+                    (click)="toggleSection(s.id)"
+                  >
+                    {{ 'exam.section.' + s.id | translate }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <anotoki-text-field
+              id="seed"
+              [label]="'exam.paperId' | translate"
+              [hint]="'exam.paperIdNote' | translate"
+              [placeholder]="'exam.paperIdBlank' | translate"
+              [value]="seed()"
+              (valueChange)="seed.set($event)"
+            />
+          </div>
+        </details>
+
+        <div class="cluster">
+          <button anotokiButton variant="primary" id="startBtn" [disabled]="building()" (click)="start()">
+            {{ (building() ? 'exam.building' : 'exam.start') | translate }}
+          </button>
+          <button anotokiButton id="historyBtn" (click)="toggleHistory()">{{ 'exam.pastAttempts' | translate }}</button>
+        </div>
+        <!-- The page's own words; then, on the owner's own computer only, the server's reason as it came. -->
+        @if (setupErrText()) {
+          <anotoki-alert tone="danger" announce id="setupErr">
+            {{ setupErrText() }}
+            @if (setupErrDetail(); as detail) {
+              <span class="detail" lang="en">{{ detail }}</span>
             }
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="lblrow">
-            <span class="lbl">{{ 'exam.sections' | translate }}</span>
-            <button anotokiButton variant="link" size="sm" data-all="sections" (click)="allSections(true)">{{ 'exam.all' | translate }}</button>
-            <button anotokiButton variant="link" size="sm" data-none="sections" (click)="allSections(false)">{{ 'exam.none' | translate }}</button>
-          </div>
-          <div class="chips" id="sectionChips">
-            @for (s of meta()?.sections ?? []; track s.id) {
-              <button
-                type="button"
-                class="chip"
-                [class.is-on]="sections().has(s.id)"
-                [attr.data-section]="s.id"
-                [title]="'exam.available' | translate: { n: i18n.number(s.available) }"
-                (click)="toggleSection(s.id)"
-              >
-                {{ 'exam.section.' + s.id | translate }}
-              </button>
-            }
-          </div>
-        </div>
-
-        <div class="field">
-          <anotoki-text-field
-            id="seed"
-            [label]="'exam.paperId' | translate"
-            [hint]="'exam.paperIdNote' | translate"
-            [placeholder]="'exam.paperIdBlank' | translate"
-            [value]="seed()"
-            (valueChange)="seed.set($event)"
-          />
-        </div>
-      </details>
-
-      <div class="actions">
-        <button anotokiButton variant="primary" id="startBtn" [disabled]="building()" (click)="start()">
-          {{ (building() ? 'exam.building' : 'exam.start') | translate }}
-        </button>
-        <button anotokiButton id="historyBtn" (click)="toggleHistory()">{{ 'exam.pastAttempts' | translate }}</button>
-      </div>
-      <!-- The page's own words; then, on the owner's own computer only, the server's reason as it came. -->
-      <p class="err" id="setupErr">
-        {{ setupErrText() }}
-        @if (setupErrDetail(); as detail) {
-          <span class="detail" lang="en">{{ detail }}</span>
+          </anotoki-alert>
         }
-      </p>
-    </section>
+      </div>
+    </anotoki-card>
 
     @if (history(); as rows) {
-      <section class="panel history" id="historyPanel">
-        <h2>{{ 'exam.pastAttempts' | translate }}</h2>
+      <anotoki-card id="historyPanel" [heading]="'exam.pastAttempts' | translate" [flush]="rows.length > 0">
         <div id="historyBody">
           @if (rows.length) {
-            <table class="data">
-              <thead>
-                <tr>
-                  <th>{{ 'exam.history.date' | translate }}</th>
-                  <th>{{ 'exam.history.name' | translate }}</th>
-                  <th>{{ 'exam.history.questions' | translate }}</th>
-                  <th>{{ 'exam.history.score' | translate }}</th>
-                  <th>{{ 'exam.history.grade' | translate }}</th>
-                  <th>{{ 'exam.history.result' | translate }}</th>
-                  <th>{{ 'exam.history.report' | translate }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (r of rows; track r.id) {
+            <!-- seven columns, and their headings are longer in some languages: on a phone the table scrolls, never the page -->
+            <div class="table-scroll">
+              <table class="table">
+                <thead>
                   <tr>
-                    <td>{{ r.finishedAt | localDate: 'dateTime' }}</td>
-                    <td>{{ r.candidate || '—' }}</td>
-                    <td>{{ r.total }}</td>
-                    <td>{{ 'exam.percent' | translate: { pct: i18n.number(r.pct) } }}</td>
-                    <td>{{ r.grade }}</td>
-                    <!-- PASS and FAIL are marks, the same in every language. -->
-                    <td lang="en" [class.pass]="r.passed" [class.fail]="!r.passed">{{ r.passed ? 'PASS' : 'FAIL' }}</td>
-                    <td>
-                      <!-- The report is the server's own English page. -->
-                      <a [href]="reportUrl(r.id)" hreflang="en" target="_blank" rel="noopener" (click)="privateLinks.click($event, reportUrl(r.id))">
-                        {{ 'exam.history.open' | translate }}
-                      </a>
-                    </td>
+                    <th scope="col">{{ 'exam.history.date' | translate }}</th>
+                    <th scope="col">{{ 'exam.history.name' | translate }}</th>
+                    <th scope="col" class="cell-num">{{ 'exam.history.questions' | translate }}</th>
+                    <th scope="col" class="cell-num">{{ 'exam.history.score' | translate }}</th>
+                    <th scope="col">{{ 'exam.history.grade' | translate }}</th>
+                    <th scope="col">{{ 'exam.history.result' | translate }}</th>
+                    <th scope="col">{{ 'exam.history.report' | translate }}</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (r of rows; track r.id) {
+                    <tr>
+                      <td class="nowrap">{{ r.finishedAt | localDate: 'dateTime' }}</td>
+                      <td>{{ r.candidate || '—' }}</td>
+                      <td class="cell-num">{{ r.total }}</td>
+                      <td class="cell-num">{{ 'exam.percent' | translate: { pct: i18n.number(r.pct) } }}</td>
+                      <td>{{ r.grade }}</td>
+                      <!-- PASS and FAIL are marks, the same in every language. -->
+                      <td lang="en" [class.pass]="r.passed" [class.fail]="!r.passed">{{ r.passed ? 'PASS' : 'FAIL' }}</td>
+                      <td>
+                        <!-- The report is the server's own English page. -->
+                        <a [href]="reportUrl(r.id)" hreflang="en" target="_blank" rel="noopener" (click)="privateLinks.click($event, reportUrl(r.id))">
+                          {{ 'exam.history.open' | translate }}
+                        </a>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           } @else {
             <p class="tagline">{{ 'exam.history.none' | translate }}</p>
           }
         </div>
-      </section>
+      </anotoki-card>
     }
   </div>
 </main>
@@ -214,7 +236,7 @@
     <div class="navrow">
       <button anotokiButton id="prevBtn" [disabled]="idx() === 0" (click)="go(idx() - 1)">&larr; {{ 'exam.back' | translate }}</button>
       <span class="flagwrap">
-        <label><input type="checkbox" id="flagBox" [checked]="q() ? flags().has(q()!.id) : false" (change)="toggleFlag()" /> {{ 'exam.flag' | translate }}</label>
+        <anotoki-checkbox id="flagBox" [checked]="q() ? flags().has(q()!.id) : false" (checkedChange)="setFlag($event)">{{ 'exam.flag' | translate }}</anotoki-checkbox>
       </span>
       <button anotokiButton variant="primary" id="nextBtn" (click)="next()">{{ (isLast() ? 'exam.finish' : 'exam.next') | translate }} &rarr;</button>
     </div>
@@ -229,88 +251,90 @@
 
 <!-- --------------------------------------------------------- result ---- -->
 <main id="result" class="screen" [hidden]="screen() !== 'result'">
-  <div class="wrap">
+  <div class="wrap page">
     @if (result(); as res) {
-      <div class="verdict panel" id="verdict">
-        <div class="bigscore">{{ i18n.number(res.summary.pct) }}<small>%</small></div>
-        <!-- PASS, FAIL and the grade are marks, the same in every language. -->
-        <div class="stamp" lang="en" [class.pass]="res.summary.passed" [class.fail]="!res.summary.passed">
-          {{ res.summary.passed ? 'PASS' : 'FAIL' }} &middot; {{ res.summary.grade }}
+      <anotoki-card>
+        <div class="verdict" id="verdict">
+          <div class="bigscore">{{ i18n.number(res.summary.pct) }}<small>%</small></div>
+          <!-- PASS, FAIL and the grade are marks, the same in every language. -->
+          <div class="stamp" lang="en" [class.pass]="res.summary.passed" [class.fail]="!res.summary.passed">
+            {{ res.summary.passed ? 'PASS' : 'FAIL' }} &middot; {{ res.summary.grade }}
+          </div>
+          <div class="vfacts">
+            <div>
+              <div class="k">{{ 'exam.result.correct' | translate }}</div>
+              <div class="v">{{ res.summary.right }} / {{ res.summary.total }}</div>
+            </div>
+            <div>
+              <div class="k">{{ 'exam.result.unanswered' | translate }}</div>
+              <div class="v">{{ res.summary.unanswered }}</div>
+            </div>
+            <div>
+              <div class="k">{{ 'exam.result.time' | translate }}</div>
+              <div class="v">{{ duration(res.summary.totalMs) }}</div>
+            </div>
+            <div>
+              <div class="k">{{ 'exam.result.perQuestion' | translate }}</div>
+              <div class="v">{{ perQuestion(res.summary.avgMs) }}</div>
+            </div>
+          </div>
         </div>
-        <div class="vfacts">
-          <div>
-            <div class="k">{{ 'exam.result.correct' | translate }}</div>
-            <div class="v">{{ res.summary.right }} / {{ res.summary.total }}</div>
-          </div>
-          <div>
-            <div class="k">{{ 'exam.result.unanswered' | translate }}</div>
-            <div class="v">{{ res.summary.unanswered }}</div>
-          </div>
-          <div>
-            <div class="k">{{ 'exam.result.time' | translate }}</div>
-            <div class="v">{{ duration(res.summary.totalMs) }}</div>
-          </div>
-          <div>
-            <div class="k">{{ 'exam.result.perQuestion' | translate }}</div>
-            <div class="v">{{ perQuestion(res.summary.avgMs) }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>{{ 'exam.result.bySkill' | translate }}</h2>
+      </anotoki-card>
+      <anotoki-card [heading]="'exam.result.bySkill' | translate">
         <div id="bySection">
           @for (g of sectionBars(); track g.key) {
             <ng-container *ngTemplateOutlet="bar; context: { $implicit: g }" />
           }
         </div>
-      </div>
-      <div class="panel">
-        <h2>{{ 'exam.result.byLesson' | translate }}</h2>
+      </anotoki-card>
+      <anotoki-card [heading]="'exam.result.byLesson' | translate">
         <div id="byLesson">
           @for (g of lessonBars(); track g.key) {
             <ng-container *ngTemplateOutlet="bar; context: { $implicit: g }" />
           }
         </div>
-      </div>
-      <div class="panel">
-        <h2>{{ 'exam.result.review' | translate }}</h2>
-        <div class="revfilter">
-          <button type="button" class="chip" [class.is-on]="reviewMode() === 'wrong'" data-rev="wrong" (click)="reviewMode.set('wrong')">
-            {{ 'exam.result.missedOnly' | translate }}
-          </button>
-          <button type="button" class="chip" [class.is-on]="reviewMode() === 'all'" data-rev="all" (click)="reviewMode.set('all')">
-            {{ 'exam.result.everything' | translate }}
-          </button>
-        </div>
-        <div id="review">
-          @for (r of reviewRows(); track r.n) {
-            <div class="rev" [class.good]="r.correct" [class.bad]="!r.correct">
-              <!-- The question is English prose; the two pieces of the app's own inside it say the page's language again. -->
-              <div class="rq" lang="en">
-                <span class="rn" [attr.lang]="i18n.language()">{{ r.label }}</span>
-                {{ r.question }}
-                @if (r.audio) {
-                  <button type="button" class="miniplay" [attr.lang]="i18n.language()" [attr.aria-label]="'exam.playRecording' | translate" (click)="listen(r.audio)">
-                    &#9654; {{ 'exam.result.listen' | translate }}
-                  </button>
-                }
+      </anotoki-card>
+      <anotoki-card [heading]="'exam.result.review' | translate">
+        <div class="stack">
+          <anotoki-segmented id="reviewMode" [label]="'exam.result.review' | translate" [options]="reviewModes()" [value]="reviewMode()" (valueChange)="setReviewMode($event)" />
+          <div id="review">
+            @for (r of reviewRows(); track r.n) {
+              <div class="rev" [class.good]="r.correct" [class.bad]="!r.correct">
+                <!-- The question is English prose; the two pieces of the app's own inside it say the page's language again. -->
+                <div class="rq" lang="en">
+                  <span class="rn" [attr.lang]="i18n.language()">{{ r.label }}</span>
+                  {{ r.question }}
+                  @if (r.audio) {
+                    <button
+                      anotokiButton
+                      variant="link"
+                      size="sm"
+                      class="miniplay"
+                      [attr.lang]="i18n.language()"
+                      [attr.aria-label]="'exam.playRecording' | translate"
+                      (click)="listen(r.audio)"
+                    >
+                      &#9654; {{ 'exam.result.listen' | translate }}
+                    </button>
+                  }
+                </div>
+                <div class="ra">
+                  <span class="mine">
+                    {{ 'exam.result.you' | translate }} <b [attr.lang]="r.chosen === null ? null : materialLang(r.chosen)">{{ r.chosen === null ? '—' : r.chosen }}</b>
+                  </span>
+                  @if (!r.correct) {
+                    <span class="sol">{{ 'exam.result.correctAnswer' | translate }} <b [attr.lang]="materialLang(r.correctAnswer)">{{ r.correctAnswer }}</b></span>
+                  }
+                </div>
+                <div class="rw" lang="en">{{ r.explain }}{{ r.ref ? ' · ' + r.ref : '' }}</div>
               </div>
-              <div class="ra">
-                <span class="mine">
-                  {{ 'exam.result.you' | translate }} <b [attr.lang]="r.chosen === null ? null : materialLang(r.chosen)">{{ r.chosen === null ? '—' : r.chosen }}</b>
-                </span>
-                @if (!r.correct) {
-                  <span class="sol">{{ 'exam.result.correctAnswer' | translate }} <b [attr.lang]="materialLang(r.correctAnswer)">{{ r.correctAnswer }}</b></span>
-                }
-              </div>
-              <div class="rw" lang="en">{{ r.explain }}{{ r.ref ? ' · ' + r.ref : '' }}</div>
-            </div>
-          } @empty {
-            <p class="tagline">{{ 'exam.result.nothingMissed' | translate }}</p>
-          }
+            } @empty {
+              <p class="tagline">{{ 'exam.result.nothingMissed' | translate }}</p>
+            }
+          </div>
         </div>
-      </div>
-      <div class="actions">
+      </anotoki-card>
+      <div class="cluster">
         <!-- The report is the server's own English page: the link is translated and says what language it leads to. -->
         <a anotokiButton variant="primary" id="reportLink" hreflang="en" target="_blank" rel="noopener" [href]="res.reportUrl" (click)="privateLinks.click($event, res.reportUrl)">
           {{ 'exam.result.openReport' | translate }}

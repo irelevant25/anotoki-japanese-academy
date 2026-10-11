@@ -299,9 +299,9 @@ describe('DashboardComponent', () => {
 
   it('a visitor (studying without signing in): the visitor notice above it all, and no way to Your data (a visitor’s study has no file)', async () => {
     await open(summary(), { visiting: true });
-    expect(host.firstElementChild?.tagName.toLowerCase()).toBe('app-visitor-notice');
+    expect(host.querySelector('.page')?.firstElementChild?.tagName.toLowerCase(), 'first in the page').toBe('app-visitor-notice');
     expect(host.querySelector('#visitorNotice')).not.toBeNull();
-    expect([host.querySelector('.foot'), host.querySelector('#yourDataLink')]).toEqual([null, null]);
+    expect([host.querySelector('#keptLine'), host.querySelector('#yourDataLink')]).toEqual([null, null]);
   });
 
   it('words the rest of the page from keys', async () => {
@@ -309,12 +309,12 @@ describe('DashboardComponent', () => {
     expect(texts('h2')).toEqual(['SRS stages', 'Upcoming reviews', 'Progress by lesson']);
     expect(text('.lvocab')).toBe('vocab 3/12');
     expect(host.querySelector('.lvocab')?.getAttribute('title')).toBe('vocabulary learned / total');
-    expect(text('.foot')).toBe('Your progress is kept with your account. Your data: download it, or bring a file back.');
+    expect(text('#keptLine')).toBe('Your progress is kept with your account. Your data: download it, or bring a file back.');
     expect(host.querySelector('#yourDataLink')?.getAttribute('href'), 'to the Your data card on the home page').toBe('/#your-data');
     expect(text('.c-lessons .bc-foot a')).toBe('Choose lessons…');
 
     kanji.summary.set(summary({ forecastHours: Array.from({ length: 24 }, () => 0) }));
     await fixture.whenStable();
-    expect(text('.panel .muted.small')).toBe('Nothing scheduled in the next 24 hours.');
+    expect(text('anotoki-card .muted.small')).toBe('Nothing scheduled in the next 24 hours.');
   });
 });

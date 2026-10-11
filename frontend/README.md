@@ -55,10 +55,13 @@ src/app/            app.component (the bar, the page - the marked template of th
                     Audit log, Backups and Migrations (ADMIN: the library's pages), each library page in
                     the panel's frame; the top bar's links lead between them
   standin/          the Sign in card and the problem page
-src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope), then src/styles/
+src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope, its base, utilities and tables),
+                    then src/styles/
 src/styles/         _tokens.scss (Japanese's palette given to the library's tokens, anotoki.root(), and the
-                    study colours, light and dark; dark also by <html data-theme>), _base.scss (the page,
-                    panels, chips, tables - kept out of the kit's components), _items.scss
+                    study colours, light and dark; dark also by <html data-theme>), _base.scss (after the
+                    family's: the reading size, the frame .wrap, a choice's name .choice-label, kbd, the
+                    stand-in pages), _items.scss (the study's tiles and an item's details); the pages'
+                    cards, alerts, choices, fields and table are the kit's
 src/testing/        browser-parts.ts (what jsdom lacks for the kit), the catalog fixture
 public/             favicon.svg, anotoki.png (the family's mark), changelog.json (the releases; the version at
                     the foot); the library's theme-boot.js (the light/dark shown last, before the first

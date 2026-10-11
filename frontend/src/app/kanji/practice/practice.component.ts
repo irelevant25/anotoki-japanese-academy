@@ -2,6 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
+import { EmptyStateComponent } from '@anotoki/lib/ui/empty-state';
+import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
+import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
 import { CatalogItem, ItemState, LessonTypes } from '../../core/api/api.types';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
@@ -35,10 +39,15 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
   return { wrong, rate: (wrong + 1) / (all + 2) };
 }
 
-/** Practice: drill what has been learned, any time, as many rounds as wanted. It never changes the SRS schedule. */
+/**
+ * Practice: drill what has been learned, any time, as many rounds as wanted. It never changes the SRS schedule.
+ * Drawn with the kit: what, the lessons, the type and what is asked are rows of its buttons, the chosen
+ * pressed (a scope's name may hold a stage's English name, marked so: no other piece of the kit can say
+ * that), how many a segmented choice.
+ */
 @Component({
   selector: 'app-practice',
-  imports: [ButtonComponent, RouterLink, TranslatePipe, WordedComponent],
+  imports: [ButtonComponent, CardComponent, EmptyStateComponent, PageHeaderComponent, RouterLink, SegmentedComponent, TranslatePipe, WordedComponent],
   templateUrl: './practice.component.html',
   styleUrl: './practice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,6 +70,8 @@ export class PracticeComponent {
     ['reading', 'practice.ask.reading'],
   ];
   readonly counts = [10, 20, 50, 100, 0];
+  /** How many, as the segmented choice offers them: the numbers, and "All" (0) in the language on the page. */
+  readonly countOptions = computed<SegmentedOption[]>(() => this.counts.map((n) => ({ value: String(n), label: n ? String(n) : this.i18n.t('practice.all') })));
 
   readonly scope = signal<Scope>((inject(ActivatedRoute).snapshot.queryParamMap.get('scope') as Scope) || 'all');
   readonly types = signal<LessonTypes>('both');

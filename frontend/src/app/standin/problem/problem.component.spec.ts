@@ -18,7 +18,7 @@ async function draw(problem: StartProblem, admin = false): Promise<HTMLElement> 
 
 /** What the alert says, the small reason under it aside. */
 function said(el: HTMLElement): string {
-  const alert = el.querySelector('.err')!.cloneNode(true) as HTMLElement;
+  const alert = el.querySelector('#problem')!.cloneNode(true) as HTMLElement;
   alert.querySelector('.detail')?.remove();
   return alert.textContent?.trim() ?? '';
 }
@@ -38,7 +38,9 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
   it('a server that does not answer: what happened, never a blank page or "[object Object]"', async () => {
     const el = await draw({ kind: 'offline' });
     expect(said(el)).toBe('Japanese Academy could not start: The server does not answer.');
-    expect(el.querySelector('.err')?.getAttribute('role')).toBe('alert');
+    expect(el.querySelector('#problem')?.getAttribute('role')).toBe('alert');
+    expect([el.querySelector('#problem')?.tagName.toLowerCase(), el.querySelector('#problem')?.getAttribute('data-tone')], 'the kit’s alert, in its card').toEqual(['anotoki-alert', 'danger']);
+    expect(el.querySelector('anotoki-card h1 .mark')?.getAttribute('lang')).toBe('ja');
     expect(el.querySelector('.detail')).toBeNull();
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Try again');
     expect(el.textContent).not.toContain('[object');
@@ -55,7 +57,7 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
     expect(said(el)).toBe(
       "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
     );
-    const detail = el.querySelector('.err .detail');
+    const detail = el.querySelector('#problem .detail');
     expect(detail?.textContent).toBe('004_languages_and_translations.sql: relation "languages" already exists');
     expect(detail?.getAttribute('lang')).toBe('en');
   });

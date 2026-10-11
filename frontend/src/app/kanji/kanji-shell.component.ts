@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, OnI
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, ResolveFn, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { AlertComponent } from '@anotoki/lib/ui/alert';
+import { SpinnerComponent } from '@anotoki/lib/ui/spinner';
 import { filter } from 'rxjs';
 import { ApiError, toApiError } from '../core/api/api.service';
 import { errorKey, errorParams } from '../core/i18n/error-text';
@@ -41,10 +43,14 @@ const TABS: [string, string, string][] = [
  * A click on a link to the address already shown fires no navigation, and a
  * session draws over the screen it started from without changing the address,
  * so such a click is routed by hand here: the screen is drawn again, fresh.
+ *
+ * While the data loads, a line says so beside the kit's spinner; a load that
+ * failed is the kit's alert, worded from the failure's code. Both are said by
+ * the screen's live region (main, polite), never by one of their own.
  */
 @Component({
   selector: 'app-kanji-shell',
-  imports: [RouterLink, RouterOutlet, LessonBatchComponent, SessionComponent, SummaryComponent, TranslatePipe],
+  imports: [AlertComponent, LessonBatchComponent, RouterLink, RouterOutlet, SessionComponent, SpinnerComponent, SummaryComponent, TranslatePipe],
   templateUrl: './kanji-shell.component.html',
   styleUrl: './kanji-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

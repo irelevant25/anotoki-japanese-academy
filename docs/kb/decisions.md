@@ -1846,3 +1846,97 @@ the 476 Angular ones. What changed, and what stays this app's:
   the app's own guard, interceptor and People page went with them), the
   browser suites 203 checks, the setup page's 42, 145 screenshots - each
   passing.
+
+**2026-10-11 — Every page's own pieces are the kit's (the end of round 2).**
+The owner's brief for the family (2026-10-07): a site's own buttons, fields,
+selects, checkboxes, dialogs, cards, alerts, badges, page headers,
+empty states and tables become the kit's (`@anotoki/lib/ui/*`, on anotoki-lib
+0.4.1, each piece from its own entry point); its domain components stay its
+own, drawn with the kit's pieces and the tokens; one library palette, which a
+site overrides - never the kit restyled; the global styles the kit's base
+gives are not kept twice. What that was here, and why:
+
+- **The family's global styles are taken now** (0.2.0's entry above said
+  they were not): `anotoki.base` (the page, the headings, links, code, the
+  one focus ring - which the app's own buttons, the tiles and the options
+  had only from the browser before -, motion off for those who ask),
+  `anotoki.utilities` (`.page`, `.stack`, `.cluster`, `.muted`, `.small`,
+  `.facts` …) and `anotoki.tables`; the app's own come after them
+  (`meta.load-css`): the reading size - 16 px, where the family's base says
+  15: the meanings, readings and questions are what the pages are for -, the
+  frame `.wrap`, `.choice-label`, `kbd`, the stand-in pages. Gone with that:
+  the app's panels, fields and their labels, chips, `.actions`, `.err`,
+  `.lead`, `h1.page`, `table.data`, the inputs' and the buttons' element
+  rules, the admin pages' leftovers, and `$app-only`: with no rule of the
+  app's own reaching an element, nothing has to be kept out of the kit.
+- **The pieces**: the kit's page header (Lessons, Practice, Browse, Reviews,
+  a finished session, an unknown item), cards for every panel (the
+  dashboard's three, an item's details, progress and answers, the
+  summaries, the exam's setup, past attempts and result, Your data, the
+  stand-in pages, a session's item info), alerts (the visitor's notice an
+  info, a lost study a warning, a moved one a success; what went wrong on
+  the exam's setup, with the kanji data and on the problem page; Your data's
+  failure and success), badges (a review's move: green up, red down, grey
+  for staying; the newest release in What's new), empty states (nothing due,
+  nothing learned yet), the notes as the kit's textareas (their state the
+  field's hint), the exam's flag the kit's tick box, the kit's spinner
+  beside the loading line, What's new the kit's dialog (its Close the
+  kit's), the past attempts the family's table (numbers right-aligned,
+  scrolling in its own box), an item's progress the family's `.facts`,
+  and after each answer the learner added the kit's icon button that
+  takes it away, named "Remove: huge" (the answer's words beside it, where
+  they wrap: a kit button keeps its words on one line, and a synonym may
+  be 80 characters). The kanji's load error and loading line have no live
+  region of their own: the screen's `main` is one (polite), and one inside
+  another may be said twice.
+- **The choices** (the app's chips): the kit's segmented choice where a few
+  short options fit 390 px in Slovak - the batch size, how many to
+  practise, Browse's type, the result's review -; everywhere else a row of
+  the kit's small buttons, the chosen ones primary and `aria-pressed` (the
+  chips said nothing to a screen reader), each row a `role="group"` named by
+  the words over it (Browse's three choices have none over them: each is
+  named by an `aria-label` of words the app had - the type, the lessons,
+  the stage). Not checkboxes or selects: the rows are how the site
+  has always been used - one tap, every option in sight -; a select would
+  hide the lessons; "All lessons" and "never no part of the course" are
+  rules a pressed button keeps without a box ticked wrong; and a scope's
+  name with a stage's English name inside it needs markup only a button
+  holds. No new words: every name, and the rows' names for a screen reader,
+  is a string the app had.
+- **What stays the app's** (truly the study's, or what the kit lacks): the
+  tiles, an item's head and its stage pill, an item's details, the session
+  and its answer box, the lesson batch (its band and tabs: ←/→ are the
+  lesson's own keys), the exam's paper (the question, the options, the
+  player, the grid, the section's pill - it wraps in the paper's line, the
+  kit's badge does not), the dashboard's section cards, stages and
+  forecast, the kanji tabs (links with `aria-current`: the kit's tabs are
+  buttons), the foot (What's new and Send feedback, a finger's 44 px), the
+  changelog's entries. The browser's own `confirm()` and `alert()` (seven:
+  resetting an item, ending a session, finishing a paper early, a score
+  that failed, signing in or out with saves on their way, a report that
+  would not open) stay too: the kit's question is asynchronous, and the
+  exam and the reviews hear keys on `document` - a change of its own, for
+  the owner to decide.
+- **The palette**: the alerts' and badges' grounds and edges are given in
+  this app's hues, light and dark (the family's are the IAM's blue-greys),
+  and the words that say something went wrong are `--bad`'s red
+  (`danger-text`; in dark `#e2786d`, never the fill's `#ae4a3f`, 3:1 on a
+  card): 4.7:1 on their ground (in dark over a card; 5.2 over the page);
+  the success words 5.5:1, the warning words 5.7:1 (6.0 and 6.3 in dark);
+  the page's ink 14:1 on every ground in light, at least 10.8:1 in dark; a
+  segment's words 4.5:1 on the choice's track (5.3 in dark).
+- **What a learner notices** (What's new, 0.4.0, not released yet): the
+  look's line says choices, cards and notices too. Nothing else.
+- **The first load**: 511.62 kB raw, 143.55 kB sent before; 520.37 kB raw,
+  147.02 kB sent after (the kit's card, alert and badge on the first page -
+  the home page, the stand-in pages, What's new - and the family's base,
+  utilities and tables in the stylesheet: 17.95 kB to 19.50) - under the
+  550 kB warning of `angular.json`'s budget.
+- **`screens.js`** shoots 1280 px wide (1200 before) and a dark phone in
+  English too: 174 shots, 29 screens × 6.
+- **Tests**: Angular 432 in 42 files (four more: the kit's choices pressed,
+  checked and named on Lessons, Practice and the exam, and an item's added
+  answers, each beside the kit's button that takes it away), the browser
+  suite's 203 checks, the setup
+  page's 42, PHP 252 (on 8.2 and 8.5: the key test reads the pages), the 174
+  screenshots - each passing.

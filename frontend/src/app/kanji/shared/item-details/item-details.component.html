@@ -27,7 +27,7 @@
               <span class="ex-r" lang="ja">{{ v.readings[0] }}</span>
               <span class="ex-m" lang="en">{{ v.meanings[0] }}</span>
               @if (v.audio) {
-                <button anotokiButton size="sm" class="play" (click)="play(v)">▶</button>
+                <button anotokiButton size="sm" [attr.aria-label]="'kanji.listen' | translate" (click)="play(v)">▶</button>
               }
             </li>
           }

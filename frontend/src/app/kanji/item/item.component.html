@@ -1,79 +1,93 @@
 @if (it(); as it) {
-  <div class="ihead t-{{ it.type }}">
-    <div class="ichars" lang="ja">{{ it.chars }}</div>
-    <div class="imeta">
-      <div class="itype">{{ typeKey() | translate }} · {{ 'common.lesson' | translate: { n: it.lesson } }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
-      <div class="imean" lang="en">{{ it.meanings.join('; ') }}</div>
-      @if (stageName(); as name) {
-        <span class="stagepill g-{{ group() }}" lang="en">{{ name }}</span>
+  <div class="page">
+    <div class="ihead t-{{ it.type }}">
+      <div class="ichars" lang="ja">{{ it.chars }}</div>
+      <div class="imeta">
+        <div class="itype">{{ typeKey() | translate }} · {{ 'common.lesson' | translate: { n: it.lesson } }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
+        <div class="imean" lang="en">{{ it.meanings.join('; ') }}</div>
+        @if (stageName(); as name) {
+          <span class="stagepill g-{{ group() }}" lang="en">{{ name }}</span>
+        } @else {
+          <span class="stagepill g-{{ group() }}">{{ 'item.notLearned' | translate }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="cluster" id="itemActions">
+      @if (stage()) {
+        <button anotokiButton variant="primary" (click)="practise()">{{ 'item.practiseNow' | translate }}</button>
+        <button anotokiButton (click)="reset()">{{ 'item.reset' | translate }}</button>
+      } @else if (available()) {
+        <button anotokiButton variant="primary" (click)="learn()">{{ 'item.learnNow' | translate }}</button>
       } @else {
-        <span class="stagepill g-{{ group() }}">{{ 'item.notLearned' | translate }}</span>
+        <p class="small muted"><app-worded [parts]="kanjiFirst()" /></p>
       }
     </div>
+
+    <anotoki-card><app-item-details [item]="it" [full]="true" /></anotoki-card>
+
+    <anotoki-card [heading]="'item.progress' | translate">
+      <dl class="facts" id="itemStats">
+        <dt>{{ 'item.stage' | translate }}</dt>
+        @if (stageName(); as name) {
+          <dd lang="en">{{ name }}</dd>
+        } @else {
+          <dd>{{ 'item.notLearned' | translate }}</dd>
+        }
+        <dt>{{ 'item.learned' | translate }}</dt>
+        <dd>{{ learnedAt() }}</dd>
+        <dt>{{ 'item.nextReview' | translate }}</dt>
+        <dd><app-worded [parts]="nextReview()" /></dd>
+        <dt>{{ 'item.meaningAnswers' | translate }}</dt>
+        <dd>{{ accuracy(st()?.reviews?.meaning) }}</dd>
+        <dt>{{ 'item.readingAnswers' | translate }}</dt>
+        <dd>{{ accuracy(st()?.reviews?.reading) }}</dd>
+        <dt>{{ 'kanji.tab.practice' | translate }}</dt>
+        <dd>{{ accuracy(st()?.practice) }}</dd>
+      </dl>
+    </anotoki-card>
+
+    <anotoki-card [heading]="'item.acceptedTitle' | translate">
+      <div class="stack">
+        <p class="small muted">{{ 'item.acceptedNote' | translate }}</p>
+        <!-- the learner's own answers, one a line: its words, which wrap (a synonym may be 80 characters, and a
+             kit button keeps its words on one line), then the kit's button that takes it away -->
+        @if (synonyms().length || extra().length) {
+          <ul class="answers" id="accepted">
+            @for (x of synonyms(); track x) {
+              <li>
+                <span class="answer">{{ x }}</span>
+                <button anotokiButton variant="ghost" size="sm" iconOnly [title]="removeName(x)" [attr.aria-label]="removeName(x)" (click)="removeSynonym(x)">
+                  <anotoki-icon name="x" [size]="16" />
+                </button>
+              </li>
+            }
+            @for (x of extra(); track x) {
+              <li>
+                <span class="answer" lang="ja">{{ x }}</span>
+                <button anotokiButton variant="ghost" size="sm" iconOnly [title]="removeName(x)" [attr.aria-label]="removeName(x)" (click)="removeReading(x)">
+                  <anotoki-icon name="x" [size]="16" />
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="small muted">{{ 'item.noneYet' | translate }}</p>
+        }
+        <div class="addrow">
+          <anotoki-text-field
+            [label]="'item.addMeaning' | translate"
+            hideLabel
+            [placeholder]="'item.addMeaning' | translate"
+            [value]="added()"
+            (valueChange)="added.set($event)"
+            (keydown.enter)="addSynonym()"
+          />
+          <button anotokiButton (click)="addSynonym()">{{ 'item.add' | translate }}</button>
+        </div>
+      </div>
+    </anotoki-card>
   </div>
-
-  <div class="actions">
-    @if (stage()) {
-      <button anotokiButton variant="primary" (click)="practise()">{{ 'item.practiseNow' | translate }}</button>
-      <button anotokiButton (click)="reset()">{{ 'item.reset' | translate }}</button>
-    } @else if (available()) {
-      <button anotokiButton variant="primary" (click)="learn()">{{ 'item.learnNow' | translate }}</button>
-    } @else {
-      <p class="small muted"><app-worded [parts]="kanjiFirst()" /></p>
-    }
-  </div>
-
-  <section class="panel"><app-item-details [item]="it" [full]="true" /></section>
-
-  <section class="panel">
-    <h2>{{ 'item.progress' | translate }}</h2>
-    <dl class="stats">
-      <dt>{{ 'item.stage' | translate }}</dt>
-      @if (stageName(); as name) {
-        <dd lang="en">{{ name }}</dd>
-      } @else {
-        <dd>{{ 'item.notLearned' | translate }}</dd>
-      }
-      <dt>{{ 'item.learned' | translate }}</dt>
-      <dd>{{ learnedAt() }}</dd>
-      <dt>{{ 'item.nextReview' | translate }}</dt>
-      <dd><app-worded [parts]="nextReview()" /></dd>
-      <dt>{{ 'item.meaningAnswers' | translate }}</dt>
-      <dd>{{ accuracy(st()?.reviews?.meaning) }}</dd>
-      <dt>{{ 'item.readingAnswers' | translate }}</dt>
-      <dd>{{ accuracy(st()?.reviews?.reading) }}</dd>
-      <dt>{{ 'kanji.tab.practice' | translate }}</dt>
-      <dd>{{ accuracy(st()?.practice) }}</dd>
-    </dl>
-  </section>
-
-  <section class="panel">
-    <h2>{{ 'item.acceptedTitle' | translate }}</h2>
-    <p class="small muted">{{ 'item.acceptedNote' | translate }}</p>
-    <div class="chips">
-      @if (!synonyms().length && !extra().length) {
-        <span class="small muted">{{ 'item.noneYet' | translate }}</span>
-      }
-      @for (x of synonyms(); track x) {
-        <button type="button" class="chip" [title]="'item.remove' | translate" (click)="removeSynonym(x)">{{ x }} ✕</button>
-      }
-      @for (x of extra(); track x) {
-        <button type="button" class="chip" lang="ja" [title]="'item.remove' | translate" (click)="removeReading(x)">{{ x }} ✕</button>
-      }
-    </div>
-    <div class="addrow">
-      <anotoki-text-field
-        [label]="'item.addMeaning' | translate"
-        hideLabel
-        [placeholder]="'item.addMeaning' | translate"
-        [value]="added()"
-        (valueChange)="added.set($event)"
-        (keydown.enter)="addSynonym()"
-      />
-      <button anotokiButton (click)="addSynonym()">{{ 'item.add' | translate }}</button>
-    </div>
-  </section>
 } @else {
-  <h1 class="page">{{ 'item.notFound' | translate }}</h1>
-  <p>{{ 'error.no_such_item' | translate }}</p>
+  <anotoki-page-header [heading]="'item.notFound' | translate" [lead]="'error.no_such_item' | translate" />
 }

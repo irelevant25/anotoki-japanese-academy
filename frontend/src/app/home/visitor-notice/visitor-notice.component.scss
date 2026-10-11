@@ -1,45 +1,12 @@
+// The notes are the kit's alerts (the notice an info, a lost study a warning, a moved one a success),
+// one under the other above the page's own; their buttons the kit's, a finger's 44 px. Showing none,
+// the host takes no room - not even a gap in the page's column (.page).
 :host {
-  display: block;
-}
-
-// A card of its own above the page's: the text, and its button beside it (under it on a phone).
-.note {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  flex-direction: column;
+  gap: 12px;
 }
 
-.note p {
-  flex: 1 1 18rem;
-  margin: 0;
-  line-height: 1.45;
-}
-
-// Studying without signing in: the one that stays, marked in the colour of the sections the bar marks.
-.note.visiting {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
-  color: var(--accent-soft-ink);
-}
-
-.note.moved {
-  border-color: var(--good);
-}
-
-.note button {
-  flex: none;
-}
-
-// A finger needs more than the small button (the kit's) a mouse is happy with.
-@media (pointer: coarse) {
-  .note button {
-    min-height: 44px;
-    padding: 0 18px;
-  }
+:host(:empty) {
+  display: none;
 }

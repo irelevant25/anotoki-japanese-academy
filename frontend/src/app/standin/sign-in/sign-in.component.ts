@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
 import { SignInService } from '../../core/auth/sign-in.service';
 import { keptWord } from '../kept-word';
 
@@ -22,7 +23,7 @@ const ENGLISH: Record<string, string> = {
  */
 @Component({
   selector: 'app-sign-in',
-  imports: [ButtonComponent],
+  imports: [ButtonComponent, CardComponent],
   templateUrl: './sign-in.component.html',
   styleUrl: './sign-in.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

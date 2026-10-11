@@ -1,3 +1,5 @@
+// A lesson batch is the app's own study piece (the strip of its items, the band, its tabs and their
+// body); its Back and Next are the kit's buttons.
 :host {
   display: block;
 }
@@ -7,9 +9,6 @@
   gap: 18px;
   flex-wrap: wrap;
   margin-bottom: 12px;
-}
-.lhead h1 {
-  margin: 0;
 }
 .lstrip {
   display: flex;
@@ -25,6 +24,7 @@
   color: var(--item-ink);
   opacity: 0.55;
   border-bottom: 3px solid transparent;
+  cursor: pointer;
 }
 .lchip.t-kanji {
   background: var(--kanji);
@@ -75,6 +75,7 @@
   font-weight: 600;
   border-bottom: 3px solid transparent;
   border-radius: 0;
+  cursor: pointer;
 }
 .ltab.on {
   color: var(--ink);
@@ -93,15 +94,17 @@
   font-weight: 600;
   margin: 0 0 16px;
 }
+/* the Reading tab's note on a kanji's readings: a line of room before the Reading note under it (the
+   family's base gives a paragraph no margins) */
+.lnote {
+  margin-bottom: 12px;
+}
 .lnav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-top: 16px;
-}
-.lnav button {
-  white-space: nowrap;
 }
 @media (max-width: 760px) {
   .lchars {

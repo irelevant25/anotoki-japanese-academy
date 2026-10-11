@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { AlertComponent } from '@anotoki/lib/ui/alert';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { AuthService } from '../../core/auth/auth.service';
 import { SignInService } from '../../core/auth/sign-in.service';
@@ -21,11 +22,14 @@ import { VisitorKey } from '../../core/auth/visitor-key';
  *     already (its own progress stays for those).
  *
  * Each note closes; the notice stays while the page is a visitor's. Worded
- * here, from numbers and kinds, so it follows the language.
+ * here, from numbers and kinds, so it follows the language. Each is the
+ * kit's alert: the notice an info, the lost study a warning, the moved one a
+ * success - the two that come of something just done said politely
+ * (role="status").
  */
 @Component({
   selector: 'app-visitor-notice',
-  imports: [ButtonComponent, TranslatePipe],
+  imports: [AlertComponent, ButtonComponent, TranslatePipe],
   templateUrl: './visitor-notice.component.html',
   styleUrl: './visitor-notice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -51,7 +51,9 @@ describe('LessonsComponent', () => {
 
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
   const texts = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).map((el) => clean(el.textContent));
-  const startButton = (): HTMLButtonElement => host.querySelector('.actions button') as HTMLButtonElement;
+  const startButton = (): HTMLButtonElement => host.querySelector('#startLessons') as HTMLButtonElement;
+  /** The batch sizes: the kit's segmented choice. */
+  const sizes = (): HTMLButtonElement[] => Array.from(host.querySelectorAll<HTMLButtonElement>('#batchSize [role="radio"]'));
 
   /** The first n items learned. */
   function learn(n: number): void {
@@ -106,21 +108,41 @@ describe('LessonsComponent', () => {
     await fixture.whenStable();
     expect(clean(startButton().textContent)).toBe('Začať 1 lekciu');
     expect(texts('h1')).toEqual(['Lekcie']);
-    expect(texts('[data-batch]')).toEqual(['3 na dávku', '5 na dávku', '10 na dávku']);
-    expect(host.querySelector('.chip[title]')?.getAttribute('title')).toBe('dostupné: 1');
+    expect(sizes().map((size) => clean(size.textContent))).toEqual(['3 na dávku', '5 na dávku', '10 na dávku']);
+    expect(host.querySelector('[data-lesson][title]')?.getAttribute('title')).toBe('dostupné: 1');
   });
 
   it('words its choices from keys, and keeps what the browser suites find them by', async () => {
     await open();
     expect(texts('h1')).toEqual(['Lessons']);
-    expect(texts('.lbl')).toEqual(['Batch size', 'Include', 'From (vocabulary opens up once its kanji are learned)', 'Next up']);
-    expect(texts('[data-batch]')).toEqual(['3 per batch', '5 per batch', '10 per batch']);
+    expect(texts('.choice-label')).toEqual(['Batch size', 'Include', 'From (vocabulary opens up once its kanji are learned)', 'Next up']);
+    expect(sizes().map((size) => clean(size.textContent))).toEqual(['3 per batch', '5 per batch', '10 per batch']);
     expect(Array.from(host.querySelectorAll('[data-types]')).map((el) => [el.getAttribute('data-types'), clean(el.textContent)])).toEqual([
       ['both', 'Kanji & vocabulary'],
       ['kanji', 'Kanji only'],
       ['vocab', 'Vocabulary only'],
     ]);
-    expect(host.querySelector('.chip[title]')?.getAttribute('title')).toBe('7 available');
-    expect(clean(host.querySelector('.chip[title]')?.textContent)).toBe('L3');
+    expect(host.querySelector('[data-lesson][title]')?.getAttribute('title')).toBe('7 available');
+    expect(clean(host.querySelector('[data-lesson][title]')?.textContent)).toBe('L3');
+  });
+
+  it('draws its choices with the kit: the batch size a segmented choice, the kinds and the lessons buttons pressed as chosen', async () => {
+    await open();
+    const checked = (): string[] => sizes().filter((size) => size.getAttribute('aria-checked') === 'true').map((size) => size.getAttribute('data-value') ?? '');
+    const pressed = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => clean(b.textContent));
+    expect(checked(), 'the setting chosen').toEqual(['5']);
+    expect(pressed('[data-types]')).toEqual(['Kanji & vocabulary']);
+    expect(host.querySelector('[data-types="both"]')?.classList.contains('anotoki-button--primary'), 'the chosen one primary').toBe(true);
+    expect(pressed('[role="group"][aria-labelledby="lessons-from"] button')).toEqual(['Course order']);
+    expect(host.querySelector('#lessons-include')?.textContent?.trim(), 'each row named by the words over it').toBe('Include');
+
+    sizes()[2].click();
+    (host.querySelector('[data-types="kanji"]') as HTMLButtonElement).click();
+    (host.querySelector('[data-lesson="3"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(checked()).toEqual(['10']);
+    expect(pressed('[data-types]')).toEqual(['Kanji only']);
+    expect(pressed('[role="group"][aria-labelledby="lessons-from"] button')).toEqual(['L3']);
+    expect(clean(startButton().textContent), 'seven kanji, ten to a batch').toBe('Start 7 lessons');
   });
 });

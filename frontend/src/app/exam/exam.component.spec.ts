@@ -463,8 +463,8 @@ describe('ExamComponent', () => {
       expect(text('.tagline')).toBe(
         'Could you pass a test on the whole course? Built from its vocabulary, all 317 kanji, the conjugation charts, hand-written grammar questions and spoken vocabulary — Part 1 (Lessons 1–12) and Part 2 (13–23).',
       );
-      expect(texts('#sizeChips .chip')).toEqual(['Quick check · 40', 'Standard · 120', 'Full exam · 250', 'Marathon · 500']);
-      expect(all('#sizeChips .chip').map((chip) => chip.getAttribute('data-size'))).toEqual(['40', '120', '250', '500']);
+      expect(texts('#sizeChips button')).toEqual(['Quick check · 40', 'Standard · 120', 'Full exam · 250', 'Marathon · 500']);
+      expect(all('#sizeChips button').map((chip) => chip.getAttribute('data-size'))).toEqual(['40', '120', '250', '500']);
       expect(text('#startBtn')).toBe('Start the test');
       expect(text('#historyBtn')).toBe('Past attempts');
       expect(one('#candidate input').getAttribute('placeholder')).toBe('optional');
@@ -499,28 +499,54 @@ describe('ExamComponent', () => {
 
     it('names the parts, the sections and the lessons from their ids — never with the names the server sends', async () => {
       await open();
-      expect(texts('#bookChips .chip')).toEqual(['Part 1', 'Part 2']);
-      expect(all('#bookChips .chip').map((chip) => chip.title)).toEqual(['5,204 questions · lessons 0–12', '6,319 questions · lessons 13–23']);
-      expect(texts('#sectionChips .chip')).toEqual(SECTIONS.map(([, english]) => english));
+      expect(texts('#bookChips button')).toEqual(['Part 1', 'Part 2']);
+      expect(all('#bookChips button').map((chip) => chip.title)).toEqual(['5,204 questions · lessons 0–12', '6,319 questions · lessons 13–23']);
+      expect(texts('#sectionChips button')).toEqual(SECTIONS.map(([, english]) => english));
       expect(one('#sectionChips [data-section="particle"]').title).toBe('1,204 available');
       // Part 1 is chosen at first: its lessons only.
-      expect(texts('#lessonChips .chip')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
-      expect(all('#lessonChips .chip').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lesson 1', 'Lesson 6']);
+      expect(texts('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
+      expect(all('#lessonChips button').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lesson 1', 'Lesson 6']);
       expect(host.textContent).not.toContain('server');
       expect(host.innerHTML).not.toContain('server');
     });
 
+    it('its choices are the kit’s buttons, pressed as chosen: one part at least, one length, the lessons and the sections each on or off', async () => {
+      await open();
+      const pressed = (selector: string) => all(selector).filter((button) => button.getAttribute('aria-pressed') === 'true').map(said);
+      expect(pressed('#bookChips button')).toEqual(['Part 1']);
+      expect(pressed('#sizeChips button')).toEqual(['Full exam · 250']);
+      expect(one('#sizeChips [data-size="250"]').classList.contains('anotoki-button--primary')).toBe(true);
+      expect(pressed('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
+      expect(pressed('#sectionChips button')).toHaveLength(SECTIONS.length);
+      expect(all('[role="group"][aria-labelledby]').map((group) => said(host.querySelector('#' + group.getAttribute('aria-labelledby'))))).toEqual(['Part', 'Paper length', 'Lessons', 'Sections']);
+
+      one('#bookChips [data-book="1"]').click(); // the only part chosen: it stays
+      one('#sizeChips [data-size="40"]').click();
+      one('#lessonChips [data-lesson="6"]').click();
+      one('#sectionChips [data-section="particle"]').click();
+      await settle();
+      expect(pressed('#bookChips button'), 'never nothing').toEqual(['Part 1']);
+      expect(pressed('#sizeChips button')).toEqual(['Quick check · 40']);
+      expect(pressed('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1']);
+      expect(pressed('#sectionChips button')).toHaveLength(SECTIONS.length - 1);
+      expect(one('#sectionChips [data-section="particle"]').getAttribute('aria-pressed')).toBe('false');
+
+      one('#bookChips [data-book="2"]').click();
+      await settle();
+      expect(pressed('#bookChips button')).toEqual(['Part 1', 'Part 2']);
+    });
+
     it('the same in Slovak; the kana after the greetings says it is Japanese, whatever the page is in', async () => {
       await open('sk');
-      expect(texts('#bookChips .chip')).toEqual(['Časť 1', 'Časť 2']);
-      expect(all('#bookChips .chip').map((chip) => chip.title)).toEqual([`5${NBSP}204 otázok · lekcie 0 – 12`, `6${NBSP}319 otázok · lekcie 13 – 23`]);
-      expect(texts('#sectionChips .chip')).toEqual(SECTIONS.map(([, , slovak]) => slovak));
+      expect(texts('#bookChips button')).toEqual(['Časť 1', 'Časť 2']);
+      expect(all('#bookChips button').map((chip) => chip.title)).toEqual([`5${NBSP}204 otázok · lekcie 0 – 12`, `6${NBSP}319 otázok · lekcie 13 – 23`]);
+      expect(texts('#sectionChips button')).toEqual(SECTIONS.map(([, , slovak]) => slovak));
       expect(one('#sectionChips [data-section="particle"]').title).toBe(`dostupné otázky: 1${NBSP}204`);
-      expect(texts('#lessonChips .chip')).toEqual(['Pozdravy (あいさつ)', 'L1', 'L6']);
-      expect(all('#lessonChips .chip').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lekcia 1', 'Lekcia 6']);
-      expect(texts('#sizeChips .chip')[0]).toBe('Rýchla kontrola · 40');
+      expect(texts('#lessonChips button')).toEqual(['Pozdravy (あいさつ)', 'L1', 'L6']);
+      expect(all('#lessonChips button').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lekcia 1', 'Lekcia 6']);
+      expect(texts('#sizeChips button')[0]).toBe('Rýchla kontrola · 40');
 
-      const kana = one('#lessonChips [data-lesson="0"] span');
+      const kana = one('#lessonChips [data-lesson="0"] span[lang]');
       expect([kana.textContent, kana.getAttribute('lang')]).toEqual(['あいさつ', 'ja']);
       expect(host.innerHTML).not.toContain('server');
     });
@@ -616,7 +642,7 @@ describe('ExamComponent', () => {
       one('#historyBtn').click();
       await settle();
 
-      const cells = (row: number) => Array.from(all('table.data tbody tr')[row].querySelectorAll('td'));
+      const cells = (row: number) => Array.from(all('table.table tbody tr')[row].querySelectorAll('td'));
       expect(cells(0).map(said)).toEqual([fmtDateTime(TestBed.inject(TimeWording), attempts[0].finishedAt), '—', '40', '72,5 %', 'B', 'PASS', 'otvoriť']);
       expect(cells(1).map(said).slice(1, 6)).toEqual(['Ada', '120', '41,7 %', 'F', 'FAIL']);
       expect(cells(0)[5].getAttribute('lang')).toBe('en');
@@ -627,7 +653,7 @@ describe('ExamComponent', () => {
       await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#historyPanel h2')).toBe('Past attempts');
-      expect(texts('table.data th')).toEqual(['Date', 'Name', 'Qs', 'Score', 'Grade', 'Result', 'Report']);
+      expect(texts('table.table th')).toEqual(['Date', 'Name', 'Qs', 'Score', 'Grade', 'Result', 'Report']);
       expect(cells(0).map(said)).toEqual([fmtDateTime(TestBed.inject(TimeWording), attempts[0].finishedAt), '—', '40', '72.5%', 'B', 'PASS', 'open']);
     });
 
@@ -1100,8 +1126,8 @@ describe('ExamComponent', () => {
 
     it('"Everything" shows the right ones too, and their labels follow the language', async () => {
       await finished();
-      expect(texts('.revfilter .chip')).toEqual(['Missed only', 'Everything']);
-      one('[data-rev="all"]').click();
+      expect(texts('#reviewMode [role="radio"]')).toEqual(['Missed only', 'Everything']);
+      one('#reviewMode [data-value="all"]').click();
       await settle();
       expect(texts('#review .rn')).toEqual(['Q1 · Listening — the word', 'Q2 · Particles', 'Q3 · Particles']);
       expect(all('#review .rn').map((label) => label.getAttribute('lang'))).toEqual(['en', 'en', 'en']);

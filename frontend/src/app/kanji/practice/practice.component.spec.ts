@@ -94,9 +94,10 @@ describe('PracticeComponent', () => {
   let warn: ReturnType<typeof vi.spyOn>;
 
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
-  const info = (): string => clean(host.querySelector('p.small.muted')?.textContent);
-  const chips = (field: number): HTMLButtonElement[] => Array.from(host.querySelectorAll('.field')[field].querySelectorAll<HTMLButtonElement>('.chip'));
-  const startButton = (): HTMLButtonElement => host.querySelector('.actions button') as HTMLButtonElement;
+  const info = (): string => clean(host.querySelector('#practiceInfo')?.textContent);
+  /** A choice's buttons: the kit's buttons of a row, or the segments of the kit's segmented choice (How many). */
+  const chips = (field: number): HTMLButtonElement[] => Array.from(host.querySelectorAll('.choice')[field].querySelectorAll<HTMLButtonElement>('button'));
+  const startButton = (): HTMLButtonElement => host.querySelector('#startPractice') as HTMLButtonElement;
 
   /** `learned`: the stage of each learned item, by its number. */
   async function open(learned: Record<number, number>, options: { slovak?: boolean; total?: number; groups?: StageGroup[] } = {}): Promise<void> {
@@ -212,17 +213,39 @@ describe('PracticeComponent', () => {
 
   it('words its other choices from keys', async () => {
     await open({ 0: 1 });
-    expect(Array.from(host.querySelectorAll('.lbl')).map((el) => clean(el.textContent))).toEqual(['What', 'Lessons', 'Type', 'Ask', 'How many']);
+    expect(Array.from(host.querySelectorAll('.choice-label')).map((el) => clean(el.textContent))).toEqual(['What', 'Lessons', 'Type', 'Ask', 'How many']);
     expect(chips(1).map((chip) => clean(chip.textContent))).toEqual(['All lessons', 'L3']);
     expect(chips(2).map((chip) => clean(chip.textContent))).toEqual(['Kanji & vocabulary', 'Kanji', 'Vocabulary']);
     expect(chips(3).map((chip) => clean(chip.textContent))).toEqual(['Meaning + reading', 'Meaning only', 'Reading only']);
     expect(chips(4).map((chip) => clean(chip.textContent))).toEqual(['10', '20', '50', '100', 'All']);
   });
 
+  it('says what is chosen as the kit does: the rows pressed (the chosen ones primary), how many checked; a scope with nothing in it is off unless chosen', async () => {
+    await open({ 0: 1, 1: 1 });
+    const pressed = (field: number): string[] => chips(field).filter((chip) => chip.getAttribute('aria-pressed') === 'true').map((chip) => clean(chip.textContent));
+    expect([pressed(0), pressed(1), pressed(2), pressed(3)]).toEqual([['Everything learned (2)'], ['All lessons'], ['Kanji & vocabulary'], ['Meaning + reading']]);
+    expect(chips(0)[0].classList.contains('anotoki-button--primary')).toBe(true);
+    expect(chips(0)[1].classList.contains('anotoki-button--secondary')).toBe(true);
+    expect(chips(4).map((chip) => chip.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false', 'false']);
+    expect(chips(0)[1].disabled, 'Weakest: nothing missed yet').toBe(true);
+    expect(host.querySelectorAll('[role="group"][aria-labelledby]').length, 'every row of buttons named by the words over it').toBe(4);
+
+    chips(1)[1].click(); // L3 alone
+    chips(3)[2].click(); // the reading only
+    chips(4)[0].click(); // 10
+    await fixture.whenStable();
+    expect([pressed(1), pressed(3)]).toEqual([['L3'], ['Reading only']]);
+    expect(chips(4).map((chip) => chip.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false', 'false']);
+    chips(1)[0].click(); // all lessons again
+    await fixture.whenStable();
+    expect(pressed(1)).toEqual(['All lessons']);
+  });
+
   it('says so when nothing is learned yet', async () => {
     await open({});
-    expect(clean(host.querySelector('.panel.empty p')?.textContent)).toBe('Nothing learned yet.');
-    expect(clean(host.querySelector('.panel.empty a')?.textContent)).toBe('Go to lessons');
+    expect(clean(host.querySelector('anotoki-empty-state .anotoki-empty-state__heading')?.textContent)).toBe('Nothing learned yet.');
+    expect(clean(host.querySelector('anotoki-empty-state a')?.textContent)).toBe('Go to lessons');
+    expect(host.querySelector('.choice'), 'nothing to choose from').toBeNull();
   });
 
   it('starts a session with what was chosen', async () => {

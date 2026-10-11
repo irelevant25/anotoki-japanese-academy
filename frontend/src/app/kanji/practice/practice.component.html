@@ -1,60 +1,85 @@
-<h1 class="page">{{ 'kanji.tab.practice' | translate }}</h1>
-<p class="muted">{{ 'practice.intro' | translate }}</p>
-@if (!learned().length) {
-  <section class="panel empty">
-    <p>{{ 'practice.nothingLearned' | translate }}</p>
-    <div class="actions"><a anotokiButton variant="primary" routerLink="/kanji/lessons">{{ 'practice.goToLessons' | translate }}</a></div>
-  </section>
-} @else {
-  <section class="panel">
-    <div class="field">
-      <span class="lbl">{{ 'practice.what' | translate }}</span>
-      <div class="chips">
-        @for (c of scopeChoices(); track c.id) {
-          <button type="button" class="chip" [class.is-on]="scope() === c.id" [disabled]="!c.n && scope() !== c.id" (click)="scope.set(c.id)">
-            <app-worded [parts]="c.name" /> ({{ c.n }})
+<div class="page">
+  <anotoki-page-header [heading]="'kanji.tab.practice' | translate" [lead]="'practice.intro' | translate" />
+  @if (!learned().length) {
+    <anotoki-card>
+      <anotoki-empty-state [heading]="'practice.nothingLearned' | translate">
+        <a anotokiButton variant="primary" routerLink="/kanji/lessons">{{ 'practice.goToLessons' | translate }}</a>
+      </anotoki-empty-state>
+    </anotoki-card>
+  } @else {
+    <anotoki-card>
+      <div class="stack">
+        <div class="choice" role="group" aria-labelledby="practice-what">
+          <span class="choice-label" id="practice-what">{{ 'practice.what' | translate }}</span>
+          <div class="cluster">
+            @for (c of scopeChoices(); track c.id) {
+              <button
+                anotokiButton
+                size="sm"
+                [variant]="scope() === c.id ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="scope() === c.id"
+                [attr.data-scope]="c.id"
+                [disabled]="!c.n && scope() !== c.id"
+                (click)="scope.set(c.id)"
+              >
+                <!-- one piece of the button's row: the stage name inside it says it is English (app-worded) -->
+                <span><app-worded [parts]="c.name" /> ({{ c.n }})</span>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="choice" role="group" aria-labelledby="practice-lessons">
+          <span class="choice-label" id="practice-lessons">{{ 'kanji.tab.lessons' | translate }}</span>
+          <div class="cluster">
+            <button anotokiButton size="sm" [variant]="!lessons().size ? 'primary' : 'secondary'" [attr.aria-pressed]="!lessons().size" (click)="allLessons()">
+              {{ 'practice.allLessons' | translate }}
+            </button>
+            @for (L of learnedLessons(); track L) {
+              <button
+                anotokiButton
+                size="sm"
+                [variant]="lessons().has(L) ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="lessons().has(L)"
+                [attr.data-lesson]="L"
+                (click)="toggleLesson(L)"
+              >
+                L{{ L }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="choice" role="group" aria-labelledby="practice-type">
+          <span class="choice-label" id="practice-type">{{ 'practice.type' | translate }}</span>
+          <div class="cluster">
+            @for (k of kinds; track k[0]) {
+              <button anotokiButton size="sm" [variant]="types() === k[0] ? 'primary' : 'secondary'" [attr.aria-pressed]="types() === k[0]" [attr.data-types]="k[0]" (click)="types.set(k[0])">
+                {{ k[1] | translate }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="choice" role="group" aria-labelledby="practice-ask">
+          <span class="choice-label" id="practice-ask">{{ 'practice.askLabel' | translate }}</span>
+          <div class="cluster">
+            @for (a of asks; track a[0]) {
+              <button anotokiButton size="sm" [variant]="parts() === a[0] ? 'primary' : 'secondary'" [attr.aria-pressed]="parts() === a[0]" [attr.data-ask]="a[0]" (click)="parts.set(a[0])">
+                {{ a[1] | translate }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="choice">
+          <!-- the segmented choice says its own name to a screen reader (its label), as the library's own pages do -->
+          <span class="choice-label" aria-hidden="true">{{ 'practice.howMany' | translate }}</span>
+          <anotoki-segmented id="howMany" [label]="'practice.howMany' | translate" [options]="countOptions()" [value]="'' + count()" (valueChange)="count.set(+$event)" />
+        </div>
+        <p class="small muted" id="practiceInfo">{{ info() }}</p>
+        <div class="cluster">
+          <button anotokiButton variant="primary" id="startPractice" [disabled]="!take()" (click)="start()">
+            {{ take() ? ('practice.start' | translate: { n: take() }) : ('practice.nothing' | translate) }}
           </button>
-        }
+        </div>
       </div>
-    </div>
-    <div class="field">
-      <span class="lbl">{{ 'kanji.tab.lessons' | translate }}</span>
-      <div class="chips">
-        <button type="button" class="chip" [class.is-on]="!lessons().size" (click)="allLessons()">{{ 'practice.allLessons' | translate }}</button>
-        @for (L of learnedLessons(); track L) {
-          <button type="button" class="chip" [class.is-on]="lessons().has(L)" (click)="toggleLesson(L)">L{{ L }}</button>
-        }
-      </div>
-    </div>
-    <div class="field">
-      <span class="lbl">{{ 'practice.type' | translate }}</span>
-      <div class="chips">
-        @for (k of kinds; track k[0]) {
-          <button type="button" class="chip" [class.is-on]="types() === k[0]" (click)="types.set(k[0])">{{ k[1] | translate }}</button>
-        }
-      </div>
-    </div>
-    <div class="field">
-      <span class="lbl">{{ 'practice.askLabel' | translate }}</span>
-      <div class="chips">
-        @for (a of asks; track a[0]) {
-          <button type="button" class="chip" [class.is-on]="parts() === a[0]" (click)="parts.set(a[0])">{{ a[1] | translate }}</button>
-        }
-      </div>
-    </div>
-    <div class="field">
-      <span class="lbl">{{ 'practice.howMany' | translate }}</span>
-      <div class="chips">
-        @for (n of counts; track n) {
-          <button type="button" class="chip" [class.is-on]="count() === n" (click)="count.set(n)">{{ n ? n : ('practice.all' | translate) }}</button>
-        }
-      </div>
-    </div>
-    <p class="small muted">{{ info() }}</p>
-    <div class="actions">
-      <button anotokiButton variant="primary" [disabled]="!take()" (click)="start()">
-        {{ take() ? ('practice.start' | translate: { n: take() }) : ('practice.nothing' | translate) }}
-      </button>
-    </div>
-  </section>
-}
+    </anotoki-card>
+  }
+</div>

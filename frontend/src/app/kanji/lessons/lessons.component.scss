@@ -1,4 +1,5 @@
-// The lesson picker is made of the app's own pieces (panels, fields, chips, tiles).
+// The lesson picker is the kit's (the page header, a card, a segmented choice, rows of buttons), the
+// choices named as styles/_base.scss names them (.choice), and the app's tiles.
 :host {
   display: block;
 }

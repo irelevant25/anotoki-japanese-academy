@@ -2,7 +2,10 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslatePluralPipe, TranslationService } from '@anotoki/lib/translations';
+import { BadgeComponent } from '@anotoki/lib/ui/badge';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
+import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
 import { ApiError } from '../../core/api/api.service';
 import { fmtClock, fmtIn, pct } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
@@ -24,10 +27,14 @@ const TITLES: Record<SessionMode, string> = {
 /** A review's move between stages: the stage names are the catalog's own, English in every language. */
 export type Move = { kind: 'stays'; parts: Part[] } | { kind: 'moved'; from: string; to: string; dir: 'up' | 'down' };
 
-/** A finished lesson quiz, review session or practice: what was learned, missed and saved, and what next. */
+/**
+ * A finished lesson quiz, review session or practice: what was learned, missed and saved, and what next.
+ * The kit's page header, buttons and cards; each item's line is the app's, a review's move between stages
+ * the kit's badge (up green, down red).
+ */
 @Component({
   selector: 'app-summary',
-  imports: [ButtonComponent, NgTemplateOutlet, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, WordedComponent],
+  imports: [BadgeComponent, ButtonComponent, CardComponent, NgTemplateOutlet, PageHeaderComponent, RouterLink, TileComponent, TranslatePipe, TranslatePluralPipe, WordedComponent],
   templateUrl: './summary.component.html',
   styleUrl: './summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

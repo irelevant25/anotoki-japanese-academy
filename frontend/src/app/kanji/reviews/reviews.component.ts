@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, inject, OnDestroy } from '@angular/
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
+import { EmptyStateComponent } from '@anotoki/lib/ui/empty-state';
+import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
 import { CatalogItem } from '../../core/api/api.types';
 import { fmtClock, fmtIn } from '../../core/format';
 import { TimeWording } from '../../core/i18n/time-wording';
@@ -10,10 +13,13 @@ import { KanjiStateService } from '../kanji-state.service';
 import { SessionComponent } from '../session/session.component';
 import { SessionResult } from '../session/session-engine';
 
-/** The reviews that are due, as a session — the only thing that moves items between SRS stages. */
+/**
+ * The reviews that are due, as a session — the only thing that moves items between SRS stages. With none
+ * due, the kit's empty state: when the next one comes, and the way to practice and to the lessons.
+ */
 @Component({
   selector: 'app-reviews',
-  imports: [ButtonComponent, RouterLink, SessionComponent, TranslatePipe],
+  imports: [ButtonComponent, CardComponent, EmptyStateComponent, PageHeaderComponent, RouterLink, SessionComponent, TranslatePipe],
   templateUrl: './reviews.component.html',
   styleUrl: './reviews.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

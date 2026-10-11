@@ -1,3 +1,5 @@
+// The setup and the result are the kit's (cards, fields, rows of its buttons, an alert, the family's
+// table, a segmented choice); the paper and the result's marks and bars are the app's own, below.
 :host {
   display: block;
 }
@@ -25,18 +27,17 @@
   margin: 0;
 }
 /* the server's own reason, which only the owner's computer is given: after the page's words, small */
-.err .detail {
+#setupErr .detail {
   display: block;
   font-size: 12px;
   margin-top: 2px;
-}
-.adv {
-  margin-bottom: 18px;
 }
 .adv summary {
   cursor: pointer;
   font-size: 14px;
   color: var(--accent);
+}
+.adv[open] summary {
   margin-bottom: 14px;
 }
 
@@ -229,16 +230,10 @@
   gap: 14px;
   margin-bottom: 24px;
 }
+/* the kit's tick box, in the small words of the paper's own line */
 .flagwrap {
   flex: 1;
   font-size: 13px;
-  color: var(--muted);
-}
-.flagwrap label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  cursor: pointer;
 }
 
 .gridnav {
@@ -255,6 +250,7 @@
   color: var(--muted);
   border-radius: 5px;
   padding: 0;
+  cursor: pointer;
 }
 .gridnav button.done {
   background: var(--line);
@@ -360,11 +356,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.revfilter {
-  margin-bottom: 14px;
-  display: flex;
-  gap: 8px;
-}
 .rev {
   border-left: 3px solid var(--line);
   padding: 9px 0 9px 13px;
@@ -405,36 +396,21 @@
   color: var(--muted);
   margin-top: 4px;
 }
+/* a listening question's recording, again: the kit's link button, in the question's line */
 .miniplay {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: none;
-  border-radius: 999px;
-  padding: 2px 11px;
-  font-size: 12px;
   margin-left: 8px;
-  cursor: pointer;
-  vertical-align: middle;
-}
-.miniplay:hover {
-  filter: brightness(1.08);
 }
 .savedline {
   color: var(--muted);
   font-size: 13px;
-  margin-top: 16px;
 }
 
-/* seven columns, and their headings are longer in some languages: on a phone the table scrolls, never the page */
-#historyBody {
-  overflow-x: auto;
-}
-/* the table itself is the shared table.data (styles/_base.scss) */
-table.data td.pass {
+/* the past attempts are the family's table (.table, scrolling in its own box on a phone); PASS and FAIL in their colours */
+.table td.pass {
   color: var(--good);
   font-weight: 600;
 }
-table.data td.fail {
+.table td.fail {
   color: var(--bad);
   font-weight: 600;
 }

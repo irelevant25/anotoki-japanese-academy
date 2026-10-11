@@ -1,9 +1,11 @@
 <main class="wrap signin" id="signin">
-  <section class="panel">
-    <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
-    <p>{{ words().intro }}</p>
-    <div class="actions">
-      <button anotokiButton variant="primary" id="signin-button" [disabled]="busy()" (click)="signIn()">{{ words().button }}</button>
+  <anotoki-card>
+    <div class="stack">
+      <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
+      <p>{{ words().intro }}</p>
+      <div class="cluster">
+        <button anotokiButton variant="primary" id="signin-button" [disabled]="busy()" (click)="signIn()">{{ words().button }}</button>
+      </div>
     </div>
-  </section>
+  </anotoki-card>
 </main>

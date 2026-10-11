@@ -1,47 +1,10 @@
-.changelog {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-  padding: 0;
-  width: min(620px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
-}
-.changelog::backdrop {
-  background: var(--scrim);
-}
-.box {
-  padding: 0 22px 22px;
-}
-// The list outgrows a phone's screen, and the dialog scrolls as a whole: the
-// head, with its Close, stays in sight (its own padding and background, so
-// the list slides under it).
-.head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--card);
-  padding: 18px 0 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.head h2 {
-  font-size: 20px;
-  margin: 0;
-}
-// A finger needs more than the small button a mouse is happy with.
-@media (pointer: coarse) {
-  .head button {
-    min-height: 44px;
-    padding: 0 18px;
-  }
-}
+// What changed, release by release, in the kit's dialog (its frame, its heading and Close, its scrolling
+// body between them); here only the releases themselves. The newest is marked by the kit's badge.
 .release {
-  border-top: 1px solid var(--line);
   padding: 14px 0 4px;
+}
+.release + .release {
+  border-top: 1px solid var(--line);
 }
 .vhead {
   display: flex;
@@ -55,15 +18,8 @@
   font-weight: 700;
   color: var(--accent);
 }
-.tag {
-  font-size: 12px;
-  font-weight: 700;
+.vnum anotoki-badge {
   margin-left: 8px;
-  padding: 1px 9px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  vertical-align: middle;
 }
 .vdate {
   font-size: 13px;

@@ -6,16 +6,18 @@
   </div>
 </div>
 
+<!-- main is the live region (polite) that says what comes into it: the load error and the loading line have
+     none of their own (an alert's announce, a spinner's label), or a screen reader may say them twice -->
 <main id="app" class="wrap wide" aria-live="polite">
   @if (loadError(); as failure) {
-    <p class="err">
+    <anotoki-alert tone="danger" id="kanjiLoadError">
       {{ 'kanji.loadFailed' | translate: { reason: reason(failure) } }}
       @if (failure.body.detail) {
         <span class="small" lang="en">{{ failure.body.detail }}</span>
       }
-    </p>
+    </anotoki-alert>
   } @else if (!ready()) {
-    <p class="muted">{{ 'kanji.loading' | translate }}</p>
+    <p class="cluster muted" id="kanjiLoading"><anotoki-spinner />{{ 'kanji.loading' | translate }}</p>
   } @else {
     @if (screen.overlay(); as o) {
       @switch (o.kind) {

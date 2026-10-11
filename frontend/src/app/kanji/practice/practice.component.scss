@@ -1,4 +1,5 @@
-// The practice setup is made of the app's own pieces (panels, fields, chips).
+// The practice setup is the kit's (the page header, a card or its empty state, rows of buttons, a
+// segmented choice), the choices named as styles/_base.scss names them (.choice).
 :host {
   display: block;
 }

@@ -4,7 +4,7 @@ import { ChangelogService } from '../changelog/changelog.service';
 
 /** The foot under a page, with its news open, and the places a key may be pressed there. */
 export interface DrawnFoot {
-  /** "What's new", the open dialog itself, its Close, and a line of its news */
+  /** "What's new", the open dialog itself (the kit's), its Close, and a line of its news */
   controls: HTMLElement[];
   remove: () => void;
 }
@@ -35,8 +35,8 @@ export async function drawnFoot(): Promise<DrawnFoot> {
   }
   whatsNew.click();
   await foot.whenStable();
-  const dialog = el.querySelector<HTMLElement>('dialog.changelog');
-  const close = dialog?.querySelector<HTMLElement>('.head button');
+  const dialog = el.querySelector<HTMLElement>('app-changelog-dialog dialog');
+  const close = dialog?.querySelector<HTMLElement>('.anotoki-dialog__close');
   const line = dialog?.querySelector<HTMLElement>('li');
   if (!dialog?.hasAttribute('open') || !close || !line) {
     throw new Error('the news did not open');

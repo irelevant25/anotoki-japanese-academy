@@ -2,7 +2,8 @@
  * Screenshots of every main screen in light, dark and phone layouts, for a
  * visual check after UI changes - everybody signed in through the stand-in
  * IAM (a session planted in the browser; helpers.js). Seeds a little progress
- * first so the dashboard, reviews and item pages have something to show. The
+ * first so the dashboard, reviews and item pages have something to show (大
+ * with answers of the learner's own, one as long as a synonym may be). The
  * reader is an ADMIN, so the admin panel's pages are shot too - the anotoki
  * library's People, Feedback, Errors, Audit log and Backups among them, with a
  * message of the reader's own to read; feedback-form is Send feedback's form
@@ -76,7 +77,7 @@ const UPDATE = '006_admin_panel_words.sql';
 
 /** A 40-question paper, started. */
 async function startPaper(page) {
-  await page.waitForSelector('#bookChips .chip');
+  await page.waitForSelector('#bookChips button');
   await page.click('[data-size="40"]');
   await page.click('#startBtn');
   await page.waitForSelector('#test:not([hidden])');
@@ -87,8 +88,8 @@ const SCREENS = [
   ['kanji-dashboard', '/kanji', async (page) => page.waitForSelector('.cards3')],
   ['kanji-lessons', '/kanji/lessons'],
   ['kanji-lesson-screen', '/kanji/lessons', async (page) => {
-    // by its place, not its name: the Slovak pass takes this screen too
-    await page.click('section.panel .actions button.anotoki-button--primary');
+    // by its id, not its name: the Slovak pass takes this screen too
+    await page.click('#startLessons');
     await page.waitForSelector('.lband');
   }],
   ['kanji-review', '/kanji/reviews', async (page) => page.waitForSelector('.session')],
@@ -116,7 +117,7 @@ const SCREENS = [
   }],
   ['changelog', '/', async (page) => {
     await page.click('#whatsNew');
-    await page.waitForSelector('dialog.changelog[open]');
+    await page.waitForSelector('app-changelog-dialog dialog[open]');
   }],
   ['your-data-question', '/', async (page, app) => {
     // the reader's own file chosen: the question before anything is replaced
@@ -171,9 +172,10 @@ const SLOVAK = () => {
 
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const VARIANTS = [
-  ['light', { viewport: { width: 1200, height: 900 }, colorScheme: 'light' }],
-  ['dark', { viewport: { width: 1200, height: 900 }, colorScheme: 'dark' }],
+  ['light', { viewport: { width: 1280, height: 900 }, colorScheme: 'light' }],
+  ['dark', { viewport: { width: 1280, height: 900 }, colorScheme: 'dark' }],
   ['phone', { ...PHONE, colorScheme: 'light' }],
+  ['phone-dark', { ...PHONE, colorScheme: 'dark' }],
   // the Slovak pass
   ['sk-phone', { ...PHONE, colorScheme: 'light', locale: 'sk-SK' }],
   ['sk-phone-dark', { ...PHONE, colorScheme: 'dark', locale: 'sk-SK' }],
@@ -220,7 +222,9 @@ function slovakProblems(page, bundle) {
  * too; the What's new dot beside its words, not floating above them on a
  * touch screen, and clear of the '·' before Send feedback after it; the Your
  * data question's focus on Keep mine with the accent's
- * ring, never on the dialog; in dark, the anotoki mark with its light halo.
+ * ring, never on the dialog; in dark, the anotoki mark with its light halo;
+ * every segmented choice of the kit's (it never wraps) whole inside its card
+ * or the page's frame, on a phone in Slovak too.
  */
 function looks(page, dark) {
   return page.evaluate(({ dark, bar }) => {
@@ -265,6 +269,16 @@ function looks(page, dark) {
     }
     const mark = document.querySelector(bar.mark);
     if (dark && mark && !/255, 255, 255/.test(getComputedStyle(mark).filter)) out.push(`the anotoki mark has no light halo in the dark bar (filter: ${getComputedStyle(mark).filter})`);
+    for (const choice of document.querySelectorAll('main anotoki-segmented .anotoki-segmented__segmented')) {
+      const box = choice.closest('.anotoki-card__body, main');
+      const r = choice.getBoundingClientRect();
+      const b = box.getBoundingClientRect();
+      const style = getComputedStyle(box);
+      const [left, right] = [b.left + parseFloat(style.paddingLeft), b.right - parseFloat(style.paddingRight)];
+      if (r.width && (r.right > right + 0.5 || r.left < left - 0.5)) {
+        out.push(`the segmented choice "${choice.getAttribute('aria-label')}" runs past its box (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(left)}..${Math.round(right)})`);
+      }
+    }
     return out;
   }, { dark, bar: BAR });
 }
@@ -319,6 +333,10 @@ function measureBar(page) {
     await app.api('/api/kanji/learn', READER, { method: 'POST', body: { id } });
   }
   app.makeDue(['k:大', 'k:学'], 60000, READER.sub);
+  // answers of the learner's own on 大, one as long as a synonym may be (80 characters): its words wrap, the page never scrolls sideways
+  const longSynonym = 'said of something much bigger than one expected, as big as a house or a mountain';
+  const ownAnswers = await app.api('/api/kanji/item', READER, { method: 'POST', body: { id: 'k:大', addSynonym: longSynonym, addReading: 'おおきい' } });
+  if (!ownAnswers.ok) throw new Error(`the learner's own answers were not added: ${ownAnswers.status}`);
   await app.api('/api/feedback', READER, { method: 'POST', body: { kind: 'idea', section: 'Kanji', message: 'The stroke order of 学 would help me a lot.', page: '/kanji' } });
   // something in the audit log: a language added (hidden: nobody is offered it)
   await app.api('/api/admin/languages', READER, { method: 'POST', body: { code: 'de', name: 'German', native_name: 'Deutsch', enabled: false } });

@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { TranslatePipe, TranslatePluralPipe } from '@anotoki/lib/translations';
+import { TranslatePipe, TranslatePluralPipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
+import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
+import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
 import { toHiragana } from 'wanakana';
 import { CatalogItem } from '../../core/api/api.types';
 import { canonReading } from '../answer';
@@ -15,16 +18,21 @@ interface StatusChoice {
   name: string;
 }
 
-/** Every item, filterable by type, lesson and stage, and searchable by kanji, reading (romaji or kana) or meaning. */
+/**
+ * Every item, filterable by type, lesson and stage, and searchable by kanji, reading (romaji or kana) or meaning.
+ * The filters are the kit's: the type a segmented choice, the lessons and the stages rows of its buttons, the
+ * one chosen pressed (a stage group's name is English, and its button says so).
+ */
 @Component({
   selector: 'app-browse',
-  imports: [TextFieldComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
+  imports: [ButtonComponent, PageHeaderComponent, SegmentedComponent, TextFieldComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrowseComponent {
   readonly kanji = inject(KanjiStateService);
+  private readonly i18n = inject(TranslationService);
 
   private readonly params = inject(ActivatedRoute).snapshot.queryParamMap;
   readonly type = signal(this.params.get('type') || 'all');
@@ -38,6 +46,8 @@ export class BrowseComponent {
     ['kanji', 'kanji.type.kanji'],
     ['vocab', 'kanji.type.vocab'],
   ];
+  /** The kinds as the segmented choice offers them, in the language on the page. */
+  readonly typeOptions = computed<SegmentedOption[]>(() => this.typeChoices.map(([value, key]) => ({ value, label: this.i18n.t(key) })));
   readonly statusChoices = computed<StatusChoice[]>(() => [
     { id: 'all', key: 'browse.anyStage', name: '' },
     { id: 'new', key: 'item.notLearned', name: '' },

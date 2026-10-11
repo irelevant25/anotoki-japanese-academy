@@ -52,9 +52,9 @@
     <button anotokiButton size="sm" [hidden]="!acceptShown()" (click)="acceptMine()">{{ 'session.myAnswerWasRight' | translate }}</button>
     <button anotokiButton size="sm" [hidden]="!card()?.audio" (click)="listen()">{{ 'kanji.listen' | translate }}</button>
   </div>
-  <div class="s-panel" [hidden]="!panelOpen()">
+  <anotoki-card class="s-panel" [hidden]="!panelOpen()">
     @if (panelOpen() && card(); as it) {
       <app-item-details [item]="it" />
     }
-  </div>
+  </anotoki-card>
 </section>

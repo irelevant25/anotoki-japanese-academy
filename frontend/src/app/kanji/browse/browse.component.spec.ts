@@ -21,6 +21,10 @@ const ENGLISH: Record<string, string> = {
   'browse.count.few': '{count} items',
   'browse.count.other': '{count} items',
   'item.notLearned': 'Not learned',
+  // the names of the filters' rows (their accessible names): words the Practice screen and an item's page show
+  'practice.type': 'Type',
+  'kanji.tab.lessons': 'Lessons',
+  'item.stage': 'Stage',
 };
 const SLOVAK: Record<string, string> = {
   'kanji.tab.browse': 'Prehliadať',
@@ -35,6 +39,9 @@ const SLOVAK: Record<string, string> = {
   'browse.count.few': '{count} položky',
   'browse.count.other': '{count} položiek',
   'item.notLearned': 'Nenaučené',
+  'practice.type': 'Typ',
+  'kanji.tab.lessons': 'Lekcie',
+  'item.stage': 'Úroveň',
 };
 
 const STAGES: Stage[] = [
@@ -60,7 +67,8 @@ describe('BrowseComponent', () => {
 
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
   const count = (): string => clean(host.querySelector('p.small.muted')?.textContent);
-  const chips = (row: number): HTMLButtonElement[] => Array.from(host.querySelectorAll('.bfilters .chips')[row].querySelectorAll<HTMLButtonElement>('.chip'));
+  /** A row of the filters: the segments of the kit's segmented choice (the type), or the kit's buttons of a row (the lessons, the stages). */
+  const chips = (row: number): HTMLButtonElement[] => Array.from(host.querySelectorAll('.bfilters > *')[row].querySelectorAll<HTMLButtonElement>('button'));
   const search = (): HTMLInputElement => host.querySelector('input') as HTMLInputElement;
 
   async function find(query: string): Promise<void> {
@@ -120,6 +128,8 @@ describe('BrowseComponent', () => {
   it('names its filters in the app’s words, and the stage groups by the catalog’s own names, which say they are English', async () => {
     await open(true);
     expect(chips(0).map((chip) => clean(chip.textContent))).toEqual(['Všetko', 'Kanji', 'Slovíčka']);
+    // each row named for a screen reader: the type the kit's segmented choice, the lessons and the stages groups of its buttons
+    expect(Array.from(host.querySelectorAll('.bfilters [role="radiogroup"], .bfilters [role="group"]')).map((row) => row.getAttribute('aria-label'))).toEqual(['Typ', 'Lekcie', 'Úroveň']);
     expect(chips(1).map((chip) => clean(chip.textContent))).toEqual(['Ktorákoľvek lekcia', 'L3', 'L4']);
     expect(chips(2).map((chip) => [clean(chip.textContent), chip.getAttribute('lang')])).toEqual([
       ['Ktorákoľvek úroveň', null],
@@ -141,7 +151,14 @@ describe('BrowseComponent', () => {
     chips(2)[2].click(); // Apprentice
     await fixture.whenStable();
     expect(count()).toBe('1 item');
-    expect(chips(2)[2].classList.contains('is-on')).toBe(true);
+    expect(chips(2)[2].getAttribute('aria-pressed')).toBe('true');
+    expect(chips(2)[2].classList.contains('anotoki-button--primary')).toBe(true);
+    expect(chips(2).filter((chip) => chip.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
+
+    chips(0)[2].click(); // vocabulary: the segmented choice
+    await fixture.whenStable();
+    expect(chips(0).map((chip) => chip.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true']);
+    expect(count()).toBe('0 items');
   });
 
   it('shows each item’s meaning under its characters, the one Japanese and the other English', async () => {

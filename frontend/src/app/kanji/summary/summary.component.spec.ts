@@ -165,17 +165,17 @@ describe('SummaryComponent', () => {
     await show(result('lesson', [0, 1, 2, 3, 4].map((i) => entry(i))), { summary: { nextReviewAt: at } });
     expect(text('h1')).toBe('Lessons done');
     // the browser suite looks for "learned 5 item" here
-    expect(text('.lead')).toBe(`You learned 5 items. The first review is in 4 h, at ${clock}.`);
+    expect(text('.anotoki-page-header__lead')).toBe(`You learned 5 items. The first review is in 4 h, at ${clock}.`);
 
     await shown(result('lesson', [entry(0)]));
-    expect(text('.lead')).toBe(`You learned 1 item. The first review is in 4 h, at ${clock}.`);
+    expect(text('.anotoki-page-header__lead')).toBe(`You learned 1 item. The first review is in 4 h, at ${clock}.`);
     expect(warn, 'no key of the summary is without a string').not.toHaveBeenCalled();
   });
 
   it('after lessons, with no review scheduled: the first sentence alone; an item that was not saved is not counted as learned', async () => {
     const refused = new ApiError('Learn its kanji first.', 409, { code: 'kanji_first' });
     await show(result('lesson', [entry(0), entry(1), entry(2, { error: refused })]));
-    expect(text('.lead')).toBe('You learned 2 items.');
+    expect(text('.anotoki-page-header__lead')).toBe('You learned 2 items.');
   });
 
   it('after lessons, in Slovak: no past tense about the reader, and each number with its own form', async () => {
@@ -183,51 +183,51 @@ describe('SummaryComponent', () => {
     const clock = new Date(at).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
     await show(result('lesson', [0, 1, 2, 3, 4].map((i) => entry(i))), { slovak: true, summary: { nextReviewAt: at } });
     expect(text('h1')).toBe('Lekcie sú hotové');
-    expect(text('.lead')).toBe(`Máš naučených 5 nových položiek. Prvé opakovanie príde o 4 h, o ${clock}.`);
+    expect(text('.anotoki-page-header__lead')).toBe(`Máš naučených 5 nových položiek. Prvé opakovanie príde o 4 h, o ${clock}.`);
     await shown(result('lesson', [0, 1, 2].map((i) => entry(i))));
-    expect(text('.lead')).toBe(`Máš naučené 3 nové položky. Prvé opakovanie príde o 4 h, o ${clock}.`);
+    expect(text('.anotoki-page-header__lead')).toBe(`Máš naučené 3 nové položky. Prvé opakovanie príde o 4 h, o ${clock}.`);
     await shown(result('lesson', [entry(0)]));
-    expect(text('.lead')).toBe(`Máš naučenú 1 novú položku. Prvé opakovanie príde o 4 h, o ${clock}.`);
+    expect(text('.anotoki-page-header__lead')).toBe(`Máš naučenú 1 novú položku. Prvé opakovanie príde o 4 h, o ${clock}.`);
   });
 
   it('after reviews or practice: how many went without a mistake, and the share of answers right', async () => {
     const done = [entry(0), entry(1), entry(2), entry(3), entry(4, { wrongM: 1 })];
     await show(result('practice', done, { answered: 10, right: 9 }));
     expect(text('h1')).toBe('Practice done');
-    expect(text('.lead')).toBe('4 of 5 items with no mistakes · 90% of answers right.');
+    expect(text('.anotoki-page-header__lead')).toBe('4 of 5 items with no mistakes · 90% of answers right.');
 
     await shown(result('practice', [entry(0)], { answered: 2, right: 2 }));
-    expect(text('.lead')).toBe('1 of 1 item with no mistakes · 100% of answers right.');
+    expect(text('.anotoki-page-header__lead')).toBe('1 of 1 item with no mistakes · 100% of answers right.');
 
     // ended before anything was answered: no share to give
     await shown(result('practice', [], { answered: 0, right: 0, early: true }));
-    expect(text('.lead')).toBe('0 of 0 items with no mistakes.');
+    expect(text('.anotoki-page-header__lead')).toBe('0 of 0 items with no mistakes.');
   });
 
   it('the same line in Slovak is one text for every number: a label, then the numbers', async () => {
     await show(result('review', [entry(0), entry(1), entry(2), entry(3), entry(4, { wrongM: 1 })], { answered: 10, right: 9 }), { slovak: true });
     expect(text('h1')).toBe('Opakovania sú hotové');
-    expect(text('.lead')).toBe('Bez chyby: 4 / 5 · správne odpovede: 90 %.');
+    expect(text('.anotoki-page-header__lead')).toBe('Bez chyby: 4 / 5 · správne odpovede: 90 %.');
     await shown(result('review', [entry(0)], { answered: 0, right: 0 }));
-    expect(text('.lead')).toBe('Bez chyby: 1 / 1.');
+    expect(text('.anotoki-page-header__lead')).toBe('Bez chyby: 1 / 1.');
   });
 
   it('says how many half-answered items were not saved, the verb with the number — after reviews and practice only', async () => {
     await show(result('review', [entry(0)], { unfinished: 1, early: true }));
-    expect(text('p.small.muted')).toBe('1 half-answered item was not saved.');
+    expect(text('#unsavedNote')).toBe('1 half-answered item was not saved.');
     await shown(result('review', [entry(0)], { unfinished: 3, early: true }));
-    expect(text('p.small.muted')).toBe('3 half-answered items were not saved.');
+    expect(text('#unsavedNote')).toBe('3 half-answered items were not saved.');
     await shown(result('lesson', [entry(0)], { unfinished: 3, early: true }));
-    expect(host.querySelector('p.small.muted')).toBeNull();
+    expect(host.querySelector('#unsavedNote')).toBeNull();
   });
 
   it('…and in Slovak, in its three forms', async () => {
     await show(result('review', [entry(0)], { unfinished: 1 }), { slovak: true });
-    expect(text('p.small.muted')).toBe('1 rozpracovaná položka sa neuložila.');
+    expect(text('#unsavedNote')).toBe('1 rozpracovaná položka sa neuložila.');
     await shown(result('review', [entry(0)], { unfinished: 2 }));
-    expect(text('p.small.muted')).toBe('2 rozpracované položky sa neuložili.');
+    expect(text('#unsavedNote')).toBe('2 rozpracované položky sa neuložili.');
     await shown(result('review', [entry(0)], { unfinished: 5 }));
-    expect(text('p.small.muted')).toBe('5 rozpracovaných položiek sa neuložilo.');
+    expect(text('#unsavedNote')).toBe('5 rozpracovaných položiek sa neuložilo.');
   });
 
   it('lists what was missed and what was right, the meaning saying English and the reading Japanese', async () => {
@@ -236,20 +236,20 @@ describe('SummaryComponent', () => {
     expect(texts('.sm-x')).toEqual(['1 miss', '2 misses']);
     expect(Array.from(host.querySelectorAll('.sm-m')).map((el) => el.getAttribute('lang'))).toEqual(['en', 'en', 'en']);
     expect(Array.from(host.querySelectorAll('.sm-r')).map((el) => el.getAttribute('lang'))).toEqual(['ja', 'ja', 'ja']);
-    expect(texts('.actions button')).toEqual(['Same set again', 'Just the 2 missed']);
-    expect(texts('.actions a')).toEqual(['New practice', 'Dashboard']);
+    expect(texts('#summaryActions button')).toEqual(['Same set again', 'Just the 2 missed']);
+    expect(texts('#summaryActions a')).toEqual(['New practice', 'Dashboard']);
   });
 
   it('shows a review’s move between stages in the stages’ own names, which say they are English', async () => {
     await show(result('review', [entry(0, { from: 1, to: 2 }), entry(1, { wrongR: 1, from: 1, to: 1 })]));
-    const moves = Array.from(host.querySelectorAll('.mv'));
+    const moves = Array.from(host.querySelectorAll('.sumlist anotoki-badge'));
     // the browser suite looks for this text
     expect(host.textContent).toContain('Apprentice I → Apprentice II');
-    const up = moves.find((el) => el.classList.contains('up')) as HTMLElement;
+    const up = moves.find((el) => el.getAttribute('data-tone') === 'success') as HTMLElement;
     expect(up.textContent).toBe('Apprentice I → Apprentice II');
     expect(up.getAttribute('lang')).toBe('en');
 
-    const stays = moves.find((el) => !el.classList.contains('up')) as HTMLElement;
+    const stays = moves.find((el) => el.getAttribute('data-tone') === 'neutral') as HTMLElement;
     expect(stays.textContent).toBe('stays Apprentice I');
     expect(stays.getAttribute('lang'), 'the word is the app’s, in the page’s language').toBeNull();
     expect(Array.from(stays.querySelectorAll('span[lang]')).map((el) => [el.textContent, el.getAttribute('lang')])).toEqual([['Apprentice I', 'en']]);
@@ -260,8 +260,8 @@ describe('SummaryComponent', () => {
       slovak: true,
     });
     expect(texts('.sm-x')).toEqual(['1 chyba', '3 chyby', '5 chýb']);
-    expect(texts('.mv')).toEqual(['Apprentice II → Apprentice I', 'zostáva: Apprentice I', 'zostáva: Apprentice I']);
-    expect(host.querySelector('.mv.down')?.getAttribute('lang')).toBe('en');
+    expect(texts('.sumlist anotoki-badge')).toEqual(['Apprentice II → Apprentice I', 'zostáva: Apprentice I', 'zostáva: Apprentice I']);
+    expect(host.querySelector('.sumlist anotoki-badge[data-tone="danger"]')?.getAttribute('lang')).toBe('en');
   });
 
   it('words an item that was not saved from the failure’s code — never with the server’s English sentence', async () => {
@@ -269,35 +269,35 @@ describe('SummaryComponent', () => {
     const broke = new ApiError('SQLSTATE[08006] connection lost', 500, { error: 'SQLSTATE[08006] connection lost', code: 'server_error', detail: 'SQLSTATE[08006] connection lost' });
     await show(result('review', [entry(0, { error: notDue }), entry(1, { error: broke }), entry(2)]), { slovak: true });
     expect(texts('h2')).toEqual(['Right first time (1)', 'Neuložené']);
-    expect(texts('section:last-of-type .sm-x')).toEqual(['Táto položka ešte nečaká na opakovanie.', 'Na serveri sa niečo pokazilo.']);
+    expect(texts('#summaryFailed .sm-x')).toEqual(['Táto položka ešte nečaká na opakovanie.', 'Na serveri sa niečo pokazilo.']);
     // what the owner's own computer adds: shown after the app's words, small, and saying it is English
-    expect(Array.from(host.querySelectorAll('section:last-of-type span[lang="en"]')).map((el) => el.textContent)).toEqual(['SQLSTATE[08006] connection lost']);
+    expect(Array.from(host.querySelectorAll('#summaryFailed span[lang="en"]')).map((el) => el.textContent)).toEqual(['SQLSTATE[08006] connection lost']);
     expect(host.textContent).not.toContain('That item is not due');
   });
 
   it('offers the next lessons by their number, or says there are none', async () => {
     await show(result('lesson', [entry(0)]));
-    expect(texts('.actions button')).toEqual(['Next 5 lessons', 'Practise these now']);
+    expect(texts('#summaryActions button')).toEqual(['Next 5 lessons', 'Practise these now']);
 
     // everything but two learned
     kanji.progress.set(Object.fromEntries(ITEMS.slice(0, 5).map((it) => [it.id, { stage: 1 }])) as never);
     await fixture.whenStable();
-    expect(texts('.actions button')).toEqual(['Next 2 lessons', 'Practise these now']);
+    expect(texts('#summaryActions button')).toEqual(['Next 2 lessons', 'Practise these now']);
 
     kanji.progress.set(Object.fromEntries(ITEMS.map((it) => [it.id, { stage: 1 }])) as never);
     await fixture.whenStable();
-    expect(texts('.actions button')).toEqual(['All caught up', 'Practise these now']);
-    expect((host.querySelector('.actions button') as HTMLButtonElement).disabled).toBe(true);
+    expect(texts('#summaryActions button')).toEqual(['All caught up', 'Practise these now']);
+    expect((host.querySelector('#summaryActions button') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('offers more reviews when more have come due, and follows the language', async () => {
     await show(result('review', [entry(0)]), { slovak: true, summary: { reviewsDue: 3 } });
-    expect(texts('.actions button')).toEqual(['Ďalšie opakovania: 3']);
+    expect(texts('#summaryActions button')).toEqual(['Ďalšie opakovania: 3']);
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
-    expect(texts('.actions button')).toEqual(['3 more due']);
+    expect(texts('#summaryActions button')).toEqual(['3 more due']);
     expect(text('h1')).toBe('Reviews done');
-    expect(text('.lead')).toBe('1 of 1 item with no mistakes · 100% of answers right.');
+    expect(text('.anotoki-page-header__lead')).toBe('1 of 1 item with no mistakes · 100% of answers right.');
   });
 });

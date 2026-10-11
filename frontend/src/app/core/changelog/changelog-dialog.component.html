@@ -1,13 +1,11 @@
-<dialog #dialog class="changelog" aria-labelledby="changelog-title" (click)="backdrop($event)">
-  <div class="box">
-    <div class="head">
-      <h2 id="changelog-title">{{ words().title }}</h2>
-      <button anotokiButton size="sm" (click)="close()">{{ words().close }}</button>
-    </div>
+@if (shown()) {
+  <anotoki-dialog size="md" [heading]="words().title" (dismiss)="close()">
     @for (entry of changelog.entries(); track entry.version; let first = $first) {
-      <section class="release" [class.latest]="first">
+      <section class="release">
         <div class="vhead">
-          <span class="vnum">v{{ entry.version }}@if (first) {<span class="tag">{{ words().latest }}</span>}</span>
+          <span class="vnum"
+            >v{{ entry.version }}@if (first) {<anotoki-badge tone="primary">{{ words().latest }}</anotoki-badge>}</span
+          >
           <span class="vdate">{{ entry.date | localDate }}</span>
         </div>
         @if (entry.changes.added?.length) {
@@ -36,5 +34,5 @@
         }
       </section>
     }
-  </div>
-</dialog>
+  </anotoki-dialog>
+}

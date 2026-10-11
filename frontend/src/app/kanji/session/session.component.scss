@@ -100,16 +100,17 @@
   border-top: none;
   background: var(--card);
 }
+/* the answer box is this app's own: the bar under the card, coloured by the verdict; it has the focus all along */
 .s-input {
   flex: 1;
   min-width: 0;
-  border: none !important;
-  border-radius: 0 !important;
-  font-size: 22px !important;
+  border: none;
+  border-radius: 0;
+  font-size: 22px;
   text-align: center;
-  padding: 16px !important;
-  background: var(--card) !important;
-  outline: none !important;
+  padding: 16px;
+  background: var(--card);
+  outline: none;
 }
 .s-go {
   border: none;
@@ -119,6 +120,7 @@
   font-size: 22px;
   width: 64px;
   border-radius: 0;
+  cursor: pointer;
 }
 .s-go:hover {
   background: var(--soft);
@@ -126,17 +128,17 @@
 /* the verdict fills the answer bar; its own tokens keep the answer readable in dark mode too */
 .is-correct .s-input,
 .is-correct .s-go {
-  background: var(--good-fill) !important;
+  background: var(--good-fill);
   color: var(--item-ink);
 }
 .is-wrong .s-input,
 .is-wrong .s-go {
-  background: var(--bad-fill) !important;
+  background: var(--bad-fill);
   color: var(--item-ink);
 }
 .is-close .s-input,
 .is-close .s-go {
-  background: var(--ok-fill) !important;
+  background: var(--ok-fill);
   color: var(--item-ink);
 }
 .s-feedback {
@@ -151,12 +153,6 @@
   justify-content: center;
   flex-wrap: wrap;
   margin-bottom: 12px;
-}
-.s-panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
 }
 .shake .s-form {
   animation: shake 0.35s;

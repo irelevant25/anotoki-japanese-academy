@@ -45,7 +45,7 @@ Narrower runs while you iterate:
 node backend/tools/php.js backend/tests/run.php backend/tests/unit/srs.test.php backend/tests/api/kanji-api.test.php
 node backend/tools/php.js backend/tests/run.php backend/tests/api/auth.test.php backend/tests/api/setup.test.php
 (cd frontend && npm test)                  # all the Angular specs (a few seconds once built)
-node frontend/e2e/screens.js kanji-review        # only screens whose name contains this (all five variants)
+node frontend/e2e/screens.js kanji-review        # only screens whose name contains this (all six variants)
 node frontend/e2e/screens.js room                # only the top bar's measurements
 ```
 
@@ -60,8 +60,8 @@ Always finish with the full PHP tests, and the full frontend tests when
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
   `Tests` lines. Report the real numbers of both (at the last count, on
-  2026-10-11: 252 backend tests, on the newest PHP and on 8.2; 428 frontend
-  tests in 42 files; 203 browser checks in `run.js`, 42 in `setup.js`, 145
+  2026-10-11: 252 backend tests, on the newest PHP and on 8.2; 432 frontend
+  tests in 42 files; 203 browser checks in `run.js`, 42 in `setup.js`, 174
   shots in `screens.js` — `docs/kb/testing.md`). The PHP tests on 8.2:
   `ACADEMY_PHP` names its `php.exe` and `PHPRC` a folder whose `php.ini`
   loads its extensions (`node backend/tools/php.js backend/tests/run.php`).

@@ -228,11 +228,15 @@ settings, Apache or the setup page; `architecture.md` for the map).
      escape the rest.
    - Colours come only from tokens (`frontend/src/styles/_tokens.scss`:
      Japanese's palette given to the anotoki library's, the study colours);
-     dark mode and phone width work. Buttons, dialogs and questions, fields,
-     the spinner and menus are the library's kit (`anotokiButton`,
-     `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field` …), never an
-     own button or field style; a global rule of the app stays out of the
-     kit's components (`_base.scss`, `$app-only`); each kit piece imported
+     dark mode and phone width work. A page's building blocks - buttons,
+     dialogs and questions, fields, the spinner, menus, page headers, cards,
+     alerts, badges, empty states, segmented choices, the table - are the
+     library's kit (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
+     `anotoki-text-field`, `<anotoki-card>` …), never an own style or a
+     restyling of one (a choice: the kit's segmented choice, or a row of its
+     small buttons pressed as chosen, `aria-pressed`); no global rule of the
+     app reaches inside a kit component (the family's base, utilities and
+     tables come first, `_base.scss` after them); each kit piece imported
      from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog` …, never
      the `@anotoki/lib/ui` barrel: it would put every piece in the first
      load), its class names its own (`anotoki-<piece>__<part>`); the kit's

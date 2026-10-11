@@ -32,7 +32,7 @@ describe('SignInComponent: the Sign in card - a session that ended while the pag
     const fixture = TestBed.createComponent(SignInComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('.panel > p')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
+    expect(el.querySelector('anotoki-card p')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
     expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Sign in');
     expect(el.querySelector('h1 .mark')?.getAttribute('lang')).toBe('ja');
     expect(el.querySelector('[role="alert"]'), 'nothing went wrong: it has nothing to say of a failure (the library’s screen does that)').toBeNull();
@@ -88,12 +88,12 @@ describe('SignInComponent: in the reader’s language, and its button', () => {
     const fixture = TestBed.createComponent(SignInComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('.panel > p')?.textContent?.trim()).toBe('Ak sa chceš učiť, prihlás sa. Tvoj pokrok v kanji a výsledky skúšok sa ukladajú k tvojmu účtu.');
+    expect(el.querySelector('anotoki-card p')?.textContent?.trim()).toBe('Ak sa chceš učiť, prihlás sa. Tvoj pokrok v kanji a výsledky skúšok sa ukladajú k tvojmu účtu.');
     expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Prihlásiť sa');
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(el.querySelector('.panel > p')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
+    expect(el.querySelector('anotoki-card p')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
     expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Sign in');
   });
 

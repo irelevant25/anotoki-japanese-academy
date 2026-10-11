@@ -1,4 +1,5 @@
-// The notes' looks are the app's (styles/_base.scss fields, styles/_items.scss .notes).
+// The notes are the kit's textareas, one under the other (.stack); the section is one of the item
+// details' (styles/_items.scss, .dsec).
 :host {
   display: block;
 }

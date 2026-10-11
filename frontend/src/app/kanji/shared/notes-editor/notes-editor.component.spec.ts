@@ -43,9 +43,10 @@ describe('NotesEditorComponent', () => {
   let warn: ReturnType<typeof vi.spyOn>;
 
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
-  const labels = (): string[] => Array.from(host.querySelectorAll('.lbl')).map((el) => clean(el.textContent));
+  /** Each note is the kit's textarea: its label, the field, and under it where the note stands (its hint). */
+  const labels = (): string[] => Array.from(host.querySelectorAll('anotoki-textarea .anotoki-field__label')).map((el) => clean(el.textContent));
   const areas = (): HTMLTextAreaElement[] => Array.from(host.querySelectorAll('textarea'));
-  const statuses = (): string[] => Array.from(host.querySelectorAll('.lbl .small')).map((el) => el.textContent ?? '');
+  const statuses = (): string[] => Array.from(host.querySelectorAll('anotoki-textarea')).map((field) => field.querySelector('.anotoki-field__hint')?.textContent ?? '');
 
   /** Types into a note and leaves it: the note is saved on the way out. */
   async function write(index: number, value: string): Promise<void> {
@@ -55,7 +56,8 @@ describe('NotesEditorComponent', () => {
     await fixture.whenStable();
   }
   async function leave(index: number): Promise<void> {
-    areas()[index].dispatchEvent(new Event('blur'));
+    // the kit's field says nothing when it is left: the leaving is heard on its way up
+    areas()[index].dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     await fixture.whenStable();
   }
@@ -130,6 +132,8 @@ describe('NotesEditorComponent', () => {
     await leave(1);
     expect(api.item).toHaveBeenCalledWith('k:一', { notes: { reading: 'ichi, like itchy' } });
     expect(statuses()).toEqual(['', 'saved']);
+    const hint = host.querySelectorAll('anotoki-textarea')[1].querySelector('.anotoki-field__hint') as HTMLElement;
+    expect(areas()[1].getAttribute('aria-describedby'), 'where it stands, tied to the note it says it of').toBe(hint.id);
   });
 
   it('keeps a failed save as the failure, and words it from its code in the language on the page', async () => {
@@ -145,7 +149,7 @@ describe('NotesEditorComponent', () => {
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(statuses()).toEqual(['not saved: No such item.', '']);
-    expect(labels()).toEqual(['Meaning note not saved: No such item.', 'Reading note']);
+    expect(labels(), 'the labels stay what they are').toEqual(['Meaning note', 'Reading note']);
   });
 
   it('says the server does not answer when there was no answer at all', async () => {

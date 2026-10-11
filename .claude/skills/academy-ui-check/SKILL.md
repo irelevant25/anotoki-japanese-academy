@@ -18,12 +18,15 @@ node frontend/e2e/setup.js               # the setup page and the anotoki librar
 The script runs the real server (`backend/router.php`) on a throwaway
 database serving that build, with the anotoki library's stand-in IAM as its issuer
 (`frontend/e2e/helpers.js`), and seeds some progress, so every screen has
-content: 一, 二, 大, 学 and 大学 are learned, and 大 and 学 are due. The person
+content: 一, 二, 大, 学 and 大学 are learned, and 大 and 学 are due; 大 has
+answers of the learner's own, a reading and a synonym as long as one may
+be (80 characters), which must wrap on its page and in a review. The person
 on the screens is an ADMIN (a session planted in the browser), so the admin
 area is shot too; the library's failure screen is a refused sign-in's. It then drives
 Edge and writes `frontend/e2e/shots/screen-<name>-<variant>.png`, the
-variants `light`, `dark`, `phone` (English) and `sk-phone`, `sk-phone-dark`
-(390 px, a Slovak browser: the Slovak pass; the admin panel stays English).
+variants `light`, `dark` (1280 px), `phone`, `phone-dark` (390 px, English)
+and `sk-phone`, `sk-phone-dark` (390 px, a Slovak browser: the Slovak pass;
+the admin panel stays English).
 
 | Screen | Name |
 |---|---|
@@ -88,8 +91,9 @@ lang="sk">`, or leaves an English string of the app outside `[lang=en]` /
 eye (`looks()`): a Delete their data of the People page (the library's) off
 the screen, at 390 px too, the What's new dot not beside its words or touching the
 '·' before Send feedback, Your data's question
-with the focus anywhere but Keep mine (or without the accent's ring), and in
-dark the anotoki mark without its light halo; on a top bar that is not one
+with the focus anywhere but Keep mine (or without the accent's ring), in
+dark the anotoki mark without its light halo, and a segmented choice of the
+kit's (it never wraps) running past its card or the page's frame; on a top bar that is not one
 row in order, whose pieces overlap or leave the screen, a phone's without
 its menu button and the due count on it, a desktop's without its links and
 the person's button (the name from 961 px); and on a menu that a real Tab
@@ -102,20 +106,25 @@ and a paper, Your data, sign-out, the admin panel by role, time zones) run
 
 ## 2. Look at them
 
-Open every screen the change could affect with the Read tool, in all five
+Open every screen the change could affect with the Read tool, in all six
 variants. Always include the phone shots. Go through this list:
 
 - **Layout.** Nothing overlaps, is cut off or is misaligned. Spacing matches the
-  neighbouring elements. Cards and grids wrap cleanly.
-- **Phone (390 px).** No sideways scroll. Buttons are at least ~40 px tall.
-  Long English meanings and long Japanese words wrap instead of clipping. The
-  nav still fits. (A full-page shot switches Edge's touch emulation off, so
-  the phone shots of taller pages show buttons at their mouse size: the
-  footer's version, the dialog's Close and a visitor's buttons (the notice's
-  Sign in, the lost and moved notes' Close, the refused sign-in's Close) grow
-  to 44 px only for a finger. Measure those with `locator.boundingBox()` in a
-  fresh phone context; `docs/kb/environment.md`.)
-- **Dark mode.** Text, links, chips, stage colours and the kanji (`--kanji`) and
+  neighbouring elements. Cards and grids wrap cleanly; the rows of choices
+  (the kit's small buttons) wrap, and a segmented choice stays whole inside
+  its card at 390 px in Slovak.
+- **Phone (390 px).** No sideways scroll. Buttons are at least ~34 px tall
+  (the kit's small ones; the rest 44), a segment 30 and the kit's small
+  link buttons 24 (the exam's all / none, the result's ▶ listen). Long
+  English meanings, long Japanese words and a long answer the learner
+  added (an item's page: up to 80 characters) wrap instead of clipping. The nav still fits. (A full-page
+  shot switches Edge's touch emulation off, so the phone shots of taller
+  pages show the foot's What's new and Send feedback at their mouse size:
+  they grow to 44 px only for a finger. Measure those with
+  `locator.boundingBox()` in a fresh phone context;
+  `docs/kb/environment.md`. The visitor notes' buttons are the kit's, 44 px
+  always.)
+- **Dark mode.** Text, links, choices, stage colours and the kanji (`--kanji`) and
   vocabulary (`--vocab`) tiles are all readable. No white boxes left from
   light-mode colours. Bars and badges can still be told apart. A button
   focused by the keys shows the accent's ring (2 px, 2 px away), not only the
@@ -184,11 +193,15 @@ variants. Always include the phone shots. Go through this list:
   scrolls sideways in its own box, never the page; People's Delete their
   data in view; the bar's Feedback count beside its link.
 - **Consistency.** Same buttons, colours and headings as the other screens:
-  buttons, dialogs, fields and menus are the anotoki library's kit (its
-  fields' edges and the secondary button's at 3:1, 44 px targets, Manrope),
-  never one of the app's own drawn beside them. Use only colour tokens from
+  buttons, dialogs, fields, menus, page headers, cards, alerts, badges,
+  choices and the past attempts' table are the anotoki library's kit (its
+  fields' and controls' edges and the secondary button's at 3:1, 44 px
+  targets - 34 for a small one, 30 for a segment, 24 for a small link -,
+  Manrope), never one of the app's own drawn beside them; a chosen choice
+  is primary (a row's button) or raised on the surface's colour (a
+  segment: white in light, the card's grey in dark). Use only colour tokens from
   `frontend/src/styles/_tokens.scss` (Japanese's palette, given to the
-  library's tokens there).
+  library's tokens there - the alerts' and badges' grounds too).
 
 ## 3. Report
 

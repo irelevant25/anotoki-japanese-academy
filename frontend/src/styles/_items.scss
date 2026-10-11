@@ -149,11 +149,9 @@
 .ex-m {
   font-size: 14px;
 }
-.play {
-  padding: 3px 10px;
-}
-.notes .field {
-  margin-bottom: 12px;
+/* a line under the meanings: the learner's own synonyms, a word's class */
+.details .dsec > p + p {
+  margin-top: 4px;
 }
 
 @media (max-width: 760px) {

@@ -1,25 +1,31 @@
 @if (notice()) {
-  <section class="note visiting" id="visitorNotice">
+  <anotoki-alert id="visitorNotice">
     <p>{{ notice() }}</p>
-    <button anotokiButton variant="primary" size="sm" id="visitorSignIn" [loading]="signInFlow.waiting()" (click)="signIn()">
-      {{ 'signIn.button' | translate }}
-    </button>
-  </section>
+    <div alertActions>
+      <button anotokiButton variant="primary" id="visitorSignIn" [loading]="signInFlow.waiting()" (click)="signIn()">
+        {{ 'signIn.button' | translate }}
+      </button>
+    </div>
+  </anotoki-alert>
 }
 @if (visitor.lost()) {
-  <section class="note" id="visitorLost" role="status">
+  <anotoki-alert tone="warning" announce="polite" id="visitorLost">
     <p>{{ 'visitor.lost' | translate }}</p>
-    <button anotokiButton size="sm" (click)="visitor.lost.set(false)">{{ 'common.close' | translate }}</button>
-  </section>
+    <div alertActions>
+      <button anotokiButton (click)="visitor.lost.set(false)">{{ 'common.close' | translate }}</button>
+    </div>
+  </anotoki-alert>
 }
 @if (moved(); as move) {
-  <section class="note moved" id="visitorMoved" role="status">
+  <anotoki-alert tone="success" announce="polite" id="visitorMoved">
     <p>
       {{ move.moved }}
       @if (move.kept) {
         <br />{{ move.kept }}
       }
     </p>
-    <button anotokiButton size="sm" (click)="visitor.moved.set(null)">{{ 'common.close' | translate }}</button>
-  </section>
+    <div alertActions>
+      <button anotokiButton (click)="visitor.moved.set(null)">{{ 'common.close' | translate }}</button>
+    </div>
+  </anotoki-alert>
 }

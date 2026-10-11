@@ -1,6 +1,6 @@
 @let it = current();
 <div class="lhead">
-  <h1 class="page">{{ 'kanji.tab.lessons' | translate }}</h1>
+  <h1>{{ 'kanji.tab.lessons' | translate }}</h1>
   <div class="lstrip">
     @for (x of items(); track x.id; let k = $index) {
       <button type="button" class="lchip t-{{ x.type }}" [class.on]="k === i()" lang="ja" (click)="pick(k)">{{ x.chars }}</button>
@@ -40,7 +40,7 @@
         <div>
           <app-readings [item]="it" />
           @if (it.type === 'kanji') {
-            <p class="small muted">{{ 'lesson.readingNote' | translate }}</p>
+            <p class="small muted lnote">{{ 'lesson.readingNote' | translate }}</p>
           }
           <app-notes-editor [item]="it" [parts]="['reading']" [title]="null" />
         </div>

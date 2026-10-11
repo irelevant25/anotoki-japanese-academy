@@ -2,7 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { CardComponent } from '@anotoki/lib/ui/card';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
+import { IconComponent } from '@anotoki/lib/ui/icon';
+import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
 import { ApiService } from '../../core/api/api.service';
 import { Tally } from '../../core/api/api.types';
 import { fmtDate, fmtIn, fmtWeekdayClock, pct } from '../../core/format';
@@ -13,10 +16,14 @@ import { ItemDetailsComponent } from '../shared/item-details/item-details.compon
 import { Part, wordedParts } from '../shared/worded/worded-parts';
 import { WordedComponent } from '../shared/worded/worded.component';
 
-/** One item: everything about it, its progress, and the answers the learner added for it. */
+/**
+ * One item: everything about it, its progress, and the answers the learner added for it. Its head (the
+ * item's colour, its stage) is the app's own; the rest is the kit's - cards, the progress as the family's
+ * facts (.facts), after each added answer the kit's button that takes it away.
+ */
 @Component({
   selector: 'app-item',
-  imports: [ButtonComponent, ItemDetailsComponent, TextFieldComponent, TranslatePipe, WordedComponent],
+  imports: [ButtonComponent, CardComponent, IconComponent, ItemDetailsComponent, PageHeaderComponent, TextFieldComponent, TranslatePipe, WordedComponent],
   templateUrl: './item.component.html',
   styleUrl: './item.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -104,6 +111,15 @@ export class ItemComponent {
     const r = await this.api.resetItem(it.id);
     this.kanji.setItemState(it.id, r.state);
     await this.screen.redraw();
+  }
+
+  /**
+   * The name of the button that takes an added answer away, and its tooltip: "Remove: huge" - with the
+   * answer, so a screen reader's list of buttons says which. Called from the template, so it follows the
+   * language.
+   */
+  removeName(answer: string): string {
+    return `${this.i18n.t('item.remove')}: ${answer}`;
   }
 
   async removeSynonym(x: string): Promise<void> {

@@ -1,10 +1,12 @@
-import { ApplicationRef, Provider, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationRef, EnvironmentProviders, Provider, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppVersionComponent } from './app-version.component';
 import { ChangelogEntry, ChangelogService } from './changelog.service';
 import { provideAuth } from '../auth/auth.config';
+import { provideKit } from '../kit.config';
+import { provideKitEnglish } from '../testing/kit-english';
 
 const ENTRIES: ChangelogEntry[] = [
   { version: '0.2.0', date: '2026-10-06', changes: { added: ['A setup page'], fixed: ['A missing space'] } },
@@ -12,7 +14,7 @@ const ENTRIES: ChangelogEntry[] = [
 ];
 
 /** The app with these entries for its changelog, and whatever else a test provides (its strings). */
-function setUp(providers: Provider[] = []): void {
+function setUp(providers: (Provider | EnvironmentProviders)[] = []): void {
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth(), ...providers] });
   const changelog = TestBed.inject(ChangelogService);
   changelog.load = () => Promise.resolve(changelog.entries.set(ENTRIES));
@@ -61,7 +63,7 @@ describe('AppVersionComponent', () => {
 
     news.click();
     await fixture.whenStable();
-    const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
+    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
     expect(dialog.hasAttribute('open')).toBe(true);
     expect(dialog.textContent).toContain('v0.2.0');
     expect(dialog.textContent).toContain('A setup page');
@@ -95,10 +97,10 @@ describe('AppVersionComponent', () => {
 
     (el.querySelector('#whatsNew') as HTMLButtonElement).click();
     await fixture.whenStable();
-    const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
-    expect(dialog.querySelector('#changelog-title')?.textContent).toBe('What’s new');
-    expect(dialog.querySelector('.head button')?.textContent?.trim()).toBe('Close');
-    expect(Array.from(dialog.querySelectorAll('.tag')).map((tag) => tag.textContent)).toEqual(['latest']);
+    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    expect(dialog.querySelector('.anotoki-dialog__title')?.textContent).toBe('What’s new');
+    expect(dialog.querySelector('.anotoki-dialog__close')?.getAttribute('aria-label'), 'the kit’s Close, in the kit’s words').toBe('Close');
+    expect(Array.from(dialog.querySelectorAll('anotoki-badge')).map((tag) => tag.textContent)).toEqual(['latest']);
     expect(Array.from(dialog.querySelectorAll('h3')).map((h) => [h.className, h.textContent])).toEqual([
       ['added', 'Added'],
       ['fixed', 'Fixed'],
@@ -117,7 +119,7 @@ describe('AppVersionComponent', () => {
       'whatsNew.added': 'Added',
       'whatsNew.changed': 'Changed',
       'whatsNew.fixed': 'Fixed',
-      'common.close': 'Close',
+      'anotoki.ui.close': 'Close',
     };
     const SLOVAK = {
       'whatsNew.title': 'Čo je nové',
@@ -126,9 +128,10 @@ describe('AppVersionComponent', () => {
       'whatsNew.added': 'Pridané',
       'whatsNew.changed': 'Zmenené',
       'whatsNew.fixed': 'Opravené',
-      'common.close': 'Zavrieť',
+      'anotoki.ui.close': 'Zavrieť',
     };
-    setUp([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })]);
+    // the kit wired as the app wires it (core/kit.config.ts): its Close in the database's words, anotoki.ui.close
+    setUp([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }), provideKitEnglish(), provideKit()]);
     const fixture = TestBed.createComponent(AppVersionComponent);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
@@ -138,10 +141,11 @@ describe('AppVersionComponent', () => {
 
     (el.querySelector('#whatsNew') as HTMLButtonElement).click();
     await fixture.whenStable();
-    const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
-    expect(dialog.querySelector('#changelog-title')?.textContent).toBe('Čo je nové');
-    expect(dialog.querySelector('.head button')?.textContent?.trim()).toBe('Zavrieť');
-    expect(dialog.querySelector('.tag')?.textContent).toBe('najnovšie');
+    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    expect(dialog.querySelector('.anotoki-dialog__title')?.textContent).toBe('Čo je nové');
+    const close = dialog.querySelector('.anotoki-dialog__close') as HTMLButtonElement;
+    expect([close.getAttribute('aria-label'), close.title, close.getAttribute('lang')], 'the kit’s Close, in the language on the page').toEqual(['Zavrieť', 'Zavrieť', null]);
+    expect(dialog.querySelector('anotoki-badge')?.textContent).toBe('najnovšie');
     expect(Array.from(dialog.querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['Pridané', 'Opravené', 'Zmenené']);
     expect(Array.from(dialog.querySelectorAll('.vdate')).map((date) => date.textContent)).toEqual([written('sk-SK', 2026, 10, 6), written('sk-SK', 2026, 9, 29)]);
     expect(written('sk-SK', 2026, 10, 6), 'Slovak writes a date otherwise than English').not.toBe(written('en-GB', 2026, 10, 6));
@@ -154,7 +158,8 @@ describe('AppVersionComponent', () => {
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(dialog.querySelector('#changelog-title')?.textContent).toBe('What’s new');
+    expect(dialog.querySelector('.anotoki-dialog__title')?.textContent).toBe('What’s new');
+    expect(close.getAttribute('aria-label')).toBe('Close');
     expect(dialog.querySelector('.vdate')?.textContent).toBe(written('en-GB', 2026, 10, 6));
   });
 
@@ -167,9 +172,11 @@ describe('AppVersionComponent', () => {
     }
     setUp();
     const el = await opened();
-    const dialog = el.querySelector('dialog.changelog') as HTMLDialogElement;
+    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
     expect(dialog.hasAttribute('open')).toBe(true);
-    (dialog.querySelector('.head button') as HTMLButtonElement).click();
+    (dialog.querySelector('.anotoki-dialog__close') as HTMLButtonElement).click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(el.querySelector('app-changelog-dialog dialog'), 'closed: the kit’s dialog is gone').toBeNull();
     expect(dialog.hasAttribute('open')).toBe(false);
   });
 });

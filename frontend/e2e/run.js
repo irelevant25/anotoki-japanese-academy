@@ -316,8 +316,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('a deliberate miss turns the card red', missed);
   ck('romaji becomes kana', kana && /^[぀-ヿ]+$/.test(kana.shown), kana && `${kana.typed} → ${kana.shown}`);
   ck('quiz: 5 items × 2 halves + 1 retry', n === 11, `${n} answers`);
-  await page.waitForSelector('h1.page');
-  ck('summary: 5 learned', /learned 5 item/.test(await page.textContent('.lead')));
+  await page.waitForSelector('app-summary h1');
+  ck('summary: 5 learned', /learned 5 item/.test(await page.textContent('app-summary .anotoki-page-header__lead')));
   // The lesson ran over the dashboard, so the address is still /kanji, the
   // same as the Dashboard link's: clicking it must still bring the dashboard back.
   ck('the address stayed /kanji', new URL(page.url()).pathname === '/kanji', page.url());
@@ -374,7 +374,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await next();
     n++;
   }
-  await page.waitForSelector('h1.page');
+  await page.waitForSelector('app-summary h1');
   await shot('review-summary', true);
   p = await progressOf(LEA);
   const stages = learned.map((id) => p[id].stage);
@@ -406,7 +406,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await next();
     n++;
   }
-  await page.waitForSelector('h1.page');
+  await page.waitForSelector('app-summary h1');
   p = await progressOf(LEA);
   const moved = Object.keys(before).filter((id) => before[id].stage !== p[id].stage || before[id].nextReview !== p[id].nextReview);
   ck('practice changed no stage or review time', moved.length === 0, moved.join(' '));
@@ -455,12 +455,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let onDialog = (d) => d.accept();
   page.on('dialog', (d) => onDialog(d));
   await open('/exam');
-  await page.waitForSelector('#bookChips .chip');
+  await page.waitForSelector('#bookChips button');
   await page.click('[data-size="40"]');
   await page.click('details.adv summary');
-  for (const b of await page.$$('#sectionChips .chip')) {
+  for (const b of await page.$$('#sectionChips button')) {
     const id = await b.getAttribute('data-section');
-    const on = (await b.getAttribute('class')).includes('is-on');
+    const on = (await b.getAttribute('aria-pressed')) === 'true';
     if (on !== id.startsWith('listening')) await b.click();
   }
   await page.click('#startBtn');
@@ -478,7 +478,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.keyboard.press('f');
   await until('#gridNav .flag');
   const flagged = await page.$$eval('#gridNav .flag', (els) => els.map((e) => e.textContent.trim()));
-  ck('F flags the question', flagged.length === 1 && flagged[0] === String(total - 1) && (await page.isChecked('#flagBox')), flagged.join(','));
+  ck('F flags the question', flagged.length === 1 && flagged[0] === String(total - 1) && (await page.isChecked('#flagBox input')), flagged.join(','));
   await page.keyboard.press('ArrowRight');
   ck('→ moves on', await untilText('#counter', `${total} / ${total}`));
   // On the last question Enter hands the paper in: not from the bar
@@ -520,7 +520,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the report: hers with her token, nobody’s without one',
     (await app.api(reportHref, LEA)).status === 200 && (await fetch(app.base + reportHref)).status === 401 && (await app.api(reportHref, MAX)).status === 404);
   await page.click('#againBtn');
-  ck('"New test": the setup again', (await until('#setup:not([hidden]) #bookChips .chip')) && !(await page.isVisible('#result')));
+  ck('"New test": the setup again', (await until('#setup:not([hidden]) #bookChips button')) && !(await page.isVisible('#result')));
 
   /* ---------------------------------------------------------- the app */
   console.log('the app');
@@ -532,7 +532,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.stayed = true;
   });
   await page.click(barLink('/exam'));
-  await page.waitForSelector('#bookChips .chip');
+  await page.waitForSelector('#bookChips button');
   await page.click(barLink('/kanji'));
   await page.waitForSelector('.cards3');
   await page.click('.subnav a[data-route="browse"]');
@@ -545,15 +545,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the version at the foot, and What’s new with a dot while its news is unread',
     (await page.textContent('#version')).trim() === `v${latest.version}` && (await page.isVisible('#whatsNew .dot')));
   await page.click('#whatsNew');
-  await page.waitForSelector('dialog.changelog[open]');
-  const news = await page.textContent('dialog.changelog');
+  await page.waitForSelector('app-changelog-dialog dialog[open]');
+  const news = await page.textContent('app-changelog-dialog dialog');
   // The release's first line, of whatever kind: one may have no "added" line (0.4.0 has "updated" ones alone).
   const firstLine = ['added', 'updated', 'fixed'].flatMap((kind) => latest.changes[kind] ?? [])[0];
   ck("it opens what's new", news.includes(`v${latest.version}`) && !!firstLine && news.includes(firstLine), firstLine);
   await shot('changelog');
   await page.keyboard.press('Escape');
   ck('Escape closes it, and the dot is gone',
-    (await page.$('dialog.changelog[open]')) === null && (await page.$('#whatsNew .dot')) === null);
+    (await page.$('app-changelog-dialog dialog')) === null && (await page.$('#whatsNew .dot')) === null);
 
   /* ------------------------------------------- the bar's menus by keys */
   console.log('the bar: its menus by keys');
@@ -703,7 +703,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click(FAILURE.retry);
   await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await open('/exam');
-  await page.waitForSelector('#bookChips .chip');
+  await page.waitForSelector('#bookChips button');
   await page.click('[data-size="40"]');
   await page.click('#startBtn');
   await page.waitForSelector('#test:not([hidden])');
@@ -1019,7 +1019,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     void d.accept();
   });
   await sitter.goto(app.base + '/exam');
-  await sitter.waitForSelector('#bookChips .chip');
+  await sitter.waitForSelector('#bookChips button');
   await sitter.click('[data-size="40"]');
   await sitter.click('#startBtn');
   await sitter.waitForSelector('#test:not([hidden])');
@@ -1337,7 +1337,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await answer({}, vPage);
     await next(vPage);
   }
-  await vPage.waitForSelector('h1.page');
+  await vPage.waitForSelector('app-summary h1');
   const key = await heldKey();
   const [visitor] = visitorRows();
   ck('a lesson batch as a visitor: one key in this browser, one visitor (a negative id), five items its own',
@@ -1353,7 +1353,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // An exam handed in, and its report, as the visitor.
   await vOpen('/exam');
-  await vPage.waitForSelector('#bookChips .chip');
+  await vPage.waitForSelector('#bookChips button');
   await vPage.click('[data-size="40"]');
   await vPage.click('#startBtn');
   await vPage.waitForSelector('#test:not([hidden])');

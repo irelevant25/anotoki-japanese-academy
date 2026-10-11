@@ -109,7 +109,7 @@ describe('ItemComponent', () => {
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
   const text = (selector: string): string => clean(host.querySelector(selector)?.textContent);
   const texts = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).map((el) => clean(el.textContent));
-  const stats = (): string[] => texts('dl.stats dd');
+  const stats = (): string[] => texts('dl.facts dd');
 
   async function open(id: string, progress: Record<string, ItemState>, slovak = false): Promise<void> {
     TestBed.configureTestingModule({
@@ -144,17 +144,17 @@ describe('ItemComponent', () => {
     expect([text('.stagepill'), host.querySelector('.stagepill')?.getAttribute('lang')]).toEqual(['Not learned', null]);
     expect(host.querySelector('.stagepill')?.classList.contains('g-none')).toBe(true);
     expect(stats().slice(0, 3)).toEqual(['Not learned', '—', '—']);
-    expect(texts('.actions button')).toEqual(['Learn it now']);
-    expect(texts('dl.stats dt')).toEqual(['Stage', 'Learned', 'Next review', 'Meaning answers', 'Reading answers', 'Practice']);
+    expect(texts('#itemActions button')).toEqual(['Learn it now']);
+    expect(texts('dl.facts dt')).toEqual(['Stage', 'Learned', 'Next review', 'Meaning answers', 'Reading answers', 'Practice']);
     expect(warn, 'no key of the item page is without a string').not.toHaveBeenCalled();
   });
 
   it('a word whose kanji are not learned: which ones, as Japanese', async () => {
     await open('v:大学', { 'k:大': state(1) });
     expect(text('.itype')).toBe('Vocabulary · Lesson 4');
-    expect(text('.actions p')).toBe('Learn its kanji first: 学');
-    expect(Array.from(host.querySelectorAll('.actions p span[lang]')).map((el) => [el.textContent, el.getAttribute('lang')])).toEqual([['学', 'ja']]);
-    expect(host.querySelector('.actions button')).toBeNull();
+    expect(text('#itemActions p')).toBe('Learn its kanji first: 学');
+    expect(Array.from(host.querySelectorAll('#itemActions p span[lang]')).map((el) => [el.textContent, el.getAttribute('lang')])).toEqual([['学', 'ja']]);
+    expect(host.querySelector('#itemActions button')).toBeNull();
   });
 
   it('a learned item: its stage by the catalog’s own name, saying it is English; its numbers in the app’s words', async () => {
@@ -162,10 +162,10 @@ describe('ItemComponent', () => {
     await open('k:大', { 'k:大': state(1, { nextReview: at, synonyms: ['huge'] }) });
     expect([text('.stagepill'), host.querySelector('.stagepill')?.getAttribute('lang')]).toEqual(['Apprentice I', 'en']);
     expect(host.querySelector('.stagepill')?.classList.contains('g-apprentice')).toBe(true);
-    expect(host.querySelector('dl.stats dd')?.getAttribute('lang')).toBe('en');
+    expect(host.querySelector('dl.facts dd')?.getAttribute('lang')).toBe('en');
     const when = new Date(at).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
     expect(stats()).toEqual(['Apprentice I', stats()[1], `in 4 h (${when})`, '75% (3/4)', '—', '—']);
-    expect(texts('.actions button')).toEqual(['Practise it now', 'Reset progress']);
+    expect(texts('#itemActions button')).toEqual(['Practise it now', 'Reset progress']);
     expect(text('.syn')).toBe('Your synonyms: huge');
   });
 
@@ -188,7 +188,7 @@ describe('ItemComponent', () => {
   it('the last stage: no more reviews, the stage’s own name before the app’s words', async () => {
     await open('k:大', { 'k:大': state(9) }, true);
     expect(stats()[2]).toBe('Burned – žiadne ďalšie opakovania');
-    const dd = host.querySelectorAll('dl.stats dd')[2];
+    const dd = host.querySelectorAll('dl.facts dd')[2];
     expect(Array.from(dd.querySelectorAll('span[lang]')).map((el) => [el.textContent, el.getAttribute('lang')])).toEqual([['Burned', 'en']]);
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
@@ -200,7 +200,7 @@ describe('ItemComponent', () => {
     const asked: string[] = [];
     vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
     await open('k:大', { 'k:大': state(1) }, true);
-    const reset = (): void => (host.querySelectorAll('.actions button')[1] as HTMLButtonElement).click();
+    const reset = (): void => (host.querySelectorAll('#itemActions button')[1] as HTMLButtonElement).click();
     reset();
     expect(asked).toEqual(['Vynulovať „大“? Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.']);
     expect(api.resetItem, 'refused: nothing is reset').not.toHaveBeenCalled();
@@ -214,7 +214,7 @@ describe('ItemComponent', () => {
   it('resets when the learner agrees', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     await open('k:大', { 'k:大': state(1) });
-    (host.querySelectorAll('.actions button')[1] as HTMLButtonElement).click();
+    (host.querySelectorAll('#itemActions button')[1] as HTMLButtonElement).click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.resetItem).toHaveBeenCalledWith('k:大');
   });
@@ -223,5 +223,37 @@ describe('ItemComponent', () => {
     await open('k:無', {});
     expect(text('h1')).toBe('Not found');
     expect(text('p')).toBe('No such item.');
+  });
+
+  it('each answer the learner added: its words outside any button (they wrap), then the kit’s button that takes it away, named by Remove and the answer; the reading saying it is Japanese', async () => {
+    api.item.mockResolvedValueOnce({ state: state(1, { synonyms: [], extraReadings: ['おおい'] }) });
+    api.item.mockResolvedValueOnce({ state: state(1, { synonyms: [], extraReadings: [] }) });
+    await open('k:大', { 'k:大': state(1, { synonyms: ['huge'], extraReadings: ['おおい'] }) });
+    const rows = (): HTMLLIElement[] => Array.from(host.querySelectorAll<HTMLLIElement>('#accepted li'));
+    const answers = (): string[] => rows().map((row) => clean(row.querySelector('.answer')?.textContent));
+    const removes = (): HTMLButtonElement[] => rows().map((row) => row.querySelector('button') as HTMLButtonElement);
+    expect(answers()).toEqual(['huge', 'おおい']);
+    expect(removes().map((button) => [button.getAttribute('aria-label'), button.title])).toEqual([
+      ['Remove: huge', 'Remove: huge'],
+      ['Remove: おおい', 'Remove: おおい'],
+    ]);
+    expect(
+      removes().every((button) => button.matches('.anotoki-button--icon.anotoki-button--ghost') && clean(button.textContent) === '' && !!button.querySelector('anotoki-icon')),
+      'the kit’s icon button, the answer’s words beside it - a kit button keeps its words on one line, and a synonym may be 80 characters',
+    ).toBe(true);
+    expect(rows()[1].querySelector('.answer')?.getAttribute('lang')).toBe('ja');
+    expect(removes()[1].hasAttribute('lang'), 'Remove is the page’s language').toBe(false);
+    expect(texts('anotoki-card .anotoki-card__title')).toEqual(['Progress', 'Your accepted answers']);
+
+    removes()[0].click();
+    await harness.fixture.whenStable();
+    expect(api.item).toHaveBeenCalledWith('k:大', { removeSynonym: 'huge' });
+    expect(answers()).toEqual(['おおい']);
+
+    removes()[0].click();
+    await harness.fixture.whenStable();
+    expect(api.item).toHaveBeenCalledWith('k:大', { removeReading: 'おおい' });
+    expect(host.querySelector('#accepted'), 'none left: no list').toBeNull();
+    expect(texts('anotoki-card p.muted')).toContain('None yet.');
   });
 });

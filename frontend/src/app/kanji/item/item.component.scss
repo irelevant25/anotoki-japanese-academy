@@ -1,3 +1,5 @@
+// The item's head is the app's own (its colour, its stage); under it the kit's cards (.page: the
+// family's column of a page's parts).
 :host {
   display: block;
 }
@@ -8,7 +10,6 @@
   border-radius: var(--radius);
   padding: 22px 26px;
   color: var(--item-ink);
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 .ihead.t-kanji {
@@ -60,23 +61,29 @@
 .stagepill.g-burned {
   color: var(--st-burned);
 }
-.stats {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 18px;
+/* the learner's own answers, one a line: the answer's words wrap (a synonym may be 80 characters), and the
+   kit's button after them keeps its size */
+.answers {
+  list-style: none;
   margin: 0;
+  padding: 0;
 }
-.stats dt {
-  color: var(--muted);
-  font-size: 14px;
+.answers li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.stats dd {
-  margin: 0;
+.answer {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
+.answers li > button {
+  flex: none;
+}
+/* the field and its Add on one line */
 .addrow {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
 }
 .addrow anotoki-text-field {
   flex: 1;

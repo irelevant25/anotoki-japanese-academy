@@ -1,18 +1,21 @@
-<section class="dsec notes">
+<section class="dsec">
   @if (title(); as heading) {
     <h3>{{ heading | translate }}</h3>
   }
-  @for (field of fields; track field.part) {
-    <label class="field">
-      <span class="lbl">{{ field.label | translate }} <span class="small muted">{{ said(field.status()) }}</span></span>
-      <textarea
-        rows="2"
+  <div class="stack">
+    @for (field of fields; track field.part) {
+      <!-- the kit's field; where the note stands ("…", saved, or why not) under it -->
+      <anotoki-textarea
+        [attr.data-note]="field.part"
+        [label]="field.label | translate"
+        [rows]="2"
         [placeholder]="field.placeholder | translate"
         [value]="field.value"
-        (input)="typed(field, $any($event.target).value)"
-        (blur)="left(field)"
+        [hint]="said(field.status()) || null"
+        (valueChange)="typed(field, $event)"
+        (focusout)="left(field)"
         (keydown)="keydown($event)"
-      ></textarea>
-    </label>
-  }
+      />
+    }
+  </div>
 </section>

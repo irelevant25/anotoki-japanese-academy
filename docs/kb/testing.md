@@ -91,10 +91,10 @@ stand-in asks it (`GET /api/public/anonymized-accounts`, its state's
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 252 tests, on the newest PHP and on 8.2, the library's floor (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 428 tests in 42 files (476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 432 tests in 42 files (476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
 | `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, the error log, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 203 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
-| `node frontend/e2e/screens.js [filter]` | 29 screens × light/dark/phone and Slovak phone light/dark (145 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form and the admin tools' pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
+| `node frontend/e2e/screens.js [filter]` | 29 screens × light/dark at 1280 px, light/dark at 390 px and Slovak at 390 px light/dark (174 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form and the admin tools' pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
 The browser suites run against the production build: build it first with
 `node frontend/scripts/ensure-build.mjs` (it builds only when the sources
@@ -829,7 +829,14 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
   with its `lang`), the stand-in page (`problem.component.spec.ts`: what
   happened and Try again, never a way to the Migrations page — the
-  library's page has it).
+  library's page has it). They read the kit's pieces by the kit's names: a
+  choice's segments by their `role="radio"` and `aria-checked`, a row of
+  the kit's buttons by `aria-pressed` (the chosen ones `primary`; Lessons,
+  Practice and the exam check that each row is a `role="group"` named by the
+  words over it - Browse's, with none over them, by an `aria-label` -, and
+  that a part of the exam, the only one chosen, stays
+  chosen), a card's title, a page header's lead, an alert's tone and role,
+  a badge's tone, the notes' hints (tied to their textarea).
 - `core/format.spec.ts` (times, dates, counts in words: "1 attempt", in the
   language's locale; a signed-in person's own date order — the four — and
   clock, 24 hours or 12 with the language's am and pm, side by side in a
@@ -1010,11 +1017,13 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   anotoki library's page while a database update waits, as a learner reads it
   and as the site's ADMIN does (a migration taken off the list for it, and put
   back): 29
-  screens in light, dark and phone, each checked for key-shaped text,
+  screens in light and dark at 1280 px and on a phone (390 px), each checked for key-shaped text,
   overflow and what the reviews found by eye (`looks()`: People's Delete in
   view, the What's new dot beside its words and clear of the '·' before
   Send feedback, Your
-  data's question focused on Keep mine, the mark's halo in dark), and **the
+  data's question focused on Keep mine, the mark's halo in dark, every
+  segmented choice of the kit's whole inside its card or the page's frame),
+  and **the
   Slovak pass** — every screen again at 390 px in a
   Slovak browser (`sk-phone`, `sk-phone-dark`), each checked for `<html
   lang="sk">` (the admin panel: `en`), no text that is a key, no English string

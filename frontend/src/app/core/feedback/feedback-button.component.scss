@@ -20,11 +20,6 @@
 .send-feedback:hover {
   color: var(--ink);
 }
-.send-feedback:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
 // A finger needs more than a line of small text is: the button grows to 44 px high.
 @media (pointer: coarse) {
   .send-feedback {

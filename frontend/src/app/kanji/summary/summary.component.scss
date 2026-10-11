@@ -1,3 +1,5 @@
+// The summary is the kit's (its page header, buttons, cards, and a review's move as a badge); the
+// lines of items are the app's.
 :host {
   display: block;
 }
@@ -27,16 +29,4 @@
 .sm-x {
   color: var(--bad);
   font-size: 13px;
-}
-.mv {
-  font-size: 12px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--soft);
-}
-.mv.up {
-  color: var(--good);
-}
-.mv.down {
-  color: var(--bad);
 }

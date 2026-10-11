@@ -15,8 +15,11 @@ import {
 } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { AlertComponent } from '@anotoki/lib/ui/alert';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
-import { TextFieldComponent } from '@anotoki/lib/ui/forms';
+import { CardComponent } from '@anotoki/lib/ui/card';
+import { CheckboxComponent, TextFieldComponent } from '@anotoki/lib/ui/forms';
+import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
 import { ApiError, ApiService, toApiError } from '../core/api/api.service';
 import { Attempt, Breakdown, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { clipUrl } from '../core/audio.service';
@@ -143,10 +146,16 @@ function keptPaperOf(raw: string | null): KeptPaper | null {
  * again, in that fresh page (the library's page reloads without making the
  * pages first: anotoki-lib 0.2.0); its handing in, refused meanwhile, raises
  * no dialog (the library's page says what is going on).
+ *
+ * The setup and the result are drawn with the kit (cards, its text fields,
+ * rows of its buttons for the choices - the chosen ones pressed -, an alert
+ * for what went wrong, the table, a segmented choice for the review); the
+ * paper itself is the app's own (the question, its options, the player, the
+ * grid of questions), with the kit's buttons and tick box under it.
  */
 @Component({
   selector: 'app-exam',
-  imports: [ButtonComponent, NgTemplateOutlet, TextFieldComponent, TranslatePipe, LocalDatePipe],
+  imports: [AlertComponent, ButtonComponent, CardComponent, CheckboxComponent, LocalDatePipe, NgTemplateOutlet, SegmentedComponent, TextFieldComponent, TranslatePipe],
   templateUrl: './exam.component.html',
   styleUrl: './exam.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -207,6 +216,11 @@ export class ExamComponent implements OnInit, OnDestroy {
   /* result */
   readonly result = signal<ExamResult | null>(null);
   readonly reviewMode = signal<'wrong' | 'all'>('wrong');
+  /** What the review shows, as the segmented choice offers it: the missed questions, or every one. */
+  readonly reviewModes = computed<SegmentedOption[]>(() => [
+    { value: 'wrong', label: this.i18n.t('exam.result.missedOnly') },
+    { value: 'all', label: this.i18n.t('exam.result.everything') },
+  ]);
 
   /** "11,523 questions in the bank · 15 sections · 3 attempts recorded": three counts, each a phrase of its own. */
   readonly bankLine = computed(() => {
@@ -555,6 +569,19 @@ export class ExamComponent implements OnInit, OnDestroy {
     if (q) {
       this.flags.update((set) => toggled(set, q.id));
     }
+  }
+
+  /** The tick box under a question (the kit's): flagged as it now says, never the other way round. */
+  setFlag(on: boolean): void {
+    const q = this.q();
+    if (q && on !== this.flags().has(q.id)) {
+      this.toggleFlag();
+    }
+  }
+
+  /** What the result's review shows: the missed questions, or every one (the segmented choice above it). */
+  setReviewMode(mode: string): void {
+    this.reviewMode.set(mode === 'all' ? 'all' : 'wrong');
   }
 
   gridClass(q: ExamQuestion, i: number): string {

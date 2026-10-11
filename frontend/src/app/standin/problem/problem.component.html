@@ -1,9 +1,11 @@
 <main class="wrap signin" id="signin">
-  <section class="panel">
-    <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
-    <p class="err" role="alert">{{ said() }}@if (detail(); as detail) {<span class="detail" lang="en">{{ detail }}</span>}</p>
-    <div class="actions">
-      <button anotokiButton (click)="retry()">{{ tryAgain() }}</button>
+  <anotoki-card>
+    <div class="stack">
+      <h1><span class="mark" lang="ja">日本語</span>Japanese Academy</h1>
+      <anotoki-alert tone="danger" announce id="problem">{{ said() }}@if (detail(); as detail) {<span class="detail" lang="en">{{ detail }}</span>}</anotoki-alert>
+      <div class="cluster">
+        <button anotokiButton (click)="retry()">{{ tryAgain() }}</button>
+      </div>
     </div>
-  </section>
+  </anotoki-card>
 </main>
