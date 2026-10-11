@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { TranslationService } from '../i18n/translation.service';
-import { provideTestTranslations } from '../testing/test-translations';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from './auth.service';
 import { failureKey, fileNameOf, lockDown, PrivateLinksService, REPORT_CSP } from './private-links.service';
 import { derivedFromState } from '../testing/auth-states';
@@ -167,7 +167,7 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     answer = () => Promise.resolve(new Response('No such report', { status: 404 }));
     const links = TestBed.inject(PrivateLinksService);
     await links.open('/report/12');
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await links.open('/report/12');
     expect(tab.document.title).toBe('Opening…');
     expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.'], ['Could not open it: No such report.']]);

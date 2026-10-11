@@ -1,12 +1,10 @@
 import { provideZonelessChangeDetection, Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslatePluralPipe, TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from '../auth/auth.service';
 import { authStandIn, NO_CHOICE, person } from '../testing/auth-states';
-import { provideTestTranslations } from '../testing/test-translations';
 import { LocalDatePipe } from './local-date.pipe';
-import { TranslatePluralPipe } from './translate-plural.pipe';
-import { TranslatePipe } from './translate.pipe';
-import { TranslationService } from './translation.service';
 
 const ENGLISH = {
   'home.left': 'Left: {n}',
@@ -60,7 +58,7 @@ describe('the translate pipes', () => {
   it('answer again when the language changes under the same key', async () => {
     const { i18n, translate, plural } = pipes('sk');
     expect(translate.transform('home.left', { n: 1 })).toBe('Zostáva: 1');
-    expect(await i18n.setLanguage('en', false)).toBe(true);
+    expect(await i18n.setLanguage('en', { remember: false })).toBe(true);
     expect(translate.transform('home.left', { n: 1 })).toBe('Left: 1');
     expect(plural.transform('home.lessons', 3)).toBe('3 lessons');
   });
@@ -107,7 +105,7 @@ describe('the localDate pipe', () => {
   it('follows the language without a new value', async () => {
     const { i18n, date } = pipes('sk');
     expect(date.transform(MOMENT, 'weekday')).toBe('št');
-    await i18n.setLanguage('en', false);
+    await i18n.setLanguage('en', { remember: false });
     expect(date.transform(MOMENT, 'weekday')).toBe('Thu');
   });
 

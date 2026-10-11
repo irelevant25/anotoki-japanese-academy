@@ -2,9 +2,9 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { isAdminArea, TranslationService } from '@anotoki/lib/translations';
 import { AuthService } from '../auth/auth.service';
 import { pagesShut } from '../site-status';
-import { isAdminAddress, TranslationService } from './translation.service';
 
 /** The app's name: a name, the same in every language. */
 export const BRAND = 'Japanese Academy';
@@ -33,11 +33,12 @@ const KEY_SHAPE = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$/;
  * left out — the name alone, never "title.exam" on a tab. With strings, a key
  * that has none shows as itself: the owner wants to see which.
  *
- * It also tells the translation service that the page has moved, and where
- * to (the admin area reads in English), which is when that one asks again for
- * strings it could not get — it cannot ask the
- * Router itself (the Router builds this strategy, and this strategy needs that
- * service).
+ * It also tells the translation service (the anotoki library's) that the page
+ * has moved, and where to (noteAddress(): the admin area reads in English, a
+ * `?lang=` arriving with an address inside the app holds for the tab), which
+ * is when that one asks again for strings it could not get — it cannot ask
+ * the Router itself (the Router builds this strategy, and this strategy needs
+ * that service).
  */
 @Injectable()
 export class AcademyTitleStrategy extends TitleStrategy {
@@ -60,8 +61,7 @@ export class AcademyTitleStrategy extends TitleStrategy {
 
   override updateTitle(snapshot: RouterStateSnapshot): void {
     this.i18n.noteAddress(snapshot.url);
-    this.i18n.navigated();
-    this.admin.set(isAdminAddress(snapshot.url));
+    this.admin.set(isAdminArea(snapshot.url));
     this.path.set(snapshot.url.split(/[?#]/)[0] || '/');
     this.page.set(this.buildTitle(snapshot));
   }

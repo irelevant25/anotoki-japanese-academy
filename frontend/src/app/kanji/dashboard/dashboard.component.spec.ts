@@ -1,13 +1,13 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CatalogItem, ItemState, StageGroup, Summary } from '../../core/api/api.types';
 import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
-import { TranslationService } from '../../core/i18n/translation.service';
 import { authStandIn, NO_CHOICE, person } from '../../core/testing/auth-states';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { DashboardComponent } from './dashboard.component';
 
@@ -235,7 +235,7 @@ describe('DashboardComponent', () => {
     ]);
     expect(texts('.gs')).toEqual(['kanji: 2 · slovíčka: 0', 'kanji: 0 · slovíčka: 0']);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(texts('.gs')).toEqual(['2 kanji · 0 vocab', '0 kanji · 0 vocab']);
   });

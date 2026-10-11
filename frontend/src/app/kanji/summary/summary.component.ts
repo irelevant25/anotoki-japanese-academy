@@ -1,13 +1,12 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslatePluralPipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { ApiError } from '../../core/api/api.service';
 import { fmtClock, fmtIn, pct } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { KanjiScreenService, SummaryContext } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { DoneEntry, SessionMode, SessionResult } from '../session/session-engine';
@@ -37,6 +36,7 @@ export class SummaryComponent {
   private readonly kanji = inject(KanjiStateService);
   private readonly screen = inject(KanjiScreenService);
   private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
 
   readonly result = input.required<SessionResult>();
   readonly ctx = input<SummaryContext>({});
@@ -59,7 +59,7 @@ export class SummaryComponent {
     if (r.mode === 'lesson') {
       const learned = this.i18n.plural('summary.learned', r.done.length - this.failed().length);
       return s?.nextReviewAt
-        ? `${learned} ${this.i18n.t('summary.firstReview', { when: fmtIn(this.i18n, s.nextReviewAt), clock: fmtClock(this.i18n, s.nextReviewAt) })}`
+        ? `${learned} ${this.i18n.t('summary.firstReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) })}`
         : learned;
     }
     const clean = this.clean().length;

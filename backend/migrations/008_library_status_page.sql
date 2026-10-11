@@ -1,14 +1,13 @@
 -- 008 — the words of two pages the anotoki library took over (2026-10-07)
 --
--- THIS FILE IS A DRAFT until its last line is "-- end of 008": the app takes a
--- migration without that line for one still being written (or uploaded), and
--- applies neither it nor anything after it (db_migration_ready() in
--- backend/src/db.php); the tests alone apply the draft, on their throwaway
--- databases, and backend/tools/build-dist.php builds no upload while it is
--- one. Write that line last, once the change is final: applied once, the file
--- is never edited again - a change is the next migration. An administrator
--- then applies it on the admin panel's Migrations page (or backend/manage.php,
--- or the setup page), never a request.
+-- It was written as a draft, without its last line ("-- end of 008"), which
+-- the app waits for before it applies a migration (db_migration_ready() in
+-- backend/src/db.php); the tests alone applied the draft, on their throwaway
+-- databases. It is final now (2026-10-11), reviewed, with that line written
+-- last, and goes up with 009 in the same upload: applied once, it is never
+-- edited again - a change is the next migration. An administrator applies it
+-- on the admin panel's Migrations page (or backend/manage.php, or the setup
+-- page), never a request.
 --
 -- Since 2026-10-07 the anotoki library (the Composer package anotoki/lib and
 -- @anotoki/lib, every anotoki site's) says what a site does while it is not
@@ -39,3 +38,5 @@ BEGIN
         RAISE EXCEPTION '008_library_status_page: keys that should be gone and are not: %', missing;
     END IF;
 END $$;
+
+-- end of 008

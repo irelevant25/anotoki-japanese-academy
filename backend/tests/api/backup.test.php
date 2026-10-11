@@ -96,7 +96,8 @@ test('a backup of everybody holds the app’s own words, as the owner reworded t
     $text = json_text($data);
     $held = json_decode($text, true)['translations'];
     assert_same(['languages', 'values'], array_keys($held));
-    assert_same(languages_all(), $held['languages'], 'every language, the hidden one too, as the owner’s page lists them');
+    assert_same(academy_translations()->languages(), $held['languages'], 'every language, the hidden one too, as the owner’s page lists them');
+    assert_same(['code', 'name', 'native_name', 'enabled', 'sort_order', 'seeded', 'strings'], array_keys($held['languages'][0]), 'in the one wire format, snake_case');
     assert_same(['en', 'sk', 'de'], array_keys($held['values']), 'each language’s own strings, by code');
     assert_same(['Word', 'Slovo – „naše“'], [$held['values']['en']['test.word'], $held['values']['sk']['test.word']], 'the letters as they are');
     foreach (['en', 'sk', 'de'] as $code) {
@@ -167,16 +168,22 @@ test('before a language is deleted: a copy of its strings in the backups, which 
     db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('test.word', 'de', 'Wort'), ('test.later', 'de', 'Später – „bald“')");
     $copies = static fn (): array => array_map('basename', glob(backup_dir() . '/' . TRANSLATIONS_COPY_PREFIX . '*.json') ?: []);
 
-    // What is refused leaves no copy.
-    assert_same([409, 'fallback_language'], [languages_delete('en')[0], languages_delete('en')[1]['code']]);
-    assert_same([409, 'seeded_language'], [languages_delete('sk')[0], languages_delete('sk')[1]['code']]);
-    assert_same([404, 'not_found'], [languages_delete('fr')[0], languages_delete('fr')[1]['code']]);
-    assert_same(404, languages_delete("d\xFF")[0], 'what is no code reaches no query and names no file');
+    // What is refused leaves no copy (the anotoki library's delete, with this app's copy first: academy_language_usage()).
+    $refused = static function (string $code): array {
+        $answer = academy_translations()->deleteLanguage($code);
+        return $answer instanceof Anotoki\Lib\Support\Refusal ? [$answer->status, $answer->code] : [200, 'deleted'];
+    };
+    assert_same([409, 'fallback_language'], $refused('en'));
+    assert_same([409, 'seeded_language'], $refused('sk'));
+    assert_same([404, 'not_found'], $refused('fr'));
+    assert_same([404, 'not_found'], $refused("d\xFF"), 'what is no code reaches no query and names no file');
     assert_same([], $copies());
 
     $words = words();
-    [$status, $body] = languages_delete('de');
-    assert_same([200, ['copy']], [$status, array_keys($body)]);
+    $answer = academy_translations()->deleteLanguage('de');
+    assert_false($answer instanceof Anotoki\Lib\Support\Refusal);
+    assert_same([2, ['copy']], [$answer['strings'], array_keys($answer['extras'])], 'its two strings went, and the copy is named in the answer');
+    $body = $answer['extras'];
     assert_match('/^academy-before-language-delete-de-\d{8}-\d{6}-\d{3}\.json$/D', $body['copy']);
     assert_same([$body['copy']], $copies(), 'in the backup folder, under the language’s code and the time');
     $file = backup_dir() . '/' . $body['copy'];

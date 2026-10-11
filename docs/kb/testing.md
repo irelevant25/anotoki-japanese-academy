@@ -76,9 +76,9 @@ named after a stand-in asks the stand-in (`GET
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 247 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 237 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 656 tests in 44 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 476 tests in 42 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
 | `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 184 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
 | `node frontend/e2e/screens.js [filter]` | 23 screens × light/dark/phone and Slovak phone light/dark (115 shots; a visitor's home and the library's update-waiting page among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
@@ -132,31 +132,39 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   variable, `f(...)`, `new` in a default, trailing commas in parameter lists,
   `$object::class`, `0o` numbers, typed and dynamic class constants — and a
   second test proves it finds each.
-- `unit/translations.test.php` — the catalogue as the migrations leave it:
-  English and Slovak, English first; every key with an English and a Slovak
-  string; no placeholder a translation invents; plural families whole
-  (`.one`, `.few`, `.other` in both languages); no namespace named after a
-  file the frontend names (`changelog.json` would read as a key); every
-  language a migration writes strings for undeletable; every key the frontend
-  uses in the database, and every database key used (the key scan,
-  `backend/tools/translation_keys.php`, with fixtures of its own: a family
-  asked for as one string, a run-time key from an undeclared prefix, a
-  translated string given to `innerHTML`); 004 touching only its own three
-  tables; 005 in 004's form (a header, 004's line endings, one `ADD COLUMN`
-  on `users`, inserts into the translation tables that step aside, rewords
-  only under the seeded-value guard, deletes only of the keys
+- `unit/translations.test.php` — the catalogue as the migrations leave it
+  (the app's own keys: the anotoki library's, `anotoki.`, left out):
+  English and Slovak, English first; the library's set after this app's own,
+  its keys in the database described as it describes them; every key with an
+  English and a Slovak string; plural families whole (`.one`, `.few`,
+  `.other` in both languages); no namespace named after a file the frontend
+  names (`changelog.json` would read as a key); every language a migration
+  writes strings for undeletable; every key the frontend uses in the
+  database, and every database key used (the library's key scan, given this
+  frontend by `backend/tools/translation_keys.php`: every `.ts` and `.html`
+  of `src/app` but the specs, `core/testing/` and the IAM's SDK); every
+  seeded string passing the checks a save makes (the library's, with this
+  app's ways); the problem page's own English
+  (`standin/problem/problem.component.ts`) and the bar's the seeded English
+  word for word; the kit's words the same before the strings come and after
+  (the library's English, or `KIT_ENGLISH` over it, the seeded English of
+  every library key); a string migration's gate checking exactly the keys
+  it writes, in every language; 004 touching only its own three tables; 005
+  in 004's form (a header, 004's line endings, one `ADD COLUMN` on `users`,
+  inserts into the translation tables that step aside, rewords only under
+  the seeded-value guard, deletes only of the keys
   `MIGRATION_005_DELETED_KEYS` lists — `error.no_access`,
   `error.this_computer_only` —, a check at its end that names the column and
-  every key it writes; without its last line, a draft that says so);
-  every seeded string passing the checks a save makes; the problem
-  page's own English (`standin/problem/problem.component.ts`) the seeded
-  English word for word; the text
-  helpers, placeholders, a weak `If-None-Match`, and reading a language out of
-  an export or a backup. Its `migration_keys()` reads the seed's lists with
+  every key it writes; without its last line, a draft that says so); 006 and
+  008 likewise; 009 in a form of its own (a temporary copy of the strings it
+  moves, keys and strings inserted from it, one description, the listed keys
+  deleted, a check at its end that names every one); and reading a language
+  out of an export or a backup. Its `migration_keys()` reads the seed's lists with
   regular expressions, and finds the gate's list from its end (the last
   `VALUES` before `AS k(name)`): one pattern spanning the whole catalogue runs
   out of PCRE's JIT stack, and a pattern that cannot run throws rather than
-  finding nothing.
+  finding nothing. (The checks of a string, the weak `If-None-Match`, the key
+  scan's own cases and the file format are the library's, tested there.)
 - `api/translations.test.php` — the bundle (merged with English, objects
   even when empty, 404 for what is no code without asking the database, 304
   for its tag), who may do what (`/api/admin`: a learner, with no role or a
@@ -173,8 +181,18 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   `--import`, `--status` and its exit code; on a database without the words
   or behind the files, the Migrations page or `manage.php --sync` named,
   never a request), `updated_by` following a moved
-  user id (changed by hand) and emptied with a deleted one, and no PHP warning
-  in the log.
+  user id (changed by hand) and emptied with a deleted one, one wire format -
+  snake_case on every route, a camelCase field of before no field -, and no
+  PHP warning in the log. The routes are the anotoki library's in this app's
+  groups: the answers are its, the checks and the error body this app's.
+- `api/strings-through-the-library.test.php` — migration 009 on a database
+  shaped like an installed one (008 applied, the owner's rewordings in it, a
+  language left without a string): its check failing it by name when a string
+  did not come over as it was, or a language came that was not there, and then
+  nothing of it staying; the upload as it goes up - 009, then the library's
+  set: every string of the words that moved through as it was (text, who,
+  when, every language, a blank one blank), and the library writing its own
+  only where the app had none.
 - `api/errors.test.php` — what a failure says: its sentence, its code, and
   its reason (`detail`) only under PHP's built-in server — a database that
   cannot be reached (`database_unavailable`), anything else (`server_error`),
@@ -394,7 +412,7 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   before the token or after (an empty password keeping the saved one), and
   taking the raw copy before it migrates; and the update that
   brings 004 while it has not arrived whole: the bundle 503
-  `not_up_to_date`, nothing logged, the rest of the site going on; and,
+  `translations_unavailable` (the library's), nothing logged, the rest of the site going on; and,
   installed, its settings gone: every address "not available", never the
   setup page (`installed` true, no `setup`), ready again with them back. Its test
   migrations are numbered 901–904, out of the way of the real ones, and
@@ -574,39 +592,36 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   while 007 waits);
   the moments in the date order and clock the administrator chose for their
   account, the rest still English, following a change.
-- `core/i18n/translation.service.spec.ts` — which language a page takes
-  (`?lang=` for the tab, the choice, the token's `locale`, the browser's — a
-  Czech browser Slovak —, English), when the server is asked, a bundle
-  answered 503 changing what the app shows instead of leaving a page of keys
-  (`not_set_up`: nothing goes on; `update_pending`, or any 503 while the
-  site is being updated: `SiteStatus` told and the library's page standing
-  in, never the problem page, for everybody, in the admin panel or not),
-  the cached bundle and its refresh; the account's date order and clock
-  (`dateFormat()`, `timeFormat()`); for an account that sends its
-  preferences, its language over the device's choice (`stored` after the
-  token; `?lang=` first; without preferences or for a visitor the device's
-  first, as before), a choice made on the page holding for the visit and the
-  next page the account's again, a change made elsewhere followed over the
-  device's and an earlier choice but not over `?lang=` nor while a save is on
-  its way; and a signed-in person's choice of
-  language saved to the account once the page has switched (nothing the
-  account has, nothing without its preferences or for a visitor; one save at
-  a time, the latest last; a refusal puts nothing back — `invalid_request`
-  silent, any other noted in the console);
-  `core/i18n/pipes.spec.ts` (translate, plurals, dates — a signed-in person's
+- `core/i18n/translations.config.spec.ts` — the anotoki library's
+  translation service wired to this app (the library tests the service
+  itself: which language, the cache, the account's language, the saves): a
+  choice and the words kept under the names this app always had
+  (`academy-language`, `academy-language-cache`, `academy-admin-drafts`),
+  so a returning visitor's choice is the language the start asks for; the
+  bundle through plain `fetch()` with no token, and a refusal handed on with
+  what the server said; a refused bundle read as what the app can show
+  (`not_set_up` stops it, `update_pending` tells `SiteStatus`, any other 503
+  the problem page at the start or with no words in memory, never once the
+  site is not ready); the words asked for only while the app or its Sign in
+  card is shown; the admin pages' settings (Translations for the editors and
+  the administrators, Languages for the administrators, the copy a deleted
+  language left named). `core/i18n/time-wording.spec.ts` (the words of the
+  page with the account's date order and clock, following a change of
+  either); `core/i18n/pipes.spec.ts` (translate, plurals, dates — a signed-in person's
   own date order and clock, followed when they change, the language's again
   for a visitor), `error-text.spec.ts`
   (every code worded, an unknown one `error.unknown`; `visitor_limit` by its
-  `limit`, with its `max`; a refused save of the account's preferences,
-  `preferencesFailure()`),
+  `limit`, with its `max`; the library's `translations_unavailable` in
+  `not_up_to_date`'s sentence),
   `core/kit.config.spec.ts` (the anotoki library's kit in this app's words:
-  every word of the kit the app has words for is the app's, from its
-  database, the owner's rewordings included, the kit's own Slovak only for a
-  word the app lacks; English in the admin panel, and the English the app
-  keeps with no strings; the theme - the device's, kept for the boot script,
-  signed in the account's, a choice saved to it, a refusal worded in the
-  app's sentences; the languages on offer under their own names, a choice
-  the translation service's),
+  every word of the kit from the database's `anotoki.*` keys, which 009
+  filled with the app's words, the owner's rewordings included, the library's
+  own Slovak only where the database has none; English in the admin panel,
+  and with no strings the English the app says its own way (`KIT_ENGLISH`,
+  "The app’s sections", "System" - only those two); the theme - the device's,
+  kept for the boot script, signed in the account's, a choice saved to it, a
+  refusal said by the library's note; the languages on offer under their own
+  names, a choice the translation service's),
   `core/boot.spec.ts` (the start, in order, in every state — where the site
   stands first; not set up or out of reach, nothing more asked; an update
   waiting, the start going on as ever, never the problem page, whatever the
@@ -697,14 +712,16 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   tested there (the three choices, `data-theme`, the arrow keys, the
   account's theme followed and saved one at a time, the latest last; the
   switcher's menu, its keys and the Tab rule); here, how this app wires them
-  (`core/kit.config.spec.ts`, above) and `translation.service.spec.ts` (the
-  admin panel reads in English, `pageLanguage`).
-- The admin panel: `admin/translation-grid.spec.ts` (plural families,
-  search, changed cells), `translations.component.spec.ts`,
-  `languages.component.spec.ts` (their links are the top bar's; the kit's
-  question - `ConfirmService` - answered through `core/testing/kit-question.ts`),
-  `admin-drafts.service.spec.ts` (drafts surviving a session's end and a
-  sign-in as the same person), `unsaved-changes.guard.spec.ts`.
+  (`core/kit.config.spec.ts`, above; the admin panel's English there too).
+- The admin panel: Translations and Languages are the anotoki library's
+  pages, tested there (the grid, plural families, the search, changed cells,
+  the drafts surviving a session's end and a sign-in as the same person, the
+  question before leaving); here, `admin/translations/translations.component.spec.ts`
+  and `admin/languages/languages.component.spec.ts` (each in the panel's
+  frame, English whatever the reader reads, and asking the page before it is
+  left), `app.routes.spec.ts` (the library's guard on those two alone), and
+  People's question - `ConfirmService` - answered through
+  `core/testing/kit-question.ts`.
 - Every screen's component in English and Slovak: home, exam, the kanji
   shell, dashboard, lessons, practice, session, summary, browse, item, the
   tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
@@ -725,11 +742,15 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   itself; every entry of `public/changelog.json` three numbers, newest first,
   the newest `package.json`'s version).
 
-A spec gets its strings from `core/testing/test-translations.ts`
-(`provideTestTranslations()`): the real `TranslationService` with the
-strings the spec gives it in memory, English or another language with
-English beside it, and no HTTP; a key not given shows as itself and warns, as
-in the app.
+A spec gets its strings from the anotoki library's
+`@anotoki/lib/translations/testing` (`provideTestTranslations()`): the real
+`TranslationService` with the strings the spec gives it in memory, English
+or another language with English beside it, and no HTTP; a key not given
+shows as itself and warns, as in the app; a library key (`anotoki.*`) reads
+the library's words. A spec that draws the kit with no strings adds
+`core/testing/kit-english.ts` (`provideKitEnglish()`: the English this app
+says its own way). The kit's markup is read by the kit's own class names
+(`anotoki-<piece>__<part>`, since anotoki-lib 0.3.0).
 
 Browser (`frontend/e2e/`, Edge through `playwright-core`):
 

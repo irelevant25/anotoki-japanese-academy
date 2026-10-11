@@ -1,13 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, OnInit, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePluralPipe, TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, Summary } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
 import { VisitorKey } from '../core/auth/visitor-key';
 import { fmtDateTime, fmtInShort } from '../core/format';
-import { TranslatePluralPipe } from '../core/i18n/translate-plural.pipe';
-import { TranslatePipe } from '../core/i18n/translate.pipe';
-import { TranslationService } from '../core/i18n/translation.service';
+import { TimeWording } from '../core/i18n/time-wording';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { VisitorNoticeComponent } from './visitor-notice/visitor-notice.component';
 import { YourDataComponent } from './your-data/your-data.component';
@@ -47,6 +46,7 @@ export class HomeComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly kanji = inject(KanjiStateService);
   private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
   readonly auth = inject(AuthService);
   private readonly visitor = inject(VisitorKey);
 
@@ -67,7 +67,7 @@ export class HomeComponent implements OnInit {
     if (s.reviewsDue) {
       return this.i18n.t('home.kanji.waiting');
     }
-    return s.nextReviewAt ? this.i18n.t('home.kanji.nextReview', { when: fmtInShort(this.i18n, s.nextReviewAt) }) : this.i18n.t('home.kanji.start');
+    return s.nextReviewAt ? this.i18n.t('home.kanji.nextReview', { when: fmtInShort(this.wording, s.nextReviewAt) }) : this.i18n.t('home.kanji.start');
   });
 
   /** The stage bar: each stage group's share of all items, under the group's own name. */
@@ -111,7 +111,7 @@ export class HomeComponent implements OnInit {
     if (this.attempts() === null) {
       return '';
     }
-    return a ? this.i18n.t(a.passed ? 'home.exam.passed' : 'home.exam.notPassed', { when: fmtDateTime(this.i18n, a.finishedAt) }) : this.i18n.t('home.exam.none');
+    return a ? this.i18n.t(a.passed ? 'home.exam.passed' : 'home.exam.notPassed', { when: fmtDateTime(this.wording, a.finishedAt) }) : this.i18n.t('home.exam.none');
   });
   /** How many questions the exam draws from, written as the language writes numbers. */
   readonly bankSize = computed(() => {

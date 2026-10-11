@@ -124,8 +124,8 @@ switch ($command) {
         }
         db_create();
         $applied = db_migrate();
-        if ($waiting = db_pending_migrations()) {
-            fwrite(STDERR, "testdb: backend/migrations/{$waiting[0]} could not be applied.\n");
+        if ($waiting = db_first_pending_migration()) {
+            fwrite(STDERR, 'testdb: ' . db_migration_path($waiting) . " could not be applied.\n");
             exit(1);
         }
         db_server()->exec('COMMENT ON DATABASE "' . TEMPLATE . "\" IS 'academy drafts $drafts'");

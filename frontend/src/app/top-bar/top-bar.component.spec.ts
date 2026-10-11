@@ -3,72 +3,83 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { ThemeService } from '@anotoki/lib/shell';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppState, AuthService } from '../core/auth/auth.service';
 import { AnotokiPreferenceChanges, AnotokiUser } from '../core/auth/sdk/anotoki-auth';
-import { TranslationService } from '../core/i18n/translation.service';
 import { provideKit } from '../core/kit.config';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { derivedFromState, derivedFromUser, NO_CHOICE } from '../core/testing/auth-states';
+import { provideKitEnglish } from '../core/testing/kit-english';
 import { provideTestSiteStatus } from '../core/testing/site-status';
-import { provideTestTranslations } from '../core/testing/test-translations';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { ADMIN_PHONE_BAR_MAX, NAME_BAR_MIN, PHONE_BAR_MAX, TopBarComponent } from './top-bar.component';
 
+/**
+ * The bar's words as the database has them since migration 009: the app's
+ * own, and the kit's under the anotoki library's keys - the app's words,
+ * copied there, the person's role and account link among them - beside the
+ * library's own where the app had none (the theme's note).
+ */
 const ENGLISH: Record<string, string> = {
   'topbar.home': 'anotoki Japanese: home',
-  'topbar.sections': 'The app’s sections',
   'topbar.exam': 'Exam',
-  'topbar.phoneMenu': 'Menu',
   'topbar.phoneMenuDue.one': 'Menu: {count} review due',
   'topbar.phoneMenuDue.few': 'Menu: {count} reviews due',
   'topbar.phoneMenuDue.other': 'Menu: {count} reviews due',
-  'topbar.menuButton': 'Your menu: {name}',
-  'topbar.menu': 'Your menu',
-  'topbar.roleAdmin': 'Administrator',
-  'topbar.roleEditor': 'Editor',
+  'anotoki.topbar.roleAdmin': 'Administrator',
+  'anotoki.topbar.roleEditor': 'Editor',
   'topbar.admin': 'Admin panel',
   'account.noName': 'Account',
-  'account.yourAccount': 'Your anotoki account',
-  'account.signOut': 'Sign out',
-  'signOut.saving': 'Saving…',
+  'anotoki.topbar.account': 'Your anotoki account',
   'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them. Sign out anyway?',
   'signOut.examOpen': 'Your exam is not finished, and signing out loses the test. Sign out anyway?',
   'signIn.button': 'Sign in',
-  'theme.label': 'Theme',
-  'theme.light': 'Light',
-  'theme.dark': 'Dark',
-  'theme.system': 'System',
-  'theme.systemHint': 'As your device is set',
-  'language.button': 'Language: {name} ({code})',
-  'language.notLoaded': 'The language could not be loaded. Try again.',
+  'anotoki.topbar.sections': 'The app’s sections',
+  'anotoki.topbar.phoneMenu': 'Menu',
+  'anotoki.topbar.menuButton': 'Your menu: {name}',
+  'anotoki.topbar.menu': 'Your menu',
+  'anotoki.topbar.signIn': 'Sign in',
+  'anotoki.topbar.signOut': 'Sign out',
+  'anotoki.topbar.saving': 'Saving…',
+  'anotoki.theme.label': 'Theme',
+  'anotoki.theme.light': 'Light',
+  'anotoki.theme.dark': 'Dark',
+  'anotoki.theme.auto': 'System',
+  'anotoki.theme.autoHint': 'As your device is set',
+  'anotoki.theme.notSaved': 'The theme could not be saved to your anotoki account.',
+  'anotoki.language.button': 'Language: {name} ({code})',
+  'anotoki.language.notLoaded': 'The language could not be loaded. Try again.',
 };
 const SLOVAK: Record<string, string> = {
   'topbar.home': 'anotoki Japanese: domov',
-  'topbar.sections': 'Časti aplikácie',
   'topbar.exam': 'Skúška',
-  'topbar.phoneMenu': 'Ponuka',
   'topbar.phoneMenuDue.one': 'Ponuka: {count} opakovanie čaká',
   'topbar.phoneMenuDue.few': 'Ponuka: {count} opakovania čakajú',
   'topbar.phoneMenuDue.other': 'Ponuka: {count} opakovaní čaká',
-  'topbar.menuButton': 'Tvoja ponuka: {name}',
-  'topbar.menu': 'Tvoja ponuka',
-  'topbar.roleAdmin': 'Administrátor',
-  'topbar.roleEditor': 'Editor',
+  'anotoki.topbar.roleAdmin': 'Administrátor',
+  'anotoki.topbar.roleEditor': 'Editor',
   'topbar.admin': 'Administrátorský panel',
   'account.noName': 'Účet',
-  'account.yourAccount': 'Tvoj účet anotoki',
-  'account.signOut': 'Odhlásiť sa',
-  'signOut.saving': 'Ukladá sa…',
+  'anotoki.topbar.account': 'Tvoj účet anotoki',
   'signOut.notSaved': 'Niektoré tvoje odpovede alebo poznámky sa nepodarilo uložiť a odhlásením sa stratia. Chceš sa aj tak odhlásiť?',
   'signOut.examOpen': 'Tvoja skúška nie je dokončená a odhlásením sa test stratí. Chceš sa aj tak odhlásiť?',
   'signIn.button': 'Prihlásiť sa',
-  'theme.label': 'Vzhľad',
-  'theme.light': 'Svetlý',
-  'theme.dark': 'Tmavý',
-  'theme.system': 'Systémový',
-  'theme.systemHint': 'Podľa nastavenia tvojho zariadenia',
-  'language.button': 'Jazyk: {name} ({code})',
-  'language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.',
+  'anotoki.topbar.sections': 'Časti aplikácie',
+  'anotoki.topbar.phoneMenu': 'Ponuka',
+  'anotoki.topbar.menuButton': 'Tvoja ponuka: {name}',
+  'anotoki.topbar.menu': 'Tvoja ponuka',
+  'anotoki.topbar.signIn': 'Prihlásiť sa',
+  'anotoki.topbar.signOut': 'Odhlásiť sa',
+  'anotoki.topbar.saving': 'Ukladá sa…',
+  'anotoki.theme.label': 'Vzhľad',
+  'anotoki.theme.light': 'Svetlý',
+  'anotoki.theme.dark': 'Tmavý',
+  'anotoki.theme.auto': 'Systémový',
+  'anotoki.theme.autoHint': 'Podľa nastavenia tvojho zariadenia',
+  'anotoki.theme.notSaved': 'Vzhľad sa nepodarilo uložiť do tvojho anotoki účtu.',
+  'anotoki.language.button': 'Jazyk: {name} ({code})',
+  'anotoki.language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.',
 };
 
 /** Whatever page the router draws: the bar only needs it to be somewhere. */
@@ -124,29 +135,29 @@ describe('TopBarComponent', () => {
   let width = 1280;
   const resized = new Set<() => void>();
 
-  const personButton = () => host.querySelector<HTMLButtonElement>('.person-button')!;
-  const phoneButton = () => host.querySelector<HTMLButtonElement>('.menu-button')!;
-  const signInButton = () => host.querySelector<HTMLButtonElement>('button.sign-in');
+  const personButton = () => host.querySelector<HTMLButtonElement>('.anotoki-top-bar__person-button')!;
+  const phoneButton = () => host.querySelector<HTMLButtonElement>('.anotoki-top-bar__menu-button')!;
+  const signInButton = () => host.querySelector<HTMLButtonElement>('button.anotoki-top-bar__sign-in');
   const items = () => Array.from(host.querySelectorAll<HTMLElement>('[role="menuitem"]'));
   const menu = () => host.querySelector<HTMLElement>('[role="menu"]');
   const words = (element: Element | null | undefined) => element?.textContent?.replace(/\s+/g, ' ').trim();
   /** The words of each element a selector finds, in order. */
   const parts = (selector: string) => Array.from(host.querySelectorAll(selector)).map(words);
-  const links = () => Array.from(host.querySelectorAll<HTMLAnchorElement>('nav.nav a'));
+  const links = () => Array.from(host.querySelectorAll<HTMLAnchorElement>('nav.anotoki-top-bar__nav a'));
   const brand = () => host.querySelector<HTMLAnchorElement>('anotoki-brand a')!;
   /** A link as "words href", with " [page]" for aria-current and " [here]" for the section the page is in. */
   const described = (link: HTMLAnchorElement) =>
-    `${words(link)} ${link.getAttribute('href')}${link.getAttribute('aria-current') === 'page' ? ' [page]' : ''}${link.classList.contains('is-active') ? ' [here]' : ''}`;
-  /** What stands in the bar's row and among its controls, in order: each child as its tag, another element as tag.<its first class of the bar's own> (not the kit's anotoki- or is-). */
+    `${words(link)} ${link.getAttribute('href')}${link.getAttribute('aria-current') === 'page' ? ' [page]' : ''}${link.classList.contains('anotoki-top-bar__link--active') ? ' [here]' : ''}`;
+  /** What stands in the bar's row and among its controls, in order: a component as its tag, another element as tag.<its part of the bar> (its first anotoki-top-bar__ class, the prefix left out). */
   const childrenOf = (selector: string) =>
     Array.from(host.querySelector(selector)!.children)
       .filter((child) => !(child instanceof HTMLElement) || !child.hidden)
       .map((child) => {
         const tag = child.tagName.toLowerCase();
-        const own = String(child.className)
-          .split(' ')
-          .find((name) => name !== '' && !name.startsWith('anotoki-') && !name.startsWith('is-'));
-        return tag.includes('-') ? tag : `${tag}.${own ?? ''}`;
+        const part = Array.from(child.classList)
+          .find((name) => name.startsWith('anotoki-top-bar__') && !name.includes('--'))
+          ?.slice('anotoki-top-bar__'.length);
+        return tag.includes('-') ? tag : `${tag}.${part ?? ''}`;
       });
 
   /** A key pressed on an element, as the browser sends it: it bubbles. */
@@ -175,6 +186,7 @@ describe('TopBarComponent', () => {
         translations,
         provideRouter([{ path: '**', component: PageComponent }]),
         provideTestSiteStatus(),
+        provideKitEnglish(),
         provideKit(),
         { provide: AuthService, useValue: auth },
         { provide: KanjiStateService, useValue: { reviewsDue: due } },
@@ -193,7 +205,7 @@ describe('TopBarComponent', () => {
   }
 
   async function openMenu(): Promise<void> {
-    (host.querySelector<HTMLButtonElement>('.person-button') ?? phoneButton()).click();
+    (host.querySelector<HTMLButtonElement>('.anotoki-top-bar__person-button') ?? phoneButton()).click();
     await fixture.whenStable();
   }
 
@@ -239,12 +251,12 @@ describe('TopBarComponent', () => {
 
   it('is the family’s one bar, in its order: the brand, the links, then the language, the theme and the person', async () => {
     await draw();
-    expect(childrenOf('.row')).toEqual(['anotoki-brand', 'nav.nav', 'div.actions']);
-    expect(childrenOf('.actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.person-button', 'anotoki-menu']);
-    expect(host.querySelector('nav.nav')?.getAttribute('aria-label'), 'the app’s word for the kit’s').toBe('Časti aplikácie');
+    expect(childrenOf('.anotoki-top-bar__row')).toEqual(['anotoki-brand', 'nav.nav', 'div.actions']);
+    expect(childrenOf('.anotoki-top-bar__actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.person-button', 'anotoki-menu']);
+    expect(host.querySelector('nav.anotoki-top-bar__nav')?.getAttribute('aria-label'), 'the app’s word for the kit’s').toBe('Časti aplikácie');
     // The brand: the mark, "anotoki" and the app's name (a name: English on every page), its link named with the words it shows.
-    expect(parts('anotoki-brand .wordmark > span')).toEqual(['anotoki', 'Japanese']);
-    expect(host.querySelector('anotoki-brand .wordmark')?.getAttribute('lang')).toBe('en');
+    expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['anotoki', 'Japanese']);
+    expect(host.querySelector('anotoki-brand .anotoki-brand__wordmark')?.getAttribute('lang')).toBe('en');
     expect(host.querySelector('anotoki-brand img')?.getAttribute('alt')).toBe('');
     expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese: domov');
     expect(brand().getAttribute('href')).toBe('/');
@@ -269,10 +281,10 @@ describe('TopBarComponent', () => {
 
   it('shows the reviews due on the Kanji link — three digits too', async () => {
     await draw();
-    expect(host.querySelector('nav.nav .badge')).toBeNull();
+    expect(host.querySelector('nav.anotoki-top-bar__nav .anotoki-top-bar__badge')).toBeNull();
     due.set(125);
     await fixture.whenStable();
-    expect(words(host.querySelector('nav.nav .badge'))).toBe('125');
+    expect(words(host.querySelector('nav.anotoki-top-bar__nav .anotoki-top-bar__badge'))).toBe('125');
     expect(links().map(words)).toEqual(['Kanji 125', 'Skúška']);
   });
 
@@ -289,7 +301,7 @@ describe('TopBarComponent', () => {
     expect(host.querySelector('anotoki-language-switcher')).toBeNull();
     expect(brand().getAttribute('href')).toBe('/admin');
     expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese admin panel: home');
-    expect(parts('anotoki-brand .wordmark > span')).toEqual(['anotoki', 'Japanese', '·', 'admin panel']);
+    expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['anotoki', 'Japanese', '·', 'admin panel']);
     await at('/admin/migrations');
     expect(links().map(described)).toEqual([
       'Translations /admin/translations',
@@ -307,19 +319,19 @@ describe('TopBarComponent', () => {
   it('reads in English in the admin area, whatever the person reads — the kit’s words too, with no case of its own', async () => {
     await draw();
     await at('/admin/languages');
-    expect(host.querySelector('nav.nav')?.getAttribute('aria-label')).toBe('The app’s sections');
+    expect(host.querySelector('nav.anotoki-top-bar__nav')?.getAttribute('aria-label')).toBe('The app’s sections');
     expect(personButton().getAttribute('aria-label')).toBe('Your menu: hana');
     expect(Array.from(host.querySelectorAll('[role="radio"]')).map((radio) => radio.getAttribute('aria-label'))).toEqual(['Light', 'Dark', 'System']);
 
     await openMenu();
-    expect(words(host.querySelector('.menu-role'))).toBe('Administrator');
+    expect(words(host.querySelector('.anotoki-top-bar__menu-role'))).toBe('Administrator');
     expect(items().map(words)).toEqual(['Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
     expect(items()[1].getAttribute('href')).toBe('/');
     expect(items()[1].getAttribute('lang')).toBe('en');
 
     // Back on a learner's page, the person's language again.
     await at('/');
-    expect(host.querySelector('nav.nav')?.getAttribute('aria-label')).toBe('Časti aplikácie');
+    expect(host.querySelector('nav.anotoki-top-bar__nav')?.getAttribute('aria-label')).toBe('Časti aplikácie');
     expect(host.querySelector('anotoki-language-switcher')).not.toBeNull();
   });
 
@@ -344,15 +356,15 @@ describe('TopBarComponent', () => {
     expect(personButton().getAttribute('aria-label')).toBe('Tvoja ponuka: hana');
     expect(personButton().getAttribute('aria-haspopup')).toBe('menu');
     expect(personButton().getAttribute('aria-expanded')).toBe('false');
-    expect(words(host.querySelector('.person-name'))).toBe('hana');
-    expect(words(host.querySelector('.initial'))).toBe('H');
+    expect(words(host.querySelector('.anotoki-top-bar__person-name'))).toBe('hana');
+    expect(words(host.querySelector('.anotoki-top-bar__initial'))).toBe('H');
 
     await openMenu();
     expect(personButton().getAttribute('aria-expanded')).toBe('true');
     expect(menu()!.id).toBe(personButton().getAttribute('aria-controls'));
     expect(menu()!.getAttribute('aria-label')).toBe('Tvoja ponuka');
-    expect(parts('.menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
-    expect(host.querySelector('.menu-head')?.getAttribute('role')).toBe('none');
+    expect(parts('.anotoki-top-bar__menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
+    expect(host.querySelector('.anotoki-top-bar__menu-head')?.getAttribute('role')).toBe('none');
     expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
     expect([items()[0].getAttribute('href'), items()[0].getAttribute('target'), items()[0].getAttribute('rel')]).toEqual([
       'https://iam.example.test/account',
@@ -363,12 +375,12 @@ describe('TopBarComponent', () => {
 
     roles.set(['EDITOR']);
     await fixture.whenStable();
-    expect(words(host.querySelector('.menu-role'))).toBe('Editor');
+    expect(words(host.querySelector('.anotoki-top-bar__menu-role'))).toBe('Editor');
 
     // A learner: no role, no way into the admin area.
     roles.set([]);
     await fixture.whenStable();
-    expect(host.querySelector('.menu-role')).toBeNull();
+    expect(host.querySelector('.anotoki-top-bar__menu-role')).toBeNull();
     expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Odhlásiť sa']);
   });
 
@@ -377,7 +389,7 @@ describe('TopBarComponent', () => {
     await draw();
     expect(personButton().getAttribute('aria-label')).toBe('Tvoja ponuka: Účet');
     await openMenu();
-    expect(parts('.menu-head > span')).toEqual(['Účet', 'Administrátor']);
+    expect(parts('.anotoki-top-bar__menu-head > span')).toEqual(['Účet', 'Administrátor']);
   });
 
   it('moves focus into the menu when it opens; the arrows, Home and End move in it; Escape back to its button', async () => {
@@ -412,21 +424,21 @@ describe('TopBarComponent', () => {
     expect(items()).toEqual([]);
   });
 
-  it('when the account refuses a theme, the note under the switch says why in the app’s words - and Escape on any of the bar’s controls puts it away', async () => {
+  it('when the account refuses a theme, the note under the switch says so in the reader’s language - and Escape on any of the bar’s controls puts it away', async () => {
     user.set({ ...HANA, preferences: { ...NO_CHOICE, theme: 'light' } });
     refuseWith = 'network';
     await draw();
     host.querySelector<HTMLElement>('[role="radio"][data-value="dark"]')!.click();
     await vi.waitFor(async () => {
       await fixture.whenStable();
-      expect(words(host.querySelector('anotoki-theme-toggle .note')), 'with no string of its own here: the English the app keeps').toBe('The server does not answer.');
+      expect(words(host.querySelector('anotoki-theme-toggle .anotoki-theme-toggle__note')), 'the library’s word, from the database').toBe('Vzhľad sa nepodarilo uložiť do tvojho anotoki účtu.');
     });
     expect(saved).toEqual([{ theme: 'dark' }]);
     expect(TestBed.inject(ThemeService).mode(), 'the account’s theme again').toBe('light');
 
     press(links()[0], 'Escape');
     await fixture.whenStable();
-    expect(host.querySelector('anotoki-theme-toggle .note')).toBeNull();
+    expect(host.querySelector('anotoki-theme-toggle .anotoki-theme-toggle__note')).toBeNull();
     expect(reached, 'the bar keeps the key').toEqual([]);
   });
 
@@ -475,7 +487,7 @@ describe('TopBarComponent', () => {
   it('closes on a click outside it — a click inside it is no reason to — and when an item is chosen', async () => {
     await draw();
     await openMenu();
-    host.querySelector<HTMLElement>('.menu-head')!.click();
+    host.querySelector<HTMLElement>('.anotoki-top-bar__menu-head')!.click();
     await fixture.whenStable();
     expect(items()).toHaveLength(3);
 
@@ -500,7 +512,7 @@ describe('TopBarComponent', () => {
 
   it('follows a change of language without being drawn again', async () => {
     await draw();
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(personButton().getAttribute('aria-label')).toBe('Your menu: hana');
     expect(links().map(words)).toEqual(['Kanji', 'Exam']);
@@ -510,13 +522,13 @@ describe('TopBarComponent', () => {
 
   /* --------------------------------------------------- the other states */
 
-  it('with no strings (the bar is drawn whatever became of them): the English it keeps — never a key, never the kit’s English for a word the app has', async () => {
+  it('with no strings (the bar is drawn whatever became of them): the English it keeps — never a key, never the library’s English for a word the app says its own way', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     due.set(3);
     await draw(provideTestTranslations({}));
     expect(links().map(words)).toEqual(['Kanji 3', 'Exam']);
     expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese: home');
-    expect(host.querySelector('nav.nav')?.getAttribute('aria-label')).toBe('The app’s sections');
+    expect(host.querySelector('nav.anotoki-top-bar__nav')?.getAttribute('aria-label')).toBe('The app’s sections');
     expect(personButton().getAttribute('aria-label')).toBe('Your menu: hana');
     expect(Array.from(host.querySelectorAll('[role="radio"]')).map((radio) => radio.getAttribute('aria-label'))).toEqual(['Light', 'Dark', 'System']);
     await openMenu();
@@ -531,7 +543,7 @@ describe('TopBarComponent', () => {
     showSignIn.set(true);
     await draw();
     expect(links()).toEqual([]);
-    expect(host.querySelector('.person-button')).toBeNull();
+    expect(host.querySelector('.anotoki-top-bar__person-button')).toBeNull();
     expect(words(signInButton())).toBe('Prihlásiť sa');
     signInButton()!.click();
     await new Promise((done) => setTimeout(done));
@@ -544,8 +556,8 @@ describe('TopBarComponent', () => {
     roles.set([]);
     await draw();
     expect(links().map(described)).toEqual(['Kanji /kanji', 'Skúška /exam']);
-    expect(host.querySelector('.person-button')).toBeNull();
-    expect(childrenOf('.actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.sign-in']);
+    expect(host.querySelector('.anotoki-top-bar__person-button')).toBeNull();
+    expect(childrenOf('.anotoki-top-bar__actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.sign-in']);
     expect(words(signInButton())).toBe('Prihlásiť sa');
   });
 
@@ -586,12 +598,12 @@ describe('TopBarComponent', () => {
     state.set('signed-out');
     user.set(null);
     await draw();
-    expect(childrenOf('.actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle']);
+    expect(childrenOf('.anotoki-top-bar__actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle']);
 
     state.set('not-set-up');
     await fixture.whenStable();
-    expect(childrenOf('.row')).toEqual(['anotoki-brand', 'div.actions']);
-    expect(childrenOf('.actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle']);
+    expect(childrenOf('.anotoki-top-bar__row')).toEqual(['anotoki-brand', 'div.actions']);
+    expect(childrenOf('.anotoki-top-bar__actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle']);
   });
 
   it('while the site is being updated: no section, and no way into the admin panel - each would be the anotoki library’s page again', async () => {
@@ -600,7 +612,7 @@ describe('TopBarComponent', () => {
     TestBed.inject(SiteStatus).report('update_pending');
     await fixture.whenStable();
     expect(links()).toEqual([]);
-    expect(childrenOf('.actions'), 'the language, the theme and the person stay').toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.person-button', 'anotoki-menu']);
+    expect(childrenOf('.anotoki-top-bar__actions'), 'the language, the theme and the person stay').toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.person-button', 'anotoki-menu']);
     await openMenu();
     expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Odhlásiť sa']);
 
@@ -684,22 +696,22 @@ describe('TopBarComponent', () => {
     it('is the brand (the mark and the app’s name), the language, the theme and a menu button — nothing else in the row', async () => {
       windowOf(390);
       await draw();
-      expect(parts('anotoki-brand .wordmark > span')).toEqual(['Japanese']);
-      expect(host.querySelector('nav.nav')).toBeNull();
-      expect(host.querySelector('.person-button')).toBeNull();
-      expect(childrenOf('.actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.round', 'anotoki-menu']);
+      expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['Japanese']);
+      expect(host.querySelector('nav.anotoki-top-bar__nav')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__person-button')).toBeNull();
+      expect(childrenOf('.anotoki-top-bar__actions')).toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.round', 'anotoki-menu']);
       expect(phoneButton().getAttribute('aria-label')).toBe('Ponuka');
       expect(phoneButton().getAttribute('aria-haspopup')).toBe('menu');
       expect(phoneButton().getAttribute('aria-expanded')).toBe('false');
-      expect(host.querySelector('.mark-badge')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__mark-badge')).toBeNull();
     });
 
     it('carries the reviews due on its menu button, and says them in its name (Label in Name), one, few and other', async () => {
       windowOf(360);
       due.set(125);
       await draw();
-      expect(words(host.querySelector('.mark-badge'))).toBe('125');
-      expect(host.querySelector('.mark-badge')?.getAttribute('aria-hidden')).toBe('true');
+      expect(words(host.querySelector('.anotoki-top-bar__mark-badge'))).toBe('125');
+      expect(host.querySelector('.anotoki-top-bar__mark-badge')?.getAttribute('aria-hidden')).toBe('true');
       expect(phoneButton().getAttribute('aria-label')).toBe('Ponuka: 125 opakovaní čaká');
       due.set(3);
       await fixture.whenStable();
@@ -710,7 +722,7 @@ describe('TopBarComponent', () => {
 
       // The admin area has no Kanji link: no count on its button.
       await at('/admin/translations');
-      expect(host.querySelector('.mark-badge')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__mark-badge')).toBeNull();
       expect(phoneButton().getAttribute('aria-label')).toBe('Menu');
     });
 
@@ -724,7 +736,7 @@ describe('TopBarComponent', () => {
       expect(menu()?.getAttribute('aria-label')).toBe('Ponuka: 125 opakovaní čaká');
       expect(items().map(words)).toEqual(['Kanji 125', 'Skúška', 'Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
       expect(items()[0].getAttribute('aria-current')).toBe('page');
-      expect(parts('[role="menu"] .menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
+      expect(parts('[role="menu"] .anotoki-top-bar__menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
       expect(document.activeElement).toBe(items()[0]);
 
       press(items()[0], 'ArrowUp');
@@ -798,9 +810,9 @@ describe('TopBarComponent', () => {
       TestBed.inject(SavesInFlight).track(new Promise<void>((done) => (land = done)));
       await openMenu();
       expect(document.activeElement).toBe(items()[0]);
-      host.querySelector<HTMLButtonElement>('.sign-in-item')!.click();
+      host.querySelector<HTMLButtonElement>('.anotoki-top-bar__sign-in-item')!.click();
       await fixture.whenStable();
-      const item = host.querySelector<HTMLButtonElement>('.sign-in-item')!;
+      const item = host.querySelector<HTMLButtonElement>('.anotoki-top-bar__sign-in-item')!;
       expect(phoneButton().getAttribute('aria-expanded'), 'the menu stays open while it waits').toBe('true');
       expect([item.disabled, item.getAttribute('aria-busy'), words(item)]).toEqual([true, 'true', 'Ukladá sa…']);
       expect(item.querySelector('anotoki-spinner')).not.toBeNull();
@@ -826,7 +838,7 @@ describe('TopBarComponent', () => {
       const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
       TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
       await openMenu();
-      host.querySelector<HTMLButtonElement>('.sign-in-item')!.click();
+      host.querySelector<HTMLButtonElement>('.anotoki-top-bar__sign-in-item')!.click();
       await new Promise((done) => setTimeout(done));
       await fixture.whenStable();
       expect(asked).toHaveBeenCalledWith('signIn.examOpen');
@@ -841,19 +853,19 @@ describe('TopBarComponent', () => {
       user.set(null);
       windowOf(390);
       await draw();
-      expect(host.querySelector('.menu-button')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__menu-button')).toBeNull();
     });
 
     it(`is a desktop’s bar from ${PHONE_BAR_MAX + 1} px: the links and the person in the row again, the full brand; the name beside the initial from ${NAME_BAR_MIN}`, async () => {
       windowOf(PHONE_BAR_MAX + 1);
       await draw();
-      expect(host.querySelector('.menu-button')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__menu-button')).toBeNull();
       expect(links().map(words)).toEqual(['Kanji', 'Skúška']);
       expect(personButton()).not.toBeNull();
-      expect(parts('anotoki-brand .wordmark > span')).toEqual(['anotoki', 'Japanese']);
-      expect(host.querySelector('header.topbar')?.classList.contains('is-nameless'), 'the initial alone').toBe(true);
+      expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['anotoki', 'Japanese']);
+      expect(host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless'), 'the initial alone').toBe(true);
       await resize(NAME_BAR_MIN);
-      expect(host.querySelector('header.topbar')?.classList.contains('is-nameless')).toBe(false);
+      expect(host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless')).toBe(false);
     });
 
     it(`the admin panel's four links fold up to ${ADMIN_PHONE_BAR_MAX} px, "Japanese" and "admin panel" beside the button; its name beside the initial from ${NAME_BAR_MIN} too`, async () => {
@@ -862,15 +874,15 @@ describe('TopBarComponent', () => {
       await at('/admin/translations');
       expect(links()).toEqual([]);
       expect(phoneButton()).not.toBeNull();
-      expect(parts('anotoki-brand .wordmark > span')).toEqual(['Japanese', '·', 'admin panel']);
+      expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['Japanese', '·', 'admin panel']);
       expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese admin panel: home');
       await openMenu();
       expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
       await resize(ADMIN_PHONE_BAR_MAX + 1);
       expect(items(), 'the menu closes as the bar unfolds').toEqual([]);
       expect(links().map(words)).toEqual(['Translations', 'Languages', 'People', 'Migrations']);
-      expect(parts('anotoki-brand .wordmark > span')).toEqual(['anotoki', 'Japanese', '·', 'admin panel']);
-      expect(host.querySelector('header.topbar')?.classList.contains('is-nameless')).toBe(false);
+      expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['anotoki', 'Japanese', '·', 'admin panel']);
+      expect(host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless')).toBe(false);
       // The learner's pages fold at their own width: a desktop's bar at the same window.
       await resize(ADMIN_PHONE_BAR_MAX);
       await at('/kanji');
@@ -884,7 +896,7 @@ describe('TopBarComponent', () => {
       expect(items().length).toBeGreaterThan(0);
       await resize(PHONE_BAR_MAX + 1);
       expect(items()).toEqual([]);
-      expect(host.querySelector('.menu-button')).toBeNull();
+      expect(host.querySelector('.anotoki-top-bar__menu-button')).toBeNull();
 
       await openMenu();
       expect(items()).toHaveLength(3);
@@ -897,7 +909,7 @@ describe('TopBarComponent', () => {
   /* ------------------------------------------------------------ sign-out */
 
   describe('signing out', () => {
-    const signOutItem = () => host.querySelector<HTMLButtonElement>('.sign-out-item')!;
+    const signOutItem = () => host.querySelector<HTMLButtonElement>('.anotoki-top-bar__sign-out-item')!;
 
     async function chooseSignOut(): Promise<void> {
       await openMenu();

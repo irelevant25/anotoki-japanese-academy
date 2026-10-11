@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateChildFn, CanActivateFn, Router, UrlTree } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService } from '@anotoki/lib/translations';
 import { AuthService } from './auth.service';
 
 /**

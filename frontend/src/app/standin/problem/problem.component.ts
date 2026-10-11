@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { AuthService, StartProblem } from '../../core/auth/auth.service';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
-import { TranslationService } from '../../core/i18n/translation.service';
 import { keptWord } from '../kept-word';
 
 /**

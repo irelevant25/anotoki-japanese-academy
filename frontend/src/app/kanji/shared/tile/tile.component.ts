@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
 import { CatalogItem } from '../../../core/api/api.types';
-import { TranslationService } from '../../../core/i18n/translation.service';
 import { KanjiStateService } from '../../kanji-state.service';
 
 /**

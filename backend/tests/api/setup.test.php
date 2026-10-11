@@ -156,7 +156,7 @@ test('Test connection, in the words every anotoki setup page uses: empty, update
                  '{\"id\":\"2026-09-22T11-09-21-059Z-exam-1\"}', '<!doctype html><title>the first report</title>')");
     $GLOBALS['before'] = owner_rows($pdo);
     assert_same(1, count($GLOBALS['before']['srs_progress']));
-    $pending = count(glob(MIGRATIONS_DIR . '/*.sql') ?: []) - 1;
+    $pending = count(glob(MIGRATIONS_DIR . '/*.sql') ?: []) - 1 + count(library_migrations()); // the library's set of the words too
     assert_same(['ok' => true, 'message' => "Connected to the database \"$name\": $pending update(s) to apply - Save applies them."], try_db());
 
     $nowhere = 'academy_test_nowhere_' . getmypid();
@@ -207,7 +207,7 @@ test('Save: the database and the IAM in the settings, a raw copy, the migrations
     $after001 = array_values(array_diff(array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []), ['001_init.sql']));
     sort($after001);
     assert_same('002_users.sql', $after001[0]);
-    assert_match('/Applied the migrations: ' . preg_quote(implode(', ', $after001), '/') . '\./', $r['raw'], 'every one after 001, in order');
+    assert_match('/Applied the migrations: ' . preg_quote(implode(', ', array_merge($after001, library_migrations())), '/') . '\./', $r['raw'], 'every one after 001, in order, the anotoki library’s last');
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_match('/sign-in through the IAM at https:\/\/iam\.test/', $r['raw']);
     assert_match('/sign in with your anotoki account/', $r['raw']);

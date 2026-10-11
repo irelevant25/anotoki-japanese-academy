@@ -1,7 +1,7 @@
 import { ApplicationRef, Provider, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { TranslationService } from '../i18n/translation.service';
-import { provideTestTranslations } from '../testing/test-translations';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppVersionComponent } from './app-version.component';
 import { ChangelogEntry, ChangelogService } from './changelog.service';
 
@@ -151,7 +151,7 @@ describe('AppVersionComponent', () => {
     expect(lists.every((list) => list.getAttribute('lang') === 'en')).toBe(true);
     expect(Array.from(dialog.querySelectorAll('li')).map((line) => line.textContent)).toEqual(['A setup page', 'A missing space', 'Sign-in']);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(dialog.querySelector('#changelog-title')?.textContent).toBe('What’s new');
     expect(dialog.querySelector('.vdate')?.textContent).toBe(written('en-GB', 2026, 10, 6));

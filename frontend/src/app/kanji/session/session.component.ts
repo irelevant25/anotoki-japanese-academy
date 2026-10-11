@@ -13,15 +13,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslationParams, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { bind, toKana, unbind } from 'wanakana';
 import { ApiError, ApiService, toApiError } from '../../core/api/api.service';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
 import { pct } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslationParams, TranslationService } from '../../core/i18n/translation.service';
 import { SavesInFlight } from '../../core/saves-in-flight.service';
 import { canonReading, CheckKind, checkMeaning, checkReading, materialLang } from '../answer';
 import { KanjiStateService } from '../kanji-state.service';

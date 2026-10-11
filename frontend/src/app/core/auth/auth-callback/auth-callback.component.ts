@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { TranslatePipe } from '../../i18n/translate.pipe';
+import { TranslatePipe } from '@anotoki/lib/translations';
 
 /**
  * /auth/callback, where the IAM sends the browser back. The IAM's SDK has

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, viewChild } from '@angular/core';
+import { TranslationService } from '@anotoki/lib/translations';
 import { keptWord } from '../../standin/kept-word';
-import { TranslationService } from '../i18n/translation.service';
 import { ChangelogDialogComponent } from './changelog-dialog.component';
 import { ChangelogService } from './changelog.service';
 

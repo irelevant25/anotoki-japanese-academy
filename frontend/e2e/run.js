@@ -129,7 +129,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const page = await context.newPage();
   // /learn and /review may answer 409 by design (e.g. a double submit)
   const errors = watch(page, { ignore: [/\/api\/kanji\/(learn|review)/] });
-  const shot = (name, fullPage = false) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+  // Animations run to their end first: a menu opening is shot as it stands, not half faded in.
+  const shot = (name, fullPage = false) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage, animations: 'disabled' });
 
   await page.goto(app.base + '/kanji/reviews');
   await page.waitForSelector(BAR.userButton, { timeout: 15000 });
@@ -763,6 +764,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await context.close();
 
   /* ---------------------------------------------------- the admin area */
+  // The Translations and Languages pages are the anotoki library's (@anotoki/lib/translations/admin): the
+  // grid of strings, the form that adds a language, and the pages' own question (Leave without saving?).
+  const GRID = 'anotoki-translations-page .anotoki-translations-page__grid';
+  const ADD = 'anotoki-languages-page form.anotoki-languages-page__add';
+  const QUESTION = 'anotoki-translations-question';
   console.log('?lang= and the admin area (ADMIN)');
   await iamState({ user: asUser(ADA) });
   const adminContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
@@ -783,7 +789,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await admin.click(BAR.userButton);
   ck('Admin panel in her menu, in Slovak', (await admin.textContent(BAR.adminLink)).trim() === 'Administrátorský panel', await admin.textContent(BAR.adminLink));
   await admin.click(BAR.adminLink);
-  await admin.waitForSelector('table.grid');
+  await admin.waitForSelector(GRID);
   ck('Admin panel: the Translations page, at /admin/translations, its title naming the panel',
     new URL(admin.url()).pathname === '/admin/translations' && (await admin.title()) === 'Translations · Admin panel · Japanese Academy', `${admin.url()} ${await admin.title()}`);
   ck('the admin area is English with Slovak chosen: the page, its <html lang>, the bar',
@@ -797,39 +803,40 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await admin.keyboard.press('Escape');
   await admin.screenshot({ path: path.join(SHOTS, 'admin-translations.png') });
 
-  await admin.fill('input[type=search]', 'common.lesson');
+  await admin.fill('anotoki-translations-page input[type=search]', 'common.lesson');
   const lessonCell = admin.locator('textarea[aria-label="Slovak: common.lesson"]');
   await lessonCell.fill('Lekcia {x}');
-  await admin.click('.save-bar button.is-primary');
-  const refusal = admin.locator('tr.row:has(code.key-name:text-is("common.lesson")) td.key .err');
+  await admin.click('anotoki-translations-page button[data-save]');
+  const refusal = admin.locator('.anotoki-translations-page__row:has(code.anotoki-translations-page__key-name:text-is("common.lesson")) .anotoki-translations-admin__field-error');
   const refusedText = await refusal.textContent({ timeout: 5000 }).catch(() => '');
   ck('a refused string: the reason stands beside its key', /^Nothing was saved\. .*\{x\}/.test(refusedText), refusedText);
 
   await admin.click(barLink('/admin/languages'));
-  const leaveAsked = await admin.waitForSelector('anotoki-confirm-host dialog[open]', { timeout: 3000 }).then(() => true, () => false);
-  const words = leaveAsked ? { title: await admin.textContent('anotoki-confirm-host h2'), message: await admin.textContent('anotoki-confirm-host .message') } : {};
+  const leaveAsked = await admin.waitForSelector(`${QUESTION} dialog[open]`, { timeout: 3000 }).then(() => true, () => false);
+  const words = leaveAsked ? { title: await admin.textContent(`${QUESTION} h2`), message: await admin.textContent(`${QUESTION} .anotoki-dialog__description`) } : {};
   ck('leaving with a string not saved asks, in a modal <dialog>, with its words',
-    leaveAsked && (await admin.$eval('anotoki-confirm-host dialog', (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
+    leaveAsked && (await admin.$eval(`${QUESTION} dialog`, (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
     JSON.stringify(words));
   await admin.keyboard.press('Escape');
-  const closed = await admin.waitForSelector('anotoki-confirm-host dialog[open]', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
+  const closed = await admin.waitForSelector(`${QUESTION} dialog[open]`, { state: 'detached', timeout: 3000 }).then(() => true, () => false);
   ck('Escape counts as "no": the page and the string stay',
     closed && new URL(admin.url()).pathname === '/admin/translations' && (await lessonCell.inputValue()) === 'Lekcia {x}', admin.url());
   await admin.click(barLink('/admin/languages'));
-  await admin.waitForSelector('anotoki-confirm-host dialog[open]');
-  await admin.click('anotoki-confirm-host [data-answer="yes"]');
-  await admin.waitForSelector('section.add form');
+  await admin.waitForSelector(`${QUESTION} dialog[open]`);
+  await admin.click(`${QUESTION} [data-question-yes]`);
+  await admin.waitForSelector(ADD);
   ck('and "Leave" leaves', new URL(admin.url()).pathname === '/admin/languages', admin.url());
 
-  await admin.fill('section.add input[placeholder="cs"]', 'cs');
-  await admin.fill('section.add input[placeholder="Czech"]', 'Czech');
-  await admin.fill('section.add input[placeholder="Čeština"]', 'Čeština');
-  ck('a new language is not offered unless ticked', !(await admin.isChecked('section.add .offered input')));
-  await admin.click('section.add button[type=submit]');
-  const added = await admin.waitForSelector('li.language[data-code="cs"]', { timeout: 5000 }).then(() => true, () => false);
+  await admin.fill(`${ADD} input[placeholder="cs"]`, 'cs');
+  await admin.fill(`${ADD} input[placeholder="Czech"]`, 'Czech');
+  await admin.fill(`${ADD} input[placeholder="Čeština"]`, 'Čeština');
+  ck('a new language is not offered unless switched on', !(await admin.isChecked(`${ADD} .anotoki-languages-page__add-offered input[role=switch]`)));
+  await admin.click(`${ADD} button[data-add]`);
+  const added = await admin.waitForSelector('li.anotoki-languages-page__language[data-language="cs"]', { timeout: 5000 }).then(() => true, () => false);
   const offered = (await (await fetch(app.base + '/api/translations/en')).json()).languages.map((l) => l.code);
   ck('a new language comes in hidden: marked so, and not offered',
-    added && (await admin.$eval('li.language[data-code="cs"]', (li) => li.classList.contains('is-hidden') && [...li.querySelectorAll('.tag')].some((tag) => tag.textContent.trim() === 'hidden')))
+    added && (await admin.$eval('li.anotoki-languages-page__language[data-language="cs"]', (li) => li.classList.contains('anotoki-languages-page__language--hidden')
+      && li.querySelector('[data-offered] .anotoki-switch__words')?.textContent.trim() === 'Hidden' && !li.querySelector('[data-offered] input')?.checked))
       && !offered.includes('cs') && offered.includes('sk'), offered.join(','));
 
   // People: an ADMIN deletes a person's data, after a copy of it
@@ -841,7 +848,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const leaBefore = Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n);
   await admin.click(`#people tr[data-id="${MAX.sub}"] button`);
   await admin.waitForSelector('anotoki-confirm-host dialog[open]');
-  const deleteWords = (await admin.textContent('anotoki-confirm-host .message')).replace(/\s+/g, ' ');
+  const deleteWords = (await admin.textContent('anotoki-confirm-host .anotoki-confirm-host__message')).replace(/\s+/g, ' ');
   ck('Delete data asks first, saying what goes', /2 items learned/.test(deleteWords) && /copy/.test(deleteWords), deleteWords);
   await admin.click('anotoki-confirm-host [data-answer="yes"]');
   const deletedSaid = await admin.waitForFunction(() => /data is deleted/.test(document.querySelector('p.status')?.textContent || ''), null, { timeout: 10000 }).then(() => true, () => false);
@@ -864,7 +871,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await editor.waitForSelector(BAR.userButton);
   await editor.click(BAR.userButton);
   await editor.click(BAR.adminLink);
-  await editor.waitForSelector('table.grid');
+  await editor.waitForSelector(GRID);
   const editorLinks = await editor.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
   ck('an EDITOR: Admin opens Translations, the only section in the bar', new URL(editor.url()).pathname === '/admin/translations' && editorLinks.join(',') === 'Translations', editorLinks.join(','));
   for (const url of ['/admin/people', '/admin/languages']) {
@@ -1029,33 +1036,34 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       && (await migrations.textContent(BAR.userName)).trim() === 'ada', `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'waiting-admin.png') });
   await migrations.click('anotoki-site-status a');
-  await migrations.waitForSelector('[data-pending] .file', { timeout: 15000 });
-  const pendingFiles = await migrations.$$eval('[data-pending] .file code', (els) => els.map((e) => e.textContent.trim()));
+  await migrations.waitForSelector('[data-pending] .anotoki-migrations-page__file', { timeout: 15000 });
+  const pendingFiles = await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()));
   ck('the Migrations page opens while it waits: the file pending, the rest applied, Apply on',
     new URL(migrations.url()).pathname === '/admin/migrations' && pendingFiles.join(',') === WAITS
-      && (await migrations.$$('[data-applied] .file')).length >= 5 && !(await migrations.isDisabled('[data-apply]'))
+      && (await migrations.$$('[data-applied] .anotoki-migrations-page__file')).length >= 5 && !(await migrations.isDisabled('[data-apply]'))
       && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy', `${pendingFiles.join(',')} ${await migrations.title()}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
   await migrations.click('[data-apply]');
   await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');
   ck('Apply asks first', (await migrations.textContent('[data-confirm] h2')).trim() === 'Apply 1 pending migration?');
 
-  // A migration that fails: 006's own gate, with the Slovak string it rewords taken away. Rolled back whole and named.
+  // A migration that fails: 006's own gate, with the Slovak string it rewords taken away. Rolled back whole and named -
+  // with its set, as the page names a file while there are two (this app's and the anotoki library's anotoki_translations).
   const SK_ADMIN = "SELECT value FROM translations WHERE key_name = 'topbar.admin' AND language_code = ?";
   const skAdmin = app.sql(SK_ADMIN, 'sk')[0].value;
   const enAdmin = app.sql(SK_ADMIN, 'en')[0].value;
   app.sql("DELETE FROM translations WHERE key_name = 'topbar.admin' AND language_code = 'sk'");
   await migrations.click('[data-confirm-apply]');
-  await migrations.waitForSelector('[data-result] .heading', { timeout: 15000 });
+  await migrations.waitForSelector('[data-result] .anotoki-alert__heading', { timeout: 15000 });
   await migrations.waitForFunction(() => !document.querySelector('[data-apply]').textContent.includes('Applying'));
   const stopped = (await migrations.textContent('[data-result]')).replace(/\s+/g, ' ').trim();
   ck('a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
-    (await migrations.textContent('[data-result] .heading')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
+    (await migrations.textContent('[data-result] .anotoki-alert__heading')).trim() === `Stopped at academy/${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
       && (await migrations.getAttribute('[data-result]', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
       && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('[data-apply]'))
-      && (await migrations.$$eval('[data-pending] .file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
+      && (await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
   // Why, in PostgreSQL's own words (its gate's exception), on the page as the IAM's shows it - a website's too.
-  const why = (await migrations.$eval('[data-result] pre.error', (el) => el.textContent).catch(() => '')).trim();
+  const why = (await migrations.$eval('[data-result] pre.anotoki-migrations-page__error', (el) => el.textContent).catch(() => '')).trim();
   ck("a migration that fails: why, in PostgreSQL's own words, on the page (no error log to look in)",
     /ERROR:\s+006_admin_panel_words: reworded keys without an English and a Slovak string: topbar\.admin/.test(why) && !/error log/.test(stopped), why || stopped);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-failed.png'), fullPage: true });
@@ -1064,10 +1072,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await migrations.click('[data-apply]');
   await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');
   await migrations.click('[data-confirm-apply]');
-  await migrations.waitForFunction(() => document.querySelector('[data-result] .heading')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
+  await migrations.waitForFunction(() => document.querySelector('[data-result] .anotoki-alert__heading')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
   await migrations.waitForFunction(() => /Nothing pending/.test(document.querySelector('[data-pending]')?.textContent ?? ''));
   ck('then applies it: up to date, nothing pending, the file applied, Apply off',
-    /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
+    /Applied: academy\/006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
       && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1, await migrations.textContent('[data-result]'));
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations.png'), fullPage: true });
   // Back to the app without a page load (the menu's link): the gate is open again, and the app's words were asked

@@ -1,9 +1,10 @@
 import { EnvironmentProviders, Injector, inject } from '@angular/core';
 import { AnotokiMigrationsConfig, provideAnotokiMigrations } from '@anotoki/lib/migrations';
+import { TranslationService, siteStatusWords } from '@anotoki/lib/translations';
 import { AuthService } from './auth/auth.service';
 import { SignInService } from './auth/sign-in.service';
 import { fmtAdminMoment } from './format';
-import { TranslationService } from './i18n/translation.service';
+import { TimeWording } from './i18n/time-wording';
 import { MIGRATIONS_ROUTE, SITE_STATUS_URL } from './site-status';
 
 /**
@@ -31,15 +32,18 @@ import { MIGRATIONS_ROUTE, SITE_STATUS_URL } from './site-status';
  *   unavailable      (or set up once, its settings gone) "not available right
  *                    now", asking again by itself
  *
- * Who is the site's ADMIN is the token's roles (AuthService.isAdmin); the
- * Migrations page's dates are in the date order and clock the administrator
- * chose for their anotoki account, else in the admin panel's English
- * (fmtAdminMoment()); after an Apply leaves nothing to apply, the app's words
- * are asked for again (the update may have brought some).
+ * The library's page speaks in the words of this app's database - the
+ * library's keys anotoki.siteStatus.*, which the owner rewords on the
+ * Translations page (siteStatusWords(), read whenever the page draws) -, else
+ * in its own. Who is the site's ADMIN is the token's roles
+ * (AuthService.isAdmin); the Migrations page's dates are in the date order and
+ * clock the administrator chose for their anotoki account, else in the admin
+ * panel's English (fmtAdminMoment()); after an Apply leaves nothing to apply,
+ * the app's words are asked for again (the update may have brought some).
  *
  * The services are asked for when the module asks, never here: AuthService
- * and TranslationService tell SiteStatus what the server said, and SiteStatus
- * needs this config - injected now, they would close a circle (NG0200).
+ * and the translation service tell SiteStatus what the server said, and
+ * SiteStatus needs this config - injected now, they would close a circle (NG0200).
  */
 export function siteStatusConfig(): AnotokiMigrationsConfig {
   const injector = inject(Injector);
@@ -52,8 +56,11 @@ export function siteStatusConfig(): AnotokiMigrationsConfig {
     isAdmin: () => auth().isAdmin(),
     isSignedIn: () => auth().signedIn(),
     signIn: () => injector.get(SignInService).signIn(),
-    language: () => i18n().pageLanguage(),
-    formatDate: (iso) => fmtAdminMoment(i18n(), Date.parse(iso)),
+    language: () => i18n().effectiveLanguage(),
+    get words() {
+      return siteStatusWords(i18n());
+    },
+    formatDate: (iso) => fmtAdminMoment(injector.get(TimeWording), Date.parse(iso)),
     onUpToDate: () => i18n().reload(),
   };
 }

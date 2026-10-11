@@ -11,7 +11,10 @@ migrations - applying them, and what the site does while one waits - are the
 package `anotoki/lib`, the npm package `@anotoki/lib`; `../anotoki-lib`,
 `DEV.md`, *The anotoki library*), and so are the family's UI kit the pages
 are drawn with (buttons, dialogs, fields, menus), its styles and the top bar
-(since anotoki-lib 0.2.0), in this app's own palette. It runs two ways:
+(since anotoki-lib 0.2.0), in this app's own palette, and the app's words -
+serving them, the admin panel's Translations and Languages pages, the
+command line's work - on this app's tables and behind its checks (since
+anotoki-lib 0.3.0). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -62,27 +65,31 @@ count wrong, fix it in the same piece of work.
   start-time work), `setup.php` (the setup page, `/setup.php`),
   `manage.php` (command-line helpers: `--check`, `--sync`, `--backup`,
   `--restore`), `translations.php` (the app's own
-  strings from the command line: `--status`, `--export`, `--import`; never
-  uploaded), `api/` (the HTTP side: `app.php` the Slim app, with the anotoki
+  strings from the command line: `--status`, `--export`, `--import` - the
+  library's `TranslationsCommand`, a backup file read as a file of strings;
+  never uploaded), `api/` (the HTTP side: `app.php` the Slim app, with the anotoki
   library's SiteGate in front of every route and its `/api/site-status`,
   `routes/` site,
   exam, kanji, me (your own data as a file), visitor (the move at sign-in),
-  translations, people and
+  translations (the library's `TranslationsRoutes`: the words' address, and
+  the admin panel's strings and languages behind this app's checks), people and
   migrations (the admin panel: the library's routes), `middleware/` — `person.php` finds who asks
   (a person, or on the study addresses a visitor or nobody) and their time
   zone, `staff.php` guards the
   admin panel's addresses (`EDITOR`, `ADMIN`), `upkeep.php` the content's
   rebuild —, `front.php` which sends each request to the API, the
   setup page or the built app), `src/` (the app: `bootstrap.php`, `db.php`
-  (with `db_migrator()`, the library's migrations engine set up for this site),
+  (with `db_migrator()`, the library's migrations engine set up for this site:
+  its own files, then the library's set `anotoki_translations`),
   `auth.php`, `access.php` (whether the IAM requires sign-in here), `users.php`,
   `visitors.php` (studying without signing in: made, found, capped, swept,
   moved into an account), `client_address.php` (the address the visitors'
   limits count), `after.php` (work after the answer: the sweep),
   `upkeep.php`, the SRS in `src/srs/`,
   the exam, content, backups, `me.php` — a person's own data file —,
-  `people.php`, `translations.php` — the languages and the
-  app's words), `config/` (`config.php`; this copy's settings in `*.local.php`),
+  `people.php`, `translations.php` — the library's `Translations` for this
+  app: its released languages, the copy of a language's strings before it
+  goes, a save holding its person's row as an answer does, `users_hold()`), `config/` (`config.php`; this copy's settings in `*.local.php`),
   `migrations/`, `vendor/` (Composer's packages - Slim, the anotoki library -
   committed: a website has no shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
   `tests/`, `tools/` (data and audio builders, `build-dist.php` for the
@@ -94,16 +101,20 @@ count wrong, fix it in the same piece of work.
 - `frontend/` — the Angular app: `src/app/` (`home/`, `kanji/`, `exam/`,
   `top-bar/` (the anotoki family's bar - the library's - worded and wired:
   the sections, the reviews due, the person, Sign in and Sign out), `core/` —
-  API, sign-in, the changelog (the foot), `i18n/` (the app's words: the
-  translation service, its pipes, failures worded from their codes),
+  API, sign-in, the changelog (the foot), `i18n/` (the app's words:
+  `translations.config.ts` - the anotoki library's translation service,
+  pipes and admin pages wired to this app -, `time-wording.ts`, failures
+  worded from their codes, the title strategy),
   `kit.config.ts` (the anotoki library's kit wired to this app: its words
-  are the app's, the theme - light, dark or the system's, the anotoki
-  account's while signed in - and the languages), `saves-in-flight.service.ts` (the
+  are the library's keys in this app's database (`forKit()`), the theme -
+  light, dark or the system's, the anotoki account's while signed in - and
+  the languages (`forShell()`)), `saves-in-flight.service.ts` (the
   saves a sign-out waits for), `time-zone.ts`, `site-status.config.ts` (the
   anotoki library's migrations module wired to this app: the gate around the
   pages, its page while the site is not ready, the Migrations page) —, `admin/` — the admin panel, in English:
-  Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN; the
-  library's page in the panel's frame) —, `standin/`
+  Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN;
+  Translations, Languages and Migrations are the library's pages, each in the
+  panel's frame) —, `standin/`
   — the Sign in card and the problem page; `home/your-data/` is a
   person's own data file, down and back),
   `src/styles/` (tokens - the palette given to the library's - base,
@@ -151,8 +162,8 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (247): after every change
-cd frontend && npm test                      the Angular unit tests (656 in 44 files): after every frontend change
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (237): after every change
+cd frontend && npm test                      the Angular unit tests (476 in 42 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              Edge end to end (184 checks), signed in through the stand-in IAM: a
@@ -263,7 +274,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   copy of what it replaces; whatever id the file names, it goes into the
   caller's account only. It holds their `users` row `FOR UPDATE`, and every
   answer handler, and every save or import of the site's words by a person
-  (`translations_write()`), holds it `FOR SHARE` first (`users_hold()`): an
+  (the anotoki library's save, whose `beforeWrite` is `academy_translations_config()`'s
+  in `backend/src/translations.php`), holds it `FOR SHARE` first (`users_hold()`): an
   import (or an administrator deleting a person's data) and an answer take
   turns. A file is taken only in the shape the app writes; anything else is
   422 `not_a_data_file` before anything changes. The
@@ -306,7 +318,11 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `backend/api/routes/migrations.php`,
   `backend/api/middleware/staff.php`: 403 `staff_only` / `admin_only`; the
   Migrations page's group reads ADMIN from the token alone, no table asked,
-  `migrations_admin_middleware()`). On a
+  `migrations_admin_middleware()`). The words' addresses are the anotoki
+  library's routes in this app's groups, in one wire format for every anotoki
+  site, the IAM's snake_case (`native_name`, `sort_order`; a refusal in this
+  app's error body, `{error, code, …}`; the words' address answers 503
+  `translations_unavailable` while the database has none). On a
   website, `/api/health` shows no database or folder, and errors say no more
   than a sentence - the one exception is why the Migrations page's Apply
   stopped: PostgreSQL's own words, to its ADMIN, as the IAM's page shows
@@ -342,10 +358,11 @@ Tests enforce most of these. Never weaken a test to make it pass.
   takes the raw copy of every table first (its file named in the answer's
   note), applies each file in a transaction of its own and stops at the
   first that fails (rolled back whole). Meanwhile every address answers 503
-  `update_pending` (`Retry-After: 60`) but the open ones (`SITE_OPEN_PATHS`:
-  how to sign in, the words, the health check, the clips, the Migrations
-  page's three - each its exact route, never a prefix a crafted path could
-  slip through): the pages start, and everybody but the site's `ADMIN` reads the
+  `update_pending` (`Retry-After: 60`) but the open ones
+  (`academy_site_open_paths()` in `backend/api/app.php`: how to sign in, the
+  words - the library's `TranslationsRoutes::openPath()` -, the health check,
+  the clips, the Migrations page's three - each its exact route, never a
+  prefix a crafted path could slip through): the pages start, and everybody but the site's `ADMIN` reads the
   library's "The site is being updated", in their language, with nothing but
   a quiet **Sign in** while nobody is signed in - the guards send nobody to
   the IAM then -; the `ADMIN` reads "A database update is waiting" and
@@ -384,9 +401,19 @@ Tests enforce most of these. Never weaken a test to make it pass.
   Apply on every database that has not got it. 008
   (`008_library_status_page.sql`: it deletes the words of the "not set up"
   page and of the problem page's way to the Migrations page, which the
-  anotoki library's page took over) is a draft: its last line is the
+  anotoki library's page took over) is final since 2026-10-11 (reviewed and
+  committed; it goes up in the same upload as 009). 009
+  (`009_strings_through_the_library.sql`: the app's words the kit read -
+  its top bar, menus, language and theme switches - copied under the anotoki
+  library's keys, every language with who wrote it and when, and the
+  sixteen keys only the bar read deleted - the person's role and the link to
+  their anotoki account among them, which the bar now says from the library's
+  keys) is a draft: its last line is the
   owner's to write, once they accept that change - the upload is refused
-  until then.
+  until then. After this app's files come the anotoki library's own
+  (`anotoki_translations/001_…`, `002_…`: its words, written only where a key
+  has none - `db_migration_sets()`), which a draft of the app's holds back
+  too; they too end with `-- end of NNN`.
 - What a word is spoken as is decided in one place, `speech_spoken()` in
   `backend/src/speech.php`, shared by the audio builder, the catalog and the
   exam.
@@ -430,13 +457,20 @@ Tests enforce most of these. Never weaken a test to make it pass.
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
-  admin panel (`TranslationService.pageLanguage`). Buttons, dialogs and
+  admin panel (the library's `TranslationService.effectiveLanguage`). Buttons, dialogs and
   questions, form fields, the spinner and menus are the anotoki library's kit
   (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field`
-  …): never a button or field style of the app's own; the study components
+  …), each piece imported from its own entry point (`@anotoki/lib/ui/button`,
+  `ui/dialog`, `ui/forms`, `ui/config` - never the `@anotoki/lib/ui` barrel,
+  which would put every piece in the first load): never a button or field style of the app's own; the study components
   (tiles, readings, the session, the lesson batch, the exam's paper), the
-  chips, the panels and the changelog are the app's. The kit's words are the
-  app's (`core/kit.config.ts`: its `lookup` reads the app's strings). No CDN:
+  chips, the panels and the changelog are the app's. The kit's class names
+  are its own (`anotoki-<piece>__<part>`, since 0.3.0), and the specs and
+  browser suites read them so. The kit's words are the anotoki library's keys
+  (`anotoki.topbar.*`, `anotoki.theme.*` …) in this app's database, which
+  009 filled with the app's own words (`core/kit.config.ts`: the translation
+  service's `forKit()`; the English the app says its own way while no words
+  are in memory, `KIT_ENGLISH`). No CDN:
   the app runs offline (wanakana, the IAM's SDK, the kit and Manrope are
   bundled).
 - JS/TS: 2-space indent, single quotes, semicolons. Node tools and the browser
@@ -452,8 +486,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
 - The UI is in English and Slovak (informal "ty"), English the fallback. The
   app's own words live in the database (migration 004 and later ones: a key,
   an English string, a Slovak one) and EDITOR and ADMIN reword them in the
-  browser (`/admin/translations`, `/admin/languages`); a key without a string
-  shows as the key, on purpose. The learning material and the SRS stage names
+  browser (`/admin/translations`, `/admin/languages`: the anotoki library's
+  pages); a key without a string
+  shows as the key, on purpose; `anotoki.` is the library's namespace, never
+  a key of the app's own. The learning material and the SRS stage names
   are never translated, and the admin panel is English. Dates, times and numbers follow the
   language on the page (`'en-GB'`, `'sk-SK'` through `Intl`), never the
   system's locale - but a signed-in person's own date order and clock, the

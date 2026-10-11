@@ -77,7 +77,7 @@ settings, Apache or the setup page; `architecture.md` for the map).
      transaction of its own; no request applies one, and `upkeep_run()` builds
      nothing while one waits. While one waits the library's `SiteGate`
      (`backend/api/app.php`) answers 503 `update_pending` to all but
-     `SITE_OPEN_PATHS` - an address added there answers on tables the
+     `academy_site_open_paths()` - an address added there answers on tables the
      migration may not have made yet; `/api/site-status` answers anybody,
      always, with nothing of the site's sign-in in front of it;
      one that changes data has a `DO $$ … $$` check. The study rows are never
@@ -203,13 +203,24 @@ settings, Apache or the setup page; `architecture.md` for the map).
      the spinner and menus are the library's kit (`anotokiButton`,
      `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field` …), never an
      own button or field style; a global rule of the app stays out of the
-     kit's components (`_base.scss`, `$app-only`); the kit's words are the
-     app's (`core/kit.config.ts`).
+     kit's components (`_base.scss`, `$app-only`); each kit piece imported
+     from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog` …, never
+     the `@anotoki/lib/ui` barrel: it would put every piece in the first
+     load), its class names its own (`anotoki-<piece>__<part>`); the kit's
+     words are the library's keys in this app's database (`forKit()`,
+     `core/kit.config.ts`), which 009 filled with the app's words.
    - The words a learner reads are keys with an English and a Slovak string
      (a new key comes with a migration; `php backend/translations.php
      --status` is clean); no English written into a template, the kept terms
      and the English admin panel aside; state holds keys, never worded
      sentences; a failure is worded from its code, not the server's sentence.
+     The words are the anotoki library's (`Anotoki\Lib\Translations`,
+     `@anotoki/lib/translations`) on this app's tables: its routes stay behind
+     this app's checks (`staff_middleware()`, `admin_middleware()`), answer
+     in snake_case and refuse in this app's error body; `anotoki.` is the
+     library's namespace, never a key of the app's; a migration that moves
+     strings copies every language with its writer and time and proves it in
+     its check (009 is the model).
      Dates and numbers go through the language's locale
      (`TranslationService.locale()`), never the system's or a fixed
      `'en-GB'`. The material and the stage names are never translated, and

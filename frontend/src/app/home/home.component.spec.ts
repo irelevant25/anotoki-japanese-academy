@@ -1,14 +1,14 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, inject, Injectable, Provider, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../core/api/api.service';
 import { Attempt, BroughtBack, ExamMeta, Summary, VisitorMove } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
 import { VisitorKey } from '../core/auth/visitor-key';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { authStandIn } from '../core/testing/auth-states';
-import { TranslationService } from '../core/i18n/translation.service';
-import { provideTestTranslations } from '../core/testing/test-translations';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { HomeComponent } from './home.component';
 import { YourDataComponent } from './your-data/your-data.component';
@@ -355,7 +355,7 @@ describe('HomeComponent: in Slovak', () => {
     const el = await draw({ summary: summary({ reviewsDue: 3 }), attempts: [attempt()] }, 'sk');
     expect([label(el, 'kDue'), text(el, '#kNext'), label(el, 'eLast')]).toEqual(['opakovania čakajú', 'Opakovania čakajú.', 'posledný výsledok']);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect([label(el, 'kDue'), text(el, '#kNext'), label(el, 'eLast')]).toEqual(['reviews due', 'Reviews are waiting.', 'last score']);
     expect(text(el, '#eLast')).toBe('32.5%');

@@ -7,7 +7,8 @@ address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
 library (`anotoki/lib`: the migrations' engine, the site's state and the gate
-in front of every route; `../DEV.md`, *The anotoki library*).
+in front of every route, and the app's words - their address, the admin
+panel's, the command line's work; `../DEV.md`, *The anotoki library*).
 
 ## Layout
 
@@ -16,17 +17,20 @@ router.php           PHP's built-in web server on a computer (composer start): /
                      /setup.php and the built app, through api/front.php; nothing happens at start
 setup.php            the setup page, /setup.php: the database and the IAM (parses as PHP 7.4)
 manage.php           command line: --check, --sync, --backup, --restore=FILE
-translations.php     command line: the app's own words, --status, --export, --import (never uploaded)
+translations.php     command line: the app's own words, --status, --export, --import (never uploaded): the
+                     library's TranslationsCommand, with this app's names and its backups as files to import
 api/                 app.php (the Slim app; in front of every route the anotoki library's SiteGate -
                      503 not_set_up, or update_pending but on the addresses that stay open - and its
                      GET /api/site-status), front.php (one request: the API, the setup page or the built
                      app), routes/ (site, kanji, exam, me - your data as a file, visitor - the move at
-                     sign-in, translations, people, migrations - the Migrations page's, the library's
-                     routes), middleware/ (security, upkeep - the content's rebuild, person - who asks
+                     sign-in, translations - the library's routes behind this app's checks, people,
+                     migrations - the Migrations page's, the library's routes), middleware/ (security,
+                     upkeep - the content's rebuild, person - who asks
                      (a person, or on the study addresses a visitor or nobody) and their time zone,
                      staff - the admin panel's roles; the Migrations page's from the token alone, errors)
 src/                 the app, plain functions by area: bootstrap.php, db.php (and db_migrator(): the
-                     library's engine, set up for this site's migrations), auth.php (the IAM's token
+                     library's engine, set up for this site's migrations and then the library's set
+                     anotoki_translations), auth.php (the IAM's token
                      -> the person and their roles), anotoki_iam.php (the IAM's SDK, never edited),
                      access.php (whether the IAM requires sign-in here, relayed by /api/auth/config),
                      visitors.php (studying without signing in: made, found, capped, swept, moved into
@@ -36,7 +40,8 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      and the copy of every table before an apply - a request never applies a migration),
                      srs/ (the kanji SRS), exam.php, generate.php, conjugate.php, score.php, report.php,
                      content.php, speech.php, backup.php, me.php (a person's own data file),
-                     people.php (the People page), translations.php, util.php, errors.php
+                     people.php (the People page), translations.php (the library's Translations for this
+                     app: its released languages, the copy before a language goes), util.php, errors.php
 config/              config.php; this copy's settings in *.local.php (gitignored, written by setup.php)
 migrations/          the schema and the app's words, NNN_name.sql (a committed one is never edited; one
                      still being written is a draft without its "-- end of NNN" line, which only the
@@ -53,7 +58,8 @@ vendor/              Slim and its pieces, and the anotoki library (anotoki/lib) 
 tests/               run.php, lib.php; unit/, api/; tools/ (testdb.php, test-config.php, iam.php,
                      stand-in-iam.php, front-controller.php, catalog.php)
 tools/               build-data.php, build-audio.php, build-dist.php (the upload), translation_keys.php
-                     (the frontend's keys), php.js (finds a PHP 8.2+), pdf/ (the scanned books' page
+                     (the library's key scan of the frontend, and a backup as a file of strings), php.js
+                     (finds a PHP 8.2+), pdf/ (the scanned books' page
                      images; its own package.json for sharp)
 ```
 

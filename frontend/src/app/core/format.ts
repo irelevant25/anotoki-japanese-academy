@@ -1,25 +1,31 @@
 // Times, dates and percentages as the pages write them, in the language on the
 // page. Pure functions: each that words anything takes the wording first —
-// the translation service's t(), plural() and locale() — so a component passes
-// its TranslationService, inside a computed() or from its template, and the
-// text follows the language when it changes. Words come from the `time.` keys;
-// dates and clocks from Intl, in the language's own locale ('en-GB', 'sk-SK'),
-// whatever the system's is — unless a signed-in person chose a date order or
-// a clock for their anotoki account (dateFormat(), timeFormat(): one choice
-// every anotoki site follows), which then win over the language's.
+// the translation service's t(), plural() and locale(), and the account's
+// date order and clock — so a component passes its TimeWording
+// (core/i18n/time-wording.ts), inside a computed() or from its template, and
+// the text follows the language when it changes. Words come from the `time.`
+// keys; dates and clocks from Intl, in the language's own locale ('en-GB',
+// 'sk-SK'), whatever the system's is — unless a signed-in person chose a date
+// order or a clock for their anotoki account (dateFormat(), timeFormat(): one
+// choice every anotoki site follows), which then win over the language's.
 
+import type { TranslationParams } from '@anotoki/lib/translations';
 import type { AnotokiDateFormat, AnotokiTimeFormat } from './auth/sdk/anotoki-auth';
-import type { TranslationParams } from './i18n/translation.service';
 
-/** What words a time: TranslationService is one; a spec may hand in its own. */
+/**
+ * What words a time: TimeWording is one; a spec may hand in its own. The
+ * account's date order and clock are no optional extra: the translation
+ * service alone has neither, and a page given it would drop the account's
+ * choice without a word.
+ */
 export interface Wording {
   t(key: string, params?: TranslationParams): string;
   plural(key: string, count: number, params?: TranslationParams): string;
   locale(): string;
-  /** The order of a date's numbers a signed-in person chose for their account; null (or none): the language's own way. */
-  dateFormat?(): AnotokiDateFormat | null;
-  /** The clock a signed-in person chose for their account; null (or none): the language's own. */
-  timeFormat?(): AnotokiTimeFormat | null;
+  /** The order of a date's numbers a signed-in person chose for their account; null: the language's own way. */
+  dateFormat(): AnotokiDateFormat | null;
+  /** The clock a signed-in person chose for their account; null: the language's own. */
+  timeFormat(): AnotokiTimeFormat | null;
 }
 
 /**
@@ -85,14 +91,14 @@ export function fmtInShort(w: Wording, ts: number, now = Date.now()): string {
 
 /** 14:00, in the reader's own time zone; on the clock a signed-in person chose, when they did (2:00 pm). */
 export function fmtClock(w: Wording, ts: number): string {
-  const clock = w.timeFormat?.() ?? null;
+  const clock = w.timeFormat();
   return clock ? clockOn(new Date(ts), w.locale(), clock) : new Date(ts).toLocaleTimeString(w.locale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 /** An hour on a chart's axis, in the reader's own time zone: 15 — or 3 pm on the 12-hour clock a signed-in person chose. */
 export function fmtHour(w: Wording, ts: number): string {
   const date = new Date(ts);
-  return w.timeFormat?.() === '12' ? date.toLocaleTimeString(w.locale(), { hour: 'numeric', hourCycle: 'h12' }) : String(date.getHours()).padStart(2, '0');
+  return w.timeFormat() === '12' ? date.toLocaleTimeString(w.locale(), { hour: 'numeric', hourCycle: 'h12' }) : String(date.getHours()).padStart(2, '0');
 }
 
 /** 24 Sept 2026 / 24. 9. 2026 — in the order a signed-in person chose, when they did (2026-09-24) —, or "—". */
@@ -100,7 +106,7 @@ export function fmtDate(w: Wording, ts: number | null | undefined): string {
   if (!ts) {
     return '—';
   }
-  const order = w.dateFormat?.() ?? null;
+  const order = w.dateFormat();
   return order ? dateInOrder(new Date(ts), order) : new Date(ts).toLocaleDateString(w.locale(), { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
@@ -112,7 +118,7 @@ export function fmtDate(w: Wording, ts: number | null | undefined): string {
  */
 export function fmtDateTime(w: Wording, when: number | string): string {
   const date = new Date(when);
-  if (w.dateFormat?.() || w.timeFormat?.()) {
+  if (w.dateFormat() || w.timeFormat()) {
     return `${fmtDate(w, date.getTime())} ${fmtClock(w, date.getTime())}`;
   }
   return date.toLocaleString(w.locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -130,7 +136,7 @@ export function fmtWeekdayOf(w: Wording, date: string): string {
 
 /** Thu 14:00 / št 14:00: the day of the week and the clock — the clock a signed-in person chose, when they did (Thu 2:00 pm). */
 export function fmtWeekdayClock(w: Wording, ts: number): string {
-  if (w.timeFormat?.()) {
+  if (w.timeFormat()) {
     return `${fmtWeekday(w, ts)} ${fmtClock(w, ts)}`;
   }
   return new Date(ts).toLocaleString(w.locale(), { weekday: 'short', hour: '2-digit', minute: '2-digit' });
@@ -146,8 +152,8 @@ const ADMIN_LOCALE = 'en-GB';
  * 3 Oct 2026 2:05 pm).
  */
 export function fmtAdminMoment(w: Pick<Wording, 'dateFormat' | 'timeFormat'>, ms: number): string {
-  const order = w.dateFormat?.() ?? null;
-  const clock = w.timeFormat?.() ?? null;
+  const order = w.dateFormat();
+  const clock = w.timeFormat();
   const date = new Date(ms);
   if (!order && !clock) {
     return date.toLocaleString(ADMIN_LOCALE, { dateStyle: 'medium', timeStyle: 'short' });

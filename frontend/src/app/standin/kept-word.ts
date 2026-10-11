@@ -1,4 +1,4 @@
-import { TranslationParams, TranslationService, fillPlaceholders } from '../core/i18n/translation.service';
+import { TranslationParams, TranslationService, fillPlaceholders } from '@anotoki/lib/translations';
 
 /**
  * A string for what is drawn outside the router's screens — the three stand-in

@@ -1,27 +1,47 @@
 <?php
 // The app's own strings: what the migrations leave in the database against
 // what the frontend asks for (so a page never shows a key instead of a
-// sentence, and no string is kept that nothing reads), the rules a string
-// must keep (backend/src/translations.php), and the scan that finds the
-// frontend's keys (backend/tools/translation_keys.php), tested on sources of
-// its own.
+// sentence, and no string is kept that nothing reads), and the form of every
+// migration that writes them - 004 and after, and 009, which moved the words
+// of the anotoki library's kit under the library's own keys.
+//
+// The rules a string keeps, the bundle, the grid and the scan itself are the
+// anotoki library's (Anotoki\Lib\Translations, tested in anotoki-lib); this
+// file holds this app's catalogue to them - the scan of this frontend
+// (translation_key_scanner(), backend/tools/translation_keys.php), the
+// library's checks of a save on every stored string, the English the pages
+// keep for when there are no strings (read by the library's EnglishDictionary)
+// - and the site's own reader of a backup's strings.
 //
 // Nothing here writes to the database: it is what the migrations made.
 //
 // The checks of the catalogue (every key in both languages, used and unused
 // keys, the plural families, a migration's gate) have nothing to hold while
 // no migration writes a string. They switch on by themselves: from the
-// moment a migration holds "INSERT INTO translation_keys" (string_migrations()),
-// every one of them bites.
+// moment a migration holds "INSERT INTO translation_keys … VALUES"
+// (string_migrations()), every one of them bites.
 declare(strict_types=1);
+
+use Anotoki\Lib\Translations\Cli\EnglishDictionary;
+use Anotoki\Lib\Translations\Cli\KeyScanner;
+use Anotoki\Lib\Translations\LibraryWords;
+use Anotoki\Lib\Translations\Placeholders;
+use Anotoki\Lib\Translations\Schema;
+use Anotoki\Lib\Translations\TranslationFile;
+use Anotoki\Lib\Translations\Translations;
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and settings
 require BACKEND . '/tools/translation_keys.php';
 
+/** The forms of a plural family, as Intl.PluralRules names the ones English and Slovak have. */
+const PLURAL_FORMS = ['one', 'few', 'other'];
+
 /**
- * The migrations that write strings. Until the first of them is there the
- * database has no keys, and the checks against the frontend have nothing to
- * hold it to; from then on every one of them bites.
+ * The migrations that write strings in 004's form - keys inserted from a list
+ * of VALUES. Until the first of them is there the database has no keys, and
+ * the checks against the frontend have nothing to hold it to; from then on
+ * every one of them bites. (009 copies strings under the library's keys from
+ * the rows that are there, in a form of its own: its own test, below.)
  *
  * @return string[]
  */
@@ -33,7 +53,7 @@ function string_migrations(): array
         sort($files);
         $found = array_values(array_filter(
             $files,
-            static fn (string $file): bool => (bool) preg_match('/INSERT\s+INTO\s+translation_keys\b/i', sql_code((string) file_get_contents(MIGRATIONS_DIR . "/$file")))
+            static fn (string $file): bool => (bool) preg_match('/INSERT\s+INTO\s+translation_keys\b[^;]*?\bVALUES\b/i', sql_code((string) file_get_contents(MIGRATIONS_DIR . "/$file")))
         ));
     }
     return $found;
@@ -69,11 +89,17 @@ function sql_code(string $sql): string
     return $out;
 }
 
-/** @return string[] every key the database has, by name */
+/** @return string[] every key the database has, by name - the anotoki library's too */
 function database_keys(): array
 {
     test_db();
     return array_column(db_all('SELECT name FROM translation_keys ORDER BY name COLLATE "C"'), 'name');
+}
+
+/** @return string[] the app's own keys: every key but the anotoki library's (anotoki.) */
+function app_keys(): array
+{
+    return array_values(array_filter(database_keys(), static fn (string $key): bool => !LibraryWords::isLibraryKey($key)));
 }
 
 /** The keys that have no string in a language. */
@@ -93,13 +119,6 @@ function in_order(array $list): array
 {
     sort($list, SORT_STRING);
     return $list;
-}
-
-/** A value for a message, bytes that are not text included (test_show() is for what JSON can write). */
-function shown($value): string
-{
-    $text = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
-    return is_string($text) ? $text : gettype($value);
 }
 
 /** A temp folder of this file's own, removed when its tests end. */
@@ -136,23 +155,6 @@ function sources(array $files): string
         file_put_contents("$root/$relative", str_replace(["\r\n", "\n"], ["\n", "\r\n"], $contents));
     }
     return $root;
-}
-
-/**
- * What translations_check() refuses $values with: [code, what it is about];
- * or the changes it would make.
- *
- * @param mixed $values
- */
-function check($values, array $english = ['test.hello' => 'Hello, {name}!', 'test.bye' => 'Goodbye', 'test.count' => '{count} questions', 'test.step' => 'Step {n} of {m}']): array
-{
-    try {
-        return translations_check($values, ['test.hello', 'test.bye', 'test.count', 'test.step', 'test.new'], ['en' => 'English', 'sk' => 'Slovak'], $english);
-    } catch (TranslationRefused $e) {
-        assert_same(422, $e->status);
-        assert_same([422, ['error' => $e->getMessage(), 'code' => $e->errorCode] + $e->extra], $e->answer(), 'and as a route answers it');
-        return [$e->errorCode, $e->extra];
-    }
 }
 
 /**
@@ -225,9 +227,9 @@ test('the two languages the app is released in, English first; and the keys, onc
     ], db_all('SELECT code, name, native_name, enabled, sort_order FROM languages ORDER BY sort_order'));
 
     if (string_migrations() === []) {
-        assert_same([], database_keys(), 'no migration writes strings yet, so there are none');
+        assert_same([], app_keys(), 'no migration writes strings yet, so there are none');
     } else {
-        assert_true(database_keys() !== [], implode(', ', string_migrations()) . ' left no keys');
+        assert_true(app_keys() !== [], implode(', ', string_migrations()) . ' left no keys');
     }
 
     // the database keeps its own rules
@@ -243,35 +245,41 @@ test('the two languages the app is released in, English first; and the keys, onc
     assert_same(0, (int) db_value("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('languages', 'translation_keys', 'translations') AND column_name = 'user_id'"));
 });
 
+test('the anotoki library\'s words: its set runs after this site\'s own, and its keys are in the database, described as it describes them', function (): void {
+    $sets = db_migration_sets();
+    assert_same([MIGRATION_SET, Schema::SET], array_map(static fn ($set): string => $set->name, $sets), 'this site\'s own first: its 004 made the tables');
+    assert_true($sets[1]->library && !$sets[0]->library);
+    assert_same(str_replace('\\', '/', Schema::directory()), str_replace('\\', '/', $sets[1]->directory));
+
+    test_db();
+    $library = array_values(array_filter(database_keys(), static fn (string $key): bool => LibraryWords::isLibraryKey($key)));
+    assert_same(in_order(LibraryWords::keys()), in_order($library), 'every key of the library, and none of its own beside them');
+    $descriptions = array_column(db_all("SELECT name, description FROM translation_keys WHERE name LIKE 'anotoki.%'"), 'description', 'name');
+    foreach (LibraryWords::all() as $key => $words) {
+        assert_same($words['description'], $descriptions[$key] ?? null, "$key: the library's description");
+    }
+    // No migration of this app's writes a key of the library's namespace in 004's form: they are the library's.
+    foreach (string_migrations() as $file) {
+        assert_same([], array_values(array_filter(migration_keys(MIGRATIONS_DIR . "/$file")['keys'], [LibraryWords::class, 'isLibraryKey'])), "$file writes no anotoki. key");
+    }
+});
+
 test('every key has an English string, and a Slovak one', function (): void {
     assert_same([], keys_without('en'), 'keys with no English string: nothing to fall back to');
     assert_same([], keys_without('sk'), 'keys with no Slovak string');
-});
-
-test('a translation uses no placeholder its English string does not have', function (): void {
-    test_db();
-    $english = translations_of(TRANSLATION_FALLBACK);
-    $wrong = [];
-    foreach (db_all('SELECT key_name, language_code, value FROM translations WHERE language_code <> ? ORDER BY key_name COLLATE "C", language_code', [TRANSLATION_FALLBACK]) as $row) {
-        $extra = array_diff(translation_placeholders($row['value']), translation_placeholders($english[$row['key_name']] ?? ''));
-        if ($extra !== []) {
-            $wrong[] = "{$row['key_name']} ({$row['language_code']}): {" . implode('}, {', $extra) . '}';
-        }
-    }
-    assert_same([], $wrong, 'the app fills in only the placeholders the English string has');
 });
 
 test('a plural family has .one, .few and .other in both languages, and nothing else ends in them', function (): void {
     $keys = database_keys();
     $families = [];
     foreach ($keys as $key) {
-        if (preg_match('/^(.+)\.(' . implode('|', TRANSLATION_PLURAL_FORMS) . ')$/D', $key, $m)) {
+        if (preg_match('/^(.+)\.(' . implode('|', PLURAL_FORMS) . ')$/D', $key, $m)) {
             $families[$m[1]] = true;
         }
     }
     $incomplete = [];
     foreach (array_keys($families) as $family) {
-        foreach (TRANSLATION_PLURAL_FORMS as $form) {
+        foreach (PLURAL_FORMS as $form) {
             if (!in_array("$family.$form", $keys, true)) {
                 $incomplete[] = "$family.$form";
             }
@@ -282,10 +290,11 @@ test('a plural family has .one, .few and .other in both languages, and nothing e
 });
 
 test('no namespace is named after a file the frontend names: "changelog.json" would read as a key', function (): void {
-    $namespaces = array_values(array_unique(array_map('translation_key_namespace', database_keys())));
+    $namespaces = array_values(array_unique(array_map([KeyScanner::class, 'namespaceOf'], app_keys())));
     assert_same([], array_values(array_intersect($namespaces, ['changelog'])), 'the dialog\'s words are under whatsNew');
+    assert_false(in_array('anotoki', $namespaces, true), 'anotoki. is the library\'s namespace, and no key of the app\'s');
     foreach (database_keys() as $key) {
-        assert_true(translation_key_shape_ok($key), "$key is not the shape of a key, so the scan cannot find it");
+        assert_true(KeyScanner::shapeOk($key), "$key is not the shape of a key, so the scan cannot find it");
     }
 });
 
@@ -296,14 +305,15 @@ test('every language a migration writes strings for is one that cannot be delete
 
     $languages = array_column(db_all('SELECT code FROM languages'), 'code');
     assert_same([], array_values(array_diff(TRANSLATION_SEEDED_LANGUAGES, $languages)), 'and each of them is a language here');
-    assert_true(in_array(TRANSLATION_FALLBACK, TRANSLATION_SEEDED_LANGUAGES, true));
+    assert_true(in_array(Translations::FALLBACK, TRANSLATION_SEEDED_LANGUAGES, true));
+    assert_same(TRANSLATION_SEEDED_LANGUAGES, academy_translations_config()->releasedLanguages, 'the library is told so');
     if (string_migrations() !== []) {
         assert_same(in_order(TRANSLATION_SEEDED_LANGUAGES), in_order($written), 'the list names exactly the languages the migrations write');
     }
 });
 
 test('every key the frontend uses is in the database, and every key in the database is used', function (): void {
-    $scan = translation_keys_scan(translation_keys_frontend_root(), database_keys());
+    $scan = translation_key_scanner()->scan(database_keys());
     assert_same([], $scan['problems'], 'what the scan does not let through');
 
     if (string_migrations() === []) {
@@ -314,13 +324,14 @@ test('every key the frontend uses is in the database, and every key in the datab
     assert_same([], $scan['missing'], 'used by the frontend, not in the database: the page would show the key (php backend/translations.php --status)');
     assert_same([], $scan['unused'], 'in the database, used nowhere: delete them with a migration');
     assert_true(is_file(translation_keys_frontend_root() . '/' . TRANSLATION_DYNAMIC_KEYS_FILE), 'the keys put together at run time are declared in ' . TRANSLATION_DYNAMIC_KEYS_FILE);
+    assert_false(array_key_exists('anotoki.topbar.sections', $scan['used'] + $scan['missing']), 'the library\'s keys are never looked for: its Angular half asks for them');
 });
 
 test('the exam\'s section and part names are for exactly the ids the server sends', function (): void {
     // The page words a section and a part from its id (exam.section.<id>, exam.part.<id>): a section the
     // server gains, or one a string is missing for, would show as a key on the exam's setup screen.
     $file = translation_keys_frontend_root() . '/' . TRANSLATION_DYNAMIC_KEYS_FILE;
-    $declared = is_file($file) ? translation_keys_dynamic((string) file_get_contents($file))['prefixes'] : [];
+    $declared = is_file($file) ? KeyScanner::dynamic((string) file_get_contents($file))['prefixes'] : [];
     $keys = database_keys();
     $seeded = string_migrations() !== [];
 
@@ -342,6 +353,137 @@ test('the exam\'s section and part names are for exactly the ids the server send
         }
     }
 });
+
+test('every string the migrations wrote passes the checks a save makes, as it is - the anotoki library\'s, with this app\'s ways', function (): void {
+    // Otherwise a string nobody could save again would be released: the grid sends a cell back whole, and a
+    // rule the seed does not keep (a brace, a length, a placeholder the English does not have, a space at
+    // its end) would refuse it. The library's keys among them: an anotoki. key keeps the library's
+    // placeholders, whatever the app's copy of it says (009 copied the app's words there).
+    test_db();
+    if (string_migrations() !== []) {
+        assert_true((int) db_value('SELECT count(*) FROM translations') > 200, 'the strings are there to check');
+    }
+    assert_same([], academy_translations()->storedRefusals(), 'what a save would refuse of what is stored');
+
+    // The placeholders the library's keys take are its own: the copies 009 made of the app's words keep them.
+    $english = translations_of(Translations::FALLBACK);
+    foreach (LibraryWords::keys() as $key) {
+        assert_same(LibraryWords::placeholders($key), Placeholders::names($english[$key] ?? ''), "$key: the library's placeholders");
+    }
+});
+
+/**
+ * The frontend's files that keep English for what they draw while there may be no strings (keptWord()),
+ * in a `const ENGLISH` map, and how many entries each has at least. core/kit.config.ts keeps the English of
+ * the library's keys whose words in this app are its own (the bar's sections, the theme's "System"): the
+ * kit reads them while there are no strings, over the library's built-in English.
+ */
+const KEPT_ENGLISH_FILES = [
+    'standin/problem/problem.component.ts' => 6,
+    'standin/sign-in/sign-in.component.ts' => 2,
+    'top-bar/top-bar.component.ts' => 6,
+    'core/kit.config.ts' => 2,
+];
+
+/** Every kept English map of the frontend, read whole by the library's reader: [file => [key => English]]. */
+function kept_english(): array
+{
+    $kept = [];
+    foreach (array_keys(KEPT_ENGLISH_FILES) as $file) {
+        $kept[$file] = EnglishDictionary::read(translation_keys_frontend_root() . '/' . $file, 'ENGLISH');
+    }
+    return $kept;
+}
+
+test('the English kept for a page drawn with no strings (the problem page, the Sign in card, the top bar and the kit\'s words) is the seeded English, word for word', function (): void {
+    // It is what a start that failed shows while the browser kept no strings; reworded in one place only,
+    // the page would say one thing before the strings come and another after.
+    test_db();
+    $seeded = translations_of(Translations::FALLBACK);
+    foreach (kept_english() as $file => $entries) {
+        assert_true(count($entries) >= KEPT_ENGLISH_FILES[$file], "$file: the entries are read");
+        foreach ($entries as $key => $english) {
+            assert_same($seeded[$key] ?? null, $english, "$file: $key");
+        }
+    }
+});
+
+test('the kit says the same words before the strings come and after: the library\'s English, or the app\'s kept over it, is the seeded English of every library key', function (): void {
+    // With no strings in memory the kit reads its built-in words, unless the app keeps its own English for a
+    // library key (core/kit.config.ts, `libraryWords`); with them, the database's - which 009 made the app's.
+    test_db();
+    $seeded = translations_of(Translations::FALLBACK);
+    $kit = kept_english()['core/kit.config.ts'];
+    foreach (array_keys($kit) as $key) {
+        assert_true(LibraryWords::isLibraryKey($key), "core/kit.config.ts keeps English for library keys only: $key");
+        assert_true($kit[$key] !== LibraryWords::english($key), "$key: kept only where the app's words are not the library's own");
+    }
+    foreach (LibraryWords::keys() as $key) {
+        assert_same($seeded[$key] ?? null, $kit[$key] ?? LibraryWords::english($key), "$key: what the kit says with no strings");
+    }
+});
+
+test('a string migration\'s gate checks exactly the keys the migration writes, and writes each in every language', function (): void {
+    // The reader itself, on a file written the way 004 is: its gate also lists the languages it needs,
+    // and they are not taken for keys.
+    $example = temp_dir('migration') . '/999_test_example.sql';
+    file_put_contents($example, str_replace("\n", "\r\n", <<<'SQL'
+        INSERT INTO translation_keys (name, description) VALUES
+            -- home: the first page
+            ('home.title', 'The heading; it''s short'),
+            ('home.due.one', 'A label under a number (not a row of its own)')
+        ON CONFLICT (name) DO NOTHING;
+
+        INSERT INTO translations (key_name, language_code, value)
+        SELECT v.key_name, 'en', v.value FROM (VALUES
+            ('home.title', 'Home'),
+            ('home.due.one', 'review due')
+        ) AS v(key_name, value)
+        ON CONFLICT (key_name, language_code) DO NOTHING;
+
+        INSERT INTO translations (key_name, language_code, value)
+        SELECT v.key_name, 'sk', v.value FROM (VALUES
+            ('home.title', 'Domov')
+        ) AS v(key_name, value)
+        ON CONFLICT (key_name, language_code) DO NOTHING;
+
+        DO $$
+        DECLARE
+            missing text;
+        BEGIN
+            SELECT string_agg(wanted.code, ', ') INTO missing
+              FROM (VALUES ('en'), ('sk')) AS wanted(code)
+             WHERE NOT EXISTS (SELECT 1 FROM languages l WHERE l.code = wanted.code);
+            SELECT string_agg(k.name, ', ' ORDER BY k.name) INTO missing
+              FROM (VALUES
+                  ('home.title'), ('home.due.one')
+              ) AS k(name)
+             WHERE NOT EXISTS (SELECT 1 FROM translation_keys tk WHERE tk.name = k.name);
+        END $$;
+
+        -- end of 999
+        SQL));
+    assert_same(
+        ['keys' => ['home.title', 'home.due.one'], 'strings' => ['en' => ['home.title', 'home.due.one'], 'sk' => ['home.title']], 'gate' => ['home.title', 'home.due.one']],
+        migration_keys($example),
+        'the rows it inserts, each language\'s strings, and the gate\'s own list'
+    );
+
+    assert_same(['004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
+        array_slice(string_migrations(), 0, 4), 'the migrations in 004\'s form (009 copies, in a form of its own)');
+    foreach (string_migrations() as $file) {
+        $found = migration_keys(MIGRATIONS_DIR . "/$file");
+        assert_true($found['keys'] !== [], "$file: the keys it inserts could not be read");
+        assert_same($found['keys'], array_values(array_unique($found['keys'])), "$file: a key is inserted twice");
+        assert_same(in_order($found['keys']), in_order($found['gate']), "$file: the keys its gate checks are not the keys it inserts; a key left out of the gate could lack a string and nothing would say so");
+        assert_same(in_order(TRANSLATION_SEEDED_LANGUAGES), in_order(array_keys($found['strings'])), "$file: one block of strings a language");
+        foreach ($found['strings'] as $code => $keys) {
+            assert_same(in_order($found['keys']), in_order($keys), "$file: the keys with a string in \"$code\" are not the keys it inserts");
+        }
+    }
+});
+
+/* ------------------------------------------------- each migration's form */
 
 test('migration 004 makes and fills its own three tables, and touches no other', function (): void {
     $file = '004_languages_and_translations.sql';
@@ -456,6 +598,8 @@ test('migration 008 in 005\'s form: the listed keys deleted, and nothing else to
     if (end($lines) !== '-- end of 008') {
         assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
         assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 008"/', $sql, 'and says so at its top');
+    } else {
+        assert_no_match('/THIS FILE IS A DRAFT/', $sql, 'final: its top says so no more');
     }
 
     $code = sql_code($sql);
@@ -480,401 +624,122 @@ test('migration 008 in 005\'s form: the listed keys deleted, and nothing else to
     assert_same([], array_values(array_intersect(MIGRATION_008_DELETED_KEYS, database_keys())), 'gone from the database it was applied to');
 });
 
-/* -------------------------------------------------- the rules a string keeps */
-
-test('a language code: two small letters, or two and two; and nothing else reaches a query', function (): void {
-    foreach (['en', 'sk', 'pt-br', 'zh-tw'] as $code) {
-        assert_true(language_code_ok($code), $code);
-    }
-    foreach (['', 'e', 'eng', 'EN', 'En', 'en-', 'en-GB', 'en_gb', 'en-gbr', 'e1', ' en', "en\n", "sk\0", "\xFF\xFE", 'en-gb-x', 5, null, ['en'], true] as $code) {
-        assert_false(language_code_ok($code), shown($code));
-    }
-    assert_same(null, language_row("\xFF"), 'no query for what is not a code: bytes that are not text would be a database error');
-});
-
-test('text is measured the way people see it: characters, the browser\'s spaces, and no control characters', function (): void {
-    assert_same('žlt', text_clip('žltý kôň', 3));
-    assert_same('', text_clip("\xFF\xFE", 3), 'bytes that are not text');
-    assert_same('日本', text_clip('日本', 5));
-    assert_same(8, text_length('žltý kôň'), 'characters, not bytes');
-    assert_same(3, text_length("a\nb"), 'a line break is a character');
-    assert_same('a b', text_clean("a\x07 \x00b\x7F"), 'control characters dropped');
-    assert_same("a\tb\r\nc", text_clean("a\tb\r\nc"), 'tabs and line breaks kept');
-    foreach ([5, null, ['a'], true, 1.5, "\xC3\x28"] as $value) {
-        assert_same(null, text_clean($value), shown($value) . ' is not text');
-    }
-    // What the browser's trim() takes away, and nothing more.
-    assert_same('a', text_trim("\u{FEFF}\u{00A0}\u{2003}\t a \u{3000}\u{2028}\r\n"));
-    assert_same("\u{0085}a\u{180E}", text_trim("\u{0085}a\u{180E}"), 'two characters PHP counts as spaces and the browser does not');
-});
-
-test('placeholders: {name}, the same expression as the frontend fills in', function (): void {
-    assert_same(['name', 'count'], translation_placeholders('Hello, {name}! {count} of {count} - {name}'));
-    assert_same(['a_b', 'A1'], translation_placeholders('{a_b} {A1}'));
-    assert_same([], translation_placeholders('{} {1a} { name } {na-me} {_x} plain'));
-});
-
-test('a save is checked whole: the shape, the key, the language, the text, its length, its placeholders', function (): void {
-    assert_same([], check([]), 'nothing to change');
-    assert_same(
-        [['key' => 'test.bye', 'language' => 'en', 'value' => 'Bye'], ['key' => 'test.hello', 'language' => 'sk', 'value' => 'Dobrý deň, {name}!']],
-        check(['test.hello' => ['sk' => "  Dobrý\x07 deň, {name}! \u{00A0}"], 'test.bye' => ['en' => 'Bye']]),
-        'control characters dropped, the spaces around it gone'
-    );
-    assert_same([['key' => 'test.hello', 'language' => 'sk', 'value' => null]], check(['test.hello' => ['sk' => " \t "]]), 'an empty string in another language: that string goes');
-    assert_same([], check(['test.hello' => []]), 'a key with nothing to change');
-
-    // Whatever order the cells were typed in, they are written by key and then by language: two
-    // saves of the same strings take their rows in one order, and neither waits for the other for ever.
-    $ordered = static fn (array $values): array => array_map(static fn (array $change): string => $change['key'] . ' ' . $change['language'], check($values));
-    assert_same(['test.bye sk', 'test.hello en', 'test.hello sk'], $ordered(['test.hello' => ['sk' => 'A {name}', 'en' => 'B {name}'], 'test.bye' => ['sk' => 'C']]));
-    assert_same(['test.bye sk', 'test.hello en', 'test.hello sk'], $ordered(['test.bye' => ['sk' => ''], 'test.hello' => ['en' => 'B {name}', 'sk' => '']]), 'the ones that go among the ones that are written');
-    assert_same($ordered(['test.step' => ['sk' => 'x'], 'test.count' => ['sk' => 'y'], 'test.bye' => ['sk' => 'z']]), $ordered(['test.bye' => ['sk' => 'z'], 'test.count' => ['sk' => 'y'], 'test.step' => ['sk' => 'x']]));
-
-    $invalid = [
-        'nothing' => null, 'a text' => 'text', 'a number' => 5, 'a list' => ['a', 'b'],
-        'a key with a text' => ['test.hello' => 'Hello'], 'a key with a list' => ['test.hello' => ['a', 'b']],
-        'a number for a string' => ['test.hello' => ['sk' => 5]], 'a list for a string' => ['test.hello' => ['sk' => ['x']]], 'null for a string' => ['test.hello' => ['sk' => null]],
-        '2001 characters' => ['test.bye' => ['sk' => str_repeat('á', 2001)]],
-    ];
-    foreach ($invalid as $what => $values) {
-        assert_same('invalid_value', check($values)[0], $what);
-    }
-    assert_same(2000, text_length(check(['test.bye' => ['sk' => str_repeat('á', 2000)]])[0]['value']), '2000 characters, not bytes');
-
-    assert_same(['unknown_key', ['key' => 'no.such', 'keys' => ['no.such', '12']]], check(['test.bye' => ['en' => 'Bye'], 'no.such' => ['en' => 'x'], '12' => ['sk' => 'y']]), 'every unknown key is named');
-    assert_same(['unknown_language', ['key' => 'test.bye', 'language' => 'de']], check(['test.bye' => ['de' => 'Tschüss']]));
-    assert_same(['fallback_required', ['key' => 'test.bye', 'language' => 'en']], check(['test.bye' => ['en' => "\x07 "]]), 'English is what the others fall back to');
-
-    // the order of the checks: the key before the language, the language before the text
-    assert_same('unknown_key', check(['no.such' => ['xx' => 5]])[0]);
-    assert_same('unknown_language', check(['test.bye' => ['xx' => 5]])[0]);
-    assert_same('invalid_value', check(['no.such' => 'text'])[0], 'the shape first');
-});
-
-test('a string with nothing in it to see is an empty one; and one too long to trim is too long, never empty', function (): void {
-    // A zero-width space, a word joiner, a soft hyphen: trim() leaves each, and the page would draw an empty place.
-    $unseen = ['a zero-width space' => "\u{200B}", 'a word joiner' => "\u{2060}", 'a soft hyphen' => "\u{00AD}", 'several, with spaces' => " \u{200B}\u{00A0}\u{200D}\t\u{FEFF} ", 'nothing' => '', 'spaces' => " \n "];
-    foreach ($unseen as $what => $text) {
-        assert_true(text_blank($text), $what);
-        assert_same([['key' => 'test.bye', 'language' => 'sk', 'value' => null]], check(['test.bye' => ['sk' => $text]]), "$what in another language: that string goes");
-        assert_same(['fallback_required', ['key' => 'test.bye', 'language' => 'en']], check(['test.bye' => ['en' => $text]]), "$what in English");
-        try {
-            language_name($text, 'The name in English');
-            fail("$what was taken for a language's name");
-        } catch (TranslationRefused $e) {
-            assert_same('invalid_language', $e->errorCode, $what);
-        }
-    }
-    assert_true(text_blank("\xFF\xFE"), 'bytes that are not text are nothing to read');
-
-    // A character of that kind inside a word is part of the word: Persian and Indic spelling needs it.
-    foreach (["Ah\u{200C}oj", "\u{200B}Ahoj", 'a', '.', "\u{0301}"] as $text) {
-        assert_false(text_blank($text), shown($text));
-    }
-    assert_same("Ah\u{200C}oj", check(['test.bye' => ['sk' => " Ah\u{200C}oj "]])[0]['value'], 'kept as it was written');
-    assert_same("می\u{200C}خواهم", language_name("می\u{200C}خواهم", 'The name as its speakers write it'));
-    // text_trim() itself is the browser's trim(), and takes none of them away.
-    assert_same("\u{200B}", text_trim(" \u{200B} "));
-
-    // More spaces inside it than the expression can get through: the text comes back as it is,
-    // and is refused for its length; not taken for an empty one, which would delete the stored string.
-    $long = 'a' . str_repeat(' ', 1100000) . 'b';
-    assert_same($long, text_trim($long));
-    assert_false(text_blank($long));
-    assert_same(['invalid_value', ['key' => 'test.bye', 'language' => 'sk']], check(['test.bye' => ['sk' => $long]]));
-    assert_same(['invalid_value', ['key' => 'test.bye', 'language' => 'en']], check(['test.bye' => ['en' => $long]]), 'not fallback_required either');
-    try {
-        language_name($long, 'The name in English');
-        fail('taken for a name');
-    } catch (TranslationRefused $e) {
-        assert_match('/1 to 50 characters/', $e->getMessage());
-    }
-    assert_same('b', text_trim(str_repeat(' ', 1100000) . 'b'), 'a run at either end is still trimmed');
-    assert_same('a', text_trim('a' . str_repeat("\u{00A0}", 600000)));
-});
-
-test('placeholders are the code\'s: English keeps exactly its own, a translation may leave one out but never add one', function (): void {
-    assert_same('Hi, {name}!', check(['test.hello' => ['en' => 'Hi, {name}!']])[0]['value'], 'reworded, the placeholder kept');
-    assert_same(['placeholder_changed', ['key' => 'test.hello', 'language' => 'en', 'placeholder' => 'name']], check(['test.hello' => ['en' => 'Hi!']]));
-    assert_same(['placeholder_changed', ['key' => 'test.hello', 'language' => 'en', 'placeholder' => 'who']], check(['test.hello' => ['en' => 'Hi, {name} and {who}!']]));
-    assert_same(['placeholder_changed', ['key' => 'test.bye', 'language' => 'en', 'placeholder' => 'name']], check(['test.bye' => ['en' => 'Bye, {name}']]));
-
-    assert_same('Vitaj!', check(['test.hello' => ['sk' => 'Vitaj!']])[0]['value'], 'a translation may say it without the placeholder');
-    assert_same(['unknown_placeholder', ['key' => 'test.hello', 'language' => 'sk', 'placeholder' => 'meno']], check(['test.hello' => ['sk' => 'Ahoj, {name} {meno}!']]));
-    // English sent with it does not change what the key has: the stored English string does
-    assert_same('unknown_placeholder', check(['test.hello' => ['sk' => 'Ahoj {who}', 'en' => 'Hi {who}']])[0]);
-    assert_same('placeholder_changed', check(['test.hello' => ['en' => 'Hi {who}', 'sk' => 'Ahoj {who}']])[0]);
-
-    // a key with no English string yet: the English sent with it is what counts
-    assert_same(2, count(check(['test.new' => ['sk' => 'Nové {a}', 'en' => 'New {a}']])));
-    assert_same('unknown_placeholder', check(['test.new' => ['sk' => 'Nové {a}']])[0], 'with no English at all there is no placeholder to use');
-    assert_same(1, count(check(['test.new' => ['sk' => 'Nové']])));
-
-    // The sentences name the key and the placeholder: the owner's page shows them beside the cell.
-    try {
-        translations_check(['test.hello' => ['en' => 'Hi!']], ['test.hello'], ['en' => 'English'], ['test.hello' => 'Hello, {name}!']);
-        fail('taken');
-    } catch (TranslationRefused $e) {
-        assert_same('The English string of "test.hello" must keep {name}: the app puts a value there.', $e->getMessage());
-    }
-    try {
-        translations_check(['test.hello' => ['en' => 'Hi, {name} {title}!']], ['test.hello'], ['en' => 'English'], ['test.hello' => 'Hello, {name}!']);
-        fail('taken');
-    } catch (TranslationRefused $e) {
-        assert_same('The English string of "test.hello" cannot use {title}: the app has no value for it.', $e->getMessage());
-    }
-    try {
-        translations_check(['test.hello' => ['sk' => 'Ahoj, {meno}!']], ['test.hello'], ['sk' => 'Slovak'], ['test.hello' => 'Hello, {name}!']);
-        fail('taken');
-    } catch (TranslationRefused $e) {
-        assert_same('The Slovak string of "test.hello" uses {meno}, which its English string does not have.', $e->getMessage());
-    }
-});
-
-test('a brace is only ever part of a placeholder: one written any other way is refused, not shown to everybody', function (): void {
-    // What the page would leave exactly as it is written: the name translated, a space inside, a brace too few or too many.
-    $wrong = [
-        'the name translated' => ['test.count', 'sk', '{počet} otázok'],
-        'spaces inside' => ['test.count', 'sk', '{ count } otázok'],
-        'never closed' => ['test.count', 'sk', '{count otázok'],
-        'a space before it closes' => ['test.count', 'sk', '{count } otázok'],
-        'two braces' => ['test.count', 'sk', '{{count}} otázok'],
-        'one of two never closed' => ['test.step', 'sk', 'Krok {n / {m}'],
-        'two braces in English' => ['test.step', 'en', 'Step {{n}} of {m}'],
-        'a brace that only closes' => ['test.bye', 'sk', 'Dovidenia }'],
-        'a brace in a string with no placeholder' => ['test.bye', 'en', 'Good {bye'],
-        'an empty pair' => ['test.count', 'sk', '{count} {} otázok'],
-    ];
-    foreach ($wrong as $what => [$key, $code, $text]) {
-        assert_same(['invalid_placeholder', ['key' => $key, 'language' => $code]], check([$key => [$code => $text]]), $what);
-    }
-    try {
-        translations_check(['test.step' => ['sk' => 'Krok { n }']], ['test.step'], ['sk' => 'Slovak'], ['test.step' => 'Step {n} of {m}']);
-        fail('taken');
-    } catch (TranslationRefused $e) {
-        assert_same('The Slovak string of "test.step" has a { or } that is not part of a placeholder. A placeholder is written exactly as the English string has it, like {n}: no spaces, and its name is not translated.', $e->getMessage(), 'it says how one is written, with one of the key\'s own');
-    }
-    try {
-        translations_check(['test.bye' => ['sk' => 'Zbohom {']], ['test.bye'], ['sk' => 'Slovak'], ['test.bye' => 'Goodbye']);
-        fail('taken');
-    } catch (TranslationRefused $e) {
-        assert_same('The Slovak string of "test.bye" has a { or } that is not part of a placeholder. This key has no placeholder, so its strings can hold no { or }.', $e->getMessage(), 'a key with no placeholder: none is offered, since it would be refused next');
-    }
-
-    // Before the placeholders are compared: a well-made one the key does not have is still the other refusal.
-    assert_same('unknown_placeholder', check(['test.count' => ['sk' => '{meno} otázok']])[0]);
-    assert_same('unknown_placeholder', check(['test.count' => ['sk' => '{Count} otázok']])[0], 'a placeholder\'s name is as it is written, capitals too');
-    assert_same('placeholder_changed', check(['test.step' => ['en' => 'Step {n}']])[0]);
-    // And what was fine is fine.
-    assert_same('{count} otázok', check(['test.count' => ['sk' => '{count} otázok']])[0]['value']);
-    assert_same('Krok {n} / {m}', check(['test.step' => ['sk' => 'Krok {n} / {m}']])[0]['value']);
-    assert_same('Ahoj, {name}!', check(['test.hello' => ['sk' => 'Ahoj, {name}!']])[0]['value']);
-    assert_same('Vitaj!', check(['test.hello' => ['sk' => 'Vitaj!']])[0]['value']);
-});
-
-test('every string the migrations wrote passes the checks a save makes, as it is', function (): void {
-    // Otherwise a string nobody could save again would be released: the grid sends a cell back
-    // whole, and a rule the seed does not keep (a brace, a length, a space at its end) would refuse it.
-    test_db();
-    $languages = array_column(db_all('SELECT code, name FROM languages'), 'name', 'code');
-    $stored = [];
-    foreach (db_all('SELECT key_name, language_code, value FROM translations ORDER BY key_name COLLATE "C", language_code') as $row) {
-        $stored[$row['key_name']][$row['language_code']] = $row['value'];
-    }
-    if (string_migrations() !== []) {
-        assert_true(count($stored) > 100, 'the strings are there to check');
-    }
-
-    $changes = translations_check($stored, database_keys(), $languages, translations_of(TRANSLATION_FALLBACK));
-    $checked = [];
-    foreach ($changes as $change) {
-        $checked[$change['key']][$change['language']] = $change['value'];
-    }
-    assert_same($stored, $checked, 'every string comes back as it is kept');
-});
-
 /**
- * The frontend's files that keep English for what they draw while there may be no strings (keptWord()),
- * in a `const ENGLISH` map, and how many entries each has at least. core/kit.config.ts keeps the words
- * the anotoki library's kit says in the app's words (the theme switch, the language, the bar's menus).
+ * 009's work, key by key: the app's key whose strings it copies, the library's
+ * key that carries them from then on, and whether the app's own key goes
+ * (only the bar read it) or stays (the app reads it too).
  */
-const KEPT_ENGLISH_FILES = [
-    'standin/problem/problem.component.ts' => 5,
-    'standin/sign-in/sign-in.component.ts' => 2,
-    'top-bar/top-bar.component.ts' => 9,
-    'core/kit.config.ts' => 24,
+const MIGRATION_009_COPIES = [
+    'topbar.sections' => ['anotoki.topbar.sections', true],
+    'topbar.phoneMenu' => ['anotoki.topbar.phoneMenu', true],
+    'topbar.menuButton' => ['anotoki.topbar.menuButton', true],
+    'topbar.menu' => ['anotoki.topbar.menu', true],
+    'account.signOut' => ['anotoki.topbar.signOut', true],
+    'signOut.saving' => ['anotoki.topbar.saving', true],
+    'language.button' => ['anotoki.language.button', true],
+    'language.notLoaded' => ['anotoki.language.notLoaded', true],
+    'theme.label' => ['anotoki.theme.label', true],
+    'theme.light' => ['anotoki.theme.light', true],
+    'theme.dark' => ['anotoki.theme.dark', true],
+    'theme.system' => ['anotoki.theme.auto', true],
+    'theme.systemHint' => ['anotoki.theme.autoHint', true],
+    'topbar.roleAdmin' => ['anotoki.topbar.roleAdmin', true],
+    'topbar.roleEditor' => ['anotoki.topbar.roleEditor', true],
+    'account.yourAccount' => ['anotoki.topbar.account', true],
+    'topbar.admin' => ['anotoki.topbar.admin', false],
+    'signIn.button' => ['anotoki.topbar.signIn', false],
+    'common.close' => ['anotoki.ui.close', false],
 ];
 
-test('the English kept for a page drawn with no strings (the problem page, the Sign in card, the top bar and the kit\'s words) is the seeded English, word for word', function (): void {
-    // It is what a start that failed shows while the browser kept no strings; reworded in one place only,
-    // the page would say one thing before the strings come and another after.
-    test_db();
-    $seeded = translations_of(TRANSLATION_FALLBACK);
-    foreach (KEPT_ENGLISH_FILES as $file => $least) {
-        $source = (string) file_get_contents(translation_keys_frontend_root() . '/' . $file);
-        assert_true(preg_match('/const ENGLISH[^=]*=\s*\{(.*?)\n\};/s', $source, $map) === 1, "$file keeps its English in ENGLISH");
-        preg_match_all('/\'([a-z][A-Za-z0-9_.-]*)\':\s*(?:\'((?:[^\'\\\\]|\\\\.)*)\'|"((?:[^"\\\\]|\\\\.)*)")/', $map[1], $entries, PREG_SET_ORDER);
-        assert_true(count($entries) >= $least, "$file: the entries are read");
-        foreach ($entries as $entry) {
-            $english = stripcslashes(($entry[3] ?? '') !== '' ? $entry[3] : $entry[2]);
-            assert_same($seeded[$entry[1]] ?? null, $english, "$file: {$entry[1]}");
-        }
+test('migration 009 in a form of its own: a temporary copy of the strings it moves, keys and strings inserted from it, one description, the listed keys deleted, a check at its end that names every one', function (): void {
+    $file = '009_strings_through_the_library.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 009 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 009') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 009"/', $sql, 'and says so at its top');
+    } else {
+        assert_no_match('/THIS FILE IS A DRAFT/', $sql, 'final: its top says so no more');
     }
-});
 
-test('a string migration\'s gate checks exactly the keys the migration writes, and writes each in every language', function (): void {
-    // The reader itself, on a file written the way 004 is: its gate also lists the languages it needs,
-    // and they are not taken for keys.
-    $example = temp_dir('migration') . '/999_test_example.sql';
-    file_put_contents($example, str_replace("\n", "\r\n", <<<'SQL'
-        INSERT INTO translation_keys (name, description) VALUES
-            -- home: the first page
-            ('home.title', 'The heading; it''s short'),
-            ('home.due.one', 'A label under a number (not a row of its own)')
-        ON CONFLICT (name) DO NOTHING;
-
-        INSERT INTO translations (key_name, language_code, value)
-        SELECT v.key_name, 'en', v.value FROM (VALUES
-            ('home.title', 'Home'),
-            ('home.due.one', 'review due')
-        ) AS v(key_name, value)
-        ON CONFLICT (key_name, language_code) DO NOTHING;
-
-        INSERT INTO translations (key_name, language_code, value)
-        SELECT v.key_name, 'sk', v.value FROM (VALUES
-            ('home.title', 'Domov')
-        ) AS v(key_name, value)
-        ON CONFLICT (key_name, language_code) DO NOTHING;
-
-        DO $$
-        DECLARE
-            missing text;
-        BEGIN
-            SELECT string_agg(wanted.code, ', ') INTO missing
-              FROM (VALUES ('en'), ('sk')) AS wanted(code)
-             WHERE NOT EXISTS (SELECT 1 FROM languages l WHERE l.code = wanted.code);
-            SELECT string_agg(k.name, ', ' ORDER BY k.name) INTO missing
-              FROM (VALUES
-                  ('home.title'), ('home.due.one')
-              ) AS k(name)
-             WHERE NOT EXISTS (SELECT 1 FROM translation_keys tk WHERE tk.name = k.name);
-        END $$;
-
-        -- end of 999
-        SQL));
-    assert_same(
-        ['keys' => ['home.title', 'home.due.one'], 'strings' => ['en' => ['home.title', 'home.due.one'], 'sk' => ['home.title']], 'gate' => ['home.title', 'home.due.one']],
-        migration_keys($example),
-        'the rows it inserts, each language\'s strings, and the gate\'s own list'
-    );
-
-    foreach (string_migrations() as $file) {
-        $found = migration_keys(MIGRATIONS_DIR . "/$file");
-        assert_true($found['keys'] !== [], "$file: the keys it inserts could not be read");
-        assert_same($found['keys'], array_values(array_unique($found['keys'])), "$file: a key is inserted twice");
-        assert_same(in_order($found['keys']), in_order($found['gate']), "$file: the keys its gate checks are not the keys it inserts; a key left out of the gate could lack a string and nothing would say so");
-        assert_same(in_order(TRANSLATION_SEEDED_LANGUAGES), in_order(array_keys($found['strings'])), "$file: one block of strings a language");
-        foreach ($found['strings'] as $code => $keys) {
-            assert_same(in_order($found['keys']), in_order($keys), "$file: the keys with a string in \"$code\" are not the keys it inserts");
-        }
-    }
-});
-
-test('If-None-Match is compared the weak way: any tag of the list, with or without W/, or *; and as a server that compresses sends it back', function (): void {
-    $etag = '"abc"';
-    foreach (['"abc"', 'W/"abc"', '"x", "abc"', '"x" ,W/"abc" , "y"', '*', ' "abc" '] as $header) {
-        assert_true(translations_not_modified($header, $etag), $header);
-    }
-    // Apache's mod_deflate and mod_brotli mark the tag of an answer they compressed, inside the quotes.
-    foreach (['"abc-gzip"', 'W/"abc-gzip"', '"abc-br"', 'W/"abc-br"', '"abc-zstd"', '"x", "abc-gzip"', '"x-gzip" , W/"abc-gzip"'] as $header) {
-        assert_true(translations_not_modified($header, $etag), $header);
-    }
-    foreach (['', 'abc', '"abd"', 'W/"x"', '"abc', 'w/"abc"', '"abd-gzip"', '"abc-gzipx"', '"abc-deflate"', 'abc-gzip"', '"abc-gzip', '"x-gzip"', '"abc-gzip-gzip"', '"abc"-gzip'] as $header) {
-        assert_false(translations_not_modified($header, $etag), $header);
-    }
-});
-
-/* ------------------------------------------------------------------ the scan */
-
-test('the scan: a quoted literal with a key\'s shape in a namespace the database has; never an attribute\'s value, a comment, a spec', function (): void {
-    $root = sources([
-        'home/home.component.html' => <<<'HTML'
-            <!-- {{ 'home.inAComment' | translate }} -->
-            <h1>{{ 'home.title' | translate }}</h1>
-            <p [text]="error.message" title="home.anAttribute" [class.on]="home.expression"></p>
-            <button [attr.aria-label]="'common.close' | translate" (click)="close()">x</button>
-            <span>{{ 'home.questions' | translatePlural: n }}</span>
-            <span>{{ "home.doubleQuoted" | translate }}</span>
-            <p>Don't stop: {{ 'home.afterAnApostrophe' | translate: { day: d } }} - it's fine</p>
-            <!--
-              'home.inALongComment'
-            -->
-            <em>{{ 'home.missing' | translate }}</em>
-            HTML,
-        'home/home.component.ts' => <<<'TS'
-            import { Home } from './home.model';
-            import { ApiService } from '../core/api/api.service';
-            // 'home.inALineComment' is what a comment explains
-            /* 'home.inABlockComment'
-               'home.stillInIt' */
-            const address = 'http://example.test/'; const afterIt = 'home.afterAnAddress';
-            const accept = 'image/*'; const afterAGlob = 'home.afterAGlob'; /* and 'home.afterTheGlob' is a comment */
-            const quote = 'it\'s'; const afterAQuote = 'home.afterAnEscape';
-            this.status.set(this.i18n.t('home.saved'), `${this.i18n.t("home.inATemplate")}`);
-            const notOurs = ['changelog.json', 'theme-boot.js', 'home', '.home.title', 'Home.title', 'home..title', 'home.ti tle', 'changelog.', `changelog.${kind}`];
-            const inBackticks = `home.inBackticks`; const sentence = `home.title is ${what}, they say`;
-            const label = word('exam.section.' + question.section) + word(`exam.part.${book.id}`);
-            TS,
-        'home/home.component.spec.ts' => "expect(text).toBe('home.onlyInASpec');\n",
-        'core/testing/example.ts' => "export const example = 'home.onlyInTesting';\n",
-        'core/auth/sdk/anotoki-auth.d.ts' => "export const sdk = 'home.inTheSdk';\n",
-        'core/auth/auth.service.ts' => "const key = 'home.inTheAuthService';\n",
-        'home/home.component.scss' => "/* 'home.inAStyle' */\n",
-        'core/i18n/dynamic-keys.ts' => <<<'TS'
-            /** The keys put together at run time: 'comment.': ['ignored']. */
-            export const DYNAMIC_KEYS: Record<string, readonly string[]> = {
-              // a comment: 'also.': ['ignored']
-              'exam.section.': ['kana', 'vocab-jp-en'],
-              'exam.part.': [
-                '1',
-                "2",
-              ],
-              'time.': ['now', 'inDays'],
-              'error.': [],
-            };
-            TS,
-    ]);
-    $database = [
-        'home.title', 'home.questions.one', 'home.questions.few', 'home.questions.other', 'home.doubleQuoted', 'home.afterAnApostrophe',
-        'home.afterAnAddress', 'home.afterAGlob', 'home.afterAnEscape', 'home.saved', 'home.inATemplate', 'home.inTheAuthService', 'home.inBackticks',
-        'home.inAComment', 'home.inALineComment', 'home.inABlockComment', 'home.onlyInASpec', 'home.onlyInTesting', 'home.inTheSdk', 'home.anAttribute', 'home.expression',
-        'common.close', 'common.unused', 'error.message', 'error.unknown',
-        'exam.section.kana', 'exam.section.vocab-jp-en', 'exam.section.keigo', 'exam.part.1', 'exam.part.2',
-        'time.now', 'time.inDays.one', 'time.inDays.few', 'time.inDays.other',
+    // What it does, statement by statement (the strings emptied, the check taken out): nothing but the three tables
+    // of the words, and in these forms only.
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    $forms = [
+        'the copy' => '/^CREATE TEMP TABLE academy_009_words ON COMMIT DROP AS SELECT m\.own_key, m\.library_key, t\.language_code, t\.value, t\.updated_at, t\.updated_by FROM \(VALUES (\(\'\', \'\'\),? ?)+\) AS m\(own_key, library_key\) JOIN translations t ON t\.key_name = m\.own_key$/',
+        'the library\'s keys' => '/^INSERT INTO translation_keys \(name, description\) SELECT DISTINCT library_key, \'\' FROM academy_009_words ON CONFLICT \(name\) DO NOTHING$/',
+        'their strings' => '/^INSERT INTO translations \(key_name, language_code, value, updated_at, updated_by\) SELECT library_key, language_code, value, updated_at, updated_by FROM academy_009_words ON CONFLICT \(key_name, language_code\) DO NOTHING$/',
+        'a description' => '/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/',
+        'the deletes' => '/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/',
     ];
-    $scan = translation_keys_scan($root, $database);
+    $seen = [];
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        $form = null;
+        foreach ($forms as $what => $pattern) {
+            if (preg_match($pattern, $statement) === 1) {
+                $form = $what;
+            }
+        }
+        assert_true($form !== null, "not in 009's form: $statement");
+        $seen[] = $form;
+    }
+    assert_same(array_keys($forms), $seen, 'each once, in this order: the copies first, the deletes last');
+    assert_no_match('/\bUPDATE\s+translations\b/i', $code, 'no string is reworded: every one goes on as it is');
 
-    assert_same([], $scan['problems']);
-    assert_same(['home.missing' => ['home/home.component.html:11']], $scan['missing'], 'asked for, and not there');
-    assert_same([
-        'common.unused', 'error.message', 'error.unknown', 'exam.section.keigo',
-        'home.anAttribute', 'home.expression', 'home.inABlockComment', 'home.inAComment', 'home.inALineComment', 'home.inTheSdk', 'home.onlyInASpec', 'home.onlyInTesting',
-    ], $scan['unused'], 'an attribute\'s value is an expression; comments, specs, the example data and the IAM\'s SDK do not count; nor does a key under a declared prefix that is not listed');
-    assert_same(['home/home.component.html:2'], $scan['used']['home.title'], 'with the file and the line');
-    assert_same(['home/home.component.ts:7'], $scan['used']['home.afterAGlob'], 'the lines are the file\'s, comments or not');
-    assert_same(['home/home.component.html:5'], $scan['used']['home.questions.few'], 'a plural is asked for by its family\'s name');
-    assert_same(['core/i18n/dynamic-keys.ts'], $scan['used']['time.inDays.other'], 'a declared key may be a family too');
-    assert_same(['core/i18n/dynamic-keys.ts'], $scan['used']['exam.part.2'], 'a tail may be a number, on a line of its own, in either quote');
-    assert_same(['core/i18n/dynamic-keys.ts'], $scan['used']['exam.section.vocab-jp-en']);
-    assert_same(count($database) - count($scan['unused']), count($scan['used']));
+    // The copies are exactly the list, each to its library key; the deletes the keys that go; the check names every one.
+    $text = (string) preg_replace('/--[^\n]*/', '', $sql);
+    preg_match('/CREATE TEMP TABLE academy_009_words.*?AS m\(own_key, library_key\)/s', $text, $copy);
+    preg_match_all("/\\('([^']+)', '([^']+)'\\)/", $copy[0] ?? '', $pairs, PREG_SET_ORDER);
+    assert_same(array_map(static fn (array $c): string => $c[0], MIGRATION_009_COPIES), array_column($pairs, 2, 1), 'the copies, each to its library key');
+    foreach (MIGRATION_009_COPIES as [$library]) {
+        assert_true(in_array($library, LibraryWords::keys(), true), "$library: a key of the library's");
+    }
+    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', $text, $deletes);
+    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+    $gone = array_keys(array_filter(MIGRATION_009_COPIES, static fn (array $c): bool => $c[1]));
+    assert_same(in_order($gone), in_order($names[1]), 'the keys it deletes: those only the kit read');
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $text, $check);
+    foreach ($gone as $key) {
+        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to be gone");
+    }
+    foreach (array_keys(array_filter(MIGRATION_009_COPIES, static fn (array $c): bool => !$c[1])) as $key) {
+        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to stay");
+    }
+    assert_match("/RAISE EXCEPTION '009_strings_through_the_library: /", $check[0] ?? '', 'and fails the migration loudly, by name');
 
-    // A namespace the database does not have is nobody's key: 'changelog.json' is a file.
-    assert_same([], translation_keys_scan($root, [])['used']);
-    assert_same(['exam.part.1', 'exam.part.2', 'exam.section.kana', 'exam.section.vocab-jp-en', 'time.inDays', 'time.now'], array_keys(translation_keys_scan($root, [])['missing']), 'but what is declared must exist, whatever the database has');
-    assert_same(['home/home.component.ts:11'], $scan['used']['home.inBackticks'], 'a template literal with nothing put into it is a literal');
-    assert_same(['home.afterAGlob', 'home.afterAnAddress', 'home.afterAnApostrophe', 'home.afterAnEscape', 'home.doubleQuoted', 'home.inATemplate', 'home.inBackticks', 'home.inTheAuthService', 'home.missing', 'home.questions', 'home.saved', 'home.title'],
-        array_values(array_filter(array_keys(translation_keys_scan($root, ['home.x'])['missing']), static fn (string $key): bool => str_starts_with($key, 'home.'))), 'every literal of a namespace the database has');
+    // On the database it was applied to: the library's keys carry the app's words, the moved keys are gone.
+    test_db();
+    $english = translations_of('en');
+    $slovak = translations_of('sk');
+    foreach (MIGRATION_009_COPIES as $own => [$library, $goes]) {
+        assert_same($goes, !in_array($own, database_keys(), true), "$own: " . ($goes ? 'gone' : 'still the app\'s'));
+    }
+    assert_same(['The app’s sections', 'Časti aplikácie'], [$english['anotoki.topbar.sections'] ?? null, $slovak['anotoki.topbar.sections'] ?? null], 'the app\'s words, not the library\'s "Main navigation"');
+    assert_same(['System', 'Systémový'], [$english['anotoki.theme.auto'] ?? null, $slovak['anotoki.theme.auto'] ?? null]);
+    assert_same(['Cancel', 'Zrušiť'], [$english['anotoki.ui.cancel'] ?? null, $slovak['anotoki.ui.cancel'] ?? null], 'a library key the app had no words for: the library\'s');
+});
+
+/* --------------------------------------------------------------- the scan */
+
+test('the scan of this frontend: every .ts and .html of src/app but the specs, core/testing/ and the IAM\'s SDK; comments are no keys', function (): void {
+    $scanner = translation_key_scanner();
+    $root = translation_keys_frontend_root();
+    $files = $scanner->sourceFiles();
+    assert_same(str_replace('\\', '/', $root), $scanner->root());
+    assert_true(in_array('app.routes.ts', $files, true) && in_array('app.component.html', $files, true), 'the sources are where the scan looks');
+    assert_true(is_file("$root/core/auth/sdk/anotoki-auth.d.ts"), 'the IAM\'s SDK is where the scan leaves it out');
+    foreach ($files as $file) {
+        assert_match('/\.(ts|html)$/', $file);
+        assert_no_match('~\.spec\.ts$|^core/testing/|^core/auth/sdk/~', $file);
+    }
+    assert_same("a\n\n\nb 'c/*' \"d//\" `e\n//` f \ng", KeyScanner::sourceText("a\r\n/* x\r\n 'y' */\r\nb 'c/*' \"d//\" `e\n//` f // 'z'\r\ng", false), 'comments out, strings as they are, line for line');
+    assert_same("a\n\nb", KeyScanner::sourceText("a<!-- 'x'\n -->\nb", true));
 });
 
 test('the scan: a file\'s name has a key\'s shape, which is why no namespace is named after one', function (): void {
@@ -883,200 +748,40 @@ test('the scan: a file\'s name has a key\'s shape, which is why no namespace is 
         'core/changelog/changelog.service.ts' => "const FILE = 'changelog.json';\nconst title = this.i18n.t('whatsNew.title');\n",
         'core/changelog/changelog.component.html' => "<h2>{{ 'whatsNew.title' | translate }}</h2>\n",
     ]);
-    $scan = translation_keys_scan($root, ['whatsNew.title', 'whatsNew.latest']);
+    $scan = translation_key_scanner($root)->scan(['whatsNew.title', 'whatsNew.latest']);
     assert_same([[], [], ['whatsNew.latest']], [$scan['problems'], $scan['missing'], $scan['unused']], 'the dialog\'s words under whatsNew: the file\'s name is nobody\'s key');
     assert_same(['core/changelog/changelog.component.html:1', 'core/changelog/changelog.service.ts:2'], $scan['used']['whatsNew.title']);
 
     // With a "changelog" namespace the very same line would be a key the database lacks, for ever.
-    $named = translation_keys_scan($root, ['changelog.title', 'whatsNew.title']);
+    $named = translation_key_scanner($root)->scan(['changelog.title', 'whatsNew.title']);
     assert_same(['changelog.json' => ['core/changelog/changelog.service.ts:1']], $named['missing']);
 });
 
-test('the scan: a plural family with a form missing names the form', function (): void {
-    $root = sources(['a.component.html' => "{{ 'session.steps' | translatePlural: n }}\n{{ 'session.step' | translate }}\n"]);
-    $scan = translation_keys_scan($root, ['session.steps.one', 'session.steps.other', 'session.step']);
-    assert_same(['session.steps.few' => ['a.component.html:1']], $scan['missing']);
-    assert_same(['session.step', 'session.steps.one', 'session.steps.other'], array_keys($scan['used']));
-    assert_same([], $scan['unused']);
-    assert_same([], $scan['problems'], 'a family with a form missing is a family: the form is what is missing');
-});
-
-test('the scan: a key asked for the wrong way (a family as one string, one string as a family) shows the key, and fails', function (): void {
-    // Both "exist", so by the keys alone all is well; and t('session.minutes') finds no such key, plural('session.start') no session.start.other.
-    $root = sources([
-        'a.component.html' => <<<'HTML'
-            <p>{{ 'session.minutes' | translate: { count: n } }}</p>
-            <p>{{ "session.start" | translatePlural: n }}</p>
-            <p [title]="'session.minutes' | translatePlural: n">{{ "session.start" | translate }}</p>
-            <!-- {{ 'session.minutes' | translate }} -->
-            <p>{{ 'other.minutes' | translate }} {{ (wide ? 'session.minutes' : 'session.start') | translate }}</p>
-            HTML,
-        'a.component.ts' => <<<'TS'
-            const a = this.i18n.t('session.start') + this._i18n.plural("session.minutes", count);
-            const b = this.i18n.t( "session.minutes", { count }) + i18n.plural(`session.start`, 2);
-            const c = i18n.around('session.minutes', 'count') + (i18n.has('session.minutes') ? 1 : 0) + i18n.has('session.start');
-            // i18n.t('session.minutes') in a comment
-            const d = set.has('title') && map.t('changelog.minutes') && i18n.plural(key, count) && i18n.t(TABLE[kind] ?? 'session.start');
-            TS,
-    ]);
-    $database = ['session.minutes.one', 'session.minutes.few', 'session.minutes.other', 'session.start'];
-    $scan = translation_keys_scan($root, $database);
-    assert_same([
-        "a.component.html:1: 'session.minutes' is a plural family and is asked for as one string - the page would show the key",
-        "a.component.html:2: 'session.start' is asked for as a plural, and there is no session.start.one, .few or .other - the page would show the key",
-        "a.component.ts:2: 'session.minutes' is a plural family and is asked for as one string - the page would show the key",
-        "a.component.ts:2: 'session.start' is asked for as a plural, and there is no session.start.one, .few or .other - the page would show the key",
-        "a.component.ts:3: 'session.minutes' is a plural family and is asked for as one string - the page would show the key",
-        "a.component.ts:3: 'session.minutes' is a plural family and is asked for as one string - the page would show the key",
-    ], $scan['problems'], 'each place it is asked for wrongly, in either quote; the right way round, a comment, another namespace and a key that comes through a variable are let be');
-    assert_same([], $scan['missing'], 'by the keys alone nothing is missing, which is why it has to be said');
-    assert_same([], $scan['unused']);
-
-    // Asked for as a plural with no key of that name at all: both are said.
-    $none = translation_keys_scan(sources(['a.component.html' => "{{ 'session.hours' | translatePlural: n }}\n"]), ['session.start']);
-    assert_same(['session.hours'], array_keys($none['missing']));
-    assert_match("/^a\\.component\\.html:1: 'session\\.hours' is asked for as a plural/", $none['problems'][0] ?? '');
-});
-
-test('the scan: a key put together at run time is put together from a declared prefix, or the scan fails', function (): void {
-    $files = [
-        'a.service.ts' => <<<'TS'
-            const refused = this.i18n.t('session.refused.' + kind);
-            const again = this.i18n.t(`session.refused.${kind}`) + this.i18n.t(`session.refused${suffix}`) + this.i18n.t("session." + part + '.title');
-            const declared = word('exam.part.' + id) + word(`exam.part.${id}`);
-            const whole = i18n.t(`session.inBackticks`) + i18n.t(`session.notThere`);
-            const notOurs = ['changelog.' + kind, `changelog.${kind}`, `session.refused is ${kind}`, 'session', 'session. ', `${kind}.session.`];
-            // 'session.commented.' + kind
-            TS,
-        'a.component.html' => "<p>{{ ('session.shown.' + kind) | translate }}</p>\n<p class=\"session.\" [title]=\"'session.title.' + kind\"></p>\n",
-        'core/i18n/dynamic-keys.ts' => "export const DYNAMIC_KEYS = {\n  'exam.part.': ['1'],\n};\n",
-    ];
-    $database = ['session.start', 'session.inBackticks', 'exam.part.1'];
-    $scan = translation_keys_scan(sources($files), $database);
-    assert_same([
-        "a.component.html:1: a key is put together from 'session.shown.', which core/i18n/dynamic-keys.ts does not declare",
-        "a.component.html:2: a key is put together from 'session.title.', which core/i18n/dynamic-keys.ts does not declare",
-        "a.service.ts:1: a key is put together from 'session.refused.', which core/i18n/dynamic-keys.ts does not declare",
-        "a.service.ts:2: a key is put together from 'session.refused.', which core/i18n/dynamic-keys.ts does not declare",
-        "a.service.ts:2: a key is put together from 'session.refused', which core/i18n/dynamic-keys.ts does not declare",
-        "a.service.ts:2: a key is put together from 'session.', which core/i18n/dynamic-keys.ts does not declare",
-    ], $scan['problems'], 'a literal ending in a dot, a template literal going on with ${...}; a declared prefix, another namespace, a sentence and a comment are let be');
-    assert_same(['session.notThere' => ['a.service.ts:4']], $scan['missing'], 'a key in backticks is asked for like any other');
-    assert_same(['a.service.ts:4'], $scan['used']['session.inBackticks']);
-    assert_same(['session.start'], $scan['unused']);
-
-    // Declared, the same sources pass, and the keys under the prefix are then held like any others.
-    $files['core/i18n/dynamic-keys.ts'] = "export const DYNAMIC_KEYS = {\n  'exam.part.': ['1'],\n  'session.refused.': ['closed'],\n  'session.shown.': [],\n  'session.title.': [],\n  'session.': [],\n};\n";
-    $declared = translation_keys_scan(sources($files), $database);
-    assert_same(["a.service.ts:2: a key is put together from 'session.refused', which core/i18n/dynamic-keys.ts does not declare"], $declared['problems'], 'what is left is the one that is no prefix at all');
-    assert_same(['session.notThere', 'session.refused.closed'], array_keys($declared['missing']), 'and a declared key that is not in the database is missing');
-});
-
-test('the scan without dynamic-keys.ts, or with nothing declared in it: no key is put together at run time, and that is held', function (): void {
-    $database = ['home.title', 'exam.section.kana'];
-    $plain = ['home/home.component.html' => "<h1>{{ 'home.title' | translate }}</h1>\n"];
-    $built = ['exam/exam.component.ts' => "const name = this.i18n.t('exam.section.' + question.section);\n"];
-    $undeclared = ["exam/exam.component.ts:1: a key is put together from 'exam.section.', which core/i18n/dynamic-keys.ts does not declare"];
-    $nothing = [
-        'absent' => null,
-        'empty' => '',
-        'only a line break' => "\n",
-        'only comments' => "// The keys put together at run time: none yet.\n/* 'exam.section.': ['kana'] */\n",
-        'an empty object' => "/** The keys put together at run time. */\nexport const DYNAMIC_KEYS: Record<string, readonly string[]> = {};\n",
-        'an empty object over two lines' => "export const DYNAMIC_KEYS: Record<string, readonly string[]> = {\n};\n",
-    ];
-    foreach ($nothing as $what => $declaration) {
-        $files = $declaration === null ? [] : ['core/i18n/dynamic-keys.ts' => $declaration];
-        $scan = translation_keys_scan(sources($plain + $files), $database);
-        assert_same([[], [], ['exam.section.kana']], [$scan['problems'], $scan['missing'], $scan['unused']], "$what: nothing declared is no problem, and a key nothing asks for is unused");
-        assert_same(['home/home.component.html:1'], $scan['used']['home.title'], $what);
-        // A source that does put one together is then the problem: its keys could be missing and nothing would say so.
-        assert_same($undeclared, translation_keys_scan(sources($plain + $built + $files), $database)['problems'], "$what: a key put together all the same");
-        if ($declaration !== null) {
-            assert_same(['prefixes' => [], 'keys' => [], 'problems' => []], translation_keys_dynamic($declaration), $what);
-        }
-    }
-    assert_same([], translation_keys_scan(sources($plain + $built), [])['problems'], 'with no key in the database at all (before the strings are seeded) nothing is anybody\'s key yet');
-
-    // A file that declares something the reader cannot read is not "nothing declared".
-    $made = translation_keys_scan(sources($plain + ['core/i18n/dynamic-keys.ts' => "export const DYNAMIC_KEYS = makeKeys();\n"]), $database);
-    assert_same(['core/i18n/dynamic-keys.ts: no \'prefix.\': [tails] could be read from it'], $made['problems']);
-});
-
-test('the scan fails a template that gives innerHTML a translated string, on one line or several; and a list of tails it cannot read', function (): void {
-    $root = sources([
-        'a.component.html' => "<p [innerHTML]=\"text()\"></p>\n<p>{{ 'home.title' | translate }}</p>\n<p [innerHTML]=\"'home.title' | translate\"></p>\n<!-- <p [innerHTML]=\"'home.title' | translatePlural: 2\"></p> -->\n"
-            // Broken over lines, as Prettier breaks a long binding.
-            . "<div\n  class=\"rich\"\n  [innerHTML]=\"\n    'home.title'\n      | translate: { name: name() }\n  \"\n></div>\n"
-            // A translated string beside the binding, not in it: drawn as text like any other.
-            . "<p [innerHTML]=\"report().html\" [attr.aria-label]=\"'home.title' | translate\">{{ 'home.title' | translate }}</p>\n"
-            . "<p [innerHtml]='i18n.t(\"home.title\")'></p>\n",
-        'a.component.ts' => "el.innerHTML = this.i18n.translate('home.title');\n",
-        'core/i18n/dynamic-keys.ts' => "export const DYNAMIC_KEYS = {\n  'exam.section.': SECTIONS.map((s) => s.id),\n  'exam.part.': [...PARTS],\n  'error.': ['offline', 'not a key', ''],\n  'time.': ['now'],\n};\n",
-    ]);
-    $scan = translation_keys_scan($root, ['home.title', 'time.now', 'error.offline']);
-    assert_same(7, count($scan['problems']), test_show($scan['problems']));
-    assert_match('/^a\.component\.html:3: innerHTML is given a translated string - a string is text/', $scan['problems'][0]);
-    assert_match('/^a\.component\.html:7: innerHTML is given a translated string/', $scan['problems'][1], 'on the line the binding begins');
-    assert_match('/^a\.component\.html:13: innerHTML is given a translated string/', $scan['problems'][2], 'asked for with t() in the template, and however the attribute is written; line 12, with a translated string beside the binding, is let be');
-    assert_match("/dynamic-keys\\.ts: the tails of 'exam\\.section\\.' are not written out/", $scan['problems'][3]);
-    assert_match("/the tails of 'exam\\.part\\.' are not written out/", $scan['problems'][4]);
-    assert_match("/'error\\.' \\+ 'not a key' is not a key/", $scan['problems'][5]);
-    assert_match("/'error\\.' \\+ '' is not a key/", $scan['problems'][6]);
-    assert_same([], $scan['missing'], 'what could be read was read');
-    assert_same([], $scan['unused']);
-});
-
-test('the scan reads the real frontend: only the files it should, and their comments are not keys', function (): void {
-    $root = translation_keys_frontend_root();
-    $files = translation_key_source_files($root);
-    assert_true(in_array('app.routes.ts', $files, true) && in_array('app.component.html', $files, true), 'the sources are where the scan looks');
-    assert_true(is_file("$root/core/auth/sdk/anotoki-auth.d.ts"), 'the IAM\'s SDK is where the scan leaves it out');
-    foreach ($files as $file) {
-        assert_match('/\.(ts|html)$/', $file);
-        assert_no_match('~\.spec\.ts$|^core/testing/|^core/auth/sdk/~', $file);
-    }
-    assert_same("a\n\n\nb 'c/*' \"d//\" `e\n//` f \ng", translation_key_source_text("a\r\n/* x\r\n 'y' */\r\nb 'c/*' \"d//\" `e\n//` f // 'z'\r\ng", false), 'comments out, strings as they are, line for line');
-    assert_same("a\n\nb", translation_key_source_text("a<!-- 'x'\n -->\nb", true));
-});
-
-/* --------------------------------------------------- a language as a file */
-
-test('a language\'s strings as a file: flat JSON, the letters as they are, {} for none', function (): void {
-    $dir = temp_dir('strings');
-    assert_same("{}\n", translations_file_text([]));
-    assert_same("{}\n", translations_file_text(new stdClass()));
-    assert_same("{\n    \"home.title\": \"Prehľad – „naučené“\",\n    \"a/b\": \"1\"\n}\n", translations_file_text(['home.title' => 'Prehľad – „naučené“', 'a/b' => '1']));
-
-    $values = ['home.title' => 'Prehľad', 'time.now' => "práve\nteraz", '12' => 'a key that looks like a number'];
-    translation_file_write("$dir/sk.json", $values);
-    assert_same($values, translation_file_read("$dir/sk.json"));
-    file_put_contents("$dir/windows.json", "\xEF\xBB\xBF" . str_replace("\n", "\r\n", translations_file_text($values)));
-    assert_same($values, translation_file_read("$dir/windows.json"), 'as an editor on Windows saves it');
-    file_put_contents("$dir/empty.json", "{}\n");
-    assert_same([], translation_file_read("$dir/empty.json"));
-
-    file_put_contents("$dir/list.json", '["a", "b"]');
-    file_put_contents("$dir/broken.json", '{"a": ');
-    file_put_contents("$dir/text.json", '"a"');
-    assert_throws(static fn () => translation_file_read("$dir/list.json"), '/one flat object/');
-    assert_throws(static fn () => translation_file_read("$dir/text.json"), '/one flat object/');
-    assert_throws(static fn () => translation_file_read("$dir/broken.json"), '/is not JSON/');
-    assert_throws(static fn () => translation_file_read("$dir/nothing.json"), '/There is no file/');
-});
+/* --------------------------------------------- a language's strings from a file */
 
 test('the strings of a language out of a file: a flat export as it is, or a backup\'s translations.values.<code>', function (): void {
     $dir = temp_dir('strings');
-    $values = ['home.title' => 'Prehľad', 'format' => 'a key may be named so'];
-    translation_file_write("$dir/sk.json", $values);
+    $values = ['home.title' => 'Prehľad', 'format' => 'a key may be named so', '12' => 'a key that looks like a number'];
+    TranslationFile::write("$dir/sk.json", $values);
     assert_same($values, translation_file_strings("$dir/sk.json", 'sk'), 'a flat export is that language\'s, whatever code is asked');
     assert_same($values, translation_file_strings("$dir/sk.json", 'de'));
+    file_put_contents("$dir/windows.json", "\xEF\xBB\xBF" . str_replace("\n", "\r\n", TranslationFile::text($values)));
+    assert_same($values, translation_file_strings("$dir/windows.json", 'sk'), 'as an editor on Windows saves it');
+    file_put_contents("$dir/empty.json", "{}\n");
+    assert_same([], translation_file_strings("$dir/empty.json", 'sk'));
+    file_put_contents("$dir/list.json", '["a", "b"]');
+    file_put_contents("$dir/broken.json", '{"a": ');
+    file_put_contents("$dir/text.json", '"a"');
+    assert_throws(static fn () => translation_file_strings("$dir/list.json", 'sk'), '/one flat object/');
+    assert_throws(static fn () => translation_file_strings("$dir/text.json", 'sk'), '/one flat object/');
+    assert_throws(static fn () => translation_file_strings("$dir/broken.json", 'sk'), '/is not JSON/');
+    assert_throws(static fn () => translation_file_strings("$dir/nothing.json", 'sk'), '/There is no file/');
 
     $backup = ['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'takenAt' => '2026-09-30T06:00:00.000Z', 'database' => 'academy_test_example', 'everybody' => true,
         'users' => [['id' => 1, 'username' => null, 'kanji' => ['items' => ['k:大' => ['stage' => 4, 'notes' => ['meaning' => 'big']]]], 'log' => [], 'attempts' => [['attempt' => ['responses' => [['a' => ['b' => ['c' => 1]]]]]]]]],
         'translations' => ['languages' => [], 'values' => ['en' => ['home.title' => 'Dashboard'], 'sk' => ['home.title' => 'Prehľad'], 'de' => new stdClass()]]];
     file_put_contents("$dir/academy-2026-09-30.json", json_text($backup) . "\n");
-    assert_same(['home.title' => 'Prehľad'], translation_file_strings("$dir/academy-2026-09-30.json", 'sk'));
+    assert_same(['home.title' => 'Prehľad'], translation_file_strings("$dir/academy-2026-09-30.json", 'sk'), 'a backup nests deeper than a file of strings may');
     assert_same(['home.title' => 'Dashboard'], translation_file_strings("$dir/academy-2026-09-30.json", 'en'));
     assert_same([], translation_file_strings("$dir/academy-2026-09-30.json", 'de'), 'a language with no strings of its own');
     assert_throws(static fn () => translation_file_strings("$dir/academy-2026-09-30.json", 'fr'), '/is a backup, and holds no strings of the language "fr"/');

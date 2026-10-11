@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { ApiService, toApiError } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { fmtAdminMoment } from '../../core/format';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { pageQuestion } from '../page-question';
 import { reason } from '../reason';
 
@@ -38,7 +38,7 @@ function count(n: number, one: string, many: string): string {
 export class PeopleComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
-  private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
   /** The kit's question, answered no if the page goes while it is open. */
   private readonly ask = pageQuestion();
 
@@ -89,7 +89,7 @@ export class PeopleComponent implements OnInit {
 
   /** A moment in the admin panel's English, or in the date order and clock the administrator chose for their account. */
   protected when(ms: number | null): string {
-    return ms === null ? '—' : fmtAdminMoment(this.i18n, ms);
+    return ms === null ? '—' : fmtAdminMoment(this.wording, ms);
   }
 
   protected items(person: Person): string {

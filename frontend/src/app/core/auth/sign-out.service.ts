@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService } from '@anotoki/lib/translations';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { AuthService } from './auth.service';
 
@@ -19,8 +19,10 @@ import { AuthService } from './auth.service';
  *   3. then the IAM ends the session everywhere and sends the browser back to
  *      the app, which sends it on to the IAM's sign-in.
  *
- * Unsaved strings of the admin area are AdminDrafts' to ask about: it holds
- * them for the tab, and the browser's "Leave site?" comes as the page goes.
+ * Unsaved strings of the admin area are the anotoki library's drafts' to ask
+ * about (LocalizationDrafts, @anotoki/lib/translations/admin): they are held
+ * for the tab, through a sign-out, and the browser's "Leave site?" comes as
+ * the page goes.
  */
 @Injectable({ providedIn: 'root' })
 export class SignOutService {

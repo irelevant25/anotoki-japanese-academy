@@ -1,9 +1,9 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../core/api/api.types';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { LessonsComponent } from './lessons.component';
 

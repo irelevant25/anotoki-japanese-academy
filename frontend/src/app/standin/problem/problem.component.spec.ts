@@ -1,8 +1,8 @@
 import { ApplicationRef, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService, StartProblem } from '../../core/auth/auth.service';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { ProblemComponent } from './problem.component';
 
 /** The problem page for a start that failed this way; `admin`: the person signed in is an administrator. */
@@ -132,7 +132,7 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     expect(el.querySelector('.detail')?.getAttribute('lang')).toBe('en');
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Skúsiť znova');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(said(el)).toBe(
       "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",

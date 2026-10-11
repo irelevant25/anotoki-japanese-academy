@@ -63,7 +63,7 @@ test('without a token every address with somebody’s data answers 401, and asks
         [$method, $url] = explode(' ', $route);
         $body = $method === 'POST' ? ['id' => 'k:大', 'confirm' => 'RESET'] : null;
         if (str_starts_with($url, '/api/admin/') && $method !== 'GET' && $method !== 'DELETE') {
-            $body = ['code' => 'xx', 'name' => 'X', 'nativeName' => 'X', 'enabled' => false, 'values' => new stdClass()];
+            $body = ['code' => 'xx', 'name' => 'X', 'native_name' => 'X', 'enabled' => false, 'values' => new stdClass()];
         }
         // the test server is PHP's built-in one, asked straight from this computer: nobody is anybody without a token
         $r = as_user(null, $method, $url, $body);
@@ -121,7 +121,7 @@ test('every account studies here: MEMBER (every account holds it) is a learner, 
     foreach (['GET /api/admin/languages' => 'staff_only', 'POST /api/admin/languages' => 'staff_only', 'GET /api/admin/translations/sk/export' => 'staff_only',
         'GET /api/admin/people' => 'staff_only', 'GET /api/admin/migrations' => 'staff_only'] as $route => $code) {
         [$method, $url] = explode(' ', $route);
-        $r = as_user($member, $method, $url, $method === 'POST' ? ['code' => 'xx', 'name' => 'X', 'nativeName' => 'X'] : null);
+        $r = as_user($member, $method, $url, $method === 'POST' ? ['code' => 'xx', 'name' => 'X', 'native_name' => 'X'] : null);
         assert_same([403, $code], [$r['status'], $r['body']['code'] ?? null], "MEMBER: $route");
     }
     assert_same(0, (int) db_value("SELECT count(*) FROM languages WHERE code = 'xx'"), 'and no language was added');
@@ -296,7 +296,7 @@ test('signing in through the stand-in IAM: a code with PKCE, tokens the app take
     assert_same(200, $as('GET', '/api/kanji/summary')['status'], 'the app takes the stand-in IAM’s token');
     assert_same('cleo', db_value('SELECT preferred_username FROM users WHERE id = 640'), 'and knows the person by it');
     assert_same(200, $as('GET', '/api/admin/translations')['status'], 'an editor rewords the words');
-    assert_refused(403, 'admin_only', 'This is for the site\'s administrators.', $as('POST', '/api/admin/languages', ['code' => 'de', 'name' => 'German', 'nativeName' => 'Deutsch']),
+    assert_refused(403, 'admin_only', 'This is for the site\'s administrators.', $as('POST', '/api/admin/languages', ['code' => 'de', 'name' => 'German', 'native_name' => 'Deutsch']),
         'and adds no language');
 
     $again = $token(['grant_type' => 'refresh_token', 'refresh_token' => $tokens['body']['refresh_token']]);

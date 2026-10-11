@@ -125,8 +125,8 @@ A migration that changes data must carry its `DO $$ … $$` check: on the site
 nobody watches it run. Every migration ends with `-- end of NNN`; until that
 line is there (a file still uploading), the site leaves it, and the ones after
 it, pending (a "draft" on the Migrations page). Never upload while the
-newest migration is a draft (008 is one now, until the owner writes its
-last line): the site would wait on it, and its study content with it —
+newest migration is a draft (009 is one now, until the owner writes its
+last line; 008 is final since 2026-10-11 and goes up with it): the site would wait on it, and its study content with it —
 `build-dist.php` refuses to build then, and names it. One that fails on Apply is rolled back
 whole and named ("Stopped at …", and why in PostgreSQL's own words under it;
 the host's error log has it too), the ones
@@ -140,8 +140,19 @@ copy before it applies anything new.
 Slovak, the Translations and Languages pages) changes no study table: it is
 applied like any other, by the Migrations page's Apply, after the raw copy.
 While it is still arriving the bundle of words answers 503
-`not_up_to_date` and a page that starts shows "The database is not up to date
-with this version of the app yet". Tell the owner:
+`translations_unavailable` (the anotoki library's answer; `not_up_to_date`
+before 0.3.0) and a page that starts shows "The database is not up to date
+with this version of the app yet". The update that brings anotoki-lib 0.3.0's
+words brings 008, 009 and the library's two files
+(`anotoki_translations/001_…`, `002_…`) for one Apply: 009 copies the site's
+words for the top bar and the switches - its own rewordings, every language -
+under the library's keys first, so the bar says what it said; export every
+language on the Translations page before uploading all the same (after 009 such
+a file imports only with the nineteen moved keys renamed and the sixteen
+deleted ones left out: `unknown_key` refuses all of it otherwise). Check first
+that the website's database is UTF-8 (`SHOW server_encoding` = `UTF8`: the
+library's 001 stops on any other), and upload `backend/vendor/` before the
+rest (the new code needs the library's classes). Tell the owner:
 
 - the admin panel is for the IAM roles `EDITOR` (rewords the strings) and
   `ADMIN` (also keeps the languages, the people, and applies the database's

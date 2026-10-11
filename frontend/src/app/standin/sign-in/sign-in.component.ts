@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslationParams, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { AuthService } from '../../core/auth/auth.service';
 import { signInFailureKey, signInFailureParams } from '../../core/i18n/error-text';
-import { TranslationParams, TranslationService } from '../../core/i18n/translation.service';
 import { keptWord } from '../kept-word';
 
 /** What the page says went wrong: a key and what fills it, never a sentence. */

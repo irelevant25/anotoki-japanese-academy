@@ -1,8 +1,8 @@
 import { ApplicationRef, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from '../../core/auth/auth.service';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { SignInComponent } from './sign-in.component';
 
 /**
@@ -100,7 +100,7 @@ describe('SignInComponent: in the reader’s language', () => {
     const el = await comeBack('server_error', 'The IAM could not finish the sign-in');
     expect(el.querySelector('.err')?.textContent?.trim()).toBe('Prihlásenie sa nepodarilo. Skús to znova. (server_error)');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(el.querySelector('.err')?.textContent?.trim()).toBe('Signing in did not work. Try again. (server_error)');
   });
@@ -112,7 +112,7 @@ describe('SignInComponent: in the reader’s language', () => {
     expect(el.querySelector('.panel > p:not(.err)')?.textContent?.trim()).toBe('Ak sa chceš učiť, prihlás sa. Tvoj pokrok v kanji a výsledky skúšok sa ukladajú k tvojmu účtu.');
     expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Prihlásiť sa');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(el.querySelector('.panel > p:not(.err)')?.textContent?.trim()).toBe('Sign in to study. Your kanji progress and your exam results are kept with your account.');
     expect(el.querySelector('#signin-button')?.textContent?.trim()).toBe('Sign in');

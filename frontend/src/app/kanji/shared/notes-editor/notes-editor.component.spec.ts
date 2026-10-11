@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../../core/api/api.types';
-import { TranslationService } from '../../../core/i18n/translation.service';
 import { SavesInFlight } from '../../../core/saves-in-flight.service';
-import { provideTestTranslations } from '../../../core/testing/test-translations';
 import { KanjiStateService } from '../../kanji-state.service';
 import { NotesEditorComponent } from './notes-editor.component';
 
@@ -142,7 +142,7 @@ describe('NotesEditorComponent', () => {
     expect(host.textContent).not.toContain('No such item');
 
     // the status is no sentence: it follows the language
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(statuses()).toEqual(['not saved: No such item.', '']);
     expect(labels()).toEqual(['Meaning note not saved: No such item.', 'Reading note']);

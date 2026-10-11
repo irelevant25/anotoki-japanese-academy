@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
-import { unsavedChangesGuard } from './admin/unsaved-changes.guard';
+import { anotokiUnsavedChangesGuard } from '@anotoki/lib/translations';
 import { AuthCallbackComponent } from './core/auth/auth-callback/auth-callback.component';
 import { AuthService } from './core/auth/auth.service';
 import { adminSignInGuard, signInGuard } from './core/auth/sign-in.guard';
@@ -31,8 +31,8 @@ export const adminOnly: CanActivateFn = () => inject(AuthService).isAdmin() || i
  *   /                       the Academy's home (and Your data, at its foot)
  *   /kanji                  the kanji trainer: /kanji/lessons, /reviews, /practice, /browse?lesson=6, /item/:id
  *   /exam                   the exam
- *   /admin/translations     EDITOR, ADMIN: the app's words in every language (English)
- *   /admin/languages        ADMIN: the languages readers are offered (English)
+ *   /admin/translations     EDITOR, ADMIN: the app's words in every language (English): the anotoki library's page
+ *   /admin/languages        ADMIN: the languages readers are offered (English): the anotoki library's page
  *   /admin/people           ADMIN: everybody the site has, and deleting a person's data (English)
  *   /admin/migrations       ADMIN: the database's migrations, applied and pending, and Apply (English): the
  *                           anotoki library's page, the one page that works while an update waits
@@ -50,8 +50,12 @@ export const adminOnly: CanActivateFn = () => inject(AuthService).isAdmin() || i
  * ("Kanji"); the title strategy words it and puts the app's name after it
  * (core/i18n/title.strategy.ts). The home page has none: the name alone. The
  * admin pages are English, and so are their titles ("Admin panel" put between
- * a page's and the app's name); leaving one with unsaved
- * changes asks first (unsavedChangesGuard).
+ * a page's and the app's name); leaving Translations or Languages with unsaved
+ * changes asks first (the library's anotokiUnsavedChangesGuard). Those two
+ * pages are the library's, from its own entry point
+ * (@anotoki/lib/translations/admin), each in the admin panel's frame
+ * (admin/translations/, admin/languages/), as the Migrations page is: never in
+ * the first load.
  */
 export const routes: Routes = [
   { path: 'auth/callback', component: AuthCallbackComponent, title: 'title.signingIn' },
@@ -63,14 +67,14 @@ export const routes: Routes = [
       {
         path: 'translations',
         title: 'Translations',
-        canDeactivate: [unsavedChangesGuard],
+        canDeactivate: [anotokiUnsavedChangesGuard],
         loadComponent: () => import('./admin/translations/translations.component').then((m) => m.TranslationsComponent),
       },
       {
         path: 'languages',
         title: 'Languages',
         canActivate: [adminOnly],
-        canDeactivate: [unsavedChangesGuard],
+        canDeactivate: [anotokiUnsavedChangesGuard],
         loadComponent: () => import('./admin/languages/languages.component').then((m) => m.LanguagesComponent),
       },
       {

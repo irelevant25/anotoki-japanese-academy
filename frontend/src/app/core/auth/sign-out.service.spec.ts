@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { SavesInFlight } from '../saves-in-flight.service';
-import { provideTestTranslations } from '../testing/test-translations';
 import { AuthService } from './auth.service';
 import { SignOutService } from './sign-out.service';
 

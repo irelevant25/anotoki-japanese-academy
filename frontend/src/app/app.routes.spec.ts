@@ -2,10 +2,13 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Route, Router, provideRouter } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { anotokiUnsavedChangesGuard } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { LanguagesComponent } from './admin/languages/languages.component';
+import { TranslationsComponent } from './admin/translations/translations.component';
 import { adminOnly, routes, staffOnly, whenReady } from './app.routes';
 import { AppState, AuthService, SignInFailure } from './core/auth/auth.service';
 import { adminSignInGuard, signInGuard } from './core/auth/sign-in.guard';
-import { provideTestTranslations } from './core/testing/test-translations';
 import { HomeComponent } from './home/home.component';
 import { derivedFromState } from './core/testing/auth-states';
 
@@ -31,6 +34,16 @@ describe('the routes: who may open what', () => {
     expect(find(admin?.children, 'languages')?.canActivate).toEqual([adminOnly]);
     expect(find(admin?.children, 'people')?.canActivate).toEqual([adminOnly]);
     expect(find(admin?.children, 'migrations')?.canActivate).toEqual([adminOnly]);
+  });
+
+  it('leaving Translations or Languages with something not saved asks the page first (the anotoki library’s guard); nothing else asks', async () => {
+    expect(find(admin?.children, 'translations')?.canDeactivate).toEqual([anotokiUnsavedChangesGuard]);
+    expect(find(admin?.children, 'languages')?.canDeactivate).toEqual([anotokiUnsavedChangesGuard]);
+    expect(find(admin?.children, 'people')?.canDeactivate ?? []).toEqual([]);
+    expect(find(admin?.children, 'migrations')?.canDeactivate ?? []).toEqual([]);
+    // Each in the admin panel's frame, as the Migrations page is.
+    expect(await find(admin?.children, 'translations')?.loadComponent?.()).toBe(TranslationsComponent);
+    expect(await find(admin?.children, 'languages')?.loadComponent?.()).toBe(LanguagesComponent);
   });
 });
 

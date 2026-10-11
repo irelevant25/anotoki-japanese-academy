@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { CatalogItem, Stage, Summary } from '../../core/api/api.types';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { DoneEntry, SessionResult } from '../session/session-engine';
 import { SummaryComponent } from './summary.component';
@@ -292,7 +292,7 @@ describe('SummaryComponent', () => {
     await show(result('review', [entry(0)]), { slovak: true, summary: { reviewsDue: 3 } });
     expect(texts('.actions button')).toEqual(['Ďalšie opakovania: 3']);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(texts('.actions button')).toEqual(['3 more due']);
     expect(text('h1')).toBe('Reviews done');

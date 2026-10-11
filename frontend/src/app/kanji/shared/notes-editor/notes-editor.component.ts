@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, input, OnDestroy, OnInit, signal, WritableSignal } from '@angular/core';
+import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ApiError, ApiService, toApiError } from '../../../core/api/api.service';
 import { CatalogItem } from '../../../core/api/api.types';
 import { errorKey, errorParams } from '../../../core/i18n/error-text';
-import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { TranslationService } from '../../../core/i18n/translation.service';
 import { SavesInFlight } from '../../../core/saves-in-flight.service';
 import { KanjiStateService } from '../../kanji-state.service';
 

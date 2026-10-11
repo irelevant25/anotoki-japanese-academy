@@ -4,17 +4,18 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { SiteGateComponent, SitePagesDirective, SiteStatus } from '@anotoki/lib/migrations';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
 import { PrivateLinksService } from '../core/auth/private-links.service';
 import { fmtDateTime } from '../core/format';
+import { TimeWording } from '../core/i18n/time-wording';
 import { provideKit } from '../core/kit.config';
-import { TranslationService } from '../core/i18n/translation.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { drawnFoot } from '../core/testing/foot-controls';
 import { provideTestSiteStatus } from '../core/testing/site-status';
-import { provideTestTranslations } from '../core/testing/test-translations';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { TopBarComponent } from '../top-bar/top-bar.component';
 import { ExamComponent, KEPT_PAPER_KEY, KeptPaper } from './exam.component';
@@ -478,7 +479,7 @@ describe('ExamComponent', () => {
       expect(text('#bankLine')).toBe(`11${NBSP}523 otázok v banke · 15 oblastí · 3 zaznamenané pokusy`);
 
       // A computed over t() and plural(): no reload, no new request.
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#bankLine')).toBe('11,523 questions in the bank · 15 sections · 3 attempts recorded');
       expect(api.meta).toHaveBeenCalledTimes(1);
@@ -488,7 +489,7 @@ describe('ExamComponent', () => {
       api.meta.mockResolvedValue({ ...META, attempts: 1 });
       await open('sk');
       expect(text('#bankLine')).toBe(`11${NBSP}523 otázok v banke · 15 oblastí · 1 zaznamenaný pokus`);
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#bankLine')).toBe('11,523 questions in the bank · 15 sections · 1 attempt recorded');
     });
@@ -533,7 +534,7 @@ describe('ExamComponent', () => {
       expect(host.textContent).not.toContain('secret sentence');
 
       // State holds the key and the ApiError, not the sentence: it follows the language.
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#setupErr')).toBe('Could not load the exam: The database is not reachable.');
       expect(host.textContent).not.toContain('secret sentence');
@@ -613,18 +614,18 @@ describe('ExamComponent', () => {
       await settle();
 
       const cells = (row: number) => Array.from(all('table.data tbody tr')[row].querySelectorAll('td'));
-      expect(cells(0).map(said)).toEqual([fmtDateTime(i18n, attempts[0].finishedAt), '—', '40', '72,5 %', 'B', 'PASS', 'otvoriť']);
+      expect(cells(0).map(said)).toEqual([fmtDateTime(TestBed.inject(TimeWording), attempts[0].finishedAt), '—', '40', '72,5 %', 'B', 'PASS', 'otvoriť']);
       expect(cells(1).map(said).slice(1, 6)).toEqual(['Ada', '120', '41,7 %', 'F', 'FAIL']);
       expect(cells(0)[5].getAttribute('lang')).toBe('en');
       expect(cells(1)[5].classList.contains('fail')).toBe(true);
       const link = cells(0)[6].querySelector('a')!;
       expect([link.getAttribute('href'), link.getAttribute('hreflang')]).toEqual(['/report/a%201', 'en']);
 
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#historyPanel h2')).toBe('Past attempts');
       expect(texts('table.data th')).toEqual(['Date', 'Name', 'Qs', 'Score', 'Grade', 'Result', 'Report']);
-      expect(cells(0).map(said)).toEqual([fmtDateTime(i18n, attempts[0].finishedAt), '—', '40', '72.5%', 'B', 'PASS', 'open']);
+      expect(cells(0).map(said)).toEqual([fmtDateTime(TestBed.inject(TimeWording), attempts[0].finishedAt), '—', '40', '72.5%', 'B', 'PASS', 'open']);
     });
 
     it('past attempts, none yet', async () => {
@@ -686,7 +687,7 @@ describe('ExamComponent', () => {
       audio.dispatchEvent(new Event('ended'));
       await settle();
       expect(text('#playState')).toBe('Vypočuť znova?');
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#playState')).toBe('Listen again?');
 
@@ -729,7 +730,7 @@ describe('ExamComponent', () => {
       await settle();
       expect(text('#sectionTag')).toBe('Častice');
 
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       await settle();
       expect(text('#sectionTag')).toBe('Particles');
       expect(text('#counter')).toBe('2 / 3');
@@ -768,7 +769,7 @@ describe('ExamComponent', () => {
       expect(confirmBox).toHaveBeenLastCalledWith('4 otázky sú bez odpovede. Ukončiť a vyhodnotiť aj tak?');
 
       // The words are made at the moment the dialog is raised: the next one is in the new language.
-      await i18n.setLanguage('en', false);
+      await i18n.setLanguage('en', { remember: false });
       one('#quitBtn').click();
       expect(confirmBox).toHaveBeenLastCalledWith('4 questions unanswered. Finish and score anyway?');
     });
@@ -1143,10 +1144,10 @@ describe('ExamComponent', () => {
       const top = bar.nativeElement as HTMLElement;
       const controls = (): HTMLElement[] => [
         top.querySelector<HTMLElement>('anotoki-brand a')!,
-        ...Array.from(top.querySelectorAll<HTMLElement>('nav.nav a')),
+        ...Array.from(top.querySelectorAll<HTMLElement>('nav.anotoki-top-bar__nav a')),
         top.querySelector<HTMLElement>('anotoki-language-switcher button')!,
         ...Array.from(top.querySelectorAll<HTMLElement>('[role="radio"]')),
-        top.querySelector<HTMLElement>('.person-button')!,
+        top.querySelector<HTMLElement>('.anotoki-top-bar__person-button')!,
       ];
       expect(controls()).toHaveLength(8);
       expect(controls().every((control) => control !== null)).toBe(true);
@@ -1158,7 +1159,7 @@ describe('ExamComponent', () => {
         }
       }
       // The person's menu open, its items too (Enter on "Sign out" must not also hand the paper in).
-      top.querySelector<HTMLElement>('.person-button')!.click();
+      top.querySelector<HTMLElement>('.anotoki-top-bar__person-button')!.click();
       await bar.whenStable();
       const items = Array.from(top.querySelectorAll<HTMLElement>('[role="menuitem"]'));
       expect(items.length).toBeGreaterThan(1);

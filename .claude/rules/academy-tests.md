@@ -58,7 +58,9 @@ use the `academy-test` skill.
     answer checking against the whole catalog, the session engine, the
     interceptor, the services, the translation service and pipes, the owner
     pages, the components. A spec gets its strings from
-    `provideTestTranslations()` (`core/testing/test-translations.ts`: the real
+    `provideTestTranslations()` (the anotoki library's
+    `@anotoki/lib/translations/testing`; `core/testing/kit-english.ts` for the
+    kit's English with no strings: the real
     service with the spec's strings in memory, no HTTP).
   - `frontend/e2e/`: `playwright-core` driving the installed Edge against the
     production build (`run.js`, `setup.js`, `screens.js`). These are scripts,

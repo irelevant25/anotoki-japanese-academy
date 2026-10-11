@@ -1,8 +1,8 @@
 import { inject, Injector } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { TranslationService } from '@anotoki/lib/translations';
 import { AuthService } from './auth/auth.service';
 import { VisitorKey } from './auth/visitor-key';
-import { TranslationService } from './i18n/translation.service';
 
 /**
  * The whole start of the app, before anything is drawn (the one app

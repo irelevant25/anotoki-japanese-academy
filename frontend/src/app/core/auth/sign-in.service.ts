@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService } from '@anotoki/lib/translations';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { AuthService } from './auth.service';
 

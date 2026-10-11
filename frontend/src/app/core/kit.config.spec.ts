@@ -1,58 +1,63 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ANOTOKI_SHELL_CONFIG, ThemeService } from '@anotoki/lib/shell';
-import { AnotokiWords } from '@anotoki/lib/ui';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { AnotokiWords } from '@anotoki/lib/ui/config';
 import { AuthService } from './auth/auth.service';
-import { TranslationService } from './i18n/translation.service';
-import { provideKit, THEME_KEY } from './kit.config';
+import { KIT_ENGLISH, provideKit, THEME_KEY } from './kit.config';
 import { authStandIn, AuthStandIn, NO_CHOICE, person } from './testing/auth-states';
-import { provideTestTranslations } from './testing/test-translations';
+import { provideKitEnglish } from './testing/kit-english';
 
-/** The app's words for what the kit says, as the seed has them. */
+/**
+ * The kit's words as this app's database has them since migration 009: the
+ * app's own words, copied under the anotoki library's keys - and the
+ * library's own (002) where the app had none, the theme's note among them.
+ */
 const ENGLISH: Record<string, string> = {
-  'topbar.sections': 'The app’s sections',
-  'topbar.phoneMenu': 'Menu',
-  'topbar.menuButton': 'Your menu: {name}',
-  'topbar.menu': 'Your menu',
-  'topbar.roleAdmin': 'Administrator',
-  'topbar.roleEditor': 'Editor',
-  'topbar.admin': 'Admin panel',
-  'account.yourAccount': 'Your anotoki account',
-  'account.signOut': 'Sign out',
-  'signOut.saving': 'Saving…',
-  'signIn.button': 'Sign in',
-  'language.button': 'Language: {name} ({code})',
-  'language.notLoaded': 'The language could not be loaded. Try again.',
-  'theme.label': 'Theme',
-  'theme.light': 'Light',
-  'theme.dark': 'Dark',
-  'theme.system': 'System',
-  'theme.systemHint': 'As your device is set',
-  'common.close': 'Close',
-  'error.offline': 'The server does not answer.',
+  'anotoki.topbar.sections': 'The app’s sections',
+  'anotoki.topbar.phoneMenu': 'Menu',
+  'anotoki.topbar.menuButton': 'Your menu: {name}',
+  'anotoki.topbar.menu': 'Your menu',
+  'anotoki.topbar.roleAdmin': 'Administrator',
+  'anotoki.topbar.roleEditor': 'Editor',
+  'anotoki.topbar.admin': 'Admin panel',
+  'anotoki.topbar.account': 'Your anotoki account',
+  'anotoki.topbar.signIn': 'Sign in',
+  'anotoki.topbar.signOut': 'Sign out',
+  'anotoki.topbar.saving': 'Saving…',
+  'anotoki.language.button': 'Language: {name} ({code})',
+  'anotoki.language.notLoaded': 'The language could not be loaded. Try again.',
+  'anotoki.theme.label': 'Theme',
+  'anotoki.theme.light': 'Light',
+  'anotoki.theme.dark': 'Dark',
+  'anotoki.theme.auto': 'System',
+  'anotoki.theme.autoHint': 'As your device is set',
+  'anotoki.theme.notSaved': 'The theme could not be saved to your anotoki account.',
+  'anotoki.ui.close': 'Close',
 };
-/** The same in Slovak - with the owner's own rewordings, which the kit's built-in Slovak does not have. */
+/** The same in Slovak - with the owner's own rewordings, which the library's built-in Slovak does not have ("Časti aplikácie", "Systémový"). */
 const SLOVAK: Record<string, string> = {
-  'topbar.sections': 'Časti aplikácie',
-  'topbar.phoneMenu': 'Ponuka',
-  'topbar.menuButton': 'Tvoja ponuka: {name}',
-  'topbar.menu': 'Tvoja ponuka',
-  'topbar.roleAdmin': 'Administrátor',
-  'topbar.roleEditor': 'Editor',
-  'topbar.admin': 'Administrátorský panel',
-  'account.yourAccount': 'Tvoj účet anotoki',
-  'account.signOut': 'Odhlásiť sa',
-  'signOut.saving': 'Ukladá sa…',
-  'signIn.button': 'Prihlásiť sa',
-  'language.button': 'Jazyk: {name} ({code})',
-  'language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.',
-  'theme.label': 'Vzhľad',
-  'theme.light': 'Svetlý',
-  'theme.dark': 'Tmavý',
-  'theme.system': 'Systémový',
-  'theme.systemHint': 'Podľa nastavenia tvojho zariadenia',
-  'common.close': 'Zavrieť',
-  'error.offline': 'Server neodpovedá.',
+  'anotoki.topbar.sections': 'Časti aplikácie',
+  'anotoki.topbar.phoneMenu': 'Ponuka',
+  'anotoki.topbar.menuButton': 'Tvoja ponuka: {name}',
+  'anotoki.topbar.menu': 'Tvoja ponuka',
+  'anotoki.topbar.roleAdmin': 'Administrátor',
+  'anotoki.topbar.roleEditor': 'Editor',
+  'anotoki.topbar.admin': 'Administrátorský panel',
+  'anotoki.topbar.account': 'Tvoj účet anotoki',
+  'anotoki.topbar.signIn': 'Prihlásiť sa',
+  'anotoki.topbar.signOut': 'Odhlásiť sa',
+  'anotoki.topbar.saving': 'Ukladá sa…',
+  'anotoki.language.button': 'Jazyk: {name} ({code})',
+  'anotoki.language.notLoaded': 'Jazyk sa nepodarilo načítať. Skús to znova.',
+  'anotoki.theme.label': 'Vzhľad',
+  'anotoki.theme.light': 'Svetlý',
+  'anotoki.theme.dark': 'Tmavý',
+  'anotoki.theme.auto': 'Systémový',
+  'anotoki.theme.autoHint': 'Podľa nastavenia tvojho zariadenia',
+  'anotoki.theme.notSaved': 'Vzhľad sa nepodarilo uložiť do tvojho anotoki účtu.',
+  'anotoki.ui.close': 'Zavrieť',
 };
 
 describe('the anotoki library’s kit, in this app’s words and theme (core/kit.config.ts)', () => {
@@ -61,7 +66,7 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
   function configure(translations = provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })): void {
     auth = authStandIn();
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), translations, provideKit(), { provide: AuthService, useValue: auth }],
+      providers: [provideZonelessChangeDetection(), translations, provideKitEnglish(), provideKit(), { provide: AuthService, useValue: auth }],
     });
   }
 
@@ -69,34 +74,33 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.style.removeProperty('color-scheme');
+    vi.restoreAllMocks();
   });
 
-  it('every word of the kit the app has words for is the app’s - from its database, the owner’s rewordings included', () => {
+  it('every word of the kit is the database’s, under the library’s keys - the app’s words, the owner’s rewordings included', () => {
     configure();
     const words = TestBed.inject(AnotokiWords);
-    expect(
-      [
-        words.t('topbar.sections'),
-        words.t('topbar.phoneMenu'),
-        words.t('topbar.menuButton', { name: 'hana' }),
-        words.t('topbar.menu'),
-        words.t('topbar.roleAdmin'),
-        words.t('topbar.roleEditor'),
-        words.t('topbar.account'),
-        words.t('topbar.admin'),
-        words.t('topbar.signIn'),
-        words.t('topbar.signOut'),
-        words.t('topbar.saving'),
-        words.t('language.button', { name: 'Slovenčina', code: 'SK' }),
-        words.t('language.notLoaded'),
-        words.t('theme.label'),
-        words.t('theme.light'),
-        words.t('theme.dark'),
-        words.t('theme.auto'),
-        words.t('theme.autoHint'),
-        words.t('ui.close'),
-      ],
-    ).toEqual([
+    expect([
+      words.t('topbar.sections'),
+      words.t('topbar.phoneMenu'),
+      words.t('topbar.menuButton', { name: 'hana' }),
+      words.t('topbar.menu'),
+      words.t('topbar.roleAdmin'),
+      words.t('topbar.roleEditor'),
+      words.t('topbar.account'),
+      words.t('topbar.admin'),
+      words.t('topbar.signIn'),
+      words.t('topbar.signOut'),
+      words.t('topbar.saving'),
+      words.t('language.button', { name: 'Slovenčina', code: 'SK' }),
+      words.t('language.notLoaded'),
+      words.t('theme.label'),
+      words.t('theme.light'),
+      words.t('theme.dark'),
+      words.t('theme.auto'),
+      words.t('theme.autoHint'),
+      words.t('ui.close'),
+    ]).toEqual([
       'Časti aplikácie',
       'Ponuka',
       'Tvoja ponuka: hana',
@@ -117,12 +121,12 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
       'Podľa nastavenia tvojho zariadenia',
       'Zavrieť',
     ]);
-    // What the app has no words for is the kit's own, in the same informal Slovak.
+    // A word the database has no string for is the library's own, in the same informal Slovak.
     expect([words.t('language.label'), words.t('ui.cancel'), words.t('ui.confirm')]).toEqual(['Jazyk', 'Zrušiť', 'Potvrdiť']);
     expect([words.language(), words.lang(), words.foreignLang()]).toEqual(['sk', 'sk', null]);
   });
 
-  it('English in the admin panel, whatever the reader reads; and with no strings at all, the English the app keeps - never the kit’s own English for a word the app has', () => {
+  it('English in the admin panel, whatever the reader reads; and with no strings at all, the English the app keeps - never the library’s own English for a word the app says its own way', () => {
     configure();
     TestBed.inject(TranslationService).noteAddress('/admin/people');
     const words = TestBed.inject(AnotokiWords);
@@ -138,6 +142,7 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
       'As your device is set',
       'Sign out',
     ]);
+    expect(KIT_ENGLISH, 'the two this app says its own way, and only they').toEqual({ 'anotoki.topbar.sections': 'The app’s sections', 'anotoki.theme.auto': 'System' });
     expect(warn, 'no key asked for that has no string').not.toHaveBeenCalled();
   });
 
@@ -162,7 +167,7 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
     await Promise.resolve();
   });
 
-  it('a theme the account refuses: the account’s again, and the note under the switch says why in the app’s words', async () => {
+  it('a theme the account refuses: the account’s again, and the note under the switch says so in the reader’s language - the library’s word, from the database', async () => {
     configure();
     auth.user.set(person({ ...NO_CHOICE, theme: 'light' }));
     const theme = TestBed.inject(ThemeService);
@@ -171,7 +176,7 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
     auth.saves[0].refuse('network');
     await vi.waitFor(() => expect(theme.refused()).toBe(true));
     expect(theme.mode()).toBe('light');
-    expect(TestBed.inject(AnotokiWords).t('theme.notSaved')).toBe('Server neodpovedá.');
+    expect(TestBed.inject(AnotokiWords).t('theme.notSaved')).toBe('Vzhľad sa nepodarilo uložiť do tvojho anotoki účtu.');
   });
 
   it('the languages: those on offer under their own names, and a choice is the translation service’s', async () => {
@@ -186,5 +191,6 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
     await expect(languages.choose('en')).resolves.toBe(true);
     expect(chosen).toHaveBeenCalledWith('en');
     expect(languages.current()).toBe('en');
+    expect(languages.notSaved?.(), 'nobody signed in: nothing to refuse it').toBe(false);
   });
 });

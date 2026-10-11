@@ -40,12 +40,18 @@ function site_call(string $method, string $url, $body = null, array $headers = [
 /** What every address but the open ones answers while a migration waits (the anotoki library's SiteGate). */
 const UPDATE_PENDING = ['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'];
 
-/** Every migration file of this site's copy, in order (the drafts the tests apply among them). */
+/** What the words' routes say while the database holds none (the anotoki library's 503 translations_unavailable), in this app's error body. */
+define('WORDS_UNAVAILABLE', Anotoki\Lib\Translations\Translations::unavailable()->message);
+
+/** Every migration file of this site's copy, in order (the drafts the tests apply among them), then the anotoki library's. */
 function site_migrations(): array
 {
     $files = array_map('basename', glob(site()['dir'] . '/backend/migrations/*.sql') ?: []);
     sort($files);
-    return $files;
+    // then the anotoki library's set of the words, from the site's own copy of the library (db_migration_sets())
+    $library = array_map('basename', glob(site()['dir'] . '/backend/vendor/anotoki/lib/php/migrations/translations/*.sql') ?: []);
+    sort($library);
+    return array_merge($files, array_map(static fn (string $name): string => "anotoki_translations/$name", $library));
 }
 
 /** A file of the site's migrations as the engine names it in the Migrations page's answers. */
@@ -122,6 +128,10 @@ test('the build: what a site needs, and nothing else', function (): void {
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
         // the anotoki library: the migrations' engine, the SiteGate and the Migrations page's addresses
         'backend/vendor/anotoki/lib/php/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
+        // and its translations: the code that serves the words, its migration set and its own words
+        'backend/vendor/anotoki/lib/php/src/Translations/Translations.php', 'backend/vendor/anotoki/lib/php/src/Translations/Http/TranslationsRoutes.php',
+        'backend/vendor/anotoki/lib/php/migrations/translations/001_languages_and_strings.sql', 'backend/vendor/anotoki/lib/php/migrations/translations/002_library_words.sql',
+        'backend/vendor/anotoki/lib/php/resources/library-words.json',
         // the app's own words: the code that serves them, and the migration that holds them
         'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/staff.php', 'backend/migrations/004_languages_and_translations.sql',
         'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
@@ -424,8 +434,9 @@ test('a later upload with a new migration: a draft while it is half there, and t
     }
     assert_false(applied('901_test_upload.sql'));
     $list = site_call('GET', '/api/admin/migrations', null, $owner)['body'];
-    assert_same([[MIGRATION_SET], [migration('901_test_upload.sql') + ['ready' => true, 'blocked' => false]], []], [$list['sets'], $list['pending'], $list['missing']]);
-    assert_same(site_migrations(), array_merge(array_column($list['applied'], 'name'), ['901_test_upload.sql']), 'the applied ones, in the order they ran');
+    assert_same([[MIGRATION_SET, 'anotoki_translations'], [migration('901_test_upload.sql') + ['ready' => true, 'blocked' => false]], []], [$list['sets'], $list['pending'], $list['missing']]);
+    assert_same(array_values(array_diff(site_migrations(), ['901_test_upload.sql'])), array_map('db_migration_label', $list['applied']),
+        'the applied ones, in the order they ran: this site\'s own, then the library\'s');
     assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) ($list['applied'][0]['applied_at'] ?? ''), 'when, in UTC');
     $r = site_call('GET', '/api/admin/migrations/file?set=academy&name=901_test_upload.sql', null, $owner);
     assert_same([200, migration('901_test_upload.sql') + ['sql' => "CREATE TABLE academy_test_upload (id int);\n-- end of 901\n"]], [$r['status'], $r['body']], 'a file’s SQL');
@@ -532,7 +543,7 @@ test('the setup page, run again on purpose after a newer upload: a raw copy of e
     assert_same([], array_values($problems), 'no PHP warnings or errors on the site once it was set up');
 });
 
-test('the update that brings the app’s own words, while migration 004 has not arrived whole: their address says 503 not_up_to_date, nothing is logged, and the rest of the site goes on', function (): void {
+test('the update that brings the app’s own words, while migration 004 has not arrived whole: their address says 503 translations_unavailable, nothing is logged, and the rest of the site goes on', function (): void {
     // The site as it was before this version: its database without 004's tables, and the file itself short
     // of its last line, as FTP leaves it half-way. (Only a site's copy may hold a migration that is not whole:
     // no test writes into backend/migrations.)
@@ -551,15 +562,17 @@ test('the update that brings the app’s own words, while migration 004 has not 
     $copies = count(raw_copies());
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
 
+    // The anotoki library's answer, in this app's error body, and ask again in a minute.
     foreach (['/api/translations/en', '/api/translations/sk', '/api/translations/sk-sk'] as $url) {
         $r = site_call('GET', $url);
-        assert_same([503, ['error' => TRANSLATIONS_NOT_READY, 'code' => 'not_up_to_date']], [$r['status'], $r['body']], "$url: the page puts up its problem page, not a page of keys");
+        assert_same([503, ['error' => WORDS_UNAVAILABLE, 'code' => 'translations_unavailable'], '60'], [$r['status'], $r['body'], $r['headers']['retry-after'] ?? null],
+            "$url: the page puts up its problem page, not a page of keys");
     }
     assert_same(503, site_call('GET', '/api/translations/sk', null, $owner)['status'], 'signed in or not');
     foreach (['GET /api/admin/languages', 'GET /api/admin/translations', 'PUT /api/admin/translations', 'DELETE /api/admin/languages/sk'] as $route) {
         [$method, $url] = explode(' ', $route);
         $r = site_call($method, $url, $method === 'PUT' ? ['values' => new stdClass()] : null, $owner);
-        assert_same([503, 'not_up_to_date'], [$r['status'], $r['body']['code'] ?? null], "$route: the admin area's addresses say the same");
+        assert_same([503, 'translations_unavailable'], [$r['status'], $r['body']['code'] ?? null], "$route: the admin area's addresses say the same");
     }
     assert_false(applied($name), 'without its last line it may be half of it: not applied');
     assert_same(null, db_value("SELECT to_regclass('translations')"));
@@ -583,7 +596,7 @@ test('the update that brings the app’s own words, while migration 004 has not 
     $r = site_call('GET', '/api/kanji/progress', null, $owner);
     assert_same([503, UPDATE_PENDING], [$r['status'], $r['body']], 'the site is being updated');
     $r = site_call('GET', '/api/translations/sk');
-    assert_same([503, ['error' => TRANSLATIONS_NOT_READY, 'code' => 'not_up_to_date']], [$r['status'], $r['body']],
+    assert_same([503, ['error' => WORDS_UNAVAILABLE, 'code' => 'translations_unavailable']], [$r['status'], $r['body']],
         'the words answer while an update waits, and there are none yet: the gate\'s page stands in, which has its own');
     $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
     assert_same(['applied' => [migration($name)], 'failed' => null, 'error' => null], array_diff_key($r, ['note' => 1]));

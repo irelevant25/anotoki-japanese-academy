@@ -75,8 +75,8 @@ try {
             $ready = db_migrations_ready();
             if (count($ready) < count($pending)) {
                 // A migration still being written (no last line) waits: nothing applies it until it is whole.
-                $draft = $pending[count($ready)];
-                say("Waiting: backend/migrations/$draft does not end with its last line, \"-- end of " . substr($draft, 0, 3) . '": '
+                $draft = db_migrator()->status()['pending'][count($ready)];
+                say('Waiting: ' . db_migration_path($draft) . ' does not end with its last line, "-- end of ' . substr($draft['name'], 0, 3) . '": '
                     . 'it is still being written (or half copied), and nothing applies it, or anything after it, until it does.');
             }
             if ($ready) {
@@ -115,8 +115,8 @@ try {
     if ($migrated['applied']) {
         say('Applied: ' . implode(', ', $migrated['applied']) . '.');
     }
-    if ($waiting = db_pending_migrations()) {
-        $why = "backend/migrations/{$waiting[0]} does not end with its last line, \"-- end of " . substr($waiting[0], 0, 3) . '": '
+    if ($waiting = db_first_pending_migration()) {
+        $why = db_migration_path($waiting) . ' does not end with its last line, "-- end of ' . substr($waiting['name'], 0, 3) . '": '
             . 'it is not applied (is it still being written or copied?), and nor is anything after it.';
         // A backup reads the tables as they are, with or without it: a migration still
         // being written must never stand between the owner and a copy of their data.

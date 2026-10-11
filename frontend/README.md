@@ -27,18 +27,25 @@ src/app/            app.component (the bar, the page - the marked template of th
                     request is issued (issued-as.ts), visitor-key.ts (the visitor key, the move at
                     sign-in), SignOutService, SignInService; sdk/ the IAM's browser SDK, never
                     edited), storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
-                    the translation service, its pipes, failures worded from their codes), kit.config.ts
-                    (the anotoki library's kit wired to this app: its words are the app's, the theme -
-                    light, dark or the system's; signed in, the anotoki account's - and the languages),
+                    translations.config.ts - the anotoki library's translations, @anotoki/lib/translations,
+                    wired to this app: the names it keeps them under, the words' address, a refusal read
+                    as what the app can show, the account's language, the admin pages' settings -,
+                    time-wording.ts (the words and the account's date order and clock, for format.ts),
+                    failures worded from their codes, the title strategy), kit.config.ts
+                    (the anotoki library's kit wired to this app: its words are the library's keys in this
+                    app's database, forKit(); the theme - light, dark or the system's; signed in, the
+                    anotoki account's - and the languages, forShell()),
                     saves-in-flight.service.ts (the saves a sign-out waits for), time-zone.ts, boot.ts,
                     format.ts (dates and clocks in the language's way, or the account's order and clock),
                     site-status.config.ts and site-status.ts (the anotoki library's migrations module,
                     @anotoki/lib/migrations, wired to this app: where the site stands, its gate and
-                    pages, the Migrations page), testing/ (the module and the kit's question as a spec
-                    needs them)
-  admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN), Languages,
-                    People and Migrations (ADMIN: the library's page); the top bar's links lead between them;
-                    page-question.ts (the kit's question, answered no when the page that asked goes)
+                    pages, the Migrations page), testing/ (the module, the kit's English and the kit's
+                    question as a spec needs them)
+  admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN) and Languages (ADMIN)
+                    - the library's pages, @anotoki/lib/translations/admin -, People and Migrations
+                    (ADMIN: the library's page), each library page in the panel's frame; the top bar's
+                    links lead between them; page-question.ts (the kit's question, answered no when the
+                    page that asked goes)
   standin/          the Sign in card and the problem page; sign-in-failed/ (a refused sign-in said
                     above a visitor's page)
 src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope), then src/styles/

@@ -5,10 +5,10 @@
  * on the route groups (api/routes/translations.php), so an address added to a
  * group later cannot forget them:
  *
- *   staff_middleware()   the whole /api/admin group: the IAM role EDITOR or
- *                        ADMIN of this application, else 403 staff_only; and
- *                        a body over 1 MiB, 413 too_large
- *   admin_middleware()   the group inside it, for what only ADMIN may do
+ *   staff_middleware()   every /api/admin group but the Migrations page's: the
+ *                        IAM role EDITOR or ADMIN of this application, else
+ *                        403 staff_only; and a body over 1 MiB, 413 too_large
+ *   admin_middleware()   after it, on the groups of what only ADMIN may do
  *                        (adding, changing and deleting languages; the people,
  *                        and deleting a person's data): else 403 admin_only
  *   migrations_admin_middleware()   the Migrations page's group
@@ -25,8 +25,9 @@
  * Every request here carries a bearer token, never a cookie, so another
  * site's page cannot make a signed-in browser send one: there is no Origin
  * check (the setup page, a cookie and a form, keeps its own). Every write is a
- * PUT or a DELETE, or a POST whose change is in its JSON body, which
- * request_body() takes as JSON only.
+ * PUT or a DELETE, or a POST whose change is in its JSON body, taken as JSON
+ * only: by request_body() (the people), by the anotoki library's routes (the
+ * words and the languages: anything else is 415 unsupported_media_type).
  */
 
 declare(strict_types=1);
@@ -39,7 +40,8 @@ function staff_middleware(): callable
 {
     return static function (Request $request, RequestHandler $handler): Response {
         auth_require_role(...ROLES_STAFF);
-        // request_body() has no limit of its own: every other body of the app is a few hundred bytes.
+        // Before anything reads the body, in this app's own words: request_body() has no limit of its own (every other
+        // body of the app is a few hundred bytes), and the library's routes keep the same 1 MiB after this.
         $body = $request->getBody();
         if (($body->getSize() ?? strlen((string) $body)) > TRANSLATIONS_BODY_LIMIT) {
             throw new HttpError(413, 'That is more than this site takes in one go.', [], 'too_large');

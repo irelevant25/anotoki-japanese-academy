@@ -35,6 +35,15 @@ test('every migration ends with its own last line, so one still being written or
         assert_same('-- end of ' . substr($name, 0, 3), end($lines), "$name: its last line");
         assert_true(db_migration_whole($name, $sql) && db_migration_ready($name, $sql), "$name is whole");
     }
+    // The anotoki library's files keep the same rule, and none of them is ever a draft: the engine asks of them as
+    // of this site's (db_migrator()'s ready hook), without the 001 of before the rule or a draft the tests name.
+    foreach (glob(Anotoki\Lib\Translations\Schema::directory() . '/*.sql') ?: [] as $file) {
+        $name = basename($file);
+        $sql = (string) file_get_contents($file);
+        assert_true(db_migration_ready($name, $sql, false), "the library's $name is whole");
+        assert_false(db_migration_ready($name, rtrim(preg_replace('/-- end of \d{3}\s*$/D', '', $sql)) . "\n", false), "the library's $name without its last line would wait");
+    }
+    assert_false(db_migration_ready('001_init.sql', 'CREATE TABLE before_the_rule (id int);', false), 'a library’s 001 is never the 001 of before the rule');
     assert_same([], db_migrations_ready(), 'this database has them all');
     assert_same([], db_pending_migrations(), 'drafts too: the tests apply them');
 });
@@ -69,12 +78,14 @@ test('a migration still being written waits on every database but the tests’, 
     assert_true(db_migration_ready('001_init.sql', 'CREATE TABLE before_the_rule (id int);'), '001 is from before the rule');
 });
 
-test('the engine: this site’s table as it is, one set, each file whole in one exec, under the upkeep’s lock', function (): void {
+test('the engine: this site’s table as it is, two sets - this site’s, then the anotoki library’s -, each file whole in one exec, under the upkeep’s lock', function (): void {
     $status = db_migrator()->status();
-    assert_same([MIGRATION_SET], $status['sets']);
+    assert_same([MIGRATION_SET, 'anotoki_translations'], $status['sets'], 'this site’s own, then the library’s words');
     $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
     sort($files);
-    assert_same($files, array_column($status['applied'], 'name'), 'every file applied, in the order they ran');
+    assert_same(array_merge($files, library_migrations()), array_map('db_migration_label', $status['applied']), 'every file applied, in the order they ran');
+    assert_same(library_migrations(), array_values(array_filter(array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'), static fn (string $n): bool => str_contains($n, '/'))),
+        'the library’s recorded by their set and name, in the table as it is');
     assert_same([[], []], [$status['pending'], $status['missing']]);
     assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $status['applied'][0]['applied_at'], 'when, in UTC');
     // The bookkeeping table is the one this site has always had: never another shape.
@@ -84,6 +95,12 @@ test('the engine: this site’s table as it is, one set, each file whole in one 
     ));
     assert_same((string) file_get_contents(MIGRATIONS_DIR . '/001_init.sql'), db_migrator()->source(MIGRATION_SET, '001_init.sql'), 'a file’s text');
     assert_same(null, db_migrator()->source(MIGRATION_SET, '../config/database.local.php'), 'and nothing that is no file of the set');
+    assert_same((string) file_get_contents(Anotoki\Lib\Translations\Schema::directory() . '/001_languages_and_strings.sql'),
+        db_migrator()->source('anotoki_translations', '001_languages_and_strings.sql'), 'a library file’s text');
+    assert_same(null, db_migrator()->source(MIGRATION_SET, '001_languages_and_strings.sql'), 'under its own set only');
+    assert_same(['backend/migrations/004_languages_and_translations.sql', 'backend/vendor/anotoki/lib/php/migrations/translations/002_library_words.sql'],
+        [db_migration_path(['set' => MIGRATION_SET, 'name' => '004_languages_and_translations.sql']), db_migration_path(['set' => 'anotoki_translations', 'name' => '002_library_words.sql'])],
+        'where each is, for what the site says of it');
 });
 
 test('the stamp stored with the content is the one from before the build: a file that lands during it makes the next request look again', function (): void {

@@ -33,7 +33,7 @@ export function drawKitQuestion(page: HTMLElement): KitQuestion {
   return {
     open: () => dialog() !== null,
     title: () => words(dialog()?.querySelector('h2')),
-    message: () => words(dialog()?.querySelector('.message')),
+    message: () => words(dialog()?.querySelector('.anotoki-confirm-host__message')),
     buttons: () => Array.from(dialog()?.querySelectorAll('[data-answer]') ?? [], words),
     answer: (yes) => host.querySelector<HTMLButtonElement>(`[data-answer="${yes ? 'yes' : 'no'}"]`)!.click(),
     remove: () => {

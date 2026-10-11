@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslatePluralPipe } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { ApiService } from '../../core/api/api.service';
 import { LessonTypes, Settings } from '../../core/api/api.types';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { TileComponent } from '../shared/tile/tile.component';

@@ -8,6 +8,7 @@ import { notSetUpInterceptor } from './core/api/not-set-up.interceptor';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { boot } from './core/boot';
 import { AcademyTitleStrategy } from './core/i18n/title.strategy';
+import { provideTranslations } from './core/i18n/translations.config';
 import { provideKit } from './core/kit.config';
 import { provideSiteStatus } from './core/site-status.config';
 
@@ -40,6 +41,10 @@ export const appConfig: ApplicationConfig = {
     // nothing of the app goes on either.
     provideHttpClient(withInterceptors([siteStatusInterceptor, notSetUpInterceptor, authInterceptor])),
     provideSiteStatus(),
+    // The app's words and languages: the anotoki library's translations, wired
+    // to this app (core/i18n/translations.config.ts) - the admin panel's
+    // Translations and Languages pages with them.
+    provideTranslations(),
     // The anotoki library's kit, its bar and its theme, in this app's words.
     provideKit(),
   ],

@@ -487,8 +487,9 @@ the account (*The account's preferences*, below).
   save failed earlier — the session says that only on its summary, which is
   not drawn yet, so it reports it (`watch()`, the same question, asked once) —
   or when an exam paper is open and not handed in (`signOut.examOpen`). Then the IAM ends the session everywhere. The admin
-  area's unsaved strings are `AdminDrafts`' to ask about (the browser's
-  "Leave site?" as the page goes).
+  area's unsaved strings are the anotoki library's `LocalizationDrafts`' to
+  ask about (the browser's "Leave site?" as the page goes); they are kept
+  through the sign-out for the same person.
 
 The person's menu (the round button with their initial; their name beside it
 from 961 px, in the phone's menu up to 760 px) uses the colour tokens
@@ -535,18 +536,18 @@ for), and the SDK hands them over with who is signed in:
 - **The theme** (the anotoki library's `ThemeService`, wired in
   `core/kit.config.ts`; since anotoki-lib 0.2.0): signed in, the account's
   is shown at sign-in and whenever it changes (its `auto` is the switch's
-  "System", the app's word), but not while a choice made here is being
+  "System", the app's word under the library's `anotoki.theme.auto`), but not while a choice made here is being
   saved; a choice shows at once and is saved, one save at a time and the
   latest last; a refusal puts the account's theme back and a note under the
-  switch says why, in the sentences failures already have
-  (`preferencesFailure()` in `core/i18n/error-text.ts`). The theme shown is
+  switch says so, the library's `anotoki.theme.notSaved` (since anotoki-lib
+  0.3.0; before, the app worded the refusal's reason). The theme shown is
   always written to `academy-theme` (nothing for the system's), so the
   library's `theme-boot.js` (copied into the build by `angular.json`) paints
   it first next time.
 - **Dates and clocks** (`core/format.ts`, the `localDate` pipe, the admin
   panel's moments): the account's `date_format` and `time_format` win over
-  the language's way when chosen, through `TranslationService.dateFormat()`
-  and `timeFormat()` ([architecture.md](architecture.md), *The app's words*).
+  the language's way when chosen, through `TimeWording`'s `dateFormat()`
+  and `timeFormat()` (`core/i18n/time-wording.ts`; [architecture.md](architecture.md), *The app's words*).
 - **The language**, as the survey site has it: the account's language comes
   before this device's remembered choice — only this tab's `?lang=` and a
   choice made on this page come before it — and a change of it made
@@ -556,7 +557,8 @@ for), and the SDK hands them over with who is signed in:
   choice of a signed-in person goes to the account (`{language}`), one save
   at a time and the latest last, and holds for the visit whatever the
   account answers; a language the IAM does not offer (`invalid_request`)
-  stays this site's own for the visit, silently.
+  stays this site's own for the visit, silently; any other refusal says so in
+  a note under the switcher (the library's `anotoki.language.notSaved`).
 - A visitor, and anybody signed out, keeps each device's choices as before;
   the account's take over at sign-in. Signed in through an IAM that sends no
   preferences, everything is as before too — the device's language choice

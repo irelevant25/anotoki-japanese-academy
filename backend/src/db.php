@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 use Anotoki\Lib\Migrations\MigrationSet;
 use Anotoki\Lib\Migrations\Migrator;
+use Anotoki\Lib\Translations\Schema;
 
 function db_dsn(?string $name = null): string
 {
@@ -167,23 +168,77 @@ function db_create(?string $name = null, ?string $template = null): bool
 
 /* ------------------------------------------------------------ migrations */
 
-/** The label of this site's one set of migrations, in the Migrations page's answers ({"set": "academy", "name": …}). */
+/** The label of this site's own set of migrations, in the Migrations page's answers ({"set": "academy", "name": …}). */
 const MIGRATION_SET = 'academy';
+
+/**
+ * The sets of migration files, in the order they run: this site's own
+ * (backend/migrations/, MIGRATION_SET), then the anotoki library's set of the
+ * app's words, anotoki_translations (Translations\Schema::migrationSet(), in
+ * backend/vendor/anotoki/lib/php/migrations/translations/: the tables of the
+ * languages and the strings, and the library's own words under anotoki.).
+ * The library's set comes after this site's: this site's 004 made those
+ * tables itself, with a plain CREATE TABLE, and the library's 001 finds them
+ * there and only proves their shape - run first, it would make them, and 004
+ * would fail on every new database.
+ *
+ * @return list<MigrationSet>
+ */
+function db_migration_sets(): array
+{
+    return [new MigrationSet(MIGRATION_SET, MIGRATIONS_DIR), Schema::migrationSet()];
+}
+
+/**
+ * A migration file as what the site says names it (manage.php, the setup
+ * page, the tests' builder): this site's own by its file name, as ever
+ * ("004_languages_and_translations.sql"); one of the library's set as the
+ * table `migrations` records it ("anotoki_translations/001_languages_and_strings.sql").
+ *
+ * @param array{set: string, name: string} $file
+ */
+function db_migration_label(array $file): string
+{
+    return $file['set'] === MIGRATION_SET ? $file['name'] : $file['set'] . '/' . $file['name'];
+}
+
+/**
+ * Where a migration file is, from the repository's top: backend/migrations/…
+ * for this site's own, backend/vendor/anotoki/lib/php/migrations/… for the
+ * library's.
+ *
+ * @param array{set: string, name: string} $file
+ */
+function db_migration_path(array $file): string
+{
+    foreach (db_migration_sets() as $set) {
+        if ($set->name === $file['set']) {
+            $dir = str_replace('\\', '/', $set->directory);
+            $root = str_replace('\\', '/', ROOT) . '/';
+            return (str_starts_with($dir, $root) ? substr($dir, strlen($root)) : $dir) . '/' . $file['name'];
+        }
+    }
+    return $file['set'] . '/' . $file['name'];
+}
 
 /**
  * The migrations' engine: the anotoki library's (Anotoki\Lib\Migrations\
  * Migrator, the Composer package anotoki/lib - every anotoki site's), set up
  * for this site's own ways:
  *
- *   - one set of files, backend/migrations/, in the order of their names;
+ *   - two sets of files (db_migration_sets()): backend/migrations/, then the
+ *     library's anotoki_translations, each in the order of its names; the
+ *     library's are recorded as "anotoki_translations/<file>", this site's by
+ *     their names as before;
  *   - the table `migrations (name, applied_at)` as this site has always had
  *     it: made in that shape on a new database (db_migrations_table(), its
  *     prepare hook), read and written as it is;
  *   - each file sent to PostgreSQL in one exec (split false), as this site
  *     always ran them, in a transaction of its own with its row: a file that
- *     fails is rolled back whole, and the run stops there;
+ *     fails is rolled back whole, and the run stops there (a later set's files
+ *     with it);
  *   - a file that is not whole yet is a draft (db_migration_ready()): it
- *     waits, with every one after it, and stops nothing;
+ *     waits, with every one after it - the library's too -, and stops nothing;
  *   - one apply at a time, under the upkeep's lock (UPKEEP_LOCK), which the
  *     content's rebuild takes too (upkeep_run()): the two never run at once,
  *     and a second apply is told it is busy;
@@ -202,23 +257,26 @@ function db_migrator(?PDO $pdo = null, ?Closure $beforeApply = null): Migrator
         'split' => false,
         'lock' => UPKEEP_LOCK,
         'ready' => static function (MigrationSet $set, string $name, string $sql): bool {
-            return db_migration_ready($name, $sql);
+            return db_migration_ready($name, $sql, !$set->library);
         },
         'prepare' => 'db_migrations_table',
     ];
     if ($beforeApply !== null) {
         $options['beforeApply'] = $beforeApply;
     }
-    return new Migrator($pdo ?? db(), [new MigrationSet(MIGRATION_SET, MIGRATIONS_DIR)], $options);
+    return new Migrator($pdo ?? db(), db_migration_sets(), $options);
 }
 
 /**
  * May migration $name, whose text is $sql, run - or is it a draft? Every
  * migration ends with the line "-- end of NNN", its own number: without it
  * the file is still being written, or on a hosted site still being uploaded by
- * FTP, and running half of it would leave the tables half changed. 001_init.sql
- * is from before this rule, and is whole as it is. The engine reads a file
- * once and hands its text here, so what is judged is what runs.
+ * FTP, and running half of it would leave the tables half changed. This site's
+ * 001_init.sql is from before this rule, and is whole as it is. The engine
+ * reads a file once and hands its text here, so what is judged is what runs.
+ * The library's files keep the same rule (every one ends with its own
+ * "-- end of NNN"): $own is false for them, and nothing of them is a draft
+ * anybody may name.
  *
  * The same rule keeps a migration that is still being written - a draft, in
  * backend/migrations/ without its last line - away from every real database:
@@ -226,9 +284,9 @@ function db_migrator(?PDO $pdo = null, ?Closure $beforeApply = null): Migrator
  * may apply a draft they name (db_migration_drafts_allowed()), so they run on
  * the tables it makes.
  */
-function db_migration_ready(string $name, string $sql): bool
+function db_migration_ready(string $name, string $sql, bool $own = true): bool
 {
-    return $name === '001_init.sql' || db_migration_whole($name, $sql) || db_migration_drafts_allowed(db_name(), $name);
+    return ($own && $name === '001_init.sql') || db_migration_whole($name, $sql) || ($own && db_migration_drafts_allowed(db_name(), $name));
 }
 
 /** Does this migration's text end with its own last line, "-- end of NNN"? */
@@ -253,25 +311,37 @@ function db_migration_drafts_allowed(string $database, string $name): bool
     return in_array($name, $named, true) && preg_match('/^academy_test_[a-z0-9_]+$/D', $database) === 1;
 }
 
-/** The pending migrations that can run now: in order, up to the first that is not whole yet. */
+/** The pending migrations that can run now: in order, up to the first that is not whole yet (by db_migration_label()). */
 function db_migrations_ready(): array
 {
-    return array_column(db_migrator()->applicable(), 'name');
+    return array_map('db_migration_label', db_migrator()->applicable());
 }
 
-/** Migrations not yet applied, drafts too, in the order they will run (all of them for a database without the table). */
+/** Migrations not yet applied, drafts too, in the order they will run (all of them for a database without the table; by db_migration_label()). */
 function db_pending_migrations(): array
 {
-    return array_column(db_migrator()->status()['pending'], 'name');
+    return array_map('db_migration_label', db_migrator()->status()['pending']);
+}
+
+/**
+ * The first migration not yet applied, drafts too ({set, name}), or null: for
+ * saying which file waits (db_migration_path()).
+ *
+ * @return ?array{set: string, name: string}
+ */
+function db_first_pending_migration(): ?array
+{
+    $pending = db_migrator()->status()['pending'];
+    return $pending === [] ? null : ['set' => $pending[0]['set'], 'name' => $pending[0]['name']];
 }
 
 /**
  * The tests' builder (tests/tools/testdb.php, and the tests of a migration on
  * data in an older shape): what can run now applied, as an Apply does but
- * without the copy first - their databases are throwaway. Returns the names
- * applied. One that fails is rolled back whole and throws, naming its file
- * ("backend/migrations/004_….sql: …"): PostgreSQL's message alone would not
- * say which file to fix.
+ * without the copy first - their databases are throwaway. Returns the files
+ * applied (db_migration_label()). One that fails is rolled back whole and
+ * throws, naming its file ("backend/migrations/004_….sql: …"): PostgreSQL's
+ * message alone would not say which file to fix.
  */
 function db_migrate(): array
 {
@@ -280,9 +350,9 @@ function db_migrate(): array
         throw new RuntimeException('Another database update is running, so nothing was applied: try again in a moment.');
     }
     if ($done['failed'] !== null) {
-        throw new RuntimeException("backend/migrations/{$done['failed']['name']}: {$done['error']}");
+        throw new RuntimeException(db_migration_path($done['failed']) . ": {$done['error']}");
     }
-    return array_column($done['applied'], 'name');
+    return array_map('db_migration_label', $done['applied']);
 }
 
 /**

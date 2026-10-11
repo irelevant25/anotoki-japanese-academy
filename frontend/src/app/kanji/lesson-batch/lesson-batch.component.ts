@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, OnInit, signal } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CatalogItem } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemDetailsComponent } from '../shared/item-details/item-details.component';

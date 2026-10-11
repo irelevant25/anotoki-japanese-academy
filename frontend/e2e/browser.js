@@ -108,31 +108,33 @@ function keyShaped(page) {
 
 /**
  * The top bar is the anotoki family's, the library's (<anotoki-top-bar>,
- * @anotoki/lib/shell): its parts have classes of the library's, and no ids.
- * Where each one is, under the name the suites give it (the ids the parts had
- * while the bar was this app's own). A menu is drawn only while it is open.
+ * @anotoki/lib/shell): its parts have classes of the library's - since
+ * anotoki-lib 0.3.0 each piece's own, `anotoki-<piece>__<part>` -, and no
+ * ids. Where each one is, under the name the suites give it (the ids the
+ * parts had while the bar was this app's own). A menu is drawn only while it
+ * is open.
  */
 const BAR = {
   bar: 'anotoki-top-bar',
-  header: 'anotoki-top-bar header.topbar',
+  header: 'anotoki-top-bar header.anotoki-top-bar__topbar',
   brand: 'anotoki-top-bar anotoki-brand a',
-  wordmark: 'anotoki-top-bar anotoki-brand .wordmark',
+  wordmark: 'anotoki-top-bar anotoki-brand .anotoki-brand__wordmark',
   mark: 'anotoki-top-bar anotoki-brand img',
-  nav: 'anotoki-top-bar nav.nav',
-  navDue: 'anotoki-top-bar nav.nav .badge',
-  langButton: 'anotoki-top-bar anotoki-language-switcher button.switcher', // not its menu's items, buttons in it too
-  theme: 'anotoki-top-bar anotoki-theme-toggle .segmented',
-  userButton: 'anotoki-top-bar .person-button',
-  userName: 'anotoki-top-bar .person-name',
-  signInButton: 'anotoki-top-bar button.sign-in',
-  menuButton: 'anotoki-top-bar .menu-button',
-  menuDue: 'anotoki-top-bar .mark-badge',
+  nav: 'anotoki-top-bar nav.anotoki-top-bar__nav',
+  navDue: 'anotoki-top-bar nav.anotoki-top-bar__nav .anotoki-top-bar__badge',
+  langButton: 'anotoki-top-bar anotoki-language-switcher button.anotoki-language-switcher__switcher', // not its menu's items, buttons in it too
+  theme: 'anotoki-top-bar anotoki-theme-toggle .anotoki-segmented__segmented',
+  userButton: 'anotoki-top-bar .anotoki-top-bar__person-button',
+  userName: 'anotoki-top-bar .anotoki-top-bar__person-name',
+  signInButton: 'anotoki-top-bar button.anotoki-top-bar__sign-in',
+  menuButton: 'anotoki-top-bar .anotoki-top-bar__menu-button',
+  menuDue: 'anotoki-top-bar .anotoki-top-bar__mark-badge',
   menu: 'anotoki-top-bar [role="menu"]',
   accountLink: 'anotoki-top-bar [role="menu"] a[target="_blank"]',
   adminLink: 'anotoki-top-bar [role="menu"] a[href="/admin"]',
   backLink: 'anotoki-top-bar [role="menu"] a[href="/"]',
-  signOut: 'anotoki-top-bar .sign-out-item',
-  signInItem: 'anotoki-top-bar .sign-in-item',
+  signOut: 'anotoki-top-bar .anotoki-top-bar__sign-out-item',
+  signInItem: 'anotoki-top-bar .anotoki-top-bar__sign-in-item',
 };
 
 /** A section's link in the bar, by where it goes: barLink('/kanji'). */

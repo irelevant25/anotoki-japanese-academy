@@ -3,11 +3,11 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TopBarAction, TopBarBrand, TopBarComponent as AnotokiTopBarComponent, TopBarLink, TopBarMenuItem, TopBarPerson, TopBarPhoneMark } from '@anotoki/lib/shell';
+import { isAdminArea, TranslationService } from '@anotoki/lib/translations';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { SignInService } from '../core/auth/sign-in.service';
 import { SignOutService } from '../core/auth/sign-out.service';
-import { isAdminAddress, TranslationService } from '../core/i18n/translation.service';
 import { MIGRATIONS_ROUTE, pagesShut } from '../core/site-status';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { keptWord } from '../standin/kept-word';
@@ -17,19 +17,22 @@ import { keptWord } from '../standin/kept-word';
  * it is drawn in every state — a copy not set up, a server that does not
  * answer — so it never shows a key. The same text as the seeded English
  * (backend/tests/unit/translations.test.php holds the two together). The kit's
- * words of the bar (Sign out, the theme, the language…) are the app's too, in
- * core/kit.config.ts.
+ * words of the bar (its sections' name, Sign in and out, the theme, the
+ * language, and the person's role and the link to their anotoki account,
+ * which this bar gives the kit worded with those same library keys - a
+ * library key never shows as a key: with no strings it is the library's own
+ * word) are the anotoki library's keys in this app's database, which carry
+ * this app's words (migration 009; core/kit.config.ts). "Admin panel" stays
+ * this app's own word (`topbar.admin`: migration 006 rewords it and checks it
+ * is there).
  */
 const ENGLISH: Record<string, string> = {
   'topbar.home': 'anotoki Japanese: home',
   'topbar.exam': 'Exam',
   'topbar.phoneMenuDue.one': 'Menu: {count} review due',
   'topbar.phoneMenuDue.other': 'Menu: {count} reviews due',
-  'topbar.roleAdmin': 'Administrator',
-  'topbar.roleEditor': 'Editor',
   'topbar.admin': 'Admin panel',
   'account.noName': 'Account',
-  'account.yourAccount': 'Your anotoki account',
 };
 
 /**
@@ -109,8 +112,8 @@ export const NAME_BAR_MIN = 961;
  * panel" under it while folded), no language, and "Back to Japanese Academy"
  * in the person's menu; it folds up to ADMIN_PHONE_BAR_MAX. Its words read in
  * English, with no case here — the translation service answers in English
- * there (TranslationService.pageLanguage), and so do the kit's
- * (core/kit.config.ts).
+ * there (TranslationService.effectiveLanguage, the library's), and so do the
+ * kit's (core/kit.config.ts).
  *
  * The library's bar keeps the family's rules: its menus (the focus in, the
  * arrows, Home and End, Escape and Tab back to their button, a click outside,
@@ -158,7 +161,7 @@ export class TopBarComponent {
     { initialValue: this.router.url },
   );
   private readonly here = computed(() => this.path().split(/[?#]/)[0] || '/');
-  readonly area = computed(() => (isAdminAddress(this.here()) ? 'admin' : 'app'));
+  readonly area = computed(() => (isAdminArea(this.here()) ? 'admin' : 'app'));
   /** Up to this width the bar is a phone's: the admin panel's four links need more room than the learner's two. */
   readonly phoneMax = computed(() => (this.area() === 'admin' ? ADMIN_PHONE_BAR_MAX : PHONE_BAR_MAX));
 
@@ -215,7 +218,7 @@ export class TopBarComponent {
       return null;
     }
     const name = this.auth.displayName() || this.word('account.noName');
-    const role = this.auth.isAdmin() ? this.word('topbar.roleAdmin') : this.auth.isStaff() ? this.word('topbar.roleEditor') : null;
+    const role = this.auth.isAdmin() ? this.i18n.t('anotoki.topbar.roleAdmin') : this.auth.isStaff() ? this.i18n.t('anotoki.topbar.roleEditor') : null;
     return { name, email: this.auth.user()?.email ?? null, role };
   });
 
@@ -228,7 +231,7 @@ export class TopBarComponent {
     const items: TopBarMenuItem[] = [];
     const account = this.person() ? this.auth.accountUrl() : '';
     if (account) {
-      items.push({ id: 'account', label: this.word('account.yourAccount'), icon: 'user', href: account, newTab: true });
+      items.push({ id: 'account', label: this.i18n.t('anotoki.topbar.account'), icon: 'user', href: account, newTab: true });
     }
     if (this.auth.isStaff()) {
       if (this.area() === 'admin') {

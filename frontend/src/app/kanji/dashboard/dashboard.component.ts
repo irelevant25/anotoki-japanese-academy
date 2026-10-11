@@ -1,12 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslatePluralPipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CatalogItem } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { fmtClock, fmtHour, fmtIn, fmtWeekdayOf, pct } from '../../core/format';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { VisitorNoticeComponent } from '../../home/visitor-notice/visitor-notice.component';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
@@ -30,6 +29,7 @@ export class DashboardComponent {
   readonly auth = inject(AuthService);
   private readonly screen = inject(KanjiScreenService);
   private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
 
   readonly s = computed(() => this.kanji.summary());
   readonly next = computed(() => {
@@ -46,7 +46,7 @@ export class DashboardComponent {
       return this.i18n.t('dashboard.reviewsDue');
     }
     return s.nextReviewAt
-      ? this.i18n.t('dashboard.nextReview', { when: fmtIn(this.i18n, s.nextReviewAt), clock: fmtClock(this.i18n, s.nextReviewAt) })
+      ? this.i18n.t('dashboard.nextReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) })
       : this.i18n.t('dashboard.noReviews');
   });
 
@@ -70,8 +70,8 @@ export class DashboardComponent {
       return {
         n,
         height: (n / max) * 100,
-        title: this.i18n.plural('dashboard.reviewsAround', n, { clock: fmtClock(this.i18n, at.getTime()) }),
-        label: i % 3 === 0 ? fmtHour(this.i18n, at.getTime()) : null,
+        title: this.i18n.plural('dashboard.reviewsAround', n, { clock: fmtClock(this.wording, at.getTime()) }),
+        label: i % 3 === 0 ? fmtHour(this.wording, at.getTime()) : null,
       };
     });
   });
@@ -92,7 +92,7 @@ export class DashboardComponent {
     }
     return s.forecastDays.map((n, i) => ({
       n,
-      label: i === 0 ? this.i18n.t('dashboard.today') : i === 1 ? this.i18n.t('dashboard.tomorrow') : fmtWeekdayOf(this.i18n, s.forecastDates[i]),
+      label: i === 0 ? this.i18n.t('dashboard.today') : i === 1 ? this.i18n.t('dashboard.tomorrow') : fmtWeekdayOf(this.wording, s.forecastDates[i]),
     }));
   });
 

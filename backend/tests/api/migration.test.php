@@ -68,7 +68,8 @@ test('every row comes through as it was, and is the owner’s', function (): voi
     sort($after001);
     assert_same(['002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
         array_slice($after001, 0, 6), 'the migrations of this test, the first of every file after 001');
-    assert_same($after001, db_migrate(), 'every one after 001, in order');
+    // Then the anotoki library's set of the words, after this site's own (db_migration_sets()).
+    assert_same(array_merge($after001, library_migrations()), db_migrate(), 'every one after 001, in order, the library’s last');
     assert_same($before, rows_001(), 'the same rows, the same content');
     foreach (USER_TABLES as $table) {
         assert_same([1], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')), "$table: the owner's");

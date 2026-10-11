@@ -4,6 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, Routes, TitleStrategy, provideRouter } from '@angular/router';
 import { SiteStatus, siteStatusInterceptor } from '@anotoki/lib/migrations';
+import { TranslatePipe, TranslationBundle, TranslationService } from '@anotoki/lib/translations';
+import { TEST_LANGUAGES, provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { keptWord } from '../standin/kept-word';
 import { ApiService } from './api/api.service';
 import { VisitorMove } from './api/api.types';
@@ -11,12 +13,9 @@ import { AuthService } from './auth/auth.service';
 import { MOVE_AT_START_MS, VISITOR_STORAGE_KEY } from './auth/visitor-key';
 import { boot } from './boot';
 import { AcademyTitleStrategy } from './i18n/title.strategy';
-import { TranslatePipe } from './i18n/translate.pipe';
-import { TranslationBundle } from './i18n/translation.model';
-import { LANGUAGE_CACHE_KEY, LANGUAGE_KEY, TranslationService } from './i18n/translation.service';
+import { LANGUAGE_CACHE_KEY, LANGUAGE_KEY, provideTranslations } from './i18n/translations.config';
 import { provideSiteStatus } from './site-status.config';
 import { provideTestSiteStatus } from './testing/site-status';
-import { TEST_LANGUAGES, provideTestTranslations } from './testing/test-translations';
 
 const ENGLISH = {
   'title.exam': 'Exam',
@@ -97,6 +96,7 @@ describe('boot(): the whole start', () => {
         // as app.config.ts has them - on fetch(), so that serve() answers where the site stands too
         provideHttpClient(withFetch(), withInterceptors([siteStatusInterceptor])),
         provideSiteStatus(),
+        provideTranslations(),
       ],
     });
   });
@@ -180,7 +180,7 @@ describe('boot(): the whole start', () => {
   });
 
   for (const refusal of [
-    { error: "The app's words are not in the database yet.", code: 'not_up_to_date' },
+    { error: 'The words are not in the database yet. An administrator applies the waiting database update on the Migrations page.', code: 'translations_unavailable' },
     { code: 'update_pending', message: 'The site is being updated. Try again in a few minutes.' },
   ]) {
     it(`an update waits and the words answer 503 ${refusal.code} (their tables may be what it brings): no problem page either`, async () => {
@@ -204,14 +204,25 @@ describe('boot(): the whole start', () => {
   });
 
   it('the words answered any other 503 while the site is ready (an upload still arriving, a database out of reach): the problem page, with the server’s reason', async () => {
-    const asked = serve([200, CONFIG], () => [503, { error: 'The app\'s words are not in the database yet: 004 arrives', code: 'not_up_to_date', detail: '004 arrives' }]);
+    const asked = serve([200, CONFIG], () => [
+      503,
+      { error: 'The words are not in the database yet. An administrator applies the waiting database update on the Migrations page.', code: 'translations_unavailable' },
+    ]);
     await TestBed.runInInjectionContext(boot);
 
     const auth = TestBed.inject(AuthService);
     expect(auth.state()).toBe('problem');
-    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004 arrives' });
-    // Asked once: what the answer said is known, and nothing is tried again.
-    expect(asked.filter((url) => url.startsWith('/api/translations/'))).toHaveLength(1);
+    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'translations_unavailable', detail: null });
+    // The anotoki library asks once more, half a second later, as after any first answer lost; the same answer changes nothing.
+    expect(asked.filter((url) => url.startsWith('/api/translations/'))).toEqual(['/api/translations/en-gb', '/api/translations/en-gb']);
+  });
+
+  it('the words answered 503 database_unavailable (the upkeep before them could not reach the database): the problem page, with its reason', async () => {
+    serve([200, CONFIG], () => [503, { error: 'The database is not reachable: connection refused', code: 'database_unavailable', detail: 'connection refused' }]);
+    await TestBed.runInInjectionContext(boot);
+
+    const auth = TestBed.inject(AuthService);
+    expect(auth.problem()).toEqual({ kind: 'server', status: 503, code: 'database_unavailable', detail: 'connection refused' });
   });
 
   it('signed out, the words are asked for all the same; somebody signing in in another tab then finds words, never keys', async () => {
@@ -337,7 +348,7 @@ describe('AcademyTitleStrategy', () => {
   it('follows the language without a navigation', async () => {
     await TestBed.inject(Router).navigateByUrl('/exam');
     expect(title()).toBe('Skúška · Japanese Academy');
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     expect(title()).toBe('Exam · Japanese Academy');
   });
 
@@ -375,12 +386,12 @@ describe('AcademyTitleStrategy', () => {
     expect(title()).toBe('Skúška · Japanese Academy');
   });
 
-  it('tells the translation service after every navigation — which is when that one asks again for strings it has not', async () => {
-    const navigated = vi.spyOn(TestBed.inject(TranslationService), 'navigated');
+  it('tells the translation service where the page went after every navigation — which is when that one asks again for strings it has not', async () => {
+    const noted = vi.spyOn(TestBed.inject(TranslationService), 'noteAddress');
     const router = TestBed.inject(Router);
     await router.navigateByUrl('/exam');
     await router.navigateByUrl('/kanji?x=1');
-    expect(navigated).toHaveBeenCalledTimes(2);
+    expect(noted.mock.calls).toEqual([['/exam'], ['/kanji?x=1']]);
   });
 });
 

@@ -3,12 +3,13 @@ import { ApplicationRef, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from '../../core/auth/auth.service';
 import { fmtAdminMoment } from '../../core/format';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { authStandIn, AuthStandIn, NO_CHOICE, person } from '../../core/testing/auth-states';
 import { provideTestSiteStatus } from '../../core/testing/site-status';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { MigrationsComponent } from './migrations.component';
 
 const APPLIED_AT = '2026-10-04T08:30:00Z';
@@ -90,13 +91,13 @@ describe('MigrationsComponent: the admin panel’s Migrations page — the anoto
     await answer('/api/admin/migrations', WAITING);
     expect(text('anotoki-migrations-page h1')).toBe('Migrations');
     await vi.waitFor(() =>
-      expect(Array.from(host.querySelectorAll('[data-pending] .file'), (li) => Array.from(li.children, (part) => part.textContent?.trim()).join(' '))).toEqual([
+      expect(Array.from(host.querySelectorAll('[data-pending] .anotoki-migrations-page__file'), (li) => Array.from(li.children, (part) => part.textContent?.trim()).join(' '))).toEqual([
         '006_admin_panel_words.sql pending',
         '007_visitors.sql draft a draft - it does not run until it is finished',
       ]),
     );
     // The account's date order and clock (2026-10-04, 24 h), as the rest of the admin panel writes a moment.
-    const when = fmtAdminMoment(TestBed.inject(TranslationService), Date.parse(APPLIED_AT));
+    const when = fmtAdminMoment(TestBed.inject(TimeWording), Date.parse(APPLIED_AT));
     expect(when).toMatch(/^2026-10-0[45] \d\d:\d\d$/);
     expect(Array.from(host.querySelectorAll('[data-applied] time'), (time) => time.textContent?.trim())).toEqual([when, when]);
     expect(host.querySelector<HTMLButtonElement>('[data-apply]')?.disabled).toBe(false);
@@ -125,7 +126,7 @@ describe('MigrationsComponent: the admin panel’s Migrations page — the anoto
       'POST',
     );
     await answer('/api/admin/migrations', APPLIED);
-    await vi.waitFor(() => expect(text('[data-result] .heading')).toBe('Up to date'));
+    await vi.waitFor(() => expect(text('[data-result] .anotoki-alert__heading')).toBe('Up to date'));
     expect(text('[data-result]')).toContain('Applied: 006_admin_panel_words.sql.');
     expect(text('[data-result]')).toContain('A copy of every table from before is in backups/academy-before-migration-20261004-083000-000.raw.json.');
     expect(reloaded).toHaveBeenCalledTimes(1);

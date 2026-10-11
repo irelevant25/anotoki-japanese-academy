@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, InjectionToken, output, signal, viewChild } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { DialogComponent } from '@anotoki/lib/ui/dialog';
 import { ApiError, ApiService, errorCode, toApiError } from '../../core/api/api.service';
 import { ApiErrorBody, BroughtBack } from '../../core/api/api.types';
@@ -7,8 +8,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { fileNameOf } from '../../core/auth/private-links.service';
 import { fmtDateTime } from '../../core/format';
 import { errorKey, errorParams } from '../../core/i18n/error-text';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { browserTimeZone } from '../../core/time-zone';
 
 /**
@@ -185,6 +185,7 @@ export class YourDataComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
   private readonly picker = viewChild.required<ElementRef<HTMLInputElement>>('file');
   private readonly limit = inject(IMPORT_LIMIT);
 
@@ -222,7 +223,7 @@ export class YourDataComponent {
   /** When the chosen file was made, in the language on the page; '' when it does not say. */
   readonly takenAt = computed(() => {
     const at = this.holds()?.takenAt;
-    return at && !Number.isNaN(Date.parse(at)) ? fmtDateTime(this.i18n, at) : '';
+    return at && !Number.isNaN(Date.parse(at)) ? fmtDateTime(this.wording, at) : '';
   });
 
   /** The learner's data as a file, under the name the server gives it (their day in it). */

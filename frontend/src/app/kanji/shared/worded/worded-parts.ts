@@ -1,4 +1,4 @@
-import { TranslationParams } from '../../../core/i18n/translation.service';
+import { TranslationParams } from '@anotoki/lib/translations';
 
 /**
  * A piece of a sentence. `lang` null: the app's own words, in the language of
@@ -50,7 +50,7 @@ export function wordedParts(i18n: Cutting, key: string, marks: Marks, params: Tr
   if (!names.length) {
     return [{ text: i18n.t(key, params), lang: null }];
   }
-  const filled: TranslationParams = { ...params };
+  const filled: Record<string, string | number | null | undefined> = { ...params };
   names.slice(1).forEach((name, i) => {
     filled[name] = `${OPEN}${i + 1}${CLOSE}`;
   });

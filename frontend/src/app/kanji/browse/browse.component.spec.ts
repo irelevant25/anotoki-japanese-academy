@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState, Stage, StageGroup } from '../../core/api/api.types';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { BrowseComponent } from './browse.component';
 
@@ -128,7 +128,7 @@ describe('BrowseComponent', () => {
       ['Guru', 'en'],
     ]);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(chips(2).map((chip) => clean(chip.textContent))).toEqual(['Any stage', 'Not learned', 'Apprentice', 'Guru']);
   });

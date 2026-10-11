@@ -12,8 +12,8 @@
 
 // The reviews due - on the Kanji link, and on the phone's menu button - in the kanji's vermilion, as
 // they always were: the kit draws its badges in the primary colour.
-:host ::ng-deep .badge,
-:host ::ng-deep .mark-badge {
+:host ::ng-deep .anotoki-top-bar__badge,
+:host ::ng-deep .anotoki-top-bar__mark-badge {
   --anotoki-primary: var(--kanji);
   --anotoki-primary-contrast: var(--item-ink);
 }

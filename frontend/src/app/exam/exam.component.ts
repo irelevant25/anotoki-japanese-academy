@@ -14,7 +14,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiError, ApiService, toApiError } from '../core/api/api.service';
 import { Attempt, Breakdown, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
@@ -24,8 +25,7 @@ import { PrivateLinksService } from '../core/auth/private-links.service';
 import { fmtClockSince, fmtDuration } from '../core/format';
 import { errorKey, errorParams } from '../core/i18n/error-text';
 import { LocalDatePipe } from '../core/i18n/local-date.pipe';
-import { TranslatePipe } from '../core/i18n/translate.pipe';
-import { TranslationService } from '../core/i18n/translation.service';
+import { TimeWording } from '../core/i18n/time-wording';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { readTabStorage, writeTabStorage } from '../core/storage';
 import { materialLang } from '../kanji/answer';
@@ -161,6 +161,7 @@ export class ExamComponent implements OnInit, OnDestroy {
   private readonly unwatch = this.saves.watch(() => (this.screen() === 'test' && !this.quitting() ? 'signOut.examOpen' : null));
   readonly privateLinks = inject(PrivateLinksService);
   readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
   private readonly auth = inject(AuthService);
   /** Where the site stands (the anotoki library's): while it is not ready, an open paper is kept for when it is back. */
   private readonly site = inject(SiteStatus);
@@ -697,7 +698,7 @@ export class ExamComponent implements OnInit, OnDestroy {
   }
 
   duration(ms: number): string {
-    return fmtDuration(this.i18n, ms);
+    return fmtDuration(this.wording, ms);
   }
 
   /** 3.4s / 3,4 s: the seconds a question took on average, to one decimal place. */

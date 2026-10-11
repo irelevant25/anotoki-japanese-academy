@@ -1,5 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import type { AnotokiDateFormat, AnotokiTimeFormat } from './auth/sdk/anotoki-auth';
 import {
   dateInOrder,
@@ -18,8 +20,6 @@ import {
   pct,
   Wording,
 } from './format';
-import { TranslationService } from './i18n/translation.service';
-import { provideTestTranslations } from './testing/test-translations';
 
 const NOW = Date.UTC(2026, 8, 29, 10, 0, 0);
 const MIN = 60000;
@@ -48,12 +48,24 @@ const SLOVAK = {
   'time.durationSeconds': '{s} s',
 };
 
-function wording(language: 'en' | 'sk'): TranslationService {
+/**
+ * The words of `language` for somebody who chose no date order or clock (or
+ * nobody signed in): the translation service's t(), plural() and locale(), as
+ * TimeWording hands them on.
+ */
+function wording(language: 'en' | 'sk'): Wording {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [provideZonelessChangeDetection(), language === 'sk' ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH)],
   });
-  return TestBed.inject(TranslationService);
+  const i18n = TestBed.inject(TranslationService);
+  return {
+    t: (key, params) => i18n.t(key, params),
+    plural: (key, count, params) => i18n.plural(key, count, params),
+    locale: () => i18n.locale(),
+    dateFormat: () => null,
+    timeFormat: () => null,
+  };
 }
 
 describe('format', () => {
@@ -139,7 +151,7 @@ describe('format', () => {
   it('follows the language: the same call words itself again', async () => {
     const w = wording('sk');
     expect(fmtIn(w, NOW + 50 * 60 * MIN, NOW)).toBe('o 2 dni');
-    await w.setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     expect(fmtIn(w, NOW + 50 * 60 * MIN, NOW)).toBe('in 2 days');
   });
 });
@@ -207,7 +219,6 @@ describe('format: a signed-in person’s own date order and clock (their anotoki
   it('writes the admin panel’s moments in English, or in the order and on the clock chosen', () => {
     const none = { dateFormat: () => null, timeFormat: () => null };
     expect(fmtAdminMoment(none, AFTERNOON)).toBe(new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(AFTERNOON));
-    expect(fmtAdminMoment({}, AFTERNOON), 'a wording that knows of no account').toBe('6 Oct 2026, 14:05');
     expect(fmtAdminMoment({ dateFormat: () => 'dmy_slash', timeFormat: () => '12' }, AFTERNOON)).toBe('06/10/2026 2:05 pm');
     expect(fmtAdminMoment({ dateFormat: () => null, timeFormat: () => '24' }, MORNING)).toBe('6 Oct 2026 09:05');
     expect(fmtAdminMoment({ dateFormat: () => 'ymd_dash', timeFormat: () => null }, MORNING)).toBe('2026-10-06 09:05');

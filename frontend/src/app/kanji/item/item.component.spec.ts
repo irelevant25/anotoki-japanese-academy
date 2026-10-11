@@ -2,11 +2,11 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState, Stage } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemComponent } from './item.component';
 
@@ -177,7 +177,7 @@ describe('ItemComponent', () => {
     expect(stats().slice(2, 4)).toEqual([`o 4 h (${when})`, '75 % (3/4)']);
     expect(text('.syn')).toBe('Tvoje synonymá: uni');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await harness.fixture.whenStable();
     expect(text('.itype')).toBe('Vocabulary · Lesson 4');
     expect(stats()[3]).toBe('75% (3/4)');
@@ -189,7 +189,7 @@ describe('ItemComponent', () => {
     const dd = host.querySelectorAll('dl.stats dd')[2];
     expect(Array.from(dd.querySelectorAll('span[lang]')).map((el) => [el.textContent, el.getAttribute('lang')])).toEqual([['Burned', 'en']]);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await harness.fixture.whenStable();
     expect(stats()[2]).toBe('Burned — no more reviews');
   });
@@ -203,7 +203,7 @@ describe('ItemComponent', () => {
     expect(asked).toEqual(['Vynulovať „大“? Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.']);
     expect(api.resetItem, 'refused: nothing is reset').not.toHaveBeenCalled();
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     reset();
     expect(asked[1]).toBe('Reset 大? It goes back to "not learned"; your notes stay.');
     expect(api.resetItem).not.toHaveBeenCalled();

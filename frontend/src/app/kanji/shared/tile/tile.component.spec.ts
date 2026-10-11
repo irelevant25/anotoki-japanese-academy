@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../../core/api/api.service';
 import { CatalogItem, ItemState, Stage } from '../../../core/api/api.types';
-import { TranslationService } from '../../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../../core/testing/test-translations';
 import { KanjiStateService } from '../../kanji-state.service';
 import { TileComponent } from './tile.component';
 
@@ -67,7 +67,7 @@ describe('TileComponent', () => {
   it('…in the language on the page, and follows it', async () => {
     await draw(false, true);
     expect(link().title).toBe('一 — one · nenaučené');
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(link().title).toBe('一 — one · not learned');
   });

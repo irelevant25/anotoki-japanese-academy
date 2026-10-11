@@ -67,7 +67,7 @@ const SCREENS = [
   ['kanji-lessons', '/kanji/lessons'],
   ['kanji-lesson-screen', '/kanji/lessons', async (page) => {
     // by its place, not its name: the Slovak pass takes this screen too
-    await page.click('section.panel .actions button.is-primary');
+    await page.click('section.panel .actions button.anotoki-button--primary');
     await page.waitForSelector('.lband');
   }],
   ['kanji-review', '/kanji/reviews', async (page) => page.waitForSelector('.session')],
@@ -114,10 +114,10 @@ const SCREENS = [
   // nobody signed in, where the IAM does not require it: a visitor's home, with the notice
   ['home-visitor', '/', async (page) => page.waitForSelector('#visitorNotice'), { visiting: true }],
   // the admin area: English, whatever the reader chose
-  ['admin-translations', '/admin/translations', async (page) => page.waitForSelector('table.grid'), { admin: true }],
-  ['admin-languages', '/admin/languages', async (page) => page.waitForSelector('section.add'), { admin: true }],
+  ['admin-translations', '/admin/translations', async (page) => page.waitForSelector('anotoki-translations-page .anotoki-translations-page__grid'), { admin: true }],
+  ['admin-languages', '/admin/languages', async (page) => page.waitForSelector('anotoki-languages-page form.anotoki-languages-page__add'), { admin: true }],
   ['admin-people', '/admin/people', async (page) => page.waitForSelector('#people'), { admin: true }],
-  ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('[data-applied] .file'), { admin: true }],
+  ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('[data-applied] .anotoki-migrations-page__file'), { admin: true }],
   // a database update waiting: the anotoki library's page, as a learner reads it, and as the site's ADMIN does
   ['update-waiting', '/', async (page) => page.waitForSelector('anotoki-site-status h1'), { updating: true, learner: true }],
   ['update-waiting-admin', '/', async (page) => page.waitForSelector('anotoki-site-status a'), { updating: true }],

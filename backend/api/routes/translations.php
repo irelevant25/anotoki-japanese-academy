@@ -1,135 +1,114 @@
 <?php
 /**
- * The app's own words (src/translations.php does the work).
+ * The app's own words: the anotoki library's routes (Anotoki\Lib\Translations\
+ * Http\TranslationsRoutes, anotoki/lib - every anotoki site's), on this app's
+ * translations (academy_translations() in src/translations.php), with this
+ * app's checks on the route groups and its error body. One wire format for
+ * every anotoki site, the IAM's: snake_case (native_name, sort_order).
  *
  * For everybody: no person, no token, no cookie, the same answer under any
  * Host, because it holds nobody's data.
  *
- *   GET    /api/translations/{code}              {language, languages, values, english?}: a language's strings
- *                                                with English under them and the languages on offer. "sk-sk"
- *                                                is answered by "sk" when only that is offered, anything the
- *                                                app does not offer in English. 404 not_found for what is no
- *                                                code; 503 not_up_to_date while the database has no words yet:
- *                                                migration 004 of an upload still arriving, or waiting for its
- *                                                Apply (nothing is logged for it). It answers while a migration
- *                                                waits (the SiteGate, api/app.php): the pages need their words
+ *   GET    /api/translations/{code}              {language, languages: [{code, name, native_name}], values, english?}:
+ *                                                a language's strings with English under them and the languages on
+ *                                                offer. "sk-sk" is answered by "sk" when only that is offered,
+ *                                                anything the app does not offer in English. 404 not_found for what
+ *                                                is no code, before any query; 503 translations_unavailable
+ *                                                (Retry-After: 60) while the database has no words yet - migration
+ *                                                004 of an upload still arriving, or waiting for its Apply - or
+ *                                                cannot be asked (nothing is logged for either). ETag and
+ *                                                Cache-Control: no-cache, 304 for the tag the browser holds. It
+ *                                                answers while a migration waits (the SiteGate, api/app.php): the
+ *                                                pages need their words
  *
- * The admin area, in two route groups with the checks on the groups
+ * The admin panel, in route groups with the checks on the groups
  * (middleware/staff.php): the editors and the administrators (the IAM roles
  * EDITOR and ADMIN) reword the strings; only an administrator adds, changes
  * or deletes a language, and sees the people and deletes a person's data
- * (/api/admin/people…, routes/people.php, in the administrators' group).
- * Else 403 staff_only or admin_only; a body over 1 MiB 413 too_large. A
- * {code} that is not a language's is 404 not_found:
+ * (/api/admin/people…, routes/people.php, in a group of the administrators
+ * too). In this order: 401 sign_in_required, 403 staff_only or admin_only,
+ * 413 too_large over 1 MiB; then the library's: a {code} that is no
+ * language's 404 not_found; a body that is not JSON 415
+ * unsupported_media_type, empty 422 empty_body, broken 400 invalid_json; 503
+ * translations_unavailable while the tables are not there; then the work. A
+ * refusal is this app's error body, {error: sentence, code, ...what it is
+ * about: key, language, placeholder, keys}:
  *
- *   GET    /api/admin/languages                  {languages: [{code, name, nativeName, enabled, sortOrder, seeded}]},
- *                                                the hidden ones too
- *   POST   /api/admin/languages                  {code, name, nativeName, enabled?} -> 201 {language}, offered unless
+ *   GET    /api/admin/languages                  {languages: [{code, name, native_name, enabled, sort_order, seeded,
+ *                                                strings}]}, the hidden ones too (seeded: released with the app - never
+ *                                                deleted; strings: how many of its own it has)
+ *   POST   /api/admin/languages                  {code, name, native_name, enabled?} -> 201 {language}, offered unless
  *                                                enabled is false; 409 language_exists; 422 invalid_language,
  *                                                too_many_languages
- *   PUT    /api/admin/languages/{code}           {name?, nativeName?, enabled?, sortOrder?} -> {language};
+ *   PUT    /api/admin/languages/{code}           {name?, native_name?, enabled?, sort_order?} -> {language};
  *                                                409 fallback_language (English switched off); 422 invalid_language
- *   DELETE /api/admin/languages/{code}          -> {copy}: the language goes with its strings, after a copy of them
- *                                                in the backups (its file's name); 409 fallback_language (English),
- *                                                409 seeded_language (a language the migrations write strings for)
+ *   DELETE /api/admin/languages/{code}          -> {strings, copy}: the language goes with its strings (how many),
+ *                                                after a copy of them in the backups (its file's name); 409
+ *                                                fallback_language (English), 409 seeded_language (a language the
+ *                                                migrations write strings for)
  *   GET    /api/admin/translations               {languages, keys: [{name, description, values: {code: text}}]}, by name
  *   PUT    /api/admin/translations               {values: {key: {code: text}}}, the changed cells only -> the grid as it
  *                                                is now; checked whole, one transaction; 422 invalid_value,
  *                                                unknown_key (with keys), unknown_language, fallback_required,
  *                                                invalid_placeholder, placeholder_changed, unknown_placeholder
- *   GET    /api/admin/translations/{code}/export that language's own strings, flat: {key: text} ({} when none)
+ *   GET    /api/admin/translations/{code}/export that language's own strings, flat: {key: text} ({} when none), as a
+ *                                                file to save (translations-{code}.json)
  *   PUT    /api/admin/translations/{code}/import {key: text} -> the grid as it is now; the same checks; a blank
  *                                                string is passed over
  */
 
 declare(strict_types=1);
 
+use Anotoki\Lib\Support\Refusal;
+use Anotoki\Lib\Translations\Http\TranslationsRoutes;
+use Anotoki\Lib\Translations\Translations;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Routing\RouteCollectorProxy;
 
 function academy_translation_routes(Slim\App $app): void
 {
-    // Outside data_route(), on purpose: the words are the same for everybody,
-    // so nobody is asked who they are. A token is not looked at, a good one or
-    // a bad one, and a page whose sign-in has run out still reads in its language.
-    $app->get('/api/translations/{code}', static function (Request $request, Response $response, array $args): Response {
-        translations_required();
-        // Before any query that carries it: only a code is looked up (a wrong
-        // address is a 404, not a database refusing bytes that are not text).
-        $code = (string) $args['code'];
-        if (!language_code_ok($code)) {
-            throw new HttpError(404, 'There is no such language.', [], 'not_found');
-        }
-
-        // The strings change when somebody rewords one, or with a release: the
-        // browser asks every time (no-cache) and is told "the same as you
-        // have" in a few bytes. Both headers go on that answer too; without
-        // them it would go out as no-store. The tag is compared as it may come
-        // back from behind a server that compresses (translations_not_modified()).
-        $body = json_text(translations_bundle($code));
-        $etag = '"' . md5($body) . '"';
-        $headers = ["ETag: $etag", 'Cache-Control: no-cache'];
-        if (translations_not_modified($request->getHeaderLine('If-None-Match'), $etag)) {
-            return with_headers($response->withStatus(304), $headers);
-        }
-        return json_response($response, $body, 200, $headers);
-    })->add(upkeep_middleware());
-
-    // Each of the admin area's handlers gives [status, body], as the kanji's do.
-    // Who saved a string is the request's person, the token's, and nothing a body says.
-    $admin = static function (callable $answer): callable {
-        return static function (Request $request, Response $response, array $args) use ($answer): Response {
-            translations_required();
-            [$status, $body] = $answer($request, $args);
-            return json_response($response, $body, $status);
-        };
+    // Made when a request needs them, as db_migrator() is.
+    $translations = static function (): Translations {
+        return academy_translations();
+    };
+    // A refusal in this app's error body, as every other address answers one (middleware/errors.php).
+    $error = static function (Response $response, Refusal $refusal): Response {
+        return json_response($response, ['error' => $refusal->message, 'code' => $refusal->code] + $refusal->extra, $refusal->status);
     };
 
-    // Two groups, with the checks on the groups: an address added to one
-    // later gets them without asking. The middleware of a group runs before
-    // its routes', the outer group's before the inner's: upkeep, the person,
-    // then the editors' check, then the administrators'.
-    $staff = $app->group('/api/admin', static function (RouteCollectorProxy $group) use ($admin): void {
-        // The editors and the administrators: reading and rewording the strings.
-        $group->get('/languages', $admin(static function (): array {
-            return [200, ['languages' => languages_all()]];
-        }));
+    // Outside data_route(), on purpose: the words are the same for everybody,
+    // so nobody is asked who they are. A token is not looked at, a good one or
+    // a bad one, and a page whose sign-in has run out still reads in its
+    // language. Its group is there for the upkeep alone, which comes before it
+    // as before every address with data (it is many a page's first request).
+    $app->group('', static function (RouteCollectorProxy $group) use ($translations, $error): void {
+        TranslationsRoutes::bundle($group, $translations, $error);
+    })->add(upkeep_middleware());
 
-        $group->get('/translations', $admin(static function (): array {
-            return [200, translations_grid()];
-        }));
+    // The groups' middleware runs before their routes', the last added first:
+    // upkeep, the person, the editors' check, then the administrators'. An
+    // address added to a group later gets them without asking.
 
-        $group->put('/translations', $admin(static function (Request $request): array {
-            return translations_save(request_body($request)['values'] ?? null, uid($request));
-        }));
+    // The editors and the administrators: reading and rewording the strings.
+    // Who saved a string is the request's person, the token's, and nothing a body says.
+    $strings = TranslationsRoutes::strings($app, '/api/admin', $translations, static function (Request $request): ?int {
+        return uid($request);
+    }, $error);
+    $strings->add(staff_middleware());
+    data_route($strings);
 
-        $group->get('/translations/{code}/export', $admin(static function (Request $request, array $args): array {
-            return translations_export((string) $args['code']);
-        }));
+    // The administrators alone: the languages themselves ...
+    $languages = TranslationsRoutes::languages($app, '/api/admin', $translations, $error);
+    $languages->add(admin_middleware());
+    $languages->add(staff_middleware());
+    data_route($languages);
 
-        $group->put('/translations/{code}/import', $admin(static function (Request $request, array $args): array {
-            return translations_import((string) $args['code'], request_body($request), uid($request));
-        }));
-
-        // The administrators alone: the languages themselves, and the people.
-        $group->group('', static function (RouteCollectorProxy $only) use ($admin): void {
-            $only->post('/languages', $admin(static function (Request $request): array {
-                return languages_create(request_body($request));
-            }));
-
-            $only->put('/languages/{code}', $admin(static function (Request $request, array $args): array {
-                return languages_update((string) $args['code'], request_body($request));
-            }));
-
-            $only->delete('/languages/{code}', $admin(static function (Request $request, array $args): array {
-                return languages_delete((string) $args['code']);
-            }));
-
-            // The people whose data the site holds, and deleting a person's (routes/people.php).
-            academy_people_routes($only);
-        })->add(admin_middleware());
+    // ... and the people whose data the site holds, and deleting a person's (routes/people.php).
+    $people = $app->group('/api/admin', static function (RouteCollectorProxy $group): void {
+        academy_people_routes($group);
     });
-    $staff->add(staff_middleware()); // added first, so it runs last of the group's: after the upkeep and the person
-    data_route($staff);
+    $people->add(admin_middleware());
+    $people->add(staff_middleware());
+    data_route($people);
 }

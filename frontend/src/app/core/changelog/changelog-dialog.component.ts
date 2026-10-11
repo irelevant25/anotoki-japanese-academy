@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, viewChild } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { keptWord } from '../../standin/kept-word';
 import { LocalDatePipe } from '../i18n/local-date.pipe';
-import { TranslationService } from '../i18n/translation.service';
 import { ChangelogService } from './changelog.service';
 
 /**

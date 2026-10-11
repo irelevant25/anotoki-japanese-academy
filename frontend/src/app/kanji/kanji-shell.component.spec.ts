@@ -2,9 +2,9 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError } from '../core/api/api.service';
-import { TranslationService } from '../core/i18n/translation.service';
-import { provideTestTranslations } from '../core/testing/test-translations';
 import { freshKanji, KanjiShellComponent } from './kanji-shell.component';
 import { KanjiStateService } from './kanji-state.service';
 
@@ -88,7 +88,7 @@ describe('the kanji section’s shell', () => {
     const el = await open(true);
     const tabs = (): string[] => Array.from(el.querySelectorAll('.subnav a')).map((a) => clean(a.textContent));
     expect(tabs()).toEqual(['Prehľad', 'Lekcie', 'Opakovania', 'Precvičovanie', 'Prehliadať']);
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await harness.fixture.whenStable();
     expect(tabs()).toEqual(['Dashboard', 'Lessons', 'Reviews', 'Practice', 'Browse']);
   });
@@ -99,7 +99,7 @@ describe('the kanji section’s shell', () => {
     expect(clean(el.querySelector('.err')?.textContent)).toBe('Údaje o kanji sa nepodarilo načítať: Server neodpovedá.');
     expect(el.textContent).not.toContain('the server does not answer');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await harness.fixture.whenStable();
     expect(clean(el.querySelector('.err')?.textContent)).toBe('Could not load the kanji data: The server does not answer.');
   });

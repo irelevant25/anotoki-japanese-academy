@@ -20,7 +20,6 @@ import {
   VisitorsCount,
 } from './api.types';
 import { CARRIES_VISITOR_KEY, issuedAs, VISITOR_KEY_HEADER } from '../auth/issued-as';
-import { LanguageChanges, NewLanguage, AdminLanguage, TranslationChanges, TranslationGrid } from '../i18n/translation.model';
 
 /**
  * What a failure is called: the word the server put in its answer; `offline`
@@ -157,45 +156,10 @@ export class ApiService {
     );
   }
 
-  /* ------------------------------ the admin panel: words, languages, people */
-  // EDITOR and ADMIN: the words; ADMIN alone: the languages' changes and the people
-  // (backend/api/middleware/staff.php). The pages only hide what the server refuses. (The Migrations
-  // page is the anotoki library's, which asks its own addresses: core/site-status.config.ts.)
-
-  languages(): Promise<AdminLanguage[]> {
-    return this.call(this.http.get<{ languages: AdminLanguage[] }>('/api/admin/languages', { context: AS_PERSON })).then((r) => r.languages);
-  }
-
-  createLanguage(language: NewLanguage): Promise<AdminLanguage> {
-    return this.call(this.http.post<{ language: AdminLanguage }>('/api/admin/languages', language, { context: AS_PERSON })).then((r) => r.language);
-  }
-
-  updateLanguage(code: string, changes: LanguageChanges): Promise<AdminLanguage> {
-    return this.call(this.http.put<{ language: AdminLanguage }>(`/api/admin/languages/${encodeURIComponent(code)}`, changes, { context: AS_PERSON })).then((r) => r.language);
-  }
-
-  /** Answers the name of the copy of its strings the server made in backups/ first. */
-  deleteLanguage(code: string): Promise<{ copy: string }> {
-    return this.call(this.http.delete<{ copy: string }>(`/api/admin/languages/${encodeURIComponent(code)}`, { context: AS_PERSON }));
-  }
-
-  translationGrid(): Promise<TranslationGrid> {
-    return this.call(this.http.get<TranslationGrid>('/api/admin/translations', { context: AS_PERSON }));
-  }
-
-  /** Only the changed cells; the server checks them all before it writes any, and answers the grid as it is now. */
-  saveTranslations(values: TranslationChanges): Promise<TranslationGrid> {
-    return this.call(this.http.put<TranslationGrid>('/api/admin/translations', { values }, { context: AS_PERSON }));
-  }
-
-  /** A language's own strings, flat: fetched here, with the token, and saved by the page from a Blob. */
-  exportTranslations(code: string): Promise<Record<string, string>> {
-    return this.call(this.http.get<Record<string, string>>(`/api/admin/translations/${encodeURIComponent(code)}/export`, { context: AS_PERSON }));
-  }
-
-  importTranslations(code: string, values: Record<string, string>): Promise<TranslationGrid> {
-    return this.call(this.http.put<TranslationGrid>(`/api/admin/translations/${encodeURIComponent(code)}/import`, values, { context: AS_PERSON }));
-  }
+  /* --------------------------------------------------- the admin panel: people */
+  // ADMIN alone (backend/api/middleware/staff.php). The pages only hide what the server refuses. (The
+  // Translations, Languages and Migrations pages are the anotoki library's, which ask their own addresses
+  // through this app's HttpClient: core/i18n/translations.config.ts, core/site-status.config.ts.)
 
   /** Everybody the site has, the latest seen first (ADMIN). */
   people(): Promise<Person[]> {

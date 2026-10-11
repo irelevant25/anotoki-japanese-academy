@@ -2,17 +2,18 @@ import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentProvider
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, Routes } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppComponent } from './app.component';
 import { AuthService } from './core/auth/auth.service';
 import { ChangelogService } from './core/changelog/changelog.service';
 import { provideKit } from './core/kit.config';
-import { TranslationService } from './core/i18n/translation.service';
+import { provideKitEnglish } from './core/testing/kit-english';
 import { provideTestSiteStatus } from './core/testing/site-status';
-import { provideTestTranslations } from './core/testing/test-translations';
 import { KanjiStateService } from './kanji/kanji-state.service';
 
-const ENGLISH = { 'topbar.exam': 'Exam', 'language.button': 'Language: {name} ({code})' };
-const SLOVAK = { 'topbar.exam': 'Skúška', 'language.button': 'Jazyk: {name} ({code})' };
+const ENGLISH = { 'topbar.exam': 'Exam', 'anotoki.language.button': 'Language: {name} ({code})' };
+const SLOVAK = { 'topbar.exam': 'Skúška', 'anotoki.language.button': 'Jazyk: {name} ({code})' };
 
 /** These specs' own client id: the SDK's storage listeners of other specs never hear their tabs. */
 const CLIENT = 'academy-test-app';
@@ -64,7 +65,7 @@ const ROUTES: Routes = [
  */
 async function draw(providers: (Provider | EnvironmentProviders)[] = [], due = 0, signedIn = true, config: Record<string, unknown> = {}, roles: string[] = []): Promise<HTMLElement> {
   TestBed.configureTestingModule({
-    providers: [provideZonelessChangeDetection(), provideRouter(ROUTES), provideTestSiteStatus(), provideKit(), { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } }, ...providers],
+    providers: [provideZonelessChangeDetection(), provideRouter(ROUTES), provideTestSiteStatus(), provideKitEnglish(), provideKit(), { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } }, ...providers],
   });
   TestBed.inject(ChangelogService).load = () => Promise.resolve(); // no version button: it has a spec of its own
   if (signedIn) {
@@ -82,7 +83,7 @@ async function draw(providers: (Provider | EnvironmentProviders)[] = [], due = 0
 }
 
 function links(el: HTMLElement): (string | undefined)[] {
-  return Array.from(el.querySelectorAll('app-top-bar nav.nav a')).map((a) => a.textContent?.replace(/\s+/g, ' ').trim());
+  return Array.from(el.querySelectorAll('app-top-bar nav.anotoki-top-bar__nav a')).map((a) => a.textContent?.replace(/\s+/g, ' ').trim());
 }
 
 /** The words of an element, its white space folded. */
@@ -114,16 +115,16 @@ describe('AppComponent: the bar above, the foot below — in every state', () =>
     expect(el.querySelector('footer app-version')).not.toBeNull();
     expect(links(el)).toEqual(['Kanji', 'Exam']);
     expect(el.querySelector('app-top-bar a[href="/exam"]'), 'the link the browser suites click').not.toBeNull();
-    expect(Array.from(el.querySelectorAll('anotoki-brand .wordmark > span')).map((span) => span.textContent)).toEqual(['anotoki', 'Japanese']);
+    expect(Array.from(el.querySelectorAll('anotoki-brand .anotoki-brand__wordmark > span')).map((span) => span.textContent)).toEqual(['anotoki', 'Japanese']);
     expect(warn).not.toHaveBeenCalled();
   });
 
   it('in the language on the page: the exam is worded, the term “Kanji” and the app’s name are what they are everywhere', async () => {
     const el = await draw([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })], 125);
     expect(links(el)).toEqual(['Kanji 125', 'Skúška']);
-    expect(el.querySelector('app-top-bar nav.nav .badge')?.textContent?.trim()).toBe('125');
+    expect(el.querySelector('app-top-bar nav.anotoki-top-bar__nav .anotoki-top-bar__badge')?.textContent?.trim()).toBe('125');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
     expect(links(el)).toEqual(['Kanji 125', 'Exam']);
   });
@@ -295,7 +296,7 @@ describe('AppComponent: nobody signed in', () => {
     expect(el.querySelector('router-outlet')).not.toBeNull();
     expect(el.querySelector('#signin')).toBeNull();
     expect(links(el)).toEqual(['Kanji', 'Exam']);
-    expect(el.querySelector('app-top-bar button.sign-in')).not.toBeNull();
+    expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in')).not.toBeNull();
     expect(el.querySelector('#signInFailed')).toBeNull();
   });
 

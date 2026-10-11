@@ -1,12 +1,12 @@
 import { ApplicationRef, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { Person, VisitorsCount } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
 import { drawKitQuestion, KitQuestion } from '../../core/testing/kit-question';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { PeopleComponent } from './people.component';
 
 const HANA: Person = { id: 7, username: 'hana', createdAt: Date.UTC(2026, 8, 22, 9), lastSeenAt: Date.UTC(2026, 9, 3, 18), timeZone: 'Asia/Tokyo', items: 120, attempts: 4 };

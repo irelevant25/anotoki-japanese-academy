@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { TranslatePipe, TranslatePluralPipe } from '@anotoki/lib/translations';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { toHiragana } from 'wanakana';
 import { CatalogItem } from '../../core/api/api.types';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslatePluralPipe } from '../../core/i18n/translate-plural.pipe';
 import { canonReading } from '../answer';
 import { KanjiStateService } from '../kanji-state.service';
 import { TileComponent } from '../shared/tile/tile.component';

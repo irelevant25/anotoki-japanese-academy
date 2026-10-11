@@ -52,8 +52,9 @@ For building and uploading, use the `academy-deploy` skill.
   in `backend/vendor/`: never edit it; `DEV.md`, *The anotoki library*):
   its `SiteGate` in front of every route answers 503 `not_set_up`, or
   `update_pending` while a whole migration waits, to everything but
-  `/api/site-status` and `SITE_OPEN_PATHS` (how to sign in, the words, the
-  health check, the clips, the Migrations page's three routes) - an address
+  `/api/site-status` and `academy_site_open_paths()` in `backend/api/app.php`
+  (how to sign in, the words - the library's `TranslationsRoutes::openPath()` -,
+  the health check, the clips, the Migrations page's three routes) - an address
   added there is its exact route, never a prefix (the gate reads the path
   decoded once: a prefix lets `/…/../x`, `%2e%2e`, `%2F` past it), and must
   work on tables a waiting migration may not have made; and nothing of the
@@ -81,11 +82,14 @@ For building and uploading, use the `academy-deploy` skill.
   gets `user_id` first in its primary key, referencing `users (id)` with
   `ON UPDATE CASCADE`, and goes into `USER_TABLES` (`backend/src/users.php`).
 - The three translation tables (`languages`, `translation_keys`,
-  `translations`; migration 004, `backend/src/translations.php`) are the
-  site's, not a person's: read by everybody, written in the admin panel, never in
+  `translations`; migration 004, `backend/src/translations.php`, served and
+  written by the anotoki library's `Translations` behind this app's checks,
+  in snake_case) are the site's, not a person's: read by everybody, written in the admin panel, never in
   `USER_TABLES`, and their queries carry no `user_id`. The one user id there
   is `translations.updated_by` (who last reworded a string: `uid($request)`,
-  null for a migration or the command line). Keys come only from migrations;
+  null for a migration or the command line). Keys come only from migrations
+  (the library's own, under `anotoki.`, from its set `anotoki_translations`,
+  which runs after this app's);
   `backend/translations.php` is a command-line tool and never uploaded
   (`DIST_NEVER`).
 - The study rows are never rewritten. Migration `002_users.sql` was the one

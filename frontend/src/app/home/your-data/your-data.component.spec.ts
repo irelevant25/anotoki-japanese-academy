@@ -1,9 +1,9 @@
 import { ApplicationRef, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { BroughtBack } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { IMPORT_CEILING, readDataFile, YourDataComponent } from './your-data.component';
 
 /** A data file as GET /api/me/data writes it (backend/src/me.php), of these people. */

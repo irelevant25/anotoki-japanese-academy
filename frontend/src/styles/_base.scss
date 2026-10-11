@@ -6,10 +6,11 @@
 // and the foot have their own styles. Colours only from the tokens.
 
 // The kit draws its own pieces - an element with its anotoki- class, all that
-// is inside one, and the library's pages - and some of their parts have this
-// app's names (a dialog's and a menu's .panel, the bar's and an alert's
-// .actions, a field's .field and its input): this app's rules of those names
-// keep out of them, without weighing more for it (:where).
+// is inside one, and the library's pages: this app's rules of the names its
+// own pages use (.panel, .actions, .field and its input) keep out of them,
+// without weighing more for it (:where). Since anotoki-lib 0.3.0 the kit's
+// parts have names of their own (anotoki-dialog__panel, anotoki-alert__actions,
+// anotoki-field__label ...), and a field's input is still the kit's to draw.
 $app-only: ':where(:not([class^="anotoki-"], [class*=" anotoki-"], [class^="anotoki-"] *, [class*=" anotoki-"] *, anotoki-site-status *, anotoki-migrations-page *))';
 
 * {

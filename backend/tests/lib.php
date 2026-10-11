@@ -253,6 +253,30 @@ function test_db_empty(): void
     $GLOBALS['TEST_DB_MADE'] = true;
 }
 
+/**
+ * The anotoki library's migration files of the words, in their order, as the
+ * site names them (db_migration_label(): "anotoki_translations/001_….sql"):
+ * they run after this site's own (db_migration_sets()).
+ *
+ * @return list<string>
+ */
+function library_migrations(): array
+{
+    $names = array_map('basename', glob(Anotoki\Lib\Translations\Schema::directory() . '/*.sql') ?: []);
+    sort($names);
+    return array_map(static fn (string $name): string => Anotoki\Lib\Translations\Schema::SET . '/' . $name, $names);
+}
+
+/** A language's own strings in this file's database, by key: [key => text], in the keys' order. */
+function translations_of(string $code): array
+{
+    $values = [];
+    foreach (db_all('SELECT key_name, value FROM translations WHERE language_code = ? ORDER BY key_name COLLATE "C"', [$code]) as $row) {
+        $values[$row['key_name']] = $row['value'];
+    }
+    return $values;
+}
+
 /** Drops this file's database and removes its temp folders and settings, unless ACADEMY_KEEP_TEMP is set. */
 function test_cleanup(): void
 {

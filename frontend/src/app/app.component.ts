@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, effect, inject, untracked } from '@
 import { Router, RouterOutlet } from '@angular/router';
 import { SiteGateComponent, SitePagesDirective } from '@anotoki/lib/migrations';
 import { ConfirmHostComponent } from '@anotoki/lib/ui/dialog';
-import { AdminDrafts } from './admin/admin-drafts.service';
 import { AuthService } from './core/auth/auth.service';
 import { AppVersionComponent } from './core/changelog/app-version.component';
 import { ProblemComponent } from './standin/problem/problem.component';
@@ -57,11 +56,6 @@ import { TopBarComponent } from './top-bar/top-bar.component';
 export class AppComponent {
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  /**
-   * Made here, once the sign-in has settled, so the admin area's unsaved words
-   * are asked about when the tab is closed, whichever page is showing.
-   */
-  private readonly adminDrafts = inject(AdminDrafts);
 
   constructor() {
     // The router's first navigation, once the start has settled the sign-in:

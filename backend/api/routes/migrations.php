@@ -11,14 +11,15 @@
  * may be the one that makes them. Anybody else 401, or 403 staff_only or
  * admin_only.
  *
- *   GET  /api/admin/migrations         {sets: ["academy"], applied: [{set, name, applied_at}], pending: [{set, name, ready,
- *                                      blocked}], missing: [{set, name, applied_at}]}: the files applied, in the order
- *                                      they ran (applied_at ISO 8601, UTC); the ones pending, in the order they will run
- *                                      (ready false: a draft - a file without its last line, still being written or
- *                                      uploaded - which waits, and every one after it with it: blocked); the ones the
- *                                      table lists that are no file here
- *   GET  /api/admin/migrations/file?set=academy&name=…   {set, name, sql}: a file's text; 404 not_found for anything
- *                                      that is not one of backend/migrations/'s files
+ *   GET  /api/admin/migrations         {sets: ["academy", "anotoki_translations"], applied: [{set, name, applied_at}],
+ *                                      pending: [{set, name, ready, blocked}], missing: [{set, name, applied_at}]}: the
+ *                                      files applied, in the order they ran (applied_at ISO 8601, UTC); the ones pending,
+ *                                      in the order they will run - this site's own first, then the anotoki library's
+ *                                      (db_migration_sets()) - (ready false: a draft - a file without its last line, still
+ *                                      being written or uploaded - which waits, and every one after it with it: blocked);
+ *                                      the ones the table lists that are no file here
+ *   GET  /api/admin/migrations/file?set=academy&name=…   {set, name, sql}: a file's text (set=anotoki_translations: one
+ *                                      of the library's); 404 not_found for anything that is not one of the two sets' files
  *   POST /api/admin/migrations/apply   {applied: [{set, name}], failed: {set, name}|null, error: string|null, note:
  *                                      string|null}: the pending ones up to the first draft, in order, after a raw copy
  *                                      of every table (the note names its file in backups/), each in a transaction of
@@ -43,7 +44,7 @@ function academy_migration_routes(Slim\App $app): void
         // The administrator reads why on the page; the site's error log has it as well. (A copy that could
         // not be written logs itself: upkeep_before_apply().)
         if ($result['failed'] !== null) {
-            error_log("[upkeep] a migration failed: backend/migrations/{$result['failed']['name']}: {$result['error']}");
+            error_log('[upkeep] a migration failed: ' . db_migration_path($result['failed']) . ": {$result['error']}");
         }
     })->add(migrations_admin_middleware());
 }

@@ -219,6 +219,29 @@ before uploading it. It brings migration 008 (the words of the app's own "not
 set up" page and of the problem page's link to the Migrations page go:
 the library's page stands in for both), applied like any other.
 
+**The update that brings the library's words** (anotoki-lib 0.3.0) brings 008
+and 009 together, and after them the library's own two files
+(`anotoki_translations/001_…`, `002_…`): all four wait for one **Apply
+pending**, in that order. 009 copies the app's words for the top bar and the
+switches - the site's own rewordings, every language - under the library's
+keys before the library's 002 adds its words where a key has none, so the
+bar says what it said. Before the upload:
+
+- export every language on the Translations page all the same (a copy of the
+  site's words in your hands). That copy has the keys of before 009: to
+  import it after 009, give the nineteen keys 009 moved their new names (its
+  list, `topbar.sections` → `anotoki.topbar.sections` …) and leave out the
+  sixteen it deleted, or the import refuses the whole file (`unknown_key`);
+- check that the website's database is UTF-8 (`SHOW server_encoding;` in the
+  hosting panel's database tool says `UTF8`): the library's 001 stops on any
+  other, and the site would stay "being updated" (the setup page and
+  `db_create()` make UTF-8 databases; one made in a hosting panel may not
+  be);
+- upload `backend/vendor/` first: the new code needs the library's classes,
+  and a request served between the two would fail.
+
+The upload is refused while 009 is a draft.
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
@@ -278,11 +301,12 @@ makes the three translation tables and fills them; it changes no study table.
 On a site it is applied like any migration: by an `ADMIN`'s Apply on the
 Migrations page, under the upkeep lock, after the raw copy of every table. While its
 file is still arriving (no `-- end of 004` yet) the bundle of words,
-`/api/translations/{code}`, answers 503 `not_up_to_date` and logs nothing,
+`/api/translations/{code}`, answers 503 `translations_unavailable` (the
+anotoki library's answer since 0.3.0; `not_up_to_date` before) and logs nothing,
 and a page that starts then shows the problem page ("The database is not up
 to date with this version of the app yet: …"); once the upload is whole it
 waits for the Apply like any migration (the bundle still says
-`not_up_to_date`, but the library's page stands in, in its own words). Strings the owner reworded
+`translations_unavailable`, but the library's page stands in, in its own words). Strings the owner reworded
 on the site survive later migrations — a migration's insert steps aside for
 a row that is there —, but the site and this computer each hold their own
 strings: export the site's languages (the Translations page) before an upload

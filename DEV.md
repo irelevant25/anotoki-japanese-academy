@@ -168,7 +168,9 @@ insert leaves it alone. To add one:
    line when the migration is final. (005 was written so - the time zone
    column, the strings of Your data, of signing out and of the family's top
    bar - and is final since 2026-10-04; 006, "Admin panel" and the words of
-   an update that waits, likewise.)
+   an update that waits, likewise; 008, the words the library's status page
+   took over, since 2026-10-11. 009, the kit's words moved under the
+   library's keys, is a draft until the owner accepts it.)
    `backend/tools/build-dist.php` refuses to build the upload while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in
@@ -183,23 +185,40 @@ The learning material, the SRS stage names, grammar terms and the brand are
 never keys. The command line also exports and imports a language
 (`--export sk [FILE]`, `--import sk FILE`; a backup file works as well).
 
+Since anotoki-lib 0.3.0 the anotoki library serves and edits these words
+(`Anotoki\Lib\Translations`, `@anotoki/lib/translations`: the words'
+address, the checks of a string, the admin panel's Translations and
+Languages pages, the command line's work), on this app's three tables and
+behind this app's checks (`backend/src/translations.php`,
+`backend/api/routes/translations.php`, `frontend/src/app/core/i18n/translations.config.ts`).
+Its own keys are under `anotoki.` - the words of its kit (the top bar, the
+language and theme switches, the dialogs) and of its status page -, written
+by its migration set `anotoki_translations` only where a key has no string
+yet: `anotoki.` is the library's namespace, never a key of the app's own. The
+owner rewords them on the Translations page like any other; 009 copied the
+app's own words for the kit there.
+
 ### The anotoki library
 
-The database migrations are the anotoki library's (`anotoki-lib`, shared by
-every anotoki site: https://github.com/irelevant25/anotoki-lib, a clone of it
-beside this repository in `../anotoki-lib`), in two halves with one version -
-though a release may change one half alone, and then only that half moves:
-the npm half is 0.2.0 (the family's UI kit, its styles and top bar, and the
-migrations module's 0.2.0) and the Composer half 0.1.0 (0.1.1 and 0.2.0 left
-it unchanged):
+The database migrations and the app's words are the anotoki library's
+(`anotoki-lib`, shared by every anotoki site:
+https://github.com/irelevant25/anotoki-lib, a clone of it beside this
+repository in `../anotoki-lib`), in two halves with one version - though a
+release may change one half alone, and then only that half moves: both are
+0.3.0 (the translations, and the kit a piece at a time):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
   for this site: its `migrations` table as it has always been, each file sent
-  whole, a file without its last line a draft -, the gate in front of every
-  route (`SiteGate`, `backend/api/app.php`: 503 `not_set_up` and
-  `update_pending`, and the few addresses that stay open), `/api/site-status`
-  and the Migrations page's addresses;
+  whole, a file without its last line a draft, and after this app's own
+  files the library's set `anotoki_translations` (recorded as
+  `anotoki_translations/001_…`; a draft of the app's holds it back too) -,
+  the gate in front of every route (`SiteGate`, `backend/api/app.php`: 503
+  `not_set_up` and `update_pending`, and the few addresses that stay open),
+  `/api/site-status`, the Migrations page's addresses, and the words
+  (`Anotoki\Lib\Translations`: the words' address, the admin panel's
+  addresses for the strings and the languages, `TranslationsCommand` behind
+  `backend/translations.php`);
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
   shows, and the Migrations page (`@anotoki/lib/migrations/page`) - wired to
@@ -207,19 +226,27 @@ it unchanged):
   the gate's marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
   in `app.component.html`): made only while the site is open, so none runs
-  behind the library's page. And the family's UI kit (`@anotoki/lib/ui` and
-  its entry points: buttons, dialogs, fields, menus …), its styles
+  behind the library's page. The words (`@anotoki/lib/translations`: the
+  translation service, its pipes, the kit's words from the database; the
+  admin panel's Translations and Languages pages from
+  `@anotoki/lib/translations/admin`) - wired in
+  `core/i18n/translations.config.ts`. And the family's UI kit, each piece
+  from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
+  `ui/forms`, `ui/config` …; never the `@anotoki/lib/ui` barrel, which
+  would bring every piece into the first load), its styles
   (`@anotoki/lib/styles`, in `src/styles.scss` and `src/styles/_tokens.scss`:
   Japanese's palette given to `anotoki.root()`, Manrope) and its top bar and
   theme (`@anotoki/lib/shell`) - wired in `core/kit.config.ts` (the kit's
-  words are the app's) and `top-bar/`; `angular.json` copies its
-  `theme-boot.js` into the build.
+  words are the library's keys in this app's database, `forKit()`) and
+  `top-bar/`; `angular.json` copies its `theme-boot.js` into the build. The
+  kit's class names are its own (`anotoki-<piece>__<part>`, since 0.3.0):
+  the specs and the browser suites read them so.
 
 To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.1"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.3"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);

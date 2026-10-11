@@ -516,8 +516,8 @@ function setup_run(array $in, array $db): array
         $log[] = 'Backup before the update: backend/storage/backups/' . basename($migrated['backup']) . '.';
     }
     $log[] = $migrated['applied'] ? 'Applied the migrations: ' . implode(', ', $migrated['applied']) . '.' : 'The tables were up to date already.';
-    if ($waiting = db_pending_migrations()) {
-        throw new RuntimeException("backend/migrations/{$waiting[0]} is not whole (its last line, \"-- end of " . substr($waiting[0], 0, 3) . '", is missing):'
+    if ($waiting = db_first_pending_migration()) {
+        throw new RuntimeException(db_migration_path($waiting) . ' is not whole (its last line, "-- end of ' . substr($waiting['name'], 0, 3) . '", is missing):'
             . ' upload or copy it again, then send this form again.');
     }
     $synced = content_sync();

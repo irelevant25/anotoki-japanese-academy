@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { ApiService } from '../../core/api/api.service';
 import { Tally } from '../../core/api/api.types';
 import { fmtDate, fmtIn, fmtWeekdayClock, pct } from '../../core/format';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { TranslationService } from '../../core/i18n/translation.service';
+import { TimeWording } from '../../core/i18n/time-wording';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemDetailsComponent } from '../shared/item-details/item-details.component';
@@ -26,6 +26,7 @@ export class ItemComponent {
   private readonly api = inject(ApiService);
   private readonly screen = inject(KanjiScreenService);
   private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
 
   readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   readonly it = computed(() => this.kanji.item(this.id));
@@ -58,7 +59,7 @@ export class ItemComponent {
   });
 
   learnedAt(): string {
-    return fmtDate(this.i18n, this.st()?.learnedAt);
+    return fmtDate(this.wording, this.st()?.learnedAt);
   }
 
   /** When the next review comes — or that there is none, with the last stage's own name. */
@@ -70,7 +71,7 @@ export class ItemComponent {
     if (!st?.nextReview) {
       return [{ text: '—', lang: null }];
     }
-    return [{ text: `${fmtIn(this.i18n, st.nextReview)} (${fmtWeekdayClock(this.i18n, st.nextReview)})`, lang: null }];
+    return [{ text: `${fmtIn(this.wording, st.nextReview)} (${fmtWeekdayClock(this.wording, st.nextReview)})`, lang: null }];
   });
 
   /** Called from the template, so it follows the language. */

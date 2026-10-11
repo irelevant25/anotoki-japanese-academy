@@ -1,5 +1,5 @@
+import { TranslationParams } from '@anotoki/lib/translations';
 import { ApiErrorBody } from '../api/api.types';
-import { TranslationParams } from './translation.service';
 
 /**
  * What the app says when a request fails, in the reader's language.
@@ -17,7 +17,12 @@ import { TranslationParams } from './translation.service';
  * listed is `error.unknown`. The tails are also in dynamic-keys.ts. The one
  * code worded from more than itself is visitor_limit: which of a visitor's
  * limits (`limit`, checked against its closed set) and its number (`max`),
- * from the answer's body.
+ * from the answer's body. The one code worded under another's key is
+ * translations_unavailable, the anotoki library's answer of the words'
+ * address while the database has none yet (an upload whose 004 has not
+ * arrived): it is what not_up_to_date said there before, and its sentence
+ * stays error.not_up_to_date's - a key a migration of before checks, so it
+ * keeps its name.
  */
 const BY_CODE = new Map<string, string>([
   // no answer at all
@@ -47,6 +52,7 @@ const BY_CODE = new Map<string, string>([
   ['database_unavailable', 'error.database_unavailable'],
   ['server_error', 'error.server_error'],
   ['not_up_to_date', 'error.not_up_to_date'],
+  ['translations_unavailable', 'error.not_up_to_date'],
   ['not_set_up', 'error.not_set_up'],
   ['not_found', 'error.not_found'],
   ['method_not_allowed', 'error.method_not_allowed'],
@@ -81,25 +87,6 @@ export function errorKey(error: Failure): string {
     return byCode;
   }
   return error.status > 0 && error.code === `http_${error.status}` ? 'error.http' : 'error.unknown';
-}
-
-/**
- * A save of the account's preferences (the theme) that the IAM refused or
- * never got — the code its SDK rejects with — as errorKey() reads a failure:
- * `network` is no answer at all ("offline"), `login_required` nobody signed in
- * (sign_in_required), `http_<status>` an answer that was not the IAM's own;
- * any other code as it came (`invalid_token` has its sentence; the rest is
- * error.unknown). No new words: the sentences every failure already has.
- */
-export function preferencesFailure(code: string): Failure {
-  if (code === 'network') {
-    return { status: 0, code: 'offline' };
-  }
-  if (code === 'login_required') {
-    return { status: 401, code: 'sign_in_required' };
-  }
-  const http = /^http_(\d{3})$/.exec(code);
-  return { status: http ? Number(http[1]) : 0, code };
 }
 
 /** What errorKey()'s strings are filled with: `i18n.t(errorKey(error), errorParams(error))`. */

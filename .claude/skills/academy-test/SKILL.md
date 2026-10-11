@@ -31,11 +31,11 @@ browser suite runs after `node frontend/scripts/ensure-build.mjs`.
 | sign-in (`backend/src/auth.php`, `access.php`, `users.php`, `visitors.php`, `frontend/src/app/core/auth/`), the routes or middleware | the PHP tests (`backend/tests/api/auth.test.php`, `access.test.php` and `visitors.test.php` above all; the visitors' tests switch sign-in off with `test_access(false)`, and `start_app(['app' => ['visitors' => [...]]])` sets their limits), the frontend tests (`auth.interceptor.spec.ts`) and `node frontend/e2e/run.js` (its sign-in, sign-out, token, admin-area and visitors parts) and `node frontend/e2e/setup.js` (signing in on a set-up copy) |
 | the setup page, `backend/config/` | the PHP tests (`setup.test.php`, `deploy.test.php`) and `node frontend/e2e/setup.js` |
 | Apache's files, `build-dist.php`, `backend/router.php`, `backend/src/upkeep.php`, `backend/api/front.php` | the PHP tests (`deploy.test.php`, `upkeep.test.php`, `exam-api.test.php` for the pages); for `.htaccess`, consider a real Apache (`docs/kb/environment.md`) |
-| where the site stands, the gate, the migrations' engine (`backend/api/app.php`'s `SITE_OPEN_PATHS`, `db_migrator()`, `backend/api/routes/migrations.php`, `frontend/src/app/core/site-status*.ts`, the anotoki library's version) | the PHP tests (`site-state.test.php`, `deploy.test.php`, `upkeep.test.php`, `build.test.php`, `errors.test.php`), the frontend tests (`boot.spec.ts`, `app.component.spec.ts`, `sign-in.guard.spec.ts`, `translation.service.spec.ts`), `node frontend/e2e/run.js` (a migration waiting: the signed-out administrator's way in) and `node frontend/e2e/setup.js` |
+| where the site stands, the gate, the migrations' engine (`backend/api/app.php`'s `academy_site_open_paths()`, `db_migrator()` and `db_migration_sets()`, `backend/api/routes/migrations.php`, `frontend/src/app/core/site-status*.ts`, the anotoki library's version) | the PHP tests (`site-state.test.php`, `deploy.test.php`, `upkeep.test.php`, `build.test.php`, `errors.test.php`, `migration.test.php`), the frontend tests (`boot.spec.ts`, `app.component.spec.ts`, `sign-in.guard.spec.ts`, `core/i18n/translations.config.spec.ts`), `node frontend/e2e/run.js` (a migration waiting: the signed-out administrator's way in) and `node frontend/e2e/setup.js` |
 | `backend/data/source/**`, `backend/tools/build-*.php` | first `node backend/tools/php.js backend/tools/build-data.php` (or `node backend/tools/php.js backend/tools/build-audio.php`), then the PHP tests and the frontend tests (`answer.spec.ts` checks the whole catalog) |
 | `backend/src/conjugate.php`, `backend/src/generate.php`, `backend/data/authored-items*.php`, `frontend/src/app/kanji/answer.ts` | the PHP tests (and the frontend tests for `answer.ts`), then the `academy-japanese-reviewer` agent |
 | `backend/migrations/` | the PHP tests (the template takes the new migration — a draft without its last line `-- end of NNN` too (the tests name the drafts, `ACADEMY_MIGRATION_DRAFTS`; only the newest may be one, which `upkeep.test.php` checks, and the template is made afresh when a draft changed); `migration.test.php` shows how to test one on old data), then `node backend/tools/php.js backend/manage.php --check`. After an edit of a migration not committed yet: `node backend/tools/php.js backend/tests/tools/testdb.php template --fresh` first, or the template keeps the old file |
-| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php`, `backend/api/routes/translations.php`, the admin panel | the PHP tests (`backend/tests/unit/translations.test.php` holds every key the frontend asks for to the database), `node frontend/e2e/run.js` (the chooser by keys, the admin panel, its Slovak pass), `node frontend/e2e/screens.js` (the Slovak pass, key-shaped text, the room); `node backend/tools/php.js backend/translations.php --status` on a set-up copy |
+| the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php`, `backend/api/routes/translations.php`, `frontend/src/app/core/i18n/translations.config.ts`, the admin panel | the PHP tests (`backend/tests/unit/translations.test.php` holds every key the frontend asks for to the database; `api/translations.test.php` the library's routes behind this app's checks, in snake_case; `api/strings-through-the-library.test.php` 009 on an installed-shaped database), `node frontend/e2e/run.js` (the chooser by keys, the admin panel, its Slovak pass), `node frontend/e2e/screens.js` (the Slovak pass, key-shaped text, the room); `node backend/tools/php.js backend/translations.php --status` on a set-up copy |
 | tests only | the changed file, then its whole suite |
 
 Narrower runs while you iterate:
@@ -59,7 +59,7 @@ Always finish with the full PHP tests, and the full frontend tests when
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
   `Tests` lines. Report the real numbers of both (at the last count, on
-  2026-10-10: 247 backend tests; 656 frontend tests in 44 files; 184
+  2026-10-11: 237 backend tests; 476 frontend tests in 42 files; 184
   browser checks in `run.js`, 42 in `setup.js` — `docs/kb/testing.md`).
 - `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.
@@ -135,7 +135,9 @@ What each file covers is in `docs/kb/testing.md`.
   before reading a component's DOM. The whole catalog is
   `src/testing/catalog.fixture.json` (made before every run). Strings come
   from `provideTestTranslations({ key: 'text' })`
-  (`src/app/core/testing/test-translations.ts`), or
+  (the anotoki library's `@anotoki/lib/translations/testing`; add
+  `provideKitEnglish()` from `src/app/core/testing/kit-english.ts` for the
+  kit's words with no strings), or
   `provideTestTranslations({ … }, { language: 'sk', english: { … } })` for a
   Slovak page; a component that shows words gets a Slovak case too.
 - **Browser:** extend `frontend/e2e/run.js` (or `setup.js` for the setup page).

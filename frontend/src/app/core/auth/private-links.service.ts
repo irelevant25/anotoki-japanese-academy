@@ -1,5 +1,5 @@
 import { inject, Injectable, Injector } from '@angular/core';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService } from '@anotoki/lib/translations';
 import { AuthService } from './auth.service';
 import { VisitorKey } from './visitor-key';
 

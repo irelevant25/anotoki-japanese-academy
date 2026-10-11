@@ -1582,3 +1582,91 @@ rest as global CSS. What changed, and what the owner decided:
   Manrope), End fell to a line of its own in a review's header on a phone (a
   narrower gap there), and Your data's two answers are one under the other
   on a phone again.
+
+**2026-10-11 — anotoki-lib 0.3.0: the app's words are the library's, on this
+app's tables; the kit a piece at a time.** The owner's decisions for the
+family: one implementation of the words for every anotoki site (the
+library's `Anotoki\Lib\Translations` and `@anotoki/lib/translations`, which
+grew from the IAM's and from this app's way of rewording without
+overwriting the owner), one wire format - the IAM's snake_case -, each
+site's own checks of who may do what, and every rewording the owner made
+kept. What changed, and what stays this app's:
+
+- **Migration 008 is final** (its last line written: reviewed and committed,
+  it goes up in the same upload as 009). A draft holds back every file after
+  it, and the library's own files now come after this app's. On a database at
+  007 (the owner's own) 008 now waits for an Apply like any whole migration;
+  until 009 is final and applied too, the kit says its own words where the
+  app words them its own way (in Slovak "Hlavná navigácia", "Automaticky").
+- **The library's migrations after this app's** (`db_migration_sets()` in
+  `backend/src/db.php`, in the API, the setup page, `manage.php` and the
+  tests alike): its set `anotoki_translations`, recorded with its folder
+  (`anotoki_translations/001_languages_and_strings.sql`), sent whole as this
+  app's are. Its 001 finds this app's three tables (004) and only proves
+  their shape; its 002 adds its own keys under `anotoki.` (the kit's words
+  and the status page's), writing a string only where a key has none. The
+  Migrations page names a file with its set while there are two
+  ("Stopped at academy/006_…").
+- **Migration 009** (`009_strings_through_the_library.sql`, a draft until the
+  owner accepts it): the nineteen keys the kit read (`topbar.sections`,
+  `language.button`, `theme.system` …) copied under the library's keys
+  (`anotoki.topbar.sections`, `anotoki.language.button`, `anotoki.theme.auto`
+  …), every language, with who wrote it and when, before the library's 002
+  comes and finds them filled; the sixteen only the bar read deleted - the
+  kit's, and the person's role and the link to their anotoki account, which
+  the bar now says from the library's keys as the library means a site to (a
+  copy nobody reads would be a word the owner rewords in vain); three kept as
+  the app's own: the Sign in card's button and Close (their copies the kit's
+  from now on) and "Admin panel" (`topbar.admin`: 006 rewords it, and its
+  check - which the tests and the browser suite run again on purpose - needs
+  it; the bar still says it from there, and its library copy is read by
+  nothing here). Its check fails it by name unless every string came over as
+  it was (text, writer, time), the library's keys got no language the app's
+  had not, and the sixteen are gone - so the owner's rewordings ("Tvoj účet anotoki",
+  "Systémový", "Časti aplikácie") and a language left without a string stay
+  as they were. Not renamed: `error.not_up_to_date`, which 006's check names.
+- **The server's words are the library's**: `backend/src/translations.php`
+  configures it (`academy_translations()`: the released languages, the copy
+  of a language's strings before it goes - `LanguageUsage::beforeDelete`,
+  answered as `copy` -, `users_hold()` before a person's save); the routes are
+  `TranslationsRoutes` in this app's groups (the upkeep before the words; the
+  staff's and the administrators' checks on the admin groups; every refusal
+  in this app's error body); the gate's open path for the words is the
+  library's (`academy_site_open_paths()`); `backend/translations.php` is the
+  library's `TranslationsCommand` with this app's usage, flags and readiness
+  check, a backup of everybody read as a file of strings. This app's own
+  checks of a string, its ETag comparison, its key scan and its file format
+  went: the library's, tested there.
+- **The wire format**: camelCase is gone - `nativeName`, `sortOrder` are
+  `native_name`, `sort_order` on every admin address, backend and frontend
+  together; a camelCase field is no field (a test sends one). The words'
+  address answers 503 `translations_unavailable` where it said
+  `not_up_to_date`; the page words it in the same sentence.
+- **The browser**: the library's `TranslationService`, pipes, `forKit()` (the
+  kit's words from the database's `anotoki.*` keys) and `forShell()` (the
+  bar's language switcher); the admin panel's Translations and Languages are
+  the library's pages, each in the panel's frame (`admin/translations/`,
+  `admin/languages/`), with its drafts (`LocalizationDrafts`) and its
+  leave guard. Kept as this app's: the storage names (`academy-language`,
+  `academy-language-cache`, `academy-admin-drafts`: a visitor's choice
+  survives the move), the bundle through plain `fetch()` with the time zone,
+  a refusal read as what the app can show, the words asked for only while the
+  app or its Sign in card is shown, `keptWord()` for what is drawn with no
+  strings, and the account's date order and clock (`TimeWording`, since the
+  translation service no longer holds them). The kit says the English this
+  app says its own way while no words are in memory (`KIT_ENGLISH`: "The
+  app’s sections", "System"); a test holds every other library key's seeded
+  English to the library's own.
+- **What a learner notices**: the same words. Two small differences: when
+  the account refuses a theme, the note under the switch is the library's
+  sentence ("The theme could not be saved to your anotoki account.") where it
+  said why ("The server does not answer."); and a language the account
+  refuses for another reason than not offering it now says so under the
+  switcher. No What's new line: neither is a change somebody sees in use.
+- **The kit, a piece at a time**: every piece from its own entry point
+  (`@anotoki/lib/ui/button`, `ui/dialog`, `ui/forms`, `ui/config`; never the
+  barrel); its class names its own (`anotoki-<piece>__<part>`): the specs,
+  the browser suites and the bar's vermilion for the reviews due follow them
+  (`.anotoki-top-bar__badge`, `.anotoki-top-bar__mark-badge`). The first
+  load: 473.54 kB raw, 128.24 kB sent before; 472.06 kB raw, 128.98 kB sent
+  after.

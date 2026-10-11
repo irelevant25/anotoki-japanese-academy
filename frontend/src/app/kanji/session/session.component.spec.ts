@@ -1,16 +1,16 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { SignOutService } from '../../core/auth/sign-out.service';
 import { AudioService } from '../../core/audio.service';
-import { TranslationService } from '../../core/i18n/translation.service';
 import { provideKit } from '../../core/kit.config';
 import { drawnFoot } from '../../core/testing/foot-controls';
 import { provideTestSiteStatus } from '../../core/testing/site-status';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiStateService } from '../kanji-state.service';
 import { SessionResult } from './session-engine';
 import { TopBarComponent } from '../../top-bar/top-bar.component';
@@ -275,7 +275,7 @@ describe('SessionComponent', () => {
     expect(feedback().textContent).toBe('Správna odpoveď: university; college');
     expect(marked()).toEqual([['university; college', 'en']]);
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(feedback().textContent).toBe('The answer: university; college');
     expect(text('.s-count')).toBe('0 done · 1 left');
@@ -419,7 +419,7 @@ describe('SessionComponent', () => {
     expect(results, 'refused: the session goes on').toEqual([]);
 
     // the same dialog after the language changed: worded anew, not kept from before
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     q<HTMLButtonElement>('.s-top button:last-of-type').click();
     expect(asked[1]).toBe('Stop now? 1 half-answered item will not be saved.');
   });
@@ -480,10 +480,10 @@ describe('SessionComponent', () => {
     const top = bar.nativeElement as HTMLElement;
     const controls = [
       top.querySelector<HTMLElement>('anotoki-brand a')!,
-      ...Array.from(top.querySelectorAll<HTMLElement>('nav.nav a')),
+      ...Array.from(top.querySelectorAll<HTMLElement>('nav.anotoki-top-bar__nav a')),
       top.querySelector<HTMLElement>('anotoki-language-switcher button')!,
       ...Array.from(top.querySelectorAll<HTMLElement>('[role="radio"]')),
-      top.querySelector<HTMLElement>('.person-button')!,
+      top.querySelector<HTMLElement>('.anotoki-top-bar__person-button')!,
     ];
     expect(controls).toHaveLength(8);
     expect(controls.every((control) => control !== null)).toBe(true);

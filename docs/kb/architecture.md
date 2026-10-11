@@ -7,7 +7,8 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
 - `backend/` — PHP 8.2+ with **Slim 4** (routing and middleware) and, since
   2026-10-07, the **anotoki library** (`anotoki/lib`, every anotoki site's:
   the migrations' engine, where the site stands and the gate in front of
-  every route; Composer's packages committed in `backend/vendor/`),
+  every route, and since 0.3.0 the app's words; Composer's packages
+  committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
 - `frontend/` — an **Angular 21** app (standalone components, zoneless change
@@ -51,8 +52,9 @@ the top (`backend/README.md`, `frontend/README.md`).
         │      │      └ src/score.php  marking · src/report.php  standalone HTML report · table exam_attempts
         │      ├─ routes/kanji.php   /api/kanji/* ── src/srs/kanji.php
         │      │      └ src/srs/srs.php  WaniKani schedule · src/srs/store.php  srs_progress, srs_settings, srs_daily, srs_log
-        │      ├─ routes/translations.php   /api/translations/:code (everybody)  /api/admin/* (EDITOR, ADMIN)
-        │      │      └ src/translations.php  languages, translation_keys, translations
+        │      ├─ routes/translations.php   /api/translations/:code (everybody)  /api/admin/* (EDITOR, ADMIN):
+        │      │      the anotoki library's TranslationsRoutes ── src/translations.php  academy_translations():
+        │      │      the library's Translations on languages, translation_keys, translations
         │      └─ routes/migrations.php   /api/admin/migrations (the library's; ADMIN from the token; answers
         │                                 while a migration waits) ── db_migrator() (src/db.php), src/upkeep.php
         └─ anything else ─────────── a file of the built app, or its index.html (Angular's router draws the page)
@@ -133,8 +135,8 @@ engine, `db_migrator()`), decided afresh for every request, and the
   computer's never does);
 - **an update waiting** (a whole migration not applied): 503 `{"code":
   "update_pending", "message"}` with `Retry-After: 60`, except the addresses
-  that stay open (`SITE_OPEN_PATHS` in `app.php`): `/api/auth/config`,
-  `/api/translations/{code}`, `/api/health`, `/audio/{name}` and the
+  that stay open (`academy_site_open_paths()` in `app.php`): `/api/auth/config`,
+  `/api/translations/{code}` (the library's `TranslationsRoutes::openPath()`), `/api/health`, `/audio/{name}` and the
   Migrations page's three (`/api/admin/migrations`, `…/file`, `…/apply`) —
   so the pages start with their words, an administrator signs in and applies
   the update, and the clips play on. Each is its route and nothing under it,
@@ -182,8 +184,8 @@ unseen for 30 days, at most once an hour.
 | `GET /api/me/data`, `PUT /api/me/data` | all of your data as one file, and back — see *Your own data* below |
 | `GET /audio/:name` | a clip from `backend/data/audio/`; only names of 16 hex digits + `.mp3`; byte ranges (206); no sign-in (shared content) |
 | `GET /api/health` | `{ok, contentCurrent}`, and under PHP's built-in server, to a request straight from this computer, also `database` and `backups` — the tests ask it |
-| `GET /api/translations/:code` | the app's own words: `{language, languages, values, english?}` — a language's strings with English merged underneath, and the languages on offer; no sign-in, no token looked at; `ETag` + `Cache-Control: no-cache` (304 for the tag the browser holds); 404 `not_found` for what is no code; 503 `not_up_to_date` while the database has no words yet (004 of an upload still arriving, or waiting for its Apply); answered while an update waits |
-| `/api/admin/languages`, `/api/admin/translations` | the admin panel, in two route groups: the editors and the administrators (`EDITOR`, `ADMIN`) read the languages and the grid of every key in every language, save the changed cells, export and import a language as flat JSON; the administrators alone add, change and delete languages (a copy of its strings in the backups first) — see *The app's words* |
+| `GET /api/translations/:code` | the app's own words (the anotoki library's route): `{language, languages: [{code, name, native_name}], values, english?}` — a language's strings with English merged underneath, and the languages on offer; no sign-in, no token looked at; `ETag` + `Cache-Control: no-cache` (304 for the tag the browser holds); 404 `not_found` for what is no code; 503 `translations_unavailable` (`Retry-After: 60`) while the database has no words yet (004 of an upload still arriving, or waiting for its Apply) or cannot be asked; answered while an update waits |
+| `/api/admin/languages`, `/api/admin/translations` | the admin panel, the anotoki library's routes (`TranslationsRoutes::strings()`, `::languages()`) in two of this app's route groups, in snake_case: the editors and the administrators (`EDITOR`, `ADMIN`) read the grid of every key in every language, save the changed cells, export and import a language as flat JSON; the administrators alone read, add, change and delete languages (a copy of its strings in the backups first) — see *The app's words* |
 | `GET /api/admin/people`, `DELETE /api/admin/people/:id` | the administrators alone (the inner group): everybody the site has data of, and deleting a person's data — see *People* below |
 | `GET /api/admin/visitors` | the administrators alone: `{ready, count, oldestSeenAt, keepDays, max}`, the visitors the site keeps now (none on the People page) |
 | `GET /api/admin/migrations`, `GET /api/admin/migrations/file`, `POST /api/admin/migrations/apply` | the administrators alone: the anotoki library's routes (`MigrationsRoutes::admin()`), with `ADMIN` read from the token alone (`migrations_admin_middleware()`: no table needed; it answers while a migration waits): `{sets, applied: [{set, name, applied_at}], pending: [{set, name, ready, blocked}], missing}`; a file's `{set, name, sql}`; Apply → `{applied, failed, error, note}`, 409 `busy` — see *The database*, *A whole migration waits for an administrator* |
@@ -228,7 +230,8 @@ import/export the users data should be available for every user").
   (a backup of everybody) when one of them is the caller, whose part is
   taken. One transaction, which holds the person's `users` row `FOR UPDATE`
   (`users_lock()`); every answer handler, and every save or import of the
-  site's words by a person (`translations_write()`), holds it `FOR SHARE`
+  site's words by a person (the anotoki library's save, whose `beforeWrite`
+  is `academy_translations_config()`'s in `src/translations.php`), holds it `FOR SHARE`
   first (`users_hold()`), so an answer arriving during an import waits and
   then works on what the file brought, and two imports take turns. Inside it,
   before anything is replaced, a copy of what is there
@@ -399,7 +402,7 @@ tests run in Vitest with jsdom (`ng test`).
   `AuthService.init()` asks `GET /api/auth/config` (and finishes a sign-in
   coming back from the IAM), then — signed in with a visitor key held — the
   move of what it holds into the account (`VisitorKey.settle()`, 5 s at most),
-  then `TranslationService.init()` decides the
+  then the anotoki library's `TranslationService.init()` decides the
   language and gets its strings; the router's first navigation waits until
   the start has settled the sign-in (`AppComponent` starts it), and then every
   page's guard sends anybody not signed in to the IAM — unless the IAM does not
@@ -456,25 +459,28 @@ tests run in Vitest with jsdom (`ng test`).
   `<anotoki-top-bar>` (`@anotoki/lib/shell`, with its brand, theme switch,
   language switcher and icons), worded and wired by this app.
 - `core/kit.config.ts` — the anotoki library's UI kit (`@anotoki/lib/ui`,
-  since anotoki-lib 0.2.0) and its shell, wired to this app
-  (`provideKit()`): the kit's words are the app's (its `lookup` maps each
-  word of the kit to the app's key - "Sign out" is `account.signOut`, the
-  theme's "System" `theme.system` - read from the translation service, the
-  owner's rewordings included; with no strings, the seeded English kept in
-  the code; a word the app has no key for is the kit's own English or
-  informal Slovak), the language on the page (English in the admin panel),
-  the theme (`ThemeService`: `academy-theme` on the device, the anotoki
-  account's while signed in, a choice saved to it, a refusal worded in the
-  app's sentences) and the languages on offer (the translation service's).
-  Buttons, dialogs, questions, fields, the spinner and menus everywhere are
-  the kit's (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
-  `anotoki-text-field` …).
+  since anotoki-lib 0.2.0, each piece from its own entry point since 0.3.0:
+  `ui/button`, `ui/dialog`, `ui/forms`, `ui/config` - never the barrel,
+  which would put every piece in the first load) and its shell, wired to this
+  app (`provideKit()`): the kit's words are the library's keys in this app's
+  database (the translation service's `forKit()`: `anotoki.topbar.signOut`,
+  `anotoki.theme.auto` …, which migration 009 filled with the app's own words,
+  the owner's rewordings included; with no strings, `KIT_ENGLISH` where the
+  app says a word its own way, else the library's own English or informal
+  Slovak), the language on the page (English in the admin panel), the theme
+  (`ThemeService`: `academy-theme` on the device, the anotoki account's
+  while signed in, a choice saved to it, a refusal said by the library's
+  note) and the languages on offer (`forShell()`). Buttons, dialogs,
+  questions, fields, the spinner and menus everywhere are the kit's
+  (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
+  `anotoki-text-field` …), its class names its own (`anotoki-<piece>__<part>`).
 - `app.routes.ts` — the learner's pages under one parent whose
   `canActivateChild` is `signInGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
   (`adminSignInGuard` — a visitor goes to the IAM too —, `whenReady`, `staffOnly`: EDITOR or ADMIN) with
-  `translations`, `languages` and `people` (lazy; the last two `adminOnly`;
-  a question before leaving unsaved changes); `/auth/callback`, unguarded.
+  `translations`, `languages`, `people` and `migrations` (lazy; the last three `adminOnly`;
+  Translations and Languages the library's pages in the panel's frame, with
+  the library's question before leaving unsaved changes); `/auth/callback`, unguarded.
   The old `/translations` and `/languages` lead to their new addresses.
   `/kanji`, `/exam` and the admin panel open only while the app can be used
   (`whenReady`: signed in or visiting), so Back or Forward on a stand-in page loads no data.
@@ -496,9 +502,10 @@ tests run in Vitest with jsdom (`ng test`).
   `audio.service.ts` (the two voices take turns),
   `format.ts` (times, dates and percentages in the language on the page, or
   in the date order and clock of a signed-in person's account),
-  `testing/` (the specs' translation service, stand-ins of the sign-in's
-  states, the library's module as a spec needs it, the kit's question
-  answered: `kit-question.ts`).
+  `testing/` (stand-ins of the sign-in's states, the library's module as a
+  spec needs it, the English the kit says with no strings (`kit-english.ts`),
+  the kit's question answered: `kit-question.ts`; a spec's translation
+  service is the library's `provideTestTranslations()`).
 - `admin/` — the admin panel, in English: Translations (EDITOR, ADMIN),
   Languages, People and Migrations (ADMIN: the anotoki library's
   `<anotoki-migrations-page>` in the panel's frame); the bar's links lead between
@@ -581,23 +588,27 @@ the library draws them, in Japanese Academy's palette (`_tokens.scss`).
   the page's own link `aria-current`. In the admin panel the area's sections:
   Translations, and for ADMIN Languages, People and Migrations — English
   words, as the area is, not keys.
-- **the language** (the library's language switcher, offered the translation
-  service's languages in `core/kit.config.ts`): a round button with the code
-  ("SK"), named "Language: Slovenčina (SK)" (`language.button` holds
+- **the language** (the library's language switcher, given the translation
+  service's `forShell()` in `core/kit.config.ts`): a round button with the code
+  ("SK"), named "Language: Slovenčina (SK)" (`anotoki.language.button` holds
   `{code}`: a voice user says what they see), a menu of the languages under
   their own names; only where the learner's pages are, and only with two or
   more. A signed-in person's choice goes to their anotoki account too (*The
   app's words*); a language whose words cannot be had leaves the page as it
-  is, with a note under the button (`language.notLoaded`).
+  is, with a note under the button (`anotoki.language.notLoaded`); so does
+  a choice the account refuses for any reason but a language it does not
+  offer (`anotoki.language.notSaved`).
 - **the theme** (the library's switch and `ThemeService`, wired in
   `core/kit.config.ts`): light, dark or the system's, a segmented radio group
-  of three icons (102 × 40), "System" the app's `theme.system`;
+  of three icons (102 × 40), "System" the app's word under the library's
+  `anotoki.theme.auto` (the library's own says "Automatic");
   `<html data-theme>` for light or dark, nothing for the system's. Signed in,
   it is the anotoki account's — one theme for every anotoki site, this one's
   admin panel too (the owner's decision of 2026-10-06): taken from the
   account, and a choice here saved to it; a refusal puts the account's theme
-  back, with a note under the switch that says why in the app's sentences
-  (`preferencesFailure()`, through `THEME_REFUSAL`), until the next choice, a
+  back, with a note under the switch that says so (the library's
+  `anotoki.theme.notSaved`, since anotoki-lib 0.3.0 - before, the app worded
+  the refusal's reason), until the next choice, a
   click elsewhere, Escape on any of the bar's controls, or the account gone
   (signed out). Nobody signed in, or an IAM that sends no preferences: per
   device, as before. The theme shown is kept in `localStorage`
@@ -685,17 +696,25 @@ drop it on `<body>`), and the menu closes with the focus there once the wait
 is over. The language menu follows the same rules (its items
 `menuitemradio`).
 
-**Its words** are keys (`topbar.*`, `theme.*`, `language.*`, `account.*`,
-`signIn.button`, `signOut.saving`; migration 005), each with its English in
-the code for a bar drawn with no strings (`keptWord()`): the bar's own in
-`top-bar.component.ts`, those the library's pieces say (Sign out, Saving…,
-the theme's, the language's, Close) in `core/kit.config.ts`, whose `lookup`
-gives the kit the app's strings, the owner's rewordings included. A word of
-the kit the app has no key for is the kit's own (English, or informal
-Slovak). **In the admin area** the bar reads in English, whatever the reader
+**Its words** are keys. The bar's own (`topbar.home`, `topbar.exam`, the
+reviews due on the phone's button, Admin panel, `account.noName`; migration
+005) are the app's, each with its English in `top-bar.component.ts` for a
+bar drawn with no strings (`keptWord()`). The person's role and Your anotoki
+account, which the bar gives the library's top bar worded, are said from the
+library's keys (`anotoki.topbar.roleAdmin`, `roleEditor`, `account`: a
+library key never shows as a key). Those the library's pieces say themselves (the sections'
+name, the menus' names, Sign in, Sign out, Saving…, the theme's, the
+language's, Close) are the library's keys (`anotoki.topbar.*`,
+`anotoki.theme.*`, `anotoki.language.*`, `anotoki.ui.close`), read from
+this app's database through the translation service's `forKit()`
+(`core/kit.config.ts`): migration 009 copied the app's own words there
+(until 0.3.0 the kit looked them up under the app's keys), the owner's
+rewordings included; with no strings, the English this app says its own way
+(`KIT_ENGLISH`: "The app’s sections", "System"), else the library's own.
+**In the admin area** the bar reads in English, whatever the reader
 chose, with no case in the bar: the title strategy tells the translation
 service the address (`noteAddress()`), and under `/admin` it answers from the
-bundle's English (`pageLanguage`; `<html lang>` follows), and so does the
+bundle's English (`effectiveLanguage`; `<html lang>` follows), and so does the
 kit's `language`. The reader's own language stays (`language()`): the IAM's
 pages still open in it.
 
@@ -731,142 +750,207 @@ grammar terms, the grades, the brand, the changelog's entries, the exam
 report and the admin panel. Material on a page carries `lang="en"` or
 `lang="ja"` whatever the page's language.
 
-**The server.** Migration `004_languages_and_translations.sql` makes three
-tables and fills them — `en` (English) and `sk` (Slovenčina), 392 keys, each
-with a description for the translator, an English and a Slovak string — and
+Since anotoki-lib 0.3.0 the anotoki library serves and edits these words, on
+this app's three tables and behind this app's checks (`Anotoki\Lib\Translations`
+on the server, `@anotoki/lib/translations` in the browser; the owner's
+decision for the family: one implementation of the words for every anotoki
+site, one wire format - the IAM's snake_case). What stays this app's: its
+keys and their English and Slovak (its migrations), its checks of who may do
+what, its error body, its storage names, its copy of a language's strings
+before the language goes, its backups, its command's name.
+
+**The server.** Migration `004_languages_and_translations.sql` made the three
+tables and filled them — `en` (English) and `sk` (Slovenčina), each key with
+a description for the translator, an English and a Slovak string — and
 touches no other table (a test says so). Every insert steps aside for a row
 that is there, so a later migration never undoes what the owner reworded.
-`backend/src/translations.php` does the work (the routes are in
-`api/routes/translations.php`):
+After this app's own migrations come the library's (the set
+`anotoki_translations`, `db_migration_sets()` in `backend/src/db.php`,
+recorded as `anotoki_translations/001_…`): its 001 finds this app's tables
+and only proves their shape; its 002 adds the library's own keys under
+`anotoki.` — the words of its kit (the top bar, the language and theme
+switches, the dialogs) and of its status page, in English and Slovak —,
+writing a string only where a key has none. `anotoki.` is the library's
+namespace: no key of the app's own lives there, and the catalogue test leaves
+it out.
 
-- **The bundle**, `GET /api/translations/{code}`, for everybody: the
+Migration `009_strings_through_the_library.sql` moved the app's words for
+the kit there first. Until 0.3.0 `core/kit.config.ts` looked each word of the
+kit up under one of the app's keys (`topbar.sections`, `language.button`,
+`theme.system` …); 009 copies every string of those nineteen keys - every
+language, with who wrote it and when - under the library's keys
+(`anotoki.topbar.sections`, `anotoki.language.button`, `anotoki.theme.auto`
+…) before the library's 002 comes and finds them filled, and deletes the
+sixteen keys only the bar read: the kit's, and the person's role and the
+link to their anotoki account, which the bar now says from the library's
+keys too (`anotoki.topbar.roleAdmin`, `roleEditor`, `account`). Three stay
+the app's own: the Sign in card's button and Close (their copies are the
+kit's Sign in and Close), and "Admin panel" (`topbar.admin`, which 006
+rewords and checks, and from which the bar still says it - its copy,
+`anotoki.topbar.admin`, is the library's word for it, which nothing here
+reads). Its check fails it unless every string came over as it was, the
+library's keys got no language the app's had not, and the sixteen are gone -
+so an owner's rewording, and a language left without a string, survive the
+move.
+
+`backend/src/translations.php` configures the library's `Translations` for
+this app (`academy_translations()`): the languages released with it
+(`TRANSLATION_SEEDED_LANGUAGES`: English, Slovak - never deleted), a copy of
+a language's strings before it goes (`LanguageUsage::beforeDelete`,
+`translations_copy()`: `backend/storage/backups/academy-before-language-delete-<code>-<time>.json`,
+its name answered as `copy`), and a save that holds its person's row
+`FOR SHARE` first, as an answer does (`users_hold()`: an import or a delete
+of that person's data and the save take turns). The routes are `api/routes/translations.php`:
+the library's `TranslationsRoutes` in this app's route groups, each group
+with this app's checks, and every refusal in this app's error body
+(`{error, code, …}`):
+
+- **The bundle**, `GET /api/translations/{code}`, for everybody: `{language,
+  languages: [{code, name, native_name}], values, english?}` — the
   language's strings with English merged underneath, English itself beside
   them (left out for `en`), and the languages on offer. A regional code is
   answered by its base language (`sk-sk` by `sk`), an unknown or hidden one in
   English. The browser asks every time (`no-cache`) and is answered 304 for
-  the `ETag` it holds. It answers while an update waits (the pages need their
-  words then too). While the database has no words yet (004 of an upload not
-  arrived whole, or waiting for its Apply) it answers 503 `not_up_to_date`,
-  and nothing is logged; the start then shows the problem page — unless the
-  site is being updated by `SiteStatus`'s account, when the library's page
-  stands in already, in its own words.
+  the `ETag` it holds. It answers while an update waits (its route is the
+  library's `TranslationsRoutes::openPath()`, among the gate's open paths:
+  the pages need their words then too). While the database has no words yet
+  (004 of an upload not arrived whole, or waiting for its Apply), or cannot
+  be asked, it answers 503 `translations_unavailable` (`Retry-After: 60`),
+  and nothing is logged; the start then shows the problem page, in the
+  sentence "not up to date" had (`error.not_up_to_date`) — unless the site
+  is being updated by `SiteStatus`'s account, when the library's page stands
+  in already, in its own words.
 - **A string is text**, never HTML; what stands in for a value is a
   `{placeholder}`, and which ones a key has is fixed by its English string: a
   save that adds, drops or changes one is refused, as is a brace that is not
   a placeholder, a string over 2,000 characters, an empty English string, an
   unknown key or language. A save is checked whole before anything is
   written, in one transaction, and a refusal names its key. An emptied string
-  in another language removes it: that key reads in English there.
+  in another language removes it: that key reads in English there. (The
+  library's checks, the same on every anotoki site.)
 - **Keys are the code's**: migrations write them, the admin panel only
   change strings. A plural is a family, `name.one`, `name.few`, `name.other`,
   asked for by `name` with a number. `backend/tools/translation_keys.php`
-  scans the frontend for the keys it asks for (and the run-time families of
-  `core/i18n/dynamic-keys.ts`); the catalogue test and
-  `php backend/translations.php --status` hold them to the database.
+  gives the library's key scan (`KeyScanner`) this frontend - every `.ts` and
+  `.html` of `src/app` but the specs, `core/testing/` and the IAM's SDK, and
+  the run-time families of `core/i18n/dynamic-keys.ts`; the catalogue test
+  and `php backend/translations.php --status` hold them to the database.
 - **Languages**: English cannot be hidden, deleted or left without a string;
-  a language the migrations write strings for (`TRANSLATION_SEEDED_LANGUAGES`:
-  English, Slovak) cannot be deleted; any other can, after a copy of its
-  strings in `backend/storage/backups/academy-before-language-delete-<code>-<time>.json`. A
-  new language is offered only when the owner says so (the Languages page
-  adds it hidden unless the box is ticked). At most 20.
+  a language the migrations write strings for (English, Slovak) cannot be
+  deleted; any other can, after a copy of its strings (above). A new
+  language is offered only when the owner says so (the Languages page adds
+  it hidden unless switched on). At most 20.
+- **One wire format**, the IAM's snake_case: `native_name`, `sort_order` on
+  every admin address, as in the bundle; a camelCase field of before is no
+  field (a test sends one).
 - **Backups**: a copy of everybody (the day's, a manual one, the ones before a
   restore) also holds `translations`, `{languages, values: {code: {key:
   text}}}`; a restore passes it over, and `php backend/translations.php
   --import <code> <file>` puts a language's strings back from it. Each
   database holds its own strings: the owner's computer and the website are
   bridged by export and import, not by a migration.
-- **The command line**, `backend/translations.php` (never uploaded):
+- **The command line**, `backend/translations.php` (never uploaded): the
+  library's `TranslationsCommand` under this app's name and usage,
   `--status` (the frontend's keys against the database's; exit 1 when a page
   would show a key), `--export CODE [FILE]`, `--import CODE FILE` (checked as
-  a save is, written by nobody: `updated_by` null). It applies no migration.
+  a save is, written by nobody: `updated_by` null; a backup of everybody is
+  read as a file of strings, `translation_file_strings()`). It applies no
+  migration.
 
-**The browser** (`frontend/src/app/core/i18n/`). `TranslationService` holds
-the language on the page and its strings; it asks for the bundle with a plain
-`fetch()` (no token, neither interceptor), keeps the last one in
-`localStorage` so a returning reader sees no keys while the request is out,
-and sets `<html lang>`. The language is the first of: `?lang=` (taken out of
-the address and kept for the tab in `sessionStorage`), the chooser's choice
-(`localStorage`), the `locale` of the IAM's token, each of the browser's
-languages and its base (`sk-SK` asks for `sk`; a Czech browser reads Slovak
-while there is no Czech), and English. For somebody signed in whose account
-sends its preferences ([sign-in.md](sign-in.md), *The account's
-preferences*), the token's `locale` comes before what this device
-remembered: `?lang=`, a choice made on this page, the account's language,
-the device's choice, the browser's, English (`languageCandidates()`'s
-`stored`) — as on the survey site, the family's reference. The page changes
-language only once the new bundle is in memory, and a key with no string
-shows as itself and warns once in the console — the owner wants to see
-which.
-
-A changed `locale` (a change on the account's page, on another anotoki site
-or in another tab) is followed when it comes (`followToken()`): for an
-account that sends its preferences, over the device's choice and an earlier
-choice on the page — not over this tab's `?lang=`, and not while a choice
-made here is on its way to the account, whose answer to an earlier save
-would turn the page back; otherwise only while nothing is stored here (no
-choice, no `?lang=`).
+**The browser** (`frontend/src/app/core/i18n/translations.config.ts`). The
+library's `TranslationService` holds the language on the page and its
+strings; it asks for the bundle with this app's plain `fetch()`
+(`fetchBundle()`: no token, neither interceptor, the reader's time zone),
+keeps the last one under the name this app always had
+(`academy-language-cache`, beside the chooser's `academy-language`: a
+visitor's choice survives the move) so a returning reader sees no keys while
+the request is out, and sets `<html lang>`. The language is the first of:
+`?lang=` (taken out of the address and kept for the tab in
+`sessionStorage`), the chooser's choice (`localStorage`), the `locale` of the
+IAM's token, each of the browser's languages and its base (`sk-SK` asks for
+`sk`; a Czech browser reads Slovak while there is no Czech), and English. For
+somebody signed in whose account sends its preferences
+([sign-in.md](sign-in.md), *The account's preferences*), the token's
+`locale` comes before what this device remembered: `?lang=`, a choice made
+on this page, the account's language, the device's choice, the browser's,
+English — the family's ranking. A changed `locale` (a change on the
+account's page, on another anotoki site or in another tab) is followed when
+it comes. The page changes language only once the new bundle is in memory,
+and a key with no string shows as itself and warns once in the console —
+the owner wants to see which. The words are asked for only while the app
+itself, or its Sign in card, is shown (`wordsCanBeAsked()`), and a 503 is
+read as what the app can show (`bundleRefused()`: not set up, being
+updated, else the problem page while the app starts or has no words).
 
 - The `translate` and `translatePlural` pipes (impure: the language changes
   under a constant key), `t()` / `plural()` / `number()` in code, the
   `localDate` pipe and `core/format.ts` for dates, clocks and relative times
   in the language's locale (`'en-GB'`, `'sk-SK'`), whatever the system's is.
   A signed-in person who chose a date order or a clock for their anotoki
-  account gets those instead (`TranslationService.dateFormat()` and
-  `timeFormat()`, from `AuthService.preferences`; [sign-in.md](sign-in.md),
-  *The account's preferences*): 6.10.2026, 06/10/2026, 10/06/2026 or
-  2026-10-06, and 14:30 or 2:30 pm in the language's words; a date with its
-  time is the two side by side, each as chosen or as the language writes it
-  (`2026-10-06 14:30`). The admin panel's moments too, in its English
-  (`fmtAdminMoment()`), and the kanji dashboard's hour axis (`fmtHour()`: "15",
-  or "3 pm" on a 12-hour clock, one line over its three bars). Nothing
-  chosen, a visitor, or an IAM that sends none: the language's own way, as
-  before.
+  account gets those instead (`TimeWording`, `core/i18n/time-wording.ts`:
+  the service's words with `dateFormat()` and `timeFormat()` from
+  `AuthService.preferences`; [sign-in.md](sign-in.md), *The account's
+  preferences*): 6.10.2026, 06/10/2026, 10/06/2026 or 2026-10-06, and 14:30
+  or 2:30 pm in the language's words; a date with its time is the two side
+  by side, each as chosen or as the language writes it (`2026-10-06 14:30`).
+  The admin panel's moments too, in its English (`fmtAdminMoment()`), and the
+  kanji dashboard's hour axis (`fmtHour()`: "15", or "3 pm" on a 12-hour
+  clock, one line over its three bars). Nothing chosen, a visitor, or an IAM
+  that sends none: the language's own way, as before.
 - State holds keys, kinds and `ApiError`s, never a worded sentence, so a page
   follows a change of language without being made again; a failed request is
   worded from its code (`error-text.ts`), never with the server's sentence.
-- The chooser (the library's language switcher, offered the translation
-  service's languages under their own names in `core/kit.config.ts`) sits
-  in the top bar in every state but the admin panel's, and draws nothing
-  while fewer than two languages are on offer. A language whose words
-  cannot be had leaves the page as it is, with a note under the button.
-  Like the whole bar it keeps its keys to itself: Enter on a language never
-  submits a card or finishes a paper behind it, and switching changes words
-  only. A signed-in person's choice, once the page has switched, also goes
-  to their anotoki account (`setLanguage()` → `saveToAccount()`: one save at
-  a time, the latest last, nothing the account has already, nothing while
-  the IAM sends no preferences), so the IAM and the other sites speak it,
-  this one at the next visit too. It holds for the visit whatever the
-  account answers (a choice made on this page comes before the account's
-  language); a refusal puts nothing back and says nothing — a language the
-  IAM does not offer stays this site's own for the visit.
-- The admin panel reads in English (`pageLanguage`): the bar, the foot and the
-  dialog answer from the bundle's English under `/admin`; the reader's own
-  choice (`language()`) stays.
+- The chooser (the library's language switcher, given the service's
+  `forShell()` in `core/kit.config.ts`) sits in the top bar in every state but
+  the admin panel's, and draws nothing while fewer than two languages are on
+  offer. A language whose words cannot be had leaves the page as it is, with
+  a note under the button. Like the whole bar it keeps its keys to itself:
+  Enter on a language never submits a card or finishes a paper behind it,
+  and switching changes words only. A signed-in person's choice, once the
+  page has switched, also goes to their anotoki account (one save at a time,
+  the latest last, nothing while the IAM sends no preferences), so the IAM
+  and the other sites speak it, this one at the next visit too. It holds for
+  the visit whatever the account answers; a language the IAM does not offer
+  (`invalid_request`) stays this site's own for the visit and says nothing,
+  any other refusal says so in a note under the button.
+- The kit's words (`forKit()`): the database's string of the library's key,
+  the owner's rewordings included; while no words are in memory the English
+  this app says its own way (`KIT_ENGLISH`: "The app’s sections", "System"),
+  else the library's own. The note under the theme switch when the account
+  refuses a theme is the library's word (`anotoki.theme.notSaved`).
+- The admin panel reads in English (`effectiveLanguage`): the bar, the foot
+  and the dialog answer from the bundle's English under `/admin`; the
+  reader's own choice (`language()`) stays.
 - A start that cannot get its strings still draws: the stand-in pages, the
   top bar and the foot fall back to the seeded English written in the code
-  (`keptWord()`), and the next navigation asks again.
+  (`keptWord()`), and the next navigation asks again (the start itself asks
+  once more after half a second).
 
 **The admin panel** (`frontend/src/app/admin/`, English, `/admin/translations`,
 `/admin/languages`, `/admin/people` and `/admin/migrations`; **Admin panel** in the person's menu of the
 top bar, for EDITOR and ADMIN; the bar's links lead to the pages the person
 may open, and its menu back to the app). Database updates wait for an ADMIN's **Apply pending** on the
-Migrations page (*The database*, *A whole migration waits for an administrator*). Translations shows a key a row and a language a column
-(stacked over three languages), each string a box, with a search, every
-plural filled in for sample numbers, and each language's export and import
-as a flat JSON file; Save sends the changed boxes only and shows a refusal
-beside its key. Languages adds, renames, orders, offers or hides and deletes
-languages (ADMIN). People (ADMIN) lists everybody who has signed in, the
+Migrations page (*The database*, *A whole migration waits for an administrator*). Translations and
+Languages are the library's pages (`@anotoki/lib/translations/admin`, each in
+the panel's frame: `admin/translations/`, `admin/languages/`). Translations
+shows each language's coverage with its export and import (a flat JSON
+file), a search over the keys, their descriptions and their text, "Missing
+in …", the keys in blocks - a plural family as one, with samples for 1, 3
+and 12 - and a box for each string; Save sends the changed boxes only and
+shows a refusal beside its key. Languages adds, renames, orders, offers or
+hides and deletes languages (ADMIN), a deletion naming the copy the server
+kept. People (ADMIN) lists everybody who has signed in, the
 latest first — name, first and last seen, time zone, items learned, exam
 attempts; the zone, the moments and the counts each on one line, the table
 scrolling in its box on a phone, and **Delete data** under the name, so it
 is never off the screen — and deletes a person's data after a question that names what goes
 (the server keeps a copy first; their IAM account stays). What is typed and
-not saved is held in `AdminDrafts`, mirrored to
-`sessionStorage` for the tab: the app takes a page away without a question
-when a session ends, and signing in again is a page load, so the drafts must
-outlive both (only another person signing in drops them). Leaving a page
-with unsaved changes asks first (`unsavedChangesGuard`, a modal dialog), and
-closing the tab asks the browser's question.
+not saved is held by the library's `LocalizationDrafts` in `sessionStorage`
+(`academy-admin-drafts`), with whose it is: kept through a reload and a
+sign-out - signing in again is a page load -, dropped when somebody else
+signs in. Leaving a page with unsaved changes asks first (the library's
+`anotokiUnsavedChangesGuard`, the page's own modal question), and closing
+the tab asks the browser's question.
 
 ## The database (PostgreSQL)
 
@@ -895,7 +979,11 @@ fingerprint in the template's comment). The last line is written last, when
 the draft is final; from then on the migration is applied everywhere. A file
 a test leaves half on purpose is no draft anybody named, and waits on the
 tests' databases too. 005 was the first written so, and is final since
-2026-10-04; 006 likewise; 007 (`007_visitors.sql`, visitors) since
+2026-10-04; 006 likewise; 008 (the words the library's status page took
+over) since 2026-10-11, reviewed and committed, to go up with 009; 009
+(`009_strings_through_the_library.sql`, *The app's words*) is a draft until
+the owner accepts it - and a draft holds back every file after it, the
+library's set `anotoki_translations` included; 007 (`007_visitors.sql`, visitors) since
 2026-10-05, its last line written once the browser suites had passed: its
 schema (users' `CHECK (id > 0)` replaced by `users_person_or_visitor`,
 `visitor_key_hash`, `visitor_from`, the sequence `visitor_ids`, two
@@ -905,7 +993,8 @@ visitor's sign-in, the refusals: 14 keys in English and Slovak, a check that
 each has both). While a migration waits (a draft,
 or a file still uploading), the app works without what it makes — before
 005, without its column (`users_time_zone_ready()`); before 007, without
-visitors (`visitors_ready()`: sign-in stays required) — and the study
+visitors (`visitors_ready()`: sign-in stays required); before 009, with
+the kit saying its own words where the app's had not moved yet — and the study
 content's rebuild after the files changed waits with it (upkeep does nothing
 past a waiting migration).
 `manage.php --backup` still takes its copy, with a note; `--check` says
@@ -924,8 +1013,10 @@ owner's decision; until then the first request after an upload applied it),
 and since 2026-10-07 the anotoki library says what the site does meanwhile,
 as every anotoki site does ([decisions.md](decisions.md)). The engine is the
 library's `Migrator`, set up for this site by `db_migrator()`
-(`backend/src/db.php`): the one folder `backend/migrations/` (the set
-`academy`), the table `migrations (name, applied_at)` as it has always been
+(`backend/src/db.php`): this app's folder `backend/migrations/` (the set
+`academy`) and after it the library's own set `anotoki_translations` (its
+words' tables proved, its words added: *The app's words*; recorded with
+its folder, `anotoki_translations/001_languages_and_strings.sql`), the table `migrations (name, applied_at)` as it has always been
 (made in that shape on a new database, its `prepare` hook), each file sent
 to PostgreSQL whole in one statement (`split` off) in a transaction of its
 own with its row, a file without its last line a draft (its `ready` hook,
@@ -944,7 +1035,8 @@ site's `ADMIN` "A database update is waiting" with **Open Migrations**, the
 one page that works then, asking again the same way (`SiteGateComponent`;
 who is `ADMIN` is the token's roles). Nothing of the pages is made behind
 the library's page (they are the gate's marked template). Until 2026-10-07 the start stopped on the problem page
-instead (the words answered 503 `not_up_to_date`), and an administrator who
+instead (the words answered 503 `not_up_to_date`, `translations_unavailable`
+since anotoki-lib 0.3.0), and an administrator who
 was signed out could not sign in at all. The **Migrations page**
 (`/admin/migrations`, `ADMIN`: the library's `<anotoki-migrations-page>`;
 the addresses `backend/api/routes/migrations.php`, the library's
@@ -973,7 +1065,7 @@ failed file, or saying another apply is running), so no two ever run at
 once. "Up to date" once something was applied and nothing failed. When an
 Apply leaves nothing to apply, the site runs again without a page load
 (`SiteStatus.markReady()`), and the app's words are asked for again
-(`TranslationService.reload()`, the library's `onUpToDate`): the update may
+(the library's `TranslationService.reload()`, its `onUpToDate`): the update may
 have brought some. The next request then rebuilds the content and saves the
 stamp, as after any change of the files.
 

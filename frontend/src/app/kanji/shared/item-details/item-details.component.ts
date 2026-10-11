@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ButtonComponent } from '@anotoki/lib/ui';
+import { TranslatePipe } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { AudioService } from '../../../core/audio.service';
 import { CatalogItem } from '../../../core/api/api.types';
-import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { KanjiStateService } from '../../kanji-state.service';
 import { NotesEditorComponent } from '../notes-editor/notes-editor.component';
 import { ReadingsComponent } from '../readings/readings.component';

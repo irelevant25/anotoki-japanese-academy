@@ -37,10 +37,19 @@ const UPKEEP_LOCK = 4210927;
 /** What the setup page and manage.php say when another apply holds the lock (the Migrations page's Apply answers 409 busy). */
 const UPKEEP_BUSY = 'Another database update is running, so nothing was applied: try again in a moment.';
 
-/** The names, sizes and times of the files the schema and the study content are built from. */
+/**
+ * The names, sizes and times of the files the schema and the study content are
+ * built from: the content files, and the migrations of both sets - this
+ * site's own and the anotoki library's (db_migration_sets()).
+ */
 function upkeep_stamp(): string
 {
-    $migrations = array_map(static fn (string $f): string => 'backend/migrations/' . basename($f), glob(MIGRATIONS_DIR . '/*.sql') ?: []);
+    $migrations = [];
+    foreach (db_migration_sets() as $set) {
+        foreach (glob($set->directory . '/*.sql') ?: [] as $file) {
+            $migrations[] = db_migration_path(['set' => $set->name, 'name' => basename($file)]);
+        }
+    }
     sort($migrations);
     $parts = [];
     foreach (array_merge(CONTENT_FILES, $migrations) as $file) {
@@ -104,7 +113,7 @@ function upkeep_before_apply(?string &$backup = null): Closure
             ignore_user_abort(true);
         }
         try {
-            $backup = upkeep_copy_before(array_column($files, 'name'), upkeep_stamp());
+            $backup = upkeep_copy_before(array_map('db_migration_label', $files), upkeep_stamp());
         } catch (Throwable $e) {
             error_log('[upkeep] the copy before the migrations could not be written: ' . $e->getMessage());
             $reason = error_reason($e);
@@ -120,9 +129,9 @@ function upkeep_before_apply(?string &$backup = null): Closure
  * backend/manage.php: the engine on a connection of its own, after a raw copy
  * of every table, the same way and under the same lock as the Migrations
  * page's Apply. Returns ['backup' => the copy's path or null, 'applied' =>
- * names]. A migration that fails throws, naming its file, and nothing of it
- * stays (the ones before it do); so does a copy that could not be written
- * (nothing applied), and another apply at it (UPKEEP_BUSY).
+ * the files (db_migration_label())]. A migration that fails throws, naming its
+ * file, and nothing of it stays (the ones before it do); so does a copy that
+ * could not be written (nothing applied), and another apply at it (UPKEEP_BUSY).
  */
 function upkeep_migrate(): array
 {
@@ -132,12 +141,12 @@ function upkeep_migrate(): array
         throw new RuntimeException(UPKEEP_BUSY);
     }
     if ($done['failed'] !== null) {
-        throw new RuntimeException("backend/migrations/{$done['failed']['name']}: {$done['error']}");
+        throw new RuntimeException(db_migration_path($done['failed']) . ": {$done['error']}");
     }
     if ($done['error'] !== null) {
         throw new RuntimeException((string) $done['error']);
     }
-    return ['backup' => $backup, 'applied' => array_column($done['applied'], 'name')];
+    return ['backup' => $backup, 'applied' => array_map('db_migration_label', $done['applied'])];
 }
 
 /**

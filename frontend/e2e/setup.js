@@ -113,7 +113,13 @@ async function cleanup() {
   const port = await serve(['-t', path.join(DIR, 'public'), path.join(BACKEND, 'tests', 'tools', 'front-controller.php')], DIR, { ACADEMY_MIGRATION_DRAFTS: waiting });
   const local = `http://127.0.0.1:${port}`;
   const website = `http://${WEBSITE}:${port}`;
-  const migrations = fs.readdirSync(path.join(DIR, 'backend', 'migrations')).filter((f) => f.endsWith('.sql')).sort();
+  // What the setup page applies, as it names it: this app's own migrations, then the anotoki library's set of the
+  // words (anotoki_translations, from the upload's vendor/), each of those with its set.
+  const sqlIn = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  const migrations = [
+    ...sqlIn(path.join(DIR, 'backend', 'migrations')),
+    ...sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'php', 'migrations', 'translations')).map((f) => `anotoki_translations/${f}`),
+  ];
 
   // The website's name leads to this computer, as a host's DNS would lead to the
   // host; and the browser counts it as secure, as a website's https is (the

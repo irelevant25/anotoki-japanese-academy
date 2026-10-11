@@ -27,10 +27,16 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   library's kit (`anotokiButton` with `variant` / `size` / `[loading]`,
   `<anotoki-dialog>`, `ConfirmService` - its host is in `app.component.html`
   -, `anotoki-text-field`, `anotoki-select`, `anotoki-checkbox`,
-  `<anotoki-spinner>`): never a button or field style of the app's own. Its
-  words are the app's (`core/kit.config.ts`: the kit's `lookup` reads the
-  app's strings; a kit word the app has no key for is the kit's own English
-  or informal Slovak). A global rule of the app never reaches inside a kit
+  `<anotoki-spinner>`): never a button or field style of the app's own. Each
+  piece comes from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
+  `ui/forms`, `ui/config` …), never the `@anotoki/lib/ui` barrel (it would put
+  every piece in the first load); its class names are its own
+  (`anotoki-<piece>__<part>`: a spec or a style reads them so). Its words are
+  the anotoki library's keys in this app's database (`anotoki.topbar.*`,
+  `anotoki.theme.*` …, which migration 009 filled with the app's words; the
+  translation service's `forKit()` in `core/kit.config.ts`); with no strings,
+  `KIT_ENGLISH` where the app says a word its own way, else the library's own
+  English or informal Slovak. A global rule of the app never reaches inside a kit
   component: `_base.scss` keeps its element and shared-class rules out of
   them (`$app-only`), and a new one does the same.
 - The app talks to the backend only through `ApiService` (HttpClient) —
@@ -148,10 +154,11 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
     pieces is measured again (the `academy-ui-check` skill).
   - Its words are keys with their English in a `const ENGLISH` map
     (`keptWord()`; `backend/tests/unit/translations.test.php` holds it to the
-    seeded English) - the bar's own in `top-bar.component.ts`, the kit's
-    (Sign out, the theme, the language …) in `core/kit.config.ts`; in the
-    admin panel they read in English through the translation service
-    (`pageLanguage`), never through a case in the bar. The language button's
+    seeded English) - the bar's own in `top-bar.component.ts`; the kit's
+    (Sign out, the theme, the language …) are the library's keys
+    (`core/kit.config.ts`, above); in the admin panel they read in English
+    through the translation service (`effectiveLanguage`), never through a
+    case in the bar. The language button's
     name holds the code it shows (`{code}`).
 - Switching the language changes words only: a session or a paper goes on
   where it was. The five kanji tabs fit 390 px in Slovak (360 px in

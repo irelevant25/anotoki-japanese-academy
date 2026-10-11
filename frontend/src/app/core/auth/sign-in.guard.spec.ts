@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, provideZonelessChangeDetection, sig
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { SiteStatus } from '@anotoki/lib/migrations';
-import { provideTestTranslations } from '../testing/test-translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppState, AuthService, SignInFailure } from './auth.service';
 import { adminSignInGuard, signInGuard } from './sign-in.guard';
 

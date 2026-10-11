@@ -1,11 +1,10 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, ResolveFn, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { filter } from 'rxjs';
 import { ApiError, toApiError } from '../core/api/api.service';
 import { errorKey, errorParams } from '../core/i18n/error-text';
-import { TranslatePipe } from '../core/i18n/translate.pipe';
-import { TranslationService } from '../core/i18n/translation.service';
 import { KanjiScreenService, Overlay } from './kanji-screen.service';
 import { KanjiStateService } from './kanji-state.service';
 import { LessonBatchComponent } from './lesson-batch/lesson-batch.component';

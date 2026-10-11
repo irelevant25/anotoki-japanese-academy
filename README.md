@@ -285,12 +285,17 @@ browser, with the IAM role `EDITOR` or `ADMIN`: **Admin panel** in your menu at
 the top right opens the admin panel (`/admin`, in English; the top bar there
 reads in English too, its links are the area's pages, and your menu leads
 back). **Translations** shows every
-string in every language, with a search, and saves the ones you changed.
-**Languages** (`ADMIN` only) adds a language — hidden
-until you tick its box —, renames, orders, hides or deletes one; English cannot be hidden
+string in every language, with a search, and saves the ones you changed;
+what you typed waits in the tab until you save or discard it. The words of
+the top bar, the language and theme switches and the dialogs are there too,
+under `anotoki.` (the anotoki library's own keys, which the other anotoki
+sites have as well). **Languages** (`ADMIN` only) adds a language — hidden
+until you switch it on —, renames, orders, hides or deletes one; English cannot be hidden
 or deleted, Slovak cannot be deleted. Each language exports to a file and
 imports from one. Your computer and the website each keep their own
 strings: export from one and import into the other to carry a change over.
+These two pages are the anotoki library's (since anotoki-lib 0.3.0), the
+same on every anotoki site.
 **People** (`ADMIN` only) lists everybody who has signed in, with how far
 each has come, and deletes a person's data after asking (a copy of it is kept
 on the server first; their account stays).
@@ -413,9 +418,10 @@ they are. For Claude Code, `CLAUDE.md` holds the project rules, and `.claude/`
 the rest.
 
 The database migrations - applying them, and what the site does while one
-waits -, and the family's UI kit the pages are drawn with (buttons, dialogs,
-fields, menus), its styles and font (Manrope) and the top bar, in this app's
-own colours, are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
+waits -, the app's words (serving them, the Translations and Languages
+pages, the command line), and the family's UI kit the pages are drawn with
+(buttons, dialogs, fields, menus), its styles and font (Manrope) and the top
+bar, in this app's own colours, are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
 site; its repository is `../anotoki-lib`, published as
 https://github.com/irelevant25/anotoki-lib): the Composer package
 `anotoki/lib` in `backend/vendor/` and the npm package `@anotoki/lib` in

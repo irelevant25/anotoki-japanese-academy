@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslationService } from '@anotoki/lib/translations';
+import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState, StageGroup } from '../../core/api/api.types';
-import { TranslationService } from '../../core/i18n/translation.service';
-import { provideTestTranslations } from '../../core/testing/test-translations';
 import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { PracticeComponent } from './practice.component';
@@ -198,7 +198,7 @@ describe('PracticeComponent', () => {
     ]);
     expect(chips(0)[5].querySelector('span[lang="en"]')?.textContent).toBe('Guru');
 
-    await TestBed.inject(TranslationService).setLanguage('en', false);
+    await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
     expect(clean(chips(0)[5].textContent)).toBe('Guru and above (1)');
     expect(clean(host.querySelector('h1')?.textContent)).toBe('Practice');

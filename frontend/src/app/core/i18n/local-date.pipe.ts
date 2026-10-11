@@ -1,6 +1,6 @@
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { fmtClock, fmtDate, fmtDateTime, fmtWeekday } from '../format';
-import { TranslationService } from './translation.service';
+import { TimeWording } from './time-wording';
 
 /** A date, a date with its time, the clock alone, or the day of the week. */
 export type LocalDateStyle = 'date' | 'dateTime' | 'clock' | 'weekday';
@@ -16,7 +16,7 @@ export type LocalDateStyle = 'date' | 'dateTime' | 'clock' | 'weekday';
  *   'weekday'   Thu / št
  *
  * A signed-in person's own date order and clock, chosen for their anotoki
- * account (TranslationService.dateFormat(), timeFormat()), win over the
+ * account (TimeWording.dateFormat(), timeFormat()), win over the
  * language's: 2026-09-24, 2026-09-24 2:00 pm, 2:00 pm.
  *
  * Takes a time in milliseconds or the server's ISO text. A calendar day
@@ -29,7 +29,7 @@ export type LocalDateStyle = 'date' | 'dateTime' | 'clock' | 'weekday';
  */
 @Pipe({ name: 'localDate', pure: false })
 export class LocalDatePipe implements PipeTransform {
-  private readonly i18n = inject(TranslationService);
+  private readonly wording = inject(TimeWording);
 
   transform(value: string | number | null | undefined, style: LocalDateStyle = 'date'): string {
     if (value === null || value === undefined || value === '') {
@@ -41,13 +41,13 @@ export class LocalDatePipe implements PipeTransform {
     }
     switch (style) {
       case 'dateTime':
-        return fmtDateTime(this.i18n, ts);
+        return fmtDateTime(this.wording, ts);
       case 'clock':
-        return fmtClock(this.i18n, ts);
+        return fmtClock(this.wording, ts);
       case 'weekday':
-        return fmtWeekday(this.i18n, ts);
+        return fmtWeekday(this.wording, ts);
       default:
-        return fmtDate(this.i18n, ts);
+        return fmtDate(this.wording, ts);
     }
   }
 }

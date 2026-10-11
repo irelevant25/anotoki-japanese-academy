@@ -28,20 +28,31 @@ function manage(string ...$options): array
     return [proc_close($proc), trim((string) $said)];
 }
 
-/** Every migration file, in order. */
+/**
+ * Every migration file, in the order they run: this site's own
+ * (backend/migrations/), then the anotoki library's set of the words
+ * (anotoki_translations/…, db_migration_sets()), as db_migration_label() names them.
+ */
 function every_migration(): array
 {
-    $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    sort($files);
+    $files = [];
+    foreach (db_migration_sets() as $set) {
+        $names = array_map('basename', glob($set->directory . '/*.sql') ?: []);
+        sort($names);
+        foreach ($names as $name) {
+            $files[] = db_migration_label(['set' => $set->name, 'name' => $name]);
+        }
+    }
     return $files;
 }
 
 test('from nothing: every migration, in order, each in a transaction of its own, listed in this site’s table', function (): void {
     assert_same(null, db_value("SELECT to_regclass('migrations')"), 'an empty database');
+    assert_same(['anotoki_translations/001_languages_and_strings.sql', 'anotoki_translations/002_library_words.sql'], array_slice(every_migration(), -2), 'the library’s set last');
     assert_same(every_migration(), db_pending_migrations(), 'everything waits');
     assert_same(every_migration(), db_migrations_ready(), 'and may run: none is a draft the tests do not name');
-    assert_same(every_migration(), db_migrate(), 'every one, in order');
-    assert_same(every_migration(), array_column(db_all('SELECT name FROM migrations ORDER BY applied_at, name'), 'name'), 'listed, each when it ran');
+    assert_same(every_migration(), db_migrate(), 'every one, in order: this site’s own, then the library’s');
+    assert_same(every_migration(), array_column(db_all('SELECT name FROM migrations ORDER BY applied_at, name'), 'name'), 'listed, each when it ran - the library’s by its set and name, this site’s by its name as ever');
     assert_same([['name', 'text', 'NO'], ['applied_at', 'timestamp with time zone', 'NO']], array_map(
         static fn (array $c): array => [$c['column_name'], $c['data_type'], $c['is_nullable']],
         db_all("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migrations' ORDER BY ordinal_position")

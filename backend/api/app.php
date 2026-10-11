@@ -37,7 +37,7 @@
  *                    "/setup.php" only while the site was never installed (INSTALLED_LOCK)
  *   update_pending   a migration waits for an administrator's Apply: 503 {code:
  *                    "update_pending", message} with Retry-After: 60 - except the addresses
- *                    that keep the pages going (SITE_OPEN_PATHS): how to sign in, the words,
+ *                    that keep the pages going (academy_site_open_paths()): how to sign in, the words,
  *                    the health check, the clips and the Migrations page's own
  *   unavailable      the settings are there but the database does not answer: every address
  *                    goes on, and answers as the database lets it (503 database_unavailable)
@@ -84,28 +84,36 @@ use Anotoki\Lib\Migrations\Http\MigrationsRoutes;
 use Anotoki\Lib\Migrations\Http\SiteGate;
 use Anotoki\Lib\Migrations\Http\SiteState;
 use Anotoki\Lib\Migrations\Migrator;
+use Anotoki\Lib\Translations\Http\TranslationsRoutes;
 use Slim\Factory\AppFactory;
 
 /**
  * What answers while a migration waits for an administrator's Apply - nothing
  * else does (the SiteGate's open paths: exact paths, or a pattern when one
- * starts with ~). So the pages start and have their words, an administrator
- * signs in and reaches the Migrations page (its list, a file's SQL, Apply),
- * and the clips (shared content, nobody's data) play on.
+ * starts with ~). So the pages start and have their words (the anotoki
+ * library's own pattern for its route of the words,
+ * TranslationsRoutes::openPath(): '~^/api/translations/[^/]+$~D'), an
+ * administrator signs in and reaches the Migrations page (its list, a file's
+ * SQL, Apply), and the clips (shared content, nobody's data) play on.
  *
  * Each is its route and nothing under it - one segment where the route takes
  * one, never a prefix: the gate reads the path decoded once, and a prefix
  * would let a crafted path past it (/api/admin/migrations/../x, %2e%2e, %2F)
  * to wherever a server in front of the app resolves it. $ is the very end
  * (D): a trailing newline (%0A) is no part of a route either.
+ *
+ * @return list<string>
  */
-const SITE_OPEN_PATHS = [
-    '/api/auth/config',
-    '~^/api/translations/[^/]+$~D',
-    '/api/health',
-    '~^/audio/[^/]+$~D',
-    '~^/api/admin/migrations(/file|/apply)?$~D',
-];
+function academy_site_open_paths(): array
+{
+    return [
+        '/api/auth/config',
+        TranslationsRoutes::openPath(),
+        '/api/health',
+        '~^/audio/[^/]+$~D',
+        '~^/api/admin/migrations(/file|/apply)?$~D',
+    ];
+}
 
 /**
  * Where the site stands, for the SiteGate and GET /api/site-status (the
@@ -156,7 +164,7 @@ function academy_app(): Slim\App
 
     $app->addRoutingMiddleware();
     // After the trailing-slash rule, so it judges /api/health/ as /api/health; inside the error handling.
-    $app->add(new SiteGate($state, $app->getResponseFactory(), SITE_OPEN_PATHS));
+    $app->add(new SiteGate($state, $app->getResponseFactory(), academy_site_open_paths()));
     $app->add(trailing_slash_middleware());
     $app->add(errors_middleware());
     $app->add(security_headers_middleware());
