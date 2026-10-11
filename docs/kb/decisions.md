@@ -1592,12 +1592,13 @@ overwriting the owner), one wire format - the IAM's snake_case -, each
 site's own checks of who may do what, and every rewording the owner made
 kept. What changed, and what stays this app's:
 
-- **Migration 008 is final** (its last line written: reviewed and committed,
-  it goes up in the same upload as 009). A draft holds back every file after
-  it, and the library's own files now come after this app's. On a database at
-  007 (the owner's own) 008 now waits for an Apply like any whole migration;
-  until 009 is final and applied too, the kit says its own words where the
-  app words them its own way (in Slovak "Hlavná navigácia", "Automaticky").
+- **Migrations 008 and 009 are final** (their last lines written - 009's on
+  the owner's go, the same day -, reviewed; they go up in the same upload). A
+  draft holds back every file after it, and the library's own files now come
+  after this app's. On a database at 007 (the owner's own) they wait for an
+  Apply like any whole migration; until 009 is applied, the kit says its own
+  words where the app words them its own way (in Slovak "Hlavná navigácia",
+  "Automaticky").
 - **The library's migrations after this app's** (`db_migration_sets()` in
   `backend/src/db.php`, in the API, the setup page, `manage.php` and the
   tests alike): its set `anotoki_translations`, recorded with its folder
@@ -1607,8 +1608,8 @@ kept. What changed, and what stays this app's:
   and the status page's), writing a string only where a key has none. The
   Migrations page names a file with its set while there are two
   ("Stopped at academy/006_…").
-- **Migration 009** (`009_strings_through_the_library.sql`, a draft until the
-  owner accepts it): the nineteen keys the kit read (`topbar.sections`,
+- **Migration 009** (`009_strings_through_the_library.sql`, final since
+  2026-10-11, the owner's go): the nineteen keys the kit read (`topbar.sections`,
   `language.button`, `theme.system` …) copied under the library's keys
   (`anotoki.topbar.sections`, `anotoki.language.button`, `anotoki.theme.auto`
   …), every language, with who wrote it and when, before the library's 002

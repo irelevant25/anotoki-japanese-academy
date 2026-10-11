@@ -1,14 +1,14 @@
 -- 009 — the app's words through the anotoki library (2026-10-11)
 --
--- THIS FILE IS A DRAFT until its last line is "-- end of 009": the app takes a
--- migration without that line for one still being written (or uploaded), and
--- applies neither it nor anything after it - the anotoki library's own files
--- included (db_migration_ready() in backend/src/db.php); the tests alone apply
--- the draft, on their throwaway databases, and backend/tools/build-dist.php
--- builds no upload while it is one. Write that line last, once the change is
--- final: applied once, the file is never edited again - a change is the next
--- migration. An administrator then applies it on the admin panel's Migrations
--- page (or backend/manage.php, or the setup page), never a request.
+-- It was written as a draft, without its last line ("-- end of 009"), which
+-- the app waits for before it applies a migration - and, after it, the anotoki
+-- library's own files (db_migration_ready() in backend/src/db.php); the tests
+-- alone applied the draft, on their throwaway databases. It is final now
+-- (2026-10-11, the owner's go), reviewed, with that line written last, and
+-- goes up with 008 in the same upload: applied once, it is never edited
+-- again - a change is the next migration. An administrator applies it on the
+-- admin panel's Migrations page (or backend/manage.php, or the setup page),
+-- never a request.
 --
 -- Since anotoki-lib 0.3.0 the anotoki library (the Composer package
 -- anotoki/lib and @anotoki/lib, every anotoki site's) keeps every site's words:
@@ -146,3 +146,5 @@ BEGIN
         RAISE EXCEPTION '009_strings_through_the_library: keys of the app''s own that should stay, without an English string: %', missing;
     END IF;
 END $$;
+
+-- end of 009

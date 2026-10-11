@@ -240,8 +240,6 @@ bar says what it said. Before the upload:
 - upload `backend/vendor/` first: the new code needs the library's classes,
   and a request served between the two would fail.
 
-The upload is refused while 009 is a draft.
-
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`

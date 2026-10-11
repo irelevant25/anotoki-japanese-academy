@@ -408,9 +408,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   library's keys, every language with who wrote it and when, and the
   sixteen keys only the bar read deleted - the person's role and the link to
   their anotoki account among them, which the bar now says from the library's
-  keys) is a draft: its last line is the
-  owner's to write, once they accept that change - the upload is refused
-  until then. After this app's files come the anotoki library's own
+  keys) is final since 2026-10-11 too (the owner accepted it; the two go up
+  in the same upload). After this app's files come the anotoki library's own
   (`anotoki_translations/001_…`, `002_…`: its words, written only where a key
   has none - `db_migration_sets()`), which a draft of the app's holds back
   too; they too end with `-- end of NNN`.

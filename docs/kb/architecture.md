@@ -980,10 +980,9 @@ the draft is final; from then on the migration is applied everywhere. A file
 a test leaves half on purpose is no draft anybody named, and waits on the
 tests' databases too. 005 was the first written so, and is final since
 2026-10-04; 006 likewise; 008 (the words the library's status page took
-over) since 2026-10-11, reviewed and committed, to go up with 009; 009
-(`009_strings_through_the_library.sql`, *The app's words*) is a draft until
-the owner accepts it - and a draft holds back every file after it, the
-library's set `anotoki_translations` included; 007 (`007_visitors.sql`, visitors) since
+over) and 009 (`009_strings_through_the_library.sql`, *The app's words*)
+since 2026-10-11, reviewed, going up together - a draft would hold back
+every file after it, the library's set `anotoki_translations` included; 007 (`007_visitors.sql`, visitors) since
 2026-10-05, its last line written once the browser suites had passed: its
 schema (users' `CHECK (id > 0)` replaced by `users_person_or_visitor`,
 `visitor_key_hash`, `visitor_from`, the sequence `visitor_ids`, two

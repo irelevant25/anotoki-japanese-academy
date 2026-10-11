@@ -125,8 +125,8 @@ A migration that changes data must carry its `DO $$ … $$` check: on the site
 nobody watches it run. Every migration ends with `-- end of NNN`; until that
 line is there (a file still uploading), the site leaves it, and the ones after
 it, pending (a "draft" on the Migrations page). Never upload while the
-newest migration is a draft (009 is one now, until the owner writes its
-last line; 008 is final since 2026-10-11 and goes up with it): the site would wait on it, and its study content with it —
+newest migration is a draft (008 and 009 are final since 2026-10-11 and go
+up together): the site would wait on it, and its study content with it —
 `build-dist.php` refuses to build then, and names it. One that fails on Apply is rolled back
 whole and named ("Stopped at …", and why in PostgreSQL's own words under it;
 the host's error log has it too), the ones
