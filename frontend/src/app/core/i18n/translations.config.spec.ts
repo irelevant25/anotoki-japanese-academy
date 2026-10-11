@@ -4,7 +4,7 @@ import { SiteStatus } from '@anotoki/lib/migrations';
 import { ANOTOKI_TRANSLATIONS_CONFIG, AnotokiTranslationsConfig, BundleRefusal, TranslationBundle, TranslationService } from '@anotoki/lib/translations';
 import { TEST_LANGUAGES } from '@anotoki/lib/translations/testing';
 import { AppState, AuthService } from '../auth/auth.service';
-import { AnotokiUser } from '../auth/sdk/anotoki-auth';
+import { AnotokiUser } from '@anotoki/lib/auth';
 import { provideTestSiteStatus } from '../testing/site-status';
 import { ADMIN_DRAFTS_KEY, BundleRefused, bundleRefused, fetchBundle, LANGUAGE_CACHE_KEY, LANGUAGE_KEY, provideTranslations, wordsCanBeAsked } from './translations.config';
 

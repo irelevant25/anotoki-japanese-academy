@@ -51,8 +51,9 @@ export function failureKey(status: number): string {
  * report (/report/:id). A link can't carry the token, so a click fetches the
  * report with it (AuthService.fetch()) and opens it from memory, in a new tab
  * (a blob: address, with its no-script policy). The server sends a report with
- * the same policy. A visitor's report goes with their key instead (VisitorKey,
- * made only then), and a key the server no longer knows is forgotten. (The data file of Your data is fetched the same way, by its
+ * the same policy. A visitor's report goes with their key instead (the
+ * library's fetch() reads VisitorKey), and a key the server no longer knows is
+ * forgotten. (The data file of Your data is fetched the same way, by its
  * card: home/your-data.)
  *
  * What it says itself — the waiting tab's title, the alert when it fails — is
@@ -87,7 +88,8 @@ export class PrivateLinksService {
     try {
       const visitor = this.auth.visiting() ? this.injector.get(VisitorKey) : null;
       const key = visitor?.current() ?? null;
-      const r = await this.auth.fetch(url, {}, key);
+      // The library's fetch() sends the key the browser holds as it leaves: the same one, read a moment before.
+      const r = await this.auth.fetch(url);
       if (visitor && key && r.status === 401 && (await codeOf(r)) === 'visitor_unknown') {
         visitor.forget(key, true);
       }

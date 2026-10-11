@@ -7,7 +7,8 @@
  *
  *   GET  /api/site-status     where the site stands: {state: ready|not_set_up|update_pending|unavailable,
  *                             installed} (the anotoki library's, below; for everybody, always answered)
- *   GET  /api/auth/config     how to sign in at the IAM: {issuer, clientId, loginRequired, visitorKeepDays}
+ *   GET  /api/auth/config     how to sign in at the IAM: {issuer, client_id, login_required, sign_in_available,
+ *                             visitor_keep_days} (the anotoki library's AuthRoutes: routes/site.php)
  *   GET  /api/health          it answers (and, to this computer under PHP's built-in server,
  *                             with which database and backup folder)
  *   GET  /api/meta            exam: parts, sections, lessons, bank size, your attempt count
@@ -23,10 +24,13 @@
  *   GET  /api/translations/{code}   the app's own words in a language, the same for everybody
  *                             (routes/translations.php)
  *   *    /api/admin/...       the admin area: the languages and the words, reworded (the same file);
- *                             the people, and deleting a person's data; how many visitors there
- *                             are (routes/people.php)
+ *                             the people, and deleting a person's data, with how many visitors there
+ *                             are (routes/people.php: the anotoki library's routes); the error log,
+ *                             the audit log, the feedback and the backups (routes/admin.php: the
+ *                             library's, for ADMIN alone)
  *   *    /api/admin/migrations   the Migrations page: what is applied and what waits, a file's SQL,
  *                             and Apply (routes/migrations.php; ADMIN, judged from the token alone)
+ *   POST /api/feedback        the visitors' feedback form (routes/admin.php)
  *
  * In front of every route, whether the site can answer at all: the anotoki
  * library's SiteGate (anotoki/lib, the same on every anotoki site), from where
@@ -43,19 +47,23 @@
  *                    goes on, and answers as the database lets it (503 database_unavailable)
  *   ready            everything as usual
  *
- * Every /api and /report address needs a signed-in person (middleware/person.php)
- * and answers with that person's data only, except /api/site-status,
- * /api/auth/config, /api/health and /api/translations/{code} (the app's own
- * words, the same for everybody) - and the study addresses (the kanji SRS, the
- * exam, the reports), where the IAM says this site does not require sign-in:
- * then a request without a token is a visitor (their key in X-Visitor-Key) or
- * nobody yet, whose first save makes a visitor (learner_middleware(),
- * src/visitors.php). Each person's request runs in their own time zone (their
- * browser's X-Time-Zone, else the one kept for them, else UTC). The
- * /api/admin addresses are for the IAM roles EDITOR and ADMIN, some for ADMIN
- * alone (middleware/staff.php, on the route groups). Before an address with
- * data, the start-time work a hosted site has no start for (src/upkeep.php,
- * middleware/upkeep.php).
+ * Every /api and /report address needs a signed-in person (who is asking: the
+ * anotoki library's Identify, src/auth.php; middleware/person.php) and answers
+ * with that person's data only, except /api/site-status, /api/auth/config,
+ * /api/health and /api/translations/{code} (the app's own words, the same for
+ * everybody) - and the study addresses (the kanji SRS, the exam, the reports)
+ * and the feedback form, where the IAM says this site does not require
+ * sign-in: then a request without a token is a visitor (their key in
+ * X-Visitor-Key) or nobody yet, whose first save makes a visitor
+ * (learner_middleware(), src/visitors.php). Each person's request runs in
+ * their own time zone (their browser's X-Time-Zone, else the one kept for
+ * them, else UTC). The /api/admin addresses are for the IAM roles EDITOR and
+ * ADMIN, most for ADMIN alone (middleware/staff.php, on the route groups).
+ * Before an address with data, the start-time work a hosted site has no start
+ * for (src/upkeep.php, middleware/upkeep.php); after any answer, now and then,
+ * the scrub of the accounts the IAM deleted (the library's PeopleUpkeep,
+ * src/people.php). What goes wrong is written down in the error log
+ * (src/admin.php), outside everything else.
  *
  * front.php runs it for the addresses that are the API's; the rest is the
  * frontend's (the built Angular app) or the setup page's.
@@ -77,13 +85,19 @@ require_once __DIR__ . '/routes/kanji.php';
 require_once __DIR__ . '/routes/me.php';
 require_once __DIR__ . '/routes/visitor.php';
 require_once __DIR__ . '/routes/people.php';
+require_once __DIR__ . '/routes/admin.php';
 require_once __DIR__ . '/routes/migrations.php';
 require_once __DIR__ . '/routes/translations.php';
 
+use Anotoki\Lib\Auth\Http\AuthRoutes;
+use Anotoki\Lib\Backups\Http\BackupsRoutes;
+use Anotoki\Lib\ErrorLog\ErrorLogMiddleware;
+use Anotoki\Lib\ErrorLog\Http\ErrorLogRoutes;
 use Anotoki\Lib\Migrations\Http\MigrationsRoutes;
 use Anotoki\Lib\Migrations\Http\SiteGate;
 use Anotoki\Lib\Migrations\Http\SiteState;
 use Anotoki\Lib\Migrations\Migrator;
+use Anotoki\Lib\People\Http\PeopleUpkeep;
 use Anotoki\Lib\Translations\Http\TranslationsRoutes;
 use Slim\Factory\AppFactory;
 
@@ -93,8 +107,11 @@ use Slim\Factory\AppFactory;
  * starts with ~). So the pages start and have their words (the anotoki
  * library's own pattern for its route of the words,
  * TranslationsRoutes::openPath(): '~^/api/translations/[^/]+$~D'), an
- * administrator signs in and reaches the Migrations page (its list, a file's
- * SQL, Apply), and the clips (shared content, nobody's data) play on.
+ * administrator signs in (the library's AuthRoutes::openPath(): the boot
+ * configuration) and reaches the Migrations page (its list, a file's SQL,
+ * Apply), the error log and the backups (the library's ErrorLogRoutes and
+ * BackupsRoutes::openPaths(): a backup just before an Apply is the point -
+ * never a restore), and the clips (shared content, nobody's data) play on.
  *
  * Each is its route and nothing under it - one segment where the route takes
  * one, never a prefix: the gate reads the path decoded once, and a prefix
@@ -106,13 +123,13 @@ use Slim\Factory\AppFactory;
  */
 function academy_site_open_paths(): array
 {
-    return [
-        '/api/auth/config',
+    return array_merge([
+        AuthRoutes::openPath(),
         TranslationsRoutes::openPath(),
         '/api/health',
         '~^/audio/[^/]+$~D',
         '~^/api/admin/migrations(/file|/apply)?$~D',
-    ];
+    ], ErrorLogRoutes::openPaths(), BackupsRoutes::openPaths());
 }
 
 /**
@@ -140,9 +157,14 @@ function academy_site_state(): SiteState
 
 /**
  * The application, built once: its routes, and the middleware around them.
- * Added in this order, they run the other way round: the security headers
- * first, then the error handling, the trailing-slash rule, the SiteGate and
- * the routing.
+ * Added in this order, they run the other way round: the error log's record
+ * of the request first (the anotoki library's ErrorLogMiddleware::outer(): an
+ * answer worth seeing - a 5xx, a 404 - that no exception wrote down), then
+ * the security headers, the error handling (which writes down what it answers
+ * 500 or 503), the trailing-slash rule, the SiteGate, the scrub of the IAM's
+ * deleted accounts after the answer (PeopleUpkeep: at most hourly, only while
+ * the site is ready) and the routing. PHP's own warnings and fatal errors go
+ * to the error log too.
  */
 function academy_app(): Slim\App
 {
@@ -152,6 +174,7 @@ function academy_app(): Slim\App
     }
     $app = AppFactory::create();
     $state = academy_site_state();
+    academy_error_log($app)->installPhpHandlers();
 
     MigrationsRoutes::status($app, $state); // GET /api/site-status
     academy_site_routes($app);
@@ -160,13 +183,21 @@ function academy_app(): Slim\App
     academy_me_routes($app);
     academy_visitor_routes($app);
     academy_translation_routes($app);
+    academy_people_routes($app);
+    academy_admin_routes($app);
     academy_migration_routes($app);
 
     $app->addRoutingMiddleware();
+    $app->add(new PeopleUpkeep(academy_people(), static function () use ($state): bool {
+        return $state->state() === SiteState::READY;
+    }, static function (callable $work): void {
+        after_response_add($work, 'people_scrub');
+    }));
     // After the trailing-slash rule, so it judges /api/health/ as /api/health; inside the error handling.
     $app->add(new SiteGate($state, $app->getResponseFactory(), academy_site_open_paths()));
     $app->add(trailing_slash_middleware());
     $app->add(errors_middleware());
     $app->add(security_headers_middleware());
+    $app->add(ErrorLogMiddleware::outer(academy_error_log()));
     return $app;
 }

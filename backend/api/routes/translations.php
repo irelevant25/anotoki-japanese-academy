@@ -32,7 +32,9 @@
  * unsupported_media_type, empty 422 empty_body, broken 400 invalid_json; 503
  * translations_unavailable while the tables are not there; then the work. A
  * refusal is this app's error body, {error: sentence, code, ...what it is
- * about: key, language, placeholder, keys}:
+ * about: key, language, placeholder, keys}. Every change is recorded in the
+ * audit log (translations.saved, translations.imported, language.created,
+ * language.updated, language.deleted):
  *
  *   GET    /api/admin/languages                  {languages: [{code, name, native_name, enabled, sort_order, seeded,
  *                                                strings}]}, the hidden ones too (seeded: released with the app - never
@@ -86,29 +88,31 @@ function academy_translation_routes(Slim\App $app): void
         TranslationsRoutes::bundle($group, $translations, $error);
     })->add(upkeep_middleware());
 
+    // Every change of the words is recorded in the audit log (src/admin.php), by the request's person:
+    // translations.saved|imported, language.created|updated|deleted.
+    $audit = static function (Request $request, string $action, ?string $type, ?string $id, array $details): void {
+        academy_audit_record($request, $action, $type, $id, $details);
+    };
+
     // The groups' middleware runs before their routes', the last added first:
-    // upkeep, the person, the editors' check, then the administrators'. An
-    // address added to a group later gets them without asking.
+    // upkeep, who is asking, the person, the editors' check, the size of the
+    // body, then the administrators'. An address added to a group later gets
+    // them without asking.
 
     // The editors and the administrators: reading and rewording the strings.
     // Who saved a string is the request's person, the token's, and nothing a body says.
     $strings = TranslationsRoutes::strings($app, '/api/admin', $translations, static function (Request $request): ?int {
         return uid($request);
-    }, $error);
+    }, $error, $audit);
+    $strings->add(body_limit_middleware());
     $strings->add(staff_middleware());
     data_route($strings);
 
-    // The administrators alone: the languages themselves ...
-    $languages = TranslationsRoutes::languages($app, '/api/admin', $translations, $error);
+    // The administrators alone: the languages themselves. (The people, and
+    // deleting a person's data: routes/people.php.)
+    $languages = TranslationsRoutes::languages($app, '/api/admin', $translations, $error, $audit);
     $languages->add(admin_middleware());
+    $languages->add(body_limit_middleware());
     $languages->add(staff_middleware());
     data_route($languages);
-
-    // ... and the people whose data the site holds, and deleting a person's (routes/people.php).
-    $people = $app->group('/api/admin', static function (RouteCollectorProxy $group): void {
-        academy_people_routes($group);
-    });
-    $people->add(admin_middleware());
-    $people->add(staff_middleware());
-    data_route($people);
 }

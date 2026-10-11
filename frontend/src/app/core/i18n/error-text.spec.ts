@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiError, errorCode, toApiError } from '../api/api.service';
 import { DYNAMIC_KEYS } from './dynamic-keys';
-import { errorKey, errorParams, signInFailureKey, signInFailureParams } from './error-text';
+import { errorKey, errorParams } from './error-text';
 
 /** The codes the server puts beside its sentences (backend/src, backend/api/middleware/errors.php), with the status each comes with. */
 const SERVER_CODES: [string, number][] = [
@@ -124,21 +124,6 @@ describe('errorKey(): a failed request in the reader’s words', () => {
     expect(errorKey(new ApiError('x', 422, { code: 'visitor_limit', limit: 5 }))).toBe('error.unknown');
     expect(errorKey(new ApiError('x', 422, { code: 'visitor_limit' }))).toBe('error.unknown');
     expect(errorParams(new ApiError('x', 422, { code: 'visitor_limit', limit: 'answers', max: 'many' as unknown as number }))).toEqual({ status: 422 });
-  });
-});
-
-describe('signInFailureKey(): a sign-in that came back without one', () => {
-  it('has one sentence for access_denied, true whoever ended it', () => {
-    expect(signInFailureKey('access_denied')).toBe('signIn.notCompleted');
-  });
-
-  it('says the code for anything else — the code, never somebody’s sentence', () => {
-    expect(signInFailureKey('state_mismatch')).toBe('signIn.failed');
-    expect(signInFailureKey('')).toBe('signIn.failed');
-    expect(signInFailureParams('state_mismatch')).toEqual({ code: 'state_mismatch' });
-    expect(signInFailureParams('http_503')).toEqual({ code: 'http_503' });
-    expect(signInFailureParams('Your account is locked. Call 0900 123 456')).toEqual({ code: 'unknown' });
-    expect(signInFailureParams('')).toEqual({ code: 'unknown' });
   });
 });
 

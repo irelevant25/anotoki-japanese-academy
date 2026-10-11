@@ -1,0 +1,11 @@
+@if (offered()) {
+  <span class="sep" aria-hidden="true">·</span>
+  <button type="button" class="send-feedback" id="sendFeedback" [attr.lang]="lang()" (click)="open.set(true)">{{ title() }}</button>
+}
+@if (open()) {
+  <anotoki-dialog [heading]="title()" size="md" (dismiss)="open.set(false)">
+    @defer (on immediate) {
+      <anotoki-feedback-form [heading]="null" [closable]="true" (closed)="open.set(false)" />
+    }
+  </anotoki-dialog>
+}

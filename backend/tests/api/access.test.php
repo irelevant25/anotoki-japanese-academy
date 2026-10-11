@@ -1,9 +1,9 @@
 <?php
 // Whether this site requires sign-in (src/access.php): the IAM's answer, read
-// by its PHP SDK from the stand-in IAM (tests/tools/stand-in-iam.php) or from
-// the test's own file (test_access()), relayed by GET /api/auth/config as
-// loginRequired - and true while the database cannot keep visitors, and
-// whenever nothing better is known. No real IAM is asked.
+// by the anotoki library's SignInRule from its stand-in IAM or from the test's
+// own file (test_access()), relayed by GET /api/auth/config as login_required
+// - and true while the database cannot keep visitors, and whenever nothing
+// better is known. No real IAM is asked.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -13,7 +13,14 @@ function relayed(array $app): ?bool
 {
     $r = call($app['base'], 'GET', '/api/auth/config', null, no_token());
     assert_same(200, $r['status'], $r['raw']);
-    return $r['body']['loginRequired'] ?? null;
+    return $r['body']['login_required'] ?? null;
+}
+
+/** access_login_required() in this process, as a new request asks it: the rule's answer is one per request. */
+function asked_now(?string &$reason = null): bool
+{
+    academy_sign_in_rule()->reset();
+    return access_login_required($reason);
 }
 
 /** The stand-in IAM's state, after $changes (POST /_test/state merges them). */
@@ -93,14 +100,14 @@ test('while the database cannot keep visitors, sign-in is required whatever the 
         'the move (a token and a key, whatever the switch) says the database is not ready');
     assert_same([], server_problems($file));
 
-    assert_same(true, access_login_required($reason), 'and in this process');
+    assert_same(true, asked_now($reason), 'and in this process');
     assert_same('visitors_not_ready', $reason, 'because of the database');
     assert_false(visitors_ready());
     test_access(true);
-    assert_same(true, access_login_required($reason));
+    assert_same(true, asked_now($reason));
     assert_same('read', $reason, 'the IAM requires sign-in: that is the answer, and the database is not asked');
     test_access(null);
-    assert_same(true, access_login_required($reason));
+    assert_same(true, asked_now($reason));
     assert_same('never_read', $reason, 'the IAM out of reach, never read: required (fail closed)');
     assert_same([], server_problems($app));
 });

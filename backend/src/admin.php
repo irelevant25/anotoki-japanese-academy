@@ -1,0 +1,309 @@
+<?php
+/**
+ * The admin tools - the anotoki library's (Anotoki\Lib\ErrorLog, Audit,
+ * Feedback, Backups: the Composer package anotoki/lib, every anotoki site's,
+ * since anotoki-lib 0.4.0), set up here for this site: the admin panel's
+ * Errors, Audit, Feedback and Backups pages (api/routes/admin.php; the pages
+ * are the library's), for the site's ADMIN alone, and the visitors' feedback
+ * form. The file explorer is genshin's alone: none here.
+ *
+ *   the error log   what went wrong, one JSON line each in
+ *                   backend/storage/logs/errors-<UTC day>.jsonl: a 5xx, a 404,
+ *                   405, 413, 415 or 429 answered, PHP's warnings and fatal
+ *                   errors - redacted, never a header, a body, a query string or
+ *                   a token; a keyed hash of the address bucket instead of the
+ *                   address, and no person's id (a line is written outside the
+ *                   routes, before the library's Identify has found who is
+ *                   asking); 30 days, 64 MB in all. Files, so it works while the
+ *                   database does not
+ *   the audit log   who did what in the admin panel (the table
+ *                   anotoki_audit_log, the library's set anotoki_admin): the
+ *                   languages and the words, a person's data deleted, the
+ *                   migrations applied, the backups, the feedback handled, the
+ *                   error log cleared. Kept
+ *   feedback        the visitors' messages (the table anotoki_feedback): the form
+ *                   in the foot of every page (POST /api/feedback: a person, or
+ *                   while sign-in is not required here a visitor or nobody),
+ *                   read and handled on the Feedback page; no mail - the panel's
+ *                   bar counts the new ones. The address for an answer is what the
+ *                   sender sends: the form writes a signed-in person's account
+ *                   address in for them (core/feedback.config.ts), and a cleared
+ *                   field, or "Send it without my name", keeps none - the server
+ *                   never adds one (the owner's decision of 2026-10-11, "it's their
+ *                   choice"; the form's own words: "Only if you would like an
+ *                   answer"); nothing of where a message came from is kept with
+ *                   it; the limits count a keyed hash of the address bucket for a
+ *                   day, in backend/storage/cache/
+ *   backups         the whole database, by COPY through PDO, in
+ *                   backend/storage/backups/<id>.anotoki-backup: one a day after
+ *                   an answer (the last 14 kept), one before every update (the
+ *                   last 5), one before a restore (the last 5) - the library's
+ *                   rotation by number -, and the ADMIN's own, which wait for the
+ *                   owner to delete them on the Backups page: no age limit on any
+ *                   (the owner's decision of 2026-10-11, as every anotoki site
+ *                   reads it); downloaded by a single-use link, restored in place
+ *                   where the schema is the backup's - and then the scrub of the
+ *                   IAM's deleted accounts at once (academy_scrub_after_restore()).
+ *                   A person whose account the IAM deleted stays in a backup made
+ *                   before until it rotates out or the owner deletes it. BESIDE
+ *                   this site's own JSON copies of the study data in the same
+ *                   folder (src/backup.php), which stay what they were: the
+ *                   library never touches a file of another name
+ *
+ * Who acts, and whether they are the site's ADMIN, is the anotoki library's
+ * Identify's answer (src/auth.php): the token's sub and roles, never a table.
+ * A backup made, downloaded, deleted or restored also wants a sign-in of the
+ * last ten minutes (the token's auth_time): the page offers "Sign in again".
+ *
+ * Everything the tools write is under storage_dir() - backend/storage/, or a
+ * throwaway database's own folder in the tests -, every folder of it guarded
+ * by a deny-all .htaccess (the library's GuardedDirectory).
+ */
+
+declare(strict_types=1);
+
+use Anotoki\Lib\Admin\AdminContext;
+use Anotoki\Lib\Audit\AuditLog;
+use Anotoki\Lib\Backups\Backups;
+use Anotoki\Lib\Backups\Copy;
+use Anotoki\Lib\ErrorLog\ErrorLog;
+use Anotoki\Lib\Feedback\Feedback;
+use Anotoki\Lib\Support\Refusal;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+/** The places a feedback message may be about: the sections of the app (the form words them, frontend core/feedback.config.ts). */
+const FEEDBACK_SECTIONS = ['Kanji', 'Exam'];
+
+/**
+ * The site's own storage: backend/storage/ - or, for a server of the tests,
+ * their own settings folder (ACADEMY_CONFIG_DIR, which counts for an
+ * academy_test_ database alone: config_all() refuses any other), so nothing
+ * a test writes - a log line of a copy that is not set up included - lands in
+ * this copy's storage.
+ */
+function storage_dir(): string
+{
+    return getenv('ACADEMY_CONFIG_DIR') ? config_dir() : str_replace('\\', '/', BACKEND) . '/storage';
+}
+
+/**
+ * What the admin tools need to know of this site (the library's
+ * AdminContext): who acts (the token's sub), whether they are the site's ADMIN
+ * (the token's role), the proof a backup's download, delete, making or restore
+ * asks for (a sign-in of the last ten minutes, the token's auth_time), the
+ * address bucket the feedback form's limits count (client_address_counted():
+ * the trusted proxy's header from a trusted proxy, an IPv6 /64), and this
+ * site's error body (academy_refusal()).
+ */
+function academy_admin_context(): AdminContext
+{
+    static $context = null;
+    if ($context === null) {
+        $context = new AdminContext(
+            static function (Request $request) {
+                $person = auth_person($request);
+                return $person === null ? null : $person->sub;
+            },
+            AdminContext::recentSignIn(static function (Request $request): ?int {
+                $person = auth_person($request);
+                return $person === null ? null : $person->authTime;
+            }),
+            AdminContext::PROOF_RECENT_SIGN_IN,
+            static function (Request $request): string {
+                return client_address_counted($request->getServerParams());
+            },
+            static function (Response $response, Refusal $refusal): Response {
+                return academy_refusal($response, $refusal);
+            },
+            static function (Request $request): bool {
+                $person = auth_person($request);
+                return $person !== null && $person->isAdmin();
+            }
+        );
+    }
+    return $context;
+}
+
+/**
+ * The error log, in storage_dir()/logs (one per process): what goes wrong,
+ * written down where the site's ADMIN reads it (the Errors page). Its key for
+ * the address buckets' hashes is the installation's (storage/anotoki-lib.key,
+ * made once); a 401, a 403 or a 422 is an answer, not a failure: never
+ * written. $app, the first time (academy_app()): the app whose routes name a
+ * line's route by its pattern (/api/exam/report/{id}) where the request that
+ * failed was never routed.
+ */
+function academy_error_log(?Slim\App $app = null): ErrorLog
+{
+    static $log = null;
+    return $log ??= new ErrorLog(storage_dir() . '/logs', [
+        'root' => BACKEND,
+        'context' => academy_admin_context(),
+        'ignoreExceptions' => [HttpError::class],
+        'app' => $app,
+    ]);
+}
+
+/**
+ * The audit log (the table anotoki_audit_log, one per process): who did what
+ * in the admin panel. While the table is not there yet (an upload whose
+ * anotoki_admin/001 waits for its Apply), entries wait in
+ * storage_dir()/logs/audit-pending.jsonl and go in after the Apply
+ * (flushPending(), api/routes/migrations.php). No address is kept: the
+ * person's id is enough here.
+ */
+function academy_audit(): AuditLog
+{
+    static $audit = null;
+    return $audit ??= new AuditLog(static function (): PDO {
+        return db();
+    }, [
+        'pendingFile' => storage_dir() . '/logs/audit-pending.jsonl',
+        'actorIds' => static function (string $name): array {
+            return array_map('intval', array_column(db_all('SELECT id FROM users WHERE id > 0 AND preferred_username ILIKE ? LIMIT 50', ['%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $name) . '%']), 'id'));
+        },
+    ]);
+}
+
+/**
+ * An entry of this site's own in the audit log, by the request's person
+ * (their token's sub): the languages and the words changed (the library's
+ * translations routes hand their entries here), the migrations applied.
+ */
+function academy_audit_record(?Request $request, string $action, ?string $targetType = null, ?string $targetId = null, array $details = []): void
+{
+    $person = $request === null ? null : auth_person($request);
+    academy_audit()->record($request, $person === null ? null : $person->sub, $action, $targetType, $targetId, $details);
+}
+
+/** People's names by id, for the audit log's and the feedback's pages: the name of their last token, or the IAM's placeholder. */
+function academy_people_names(array $ids): array
+{
+    $ids = array_values(array_filter(array_map('intval', $ids), static function (int $id): bool {
+        return $id > 0;
+    }));
+    if ($ids === []) {
+        return [];
+    }
+    $names = [];
+    foreach (db_all('SELECT id, preferred_username FROM users WHERE id IN (SELECT json_array_elements_text(?::json)::bigint)', [json_text($ids)]) as $row) {
+        if (is_string($row['preferred_username']) && $row['preferred_username'] !== '') {
+            $names[(int) $row['id']] = $row['preferred_username'];
+        }
+    }
+    return $names;
+}
+
+/**
+ * Feedback (the table anotoki_feedback, one per process): the visitors' form
+ * and the Feedback page. Its places are the app's sections (FEEDBACK_SECTIONS);
+ * its limits (5 an hour, 20 a day from one address bucket, 300 a day in all)
+ * and its keeping (spam 30 days, resolved a year) are the library's. Its
+ * daily prune runs after an answer.
+ */
+function academy_feedback(): Feedback
+{
+    static $feedback = null;
+    return $feedback ??= new Feedback(static function (): PDO {
+        return db();
+    }, [
+        'storage' => storage_dir(),
+        'sections' => FEEDBACK_SECTIONS,
+        'defer' => static function (callable $work): void {
+            after_response_add($work);
+        },
+    ]);
+}
+
+/**
+ * The library's backups of the whole database (one per process), in this
+ * site's backup folder (backup_dir(): backend/storage/backups/) beside its own
+ * JSON copies, which it never touches. Its connection is one of its own, made
+ * for COPY (the library's Copy::connect()); its migrations engine is this
+ * site's (db_migrator()), its lock the upkeep's (UPKEEP_LOCK: one backup, one
+ * Apply or one content rebuild at a time). The day's backup is made after an
+ * answer (after_response_add()); a failure goes to the error log, never to a
+ * page. After a restore, the scrub of the IAM's deleted accounts at once
+ * (academy_scrub_after_restore()).
+ *
+ * How many are kept is the library's rotation by number, as on every anotoki
+ * site: the last 14 daily ones, 5 made before an update, 5 before a restore -
+ * the older ones of those kinds go as a new one comes -, and the ADMIN's own
+ * until the owner deletes them on the Backups page. No backup is deleted for
+ * its age (the owner's decision of 2026-10-11, "kept until I delete them", as
+ * the IAM and every other site read it: no age limit, the counts kept). A
+ * person whose account the IAM deleted stays in a backup made before, until
+ * it rotates out or the owner deletes it.
+ */
+function academy_backups(): Backups
+{
+    static $backups = null;
+    return $backups ??= new Backups(static function (): PDO {
+        $pdo = Copy::connect(db_dsn(), (string) config('db.user'), (string) config('db.password'), [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+        $pdo->exec("SET TIME ZONE 'UTC'");
+        return $pdo;
+    }, backup_dir(), [
+        'site' => 'japanese-academy',
+        'migrator' => static function (PDO $pdo) {
+            return db_migrator($pdo);
+        },
+        'lock' => UPKEEP_LOCK,
+        'audit' => academy_audit(),
+        'storage' => storage_dir(),
+        'defer' => static function (callable $work): void {
+            after_response_add($work);
+        },
+        'onError' => static function (Throwable $e): void {
+            academy_error_log()->record($e);
+        },
+        'afterRestore' => static function (array $manifest, PDO $pdo): void {
+            academy_scrub_after_restore();
+        },
+    ]);
+}
+
+/**
+ * After a restore, the scrub of the IAM's deleted accounts at once, on the
+ * site's connection (the hook's feedback and audit log are written there too):
+ * the restored database brings back the scrub's place of its day, and with it
+ * the names of whoever the IAM deleted since. A scrub that does not finish -
+ * the IAM out of reach, its time up with more to read, a run already going -
+ * is the restore's failure to say (the library's after_restore_error, the
+ * Backups page's note; the error log), never a restore that looks complete
+ * with a deleted person named again. Then the hourly upkeep's stamp goes too,
+ * so the next request runs the scrub again instead of an hour later - after
+ * this answer: this request's own upkeep would claim the hour again at once,
+ * and meet the IAM as it is this moment. (The survey's pattern.)
+ *
+ * What it does not undo: data an ADMIN deleted on the People page after the
+ * backup was made comes back with it. The anotoki library replays those
+ * deletes after a restore from its 0.4.2; until then, delete it again there.
+ */
+function academy_scrub_after_restore(): void
+{
+    $run = academy_people()->scrubber()->run();
+    if ($run['state'] === 'done') {
+        return;
+    }
+
+    after_response_add(static function (): void {
+        @unlink(auth_cache_dir() . '/' . Anotoki\Lib\People\Http\PeopleUpkeep::STAMP);
+    }, 'people_scrub_again');
+    if ($run['state'] === 'unreachable' || $run['state'] === 'stopped') {
+        $why = lcfirst(rtrim((string) $run['error'], '.'));
+    } elseif ($run['state'] === 'more') {
+        $why = 'its time ran out with more of the IAM\'s list to read';
+    } elseif ($run['state'] === 'busy') {
+        $why = 'another check was running';
+    } elseif ($run['state'] === 'not_ready') {
+        $why = 'what it needs is not there: ' . implode('; ', $run['problems']);
+    } else {
+        $why = 'it ended ' . $run['state'];
+    }
+
+    throw new RuntimeException(
+        "the accounts the IAM deleted were not checked again ($why). Whoever it deleted since this backup was made may be named here "
+        . 'until they are: the check runs again with the next request, and at once with Check now on the People page.'
+    );
+}

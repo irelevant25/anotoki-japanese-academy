@@ -74,10 +74,13 @@ try {
         } elseif ($pending = db_pending_migrations()) {
             $ready = db_migrations_ready();
             if (count($ready) < count($pending)) {
-                // A migration still being written (no last line) waits: nothing applies it until it is whole.
-                $draft = db_migrator()->status()['pending'][count($ready)];
+                // A migration still being written (no last line) waits: nothing applies it until it is whole - nor, while
+                // it is one of this site's own, the anotoki library's files (db_migration_ready()).
+                $status = db_migrator()->status()['pending'];
+                $draft = db_waiting_draft($status) ?? $status[count($ready)];
                 say('Waiting: ' . db_migration_path($draft) . ' does not end with its last line, "-- end of ' . substr($draft['name'], 0, 3) . '": '
-                    . 'it is still being written (or half copied), and nothing applies it, or anything after it, until it does.');
+                    . 'it is still being written (or half copied), and nothing applies it, or anything after it, until it does'
+                    . ($draft['set'] === MIGRATION_SET && db_own_draft(db_name()) !== null ? ' - nor the anotoki library\'s files.' : '.'));
             }
             if ($ready) {
                 // No request applies a migration: until somebody does, the site says it is being updated.

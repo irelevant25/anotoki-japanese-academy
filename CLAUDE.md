@@ -11,10 +11,14 @@ migrations - applying them, and what the site does while one waits - are the
 package `anotoki/lib`, the npm package `@anotoki/lib`; `../anotoki-lib`,
 `DEV.md`, *The anotoki library*), and so are the family's UI kit the pages
 are drawn with (buttons, dialogs, fields, menus), its styles and the top bar
-(since anotoki-lib 0.2.0), in this app's own palette, and the app's words -
+(since anotoki-lib 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0). It runs two ways:
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.4.1), the
+site's half of signing in, the people (each person's row, the scrub of the
+accounts the IAM deleted, the People page) and the admin tools Japanese takes
+(the error log, the audit log, the feedback with the visitors' form, the
+backups of the whole database; no file explorer). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -29,13 +33,16 @@ Both sign people in through the anotoki IAM, the one way there is since
 account may study, each person with their own progress, settings and exam
 history; the IAM roles `EDITOR` and `ADMIN` open the admin panel (`/admin`).
 Every page sends a signed-out visitor straight to the IAM and back
-(`signInGuard`, `docs/kb/sign-in.md`) - unless the IAM says sign-in is not
+(the library's `personOrVisitorGuard`, `docs/kb/sign-in.md`) - unless the IAM says sign-in is not
 required here: then nobody signed in studies as a visitor (the state
-`visiting`; never the admin panel), *Visitors in the browser* there. The top bar is the anotoki family's
+`visiting`; never the admin panel), *Visitors in the browser* there. A
+sign-in that came back without one is the library's screen (Try again,
+Back). The top bar is the anotoki family's
 one bar, the library's (`<anotoki-top-bar>`, worded and wired in
 `frontend/src/app/top-bar/`; `docs/kb/architecture.md`, *The top bar*): the
 brand, Kanji and Exam, the language, the light/dark/system switch and the
-person's menu; the version and "What's new" are at the foot of the page.
+person's menu; the version, "What's new" and "Send feedback" are at the foot
+of the page.
 
 It replaced the earlier N4 Coach app on 2026-09-23, because the owner found
 N4 Coach's sentences and learning path wrong. N4 Coach lives on only in the git
@@ -72,22 +79,29 @@ count wrong, fix it in the same piece of work.
   `routes/` site,
   exam, kanji, me (your own data as a file), visitor (the move at sign-in),
   translations (the library's `TranslationsRoutes`: the words' address, and
-  the admin panel's strings and languages behind this app's checks), people and
-  migrations (the admin panel: the library's routes), `middleware/` — `person.php` finds who asks
+  the admin panel's strings and languages behind this app's checks), people,
+  admin (the error log, the audit log, the feedback and its form, the
+  backups) and migrations (the admin panel: the library's routes),
+  `middleware/` — `person.php` takes who the library's `Identify` found
   (a person, or on the study addresses a visitor or nobody) and their time
   zone, `staff.php` guards the
-  admin panel's addresses (`EDITOR`, `ADMIN`), `upkeep.php` the content's
+  admin panel's addresses (`EDITOR`, `ADMIN`: the library's `RequireRole`), `upkeep.php` the content's
   rebuild —, `front.php` which sends each request to the API, the
   setup page or the built app), `src/` (the app: `bootstrap.php`, `db.php`
   (with `db_migrator()`, the library's migrations engine set up for this site:
-  its own files, then the library's set `anotoki_translations`),
-  `auth.php`, `access.php` (whether the IAM requires sign-in here), `users.php`,
+  four sets - the library's `anotoki_admin`, its own files, the library's
+  `anotoki_translations` and `anotoki_people`),
+  `auth.php` (the library's auth module set up for this site), `access.php`
+  (whether the IAM requires sign-in here), `admin.php` (the library's admin
+  tools set up for this site), `users.php`,
   `visitors.php` (studying without signing in: made, found, capped, swept,
   moved into an account), `client_address.php` (the address the visitors'
   limits count), `after.php` (work after the answer: the sweep),
   `upkeep.php`, the SRS in `src/srs/`,
   the exam, content, backups, `me.php` — a person's own data file —,
-  `people.php`, `translations.php` — the library's `Translations` for this
+  `people.php` (the library's people module set up for this site: the row
+  from the token, what its scrub blanks here, the People page's columns and
+  delete), `translations.php` — the library's `Translations` for this
   app: its released languages, the copy of a language's strings before it
   goes, a save holding its person's row as an answer does, `users_hold()`), `config/` (`config.php`; this copy's settings in `*.local.php`),
   `migrations/`, `vendor/` (Composer's packages - Slim, the anotoki library -
@@ -96,12 +110,18 @@ count wrong, fix it in the same piece of work.
   upload, `php.js` which finds a PHP 8.2+ for the command line and the browser
   suites, `pdf/` — `pages.js` with its own `package.json` for `sharp`),
   `data/` (the study content's sources and the clips, below), `storage/`
-  (gitignored contents: `backups/`, the IAM's keys, cached; a website's
-  setup lock). `backend/README.md` maps it.
+  (gitignored contents: `backups/`, `logs/` - the library's error log -, the
+  IAM's keys, cached, the library's key; a website's setup lock).
+  `backend/README.md` maps it.
 - `frontend/` — the Angular app: `src/app/` (`home/`, `kanji/`, `exam/`,
   `top-bar/` (the anotoki family's bar - the library's - worded and wired:
-  the sections, the reviews due, the person, Sign in and Sign out), `core/` —
-  API, sign-in, the changelog (the foot), `i18n/` (the app's words:
+  the sections, the reviews due, the person, Sign in and Sign out; the
+  admin panel's eight pages, Feedback with its count of new messages), `core/` —
+  API, sign-in (`auth/`: the library's `@anotoki/lib/auth` wired in
+  `auth.config.ts`, seen through this app's `AuthService`), the admin tools
+  and the People page (`admin.config.ts`, the library's), the feedback form
+  (`feedback.config.ts`, `feedback/`: the library's form behind Send
+  feedback at the foot), the changelog (the foot), `i18n/` (the app's words:
   `translations.config.ts` - the anotoki library's translation service,
   pipes and admin pages wired to this app -, `time-wording.ts`, failures
   worded from their codes, the title strategy),
@@ -112,9 +132,9 @@ count wrong, fix it in the same piece of work.
   saves a sign-out waits for), `time-zone.ts`, `site-status.config.ts` (the
   anotoki library's migrations module wired to this app: the gate around the
   pages, its page while the site is not ready, the Migrations page) —, `admin/` — the admin panel, in English:
-  Translations (EDITOR, ADMIN), Languages, People and Migrations (ADMIN;
-  Translations, Languages and Migrations are the library's pages, each in the
-  panel's frame) —, `standin/`
+  Translations (EDITOR, ADMIN), Languages, People, Feedback, Errors, Audit
+  log, Backups and Migrations (ADMIN; every one the library's page, each in
+  the panel's frame) —, `standin/`
   — the Sign in card and the problem page; `home/your-data/` is a
   person's own data file, down and back),
   `src/styles/` (tokens - the palette given to the library's - base,
@@ -141,13 +161,14 @@ count wrong, fix it in the same piece of work.
   kept in git. Leave the clips as they are. Making new clips needs
   `GOOGLE_TTS_API_KEY` in `backend/.env` (gitignored). Never print the key, put
   it in a file that git tracks, or paste it into a message.
-- `backend/src/anotoki_iam.php` (v1.1.0) and
-  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.2.0) are the
-  anotoki IAM's SDKs, copied unchanged from its repository
-  (`../anotoki-iam/sdk/php/`, `../anotoki-iam/sdk/js/`). Never edit them: copy
-  a new version over, and change the version where `backend/src/auth.php`,
-  `frontend/src/app/core/auth/auth.service.ts` and `docs/kb/sign-in.md` name
-  it (a test pins both).
+- Signing in is the anotoki library's since anotoki-lib 0.4.0: its
+  `Anotoki\Lib\Auth` checks the IAM's tokens here (`backend/src/auth.php`),
+  its `@anotoki/lib/auth` signs the browser in (`frontend/src/app/core/auth/`).
+  The IAM's SDKs are no longer copied into this repository
+  (`backend/src/anotoki_iam.php` and `core/auth/sdk/` went with the move;
+  the library keeps the SDK's storage keys, so nobody was signed out by it).
+  Never edit the library's vendored copy either: a change goes to the
+  library and comes back as a release (`DEV.md`, *The anotoki library*).
 - `.claude/` holds the project's skills, agents and path-scoped rules.
 
 ## Commands (from the repository's top folder, unless they say otherwise)
@@ -162,13 +183,16 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (237): after every change
-cd frontend && npm test                      the Angular unit tests (476 in 42 files): after every frontend change
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (252): after every change - on PHP 8.2
+                                             too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
+cd frontend && npm test                      the Angular unit tests (428 in 42 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (184 checks), signed in through the stand-in IAM: a
-                                             deep link signed out, lessons → reviews → practice → exam, the bar's
-                                             keys and menus, Your data, sign-out, the admin panel by role, People,
+                                             Edge end to end (203 checks), signed in through the library's stand-in
+                                             IAM: a deep link signed out, a refused sign-in's screen, lessons →
+                                             reviews → practice → exam, the bar's keys and menus, Your data,
+                                             sign-out, the admin panel by role, People, feedback from the foot to the
+                                             Feedback page and its badge, the error and audit logs, a backup made,
                                              a migration waiting (the library's page for a visitor, a learner and an
                                              editor, no page made behind it; an open exam paper kept and back after
                                              the library's reload; a signed-out ADMIN signs in from it), failing and applied, two time
@@ -177,9 +201,9 @@ node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
                                              the setup page in Edge (42 checks): this computer's way and a website's
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
-                                             screenshots → frontend/e2e/shots/: 23 screens light/dark/phone and Slovak
-                                             phone light/dark, then the top bar measured at 360-1280 px and its menus
-                                             (room alone: room) - look at the shots
+                                             screenshots → frontend/e2e/shots/: 29 screens light/dark/phone and Slovak
+                                             phone light/dark, then the top bar measured at 360-1280 px (the admin
+                                             panel's to 1530) and its menus (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
 node backend/tools/php.js backend/tools/build-audio.php   missing clips → backend/data/audio/ (Google TTS; --dry-run needs no key)
 node backend/tools/php.js backend/tools/build-dist.php    the upload for the website → dist/japanese-academy/ (academy-deploy)
@@ -216,8 +240,16 @@ node backend/tools/pdf/pages.js <book> <pages>   page images of the scanned PDFs
   manual server uses the throwaway setup in the academy-run skill.
   `backend/tests/tools/testdb.php` only touches `academy_test_…` names.
 - `backend/storage/backups/` (gitignored) holds the daily copies of all the
-  study data (until 2026-10-04 they were in `backups/` at the top). Never
-  delete them; when they have to move, copy them, compare each file's hash,
+  study data (until 2026-10-04 they were in `backups/` at the top) and,
+  since anotoki-lib 0.4.0, the library's backups of the whole database
+  (`*.anotoki-backup`, each with its `.json` beside it): the library rotates
+  them by number - the last 14 daily ones, 5 before an update, 5 before a
+  restore -, keeps the ADMIN's own until the owner deletes them on the admin
+  panel's Backups page, and deletes none for its age (the owner's decision of
+  2026-10-11, "kept until I delete them", as the IAM and every anotoki site
+  read it; `docs/kb/decisions.md`). Never delete them, nor the error log's files in
+  `backend/storage/logs/`: the owner does; when they have to move, copy
+  them, compare each file's hash,
   and only then remove the originals. `progress/`, `results/` and `reports/`,
   the files of the app before the database, were deleted on 2026-10-04 by the
   owner's decision: they were never imported into the database, and git keeps
@@ -250,9 +282,11 @@ Tests enforce most of these. Never weaken a test to make it pass.
   in its key; every function that reads or writes it takes the user id, and
   every query has `WHERE user_id = ?`. A person can never read or change
   another's rows, attempt and report ids included (they are unique per person
-  only). The user id comes from `auth_user()` (`backend/src/auth.php`, put on
-  the request by the person middleware) and nowhere else: a verified access
-  token of the IAM, never a body, an address or a header of the app's own. No
+  only). The user id comes from the anotoki library's `Identify`
+  (`academy_identify_person()` and, where a visitor may come too,
+  `academy_identify()`, in `backend/src/auth.php`: the `sub` of a verified
+  access token of the IAM, put on the request by the person middleware) and
+  nowhere else, never a body, an address or a header of the app's own. No
   token, or a bad one, is a 401, never a fallback to anybody. The one other
   identity is a **visitor** (`backend/src/visitors.php`,
   `learner_middleware()`, `docs/kb/sign-in.md`, *Visitors*): on the study
@@ -267,7 +301,24 @@ Tests enforce most of these. Never weaken a test to make it pass.
   same thing). The three
   translation tables (`languages`, `translation_keys`, `translations`) are
   the site's, not a person's: read by everybody, written in the admin panel,
-  never in `USER_TABLES`, and their queries carry no `user_id`.
+  never in `USER_TABLES`, and their queries carry no `user_id`; so are the
+  admin tools' (`anotoki_audit_log`, `anotoki_feedback`) and the people's
+  bookkeeping (`anotoki_people_*`, the library's).
+- **An account the IAM deleted is blanked here, never its study** (the
+  library's people module, `backend/src/people.php`): at most hourly, after
+  an answer (or the People page's **Check now**), the site asks the IAM for
+  the accounts it deleted and blanks who each was - `users.preferred_username`
+  becomes the IAM's placeholder (`deleted-<id>`) and `users.anonymized_at`
+  says when, the name typed on their exam papers goes (the stored report
+  says "Unnamed candidate"), their feedback's address and browser, their
+  names and addresses in the audit log. Only UPDATEs: their study rows stay,
+  nobody's now, and a row is never written again for that account. A backup
+  made before keeps them until it rotates out or the owner deletes it; a
+  restore runs the scrub at once (`academy_scrub_after_restore()`, its
+  failure the restore's `after_restore_error`). A restore brings back what an
+  `ADMIN` deleted on the People page after the backup was made: the library
+  replays those deletes from its 0.4.2 - until then they are deleted again
+  by hand.
 - **Each person takes their data away and brings it back** (`GET` / `PUT
   /api/me/data`, `backend/src/me.php`): the backups' format, version 2, one
   person. Bringing a file back replaces all of theirs, never merges, after a
@@ -304,21 +355,31 @@ Tests enforce most of these. Never weaken a test to make it pass.
   this computer is told, never who anybody is.
 - Every `/api` and `/report` address needs a signed-in person except
   `/api/site-status` (where the site stands, the anotoki library's),
-  `/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
-  own words, the same for everybody) - and, unless the IAM says sign-in is
+  `/api/auth/config` (the library's boot configuration), `/api/health`,
+  `/api/translations/{code}` (the app's own words, the same for everybody)
+  and the backups' download (`GET /api/admin/backups/{id}/file?ticket=`: a
+  browser's navigation sends no token, so its single-use ticket is its check)
+  - and, unless the IAM says sign-in is
   required here (`backend/src/access.php`, and always while migration 007 is
   not applied), the study addresses (`study_route()`: the kanji SRS, the
-  exam, the reports), which then take a **visitor** too (below); the audio clips are public (shared
+  exam, the reports) and the feedback form (`POST /api/feedback`), which then
+  take a **visitor** or nobody too (below); the audio clips are public (shared
   content). A token with no role here, or `MEMBER` alone (every account holds it), is a learner. The `/api/admin/…`
-  addresses (the languages, the words, the people, the migrations) are the
+  addresses (the languages, the words, the people, the error and audit logs,
+  the feedback, the backups, the migrations) are the
   admin panel's: `EDITOR` rewords the strings, `ADMIN` also adds, changes
   and deletes languages, sees the people and deletes a person's data (after
-  a copy of it), and applies the database's migrations; the
+  a copy of it), reads the error and audit logs and the feedback, keeps the
+  backups (each making, download, delete or restore behind a sign-in of the
+  last ten minutes) and applies the database's migrations - the admin tools
+  are `ADMIN`'s alone (the owner's decision); the
   checks sit on the route groups (`backend/api/routes/translations.php`,
-  `backend/api/routes/migrations.php`,
-  `backend/api/middleware/staff.php`: 403 `staff_only` / `admin_only`; the
-  Migrations page's group reads ADMIN from the token alone, no table asked,
-  `migrations_admin_middleware()`). The words' addresses are the anotoki
+  `people.php`, `admin.php`, `migrations.php`,
+  `backend/api/middleware/staff.php`: the library's `RequireRole`, 403
+  `staff_only` / `admin_only`, and the library's own ADMIN check inside each
+  of its groups; the groups that answer while an update waits - the
+  Migrations page's, the error log's, the backups' - read ADMIN from the
+  token alone, no table asked, `admin_token_checks()`). The words' addresses are the anotoki
   library's routes in this app's groups, in one wire format for every anotoki
   site, the IAM's snake_case (`native_name`, `sort_order`; a refusal in this
   app's error body, `{error, code, …}`; the words' address answers 503
@@ -340,7 +401,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   parseable by PHP 7.4.
 - Each answer is one database transaction (item, day count, log line). Never
   put a backup or anything slow inside a lesson, review or practice request.
-  The day's backup runs at the first page load of a (UTC) day; the copy of a
+  The day's backup runs at the first page load of a (UTC) day (and the
+  library's backup of the whole database for the day after that page's
+  answer, as the scrub of the IAM's deleted accounts runs after an answer, at
+  most hourly: `after_response_add()`); the copy of a
   person's data before their full reset is the one deliberate exception (the
   copies before an import or a delete are no answers' business). The
   other start-time work — a content rebuild — runs on the first request
@@ -355,13 +419,15 @@ Tests enforce most of these. Never weaken a test to make it pass.
   an `ADMIN`'s **Apply** on the admin panel's Migrations page
   (`/admin/migrations`, the library's page; `GET /api/admin/migrations`,
   `GET …/file`, `POST …/apply`, `backend/api/routes/migrations.php`), which
-  takes the raw copy of every table first (its file named in the answer's
-  note), applies each file in a transaction of its own and stops at the
+  takes the raw copy of every table first and then the library's backup of
+  the whole database (both named in the answer's note; either failing stops
+  it), applies each file in a transaction of its own and stops at the
   first that fails (rolled back whole). Meanwhile every address answers 503
   `update_pending` (`Retry-After: 60`) but the open ones
   (`academy_site_open_paths()` in `backend/api/app.php`: how to sign in, the
   words - the library's `TranslationsRoutes::openPath()` -, the health check,
-  the clips, the Migrations page's three - each its exact route, never a
+  the clips, the Migrations page's three, the error log's and the backups'
+  - the library's `openPaths()`, never a restore - each its exact route, never a
   prefix a crafted path could slip through): the pages start, and everybody but the site's `ADMIN` reads the
   library's "The site is being updated", in their language, with nothing but
   a quiet **Sign in** while nobody is signed in - the guards send nobody to
@@ -409,10 +475,26 @@ Tests enforce most of these. Never weaken a test to make it pass.
   sixteen keys only the bar read deleted - the person's role and the link to
   their anotoki account among them, which the bar now says from the library's
   keys) is final since 2026-10-11 too (the owner accepted it; the two go up
-  in the same upload). After this app's files come the anotoki library's own
-  (`anotoki_translations/001_…`, `002_…`: its words, written only where a key
-  has none - `db_migration_sets()`), which a draft of the app's holds back
-  too; they too end with `-- end of NNN`.
+  in the same upload). **010** (`010_people_and_signing_in.sql`: the library's
+  people column `users.anonymized_at`, empty, and the three keys of a sign-in
+  that came back without one - `signIn.notCompleted`, `signIn.failed`,
+  `signIn.signingIn` - deleted, an owner's rewording of any of them copied
+  first under the library's `anotoki.signIn.*`, every language with who
+  wrote it and when; its check proves every table of people and their data
+  has its rows, every other string is as it was and the moved ones came as
+  they were) is a **draft** waiting for the owner: its last line is theirs to
+  write once they accept the change. The library's own sets run around this
+  app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
+  log's and the feedback's tables) BEFORE it, then after it
+  `anotoki_translations/001_…` to `004_…` (its words, written only where a
+  key has none: 003 the sign-in screens', 004 the feedback form's) and
+  `anotoki_people/001_…` (the scrub's bookkeeping); they too end with
+  `-- end of NNN`. **While one of the app's own files is a draft, every
+  library file waits with it** - the `anotoki_admin` ones before it too -
+  on every database but the tests' (`db_migration_ready()`, `db_own_draft()`):
+  the owner's own server neither stops its pages for them nor applies them
+  before the owner accepts the change, and `manage.php --check` names the
+  draft.
 - What a word is spoken as is decided in one place, `speech_spoken()` in
   `backend/src/speech.php`, shared by the audio builder, the catalog and the
   exam.
@@ -435,14 +517,16 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `.scss` — never an inline template or style. Styles shared by several
   components live in `frontend/src/styles/` (global); a component's own in its
   `.scss`. The app talks to the server only through `ApiService` (HttpClient)
-  and the auth interceptor, which sends the sign-in's token (or, on a page
+  and the anotoki library's auth interceptor (`anotokiAuthInterceptor`, wired
+  in `core/auth/auth.config.ts`), which sends the sign-in's token (or, on a page
   shown to a visitor, the visitor key - never both, decided as the request is
   issued; a person's request with no token is never sent) and the browser's
   time zone (`X-Time-Zone`) to this site's `/api` and `/report` addresses and
   nowhere else (never with `/api/site-status`: nobody's); links the browser follows by itself that need a sign-in go
   through `PrivateLinksService`. The pages never count days themselves: a
-  learner's days come in the server's answers. Every page is behind
-  `signInGuard` (the admin panel `adminSignInGuard`, which a visitor does not
+  learner's days come in the server's answers. Every page is behind the
+  library's `personOrVisitorGuard` (the admin panel `staffGuard`, its
+  ADMIN pages `adminGuard`, which a visitor does not
   pass) - which sends nobody to the IAM while the site is not ready
   (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>` around the
   pages, `core/site-status.config.ts`) shows its page then, with its own
@@ -452,7 +536,7 @@ Tests enforce most of these. Never weaken a test to make it pass.
   behind the library's page, and one open when the site stops is taken down
   (the exam keeps an open paper for the tab as it goes, and puts it back,
   once, when the page is loaded afresh). A save in the background tells `SavesInFlight`, which a
-  sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog)
+  sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog, Send feedback and its form)
   keep every key pressed in them from `document` (where the quiz, the
   reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
@@ -469,9 +553,12 @@ Tests enforce most of these. Never weaken a test to make it pass.
   (`anotoki.topbar.*`, `anotoki.theme.*` …) in this app's database, which
   009 filled with the app's own words (`core/kit.config.ts`: the translation
   service's `forKit()`; the English the app says its own way while no words
-  are in memory, `KIT_ENGLISH`). No CDN:
-  the app runs offline (wanakana, the IAM's SDK, the kit and Manrope are
-  bundled).
+  are in memory, `KIT_ENGLISH`). The library's sign-in screens
+  (`anotoki.signIn.*`) and feedback form (`anotoki.feedback.*`) read their
+  words from this app's database the same way; the admin tools' pages are
+  English, as the admin panel is. No CDN:
+  the app runs offline (wanakana, the library - its sign-in too -, the kit
+  and Manrope are bundled).
 - JS/TS: 2-space indent, single quotes, semicolons. Node tools and the browser
   suites are CommonJS (`frontend/e2e/`) or ES modules (`.mjs`).
 - Colours come only from tokens in `frontend/src/styles/_tokens.scss`, each

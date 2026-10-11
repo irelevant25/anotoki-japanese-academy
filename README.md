@@ -21,7 +21,9 @@ your computer goes through the development IAM, which must be running:
 (and the database has migration 007, applied on the Migrations page), you may study
 without signing in too, as a visitor: what you study is kept for your browser
 for 30 days after your last visit, and moves into your account when you sign
-in (`docs/kb/sign-in.md`, *Visitors*).
+in (`docs/kb/sign-in.md`, *Visitors*). A sign-in that comes back without one
+(you went back from the anotoki page, or the account may not come in here) is
+said on a page of its own, with **Try again** and **Back**.
 
 The bar at the top is the one every anotoki site has: the anotoki mark and
 "Japanese" (home), **Kanji** with the reviews due and **Exam**, then the
@@ -97,8 +99,11 @@ These stay on this computer only:
 
 - `backend/config/*.local.php` — your settings: the database, with the
   password, and the IAM (the setup page writes them).
-- `backend/storage/backups/` — copies of your study data (see *Your progress*
-  below). Copy the newest to a new computer to bring your progress along.
+- `backend/storage/backups/` — copies of your study data and backups of the
+  whole database (see *Your progress* below). Copy the newest to a new
+  computer to bring your progress along.
+- `backend/storage/logs/` — the error log the admin panel's **Errors** page
+  reads (30 days of it).
 - `books/` — the scanned course books (`textbook-1.pdf`, `workbook-1.pdf`,
   `textbook-2.pdf`, `workbook-2.pdf`, `answer-key.pdf`), and your notes. Only
   the PDF page tool needs them. Copy them in by hand.
@@ -229,6 +234,23 @@ strings are copied to `backend/storage/backups/academy-before-language-delete-�
 comes first on PATH, `node backend/tools/php.js backend/manage.php --backup`
 finds one that can run the app.)
 
+Beside those copies, in the same folder, are the **backups of the whole
+database** (`….anotoki-backup`, the anotoki library's, the same on every
+anotoki site): one a day, one before every database update, one before a
+restore, and whenever an `ADMIN` presses **Back up now** on the admin panel's
+**Backups** page, which lists them, downloads one, restores one, and deletes
+one. The last 14 daily ones are kept, the last 5 made before an update and
+the last 5 before a restore; the ones made with **Back up now** stay until you
+delete them there; none is deleted for its age (your decision of 2026-10-11).
+So a person whose anotoki account was deleted stays in the backups made
+before, until they rotate out or you delete them; a restore checks the
+accounts the anotoki IAM deleted again at once. A restore also brings back
+the data of somebody you deleted on the **People** page after that backup was
+made: delete it there again (a later version of the anotoki library will do
+it by itself). (The app's own copies above are kept as before - the last 14
+days', and each person's last 14 of each kind - and the library never touches
+them.)
+
 In the database, your data belongs to your user id at the anotoki IAM: 1.
 
 The files the app used before the database — `progress/`, `results/` and
@@ -258,6 +280,13 @@ list of what changed, release by release (`frontend/public/changelog.json`). A
 small dot beside it means there is news you haven't opened yet. The version
 has three numbers: the first changes with big changes, the second with new
 features, the third with bug fixes (0.4.0, then 0.4.1 or 0.5.0).
+
+Beside it, **Send feedback** opens a short form: a mistake you found, an
+idea, or anything else, about Kanji, the exam or the site. Signed in, the
+form writes your anotoki account's address in for an answer: change it, or
+clear it and no address is kept ("Only if you would like an answer"); tick
+**Send it without my name** and neither your name nor an address is kept.
+No mail is sent: the messages wait on the admin panel's **Feedback** page.
 
 ---
 
@@ -298,7 +327,16 @@ These two pages are the anotoki library's (since anotoki-lib 0.3.0), the
 same on every anotoki site.
 **People** (`ADMIN` only) lists everybody who has signed in, with how far
 each has come, and deletes a person's data after asking (a copy of it is kept
-on the server first; their account stays).
+on the server first; their account stays). When somebody's anotoki account is
+deleted, the site blanks who they were - their name, the name on their exam
+papers, the address of their feedback - the next time it asks the anotoki
+IAM (at most once an hour, as pages are opened; **Check now** on the page
+asks at once), and keeps their study, nobody's now. **Feedback** (`ADMIN` only) has the messages sent from
+the foot of the pages; the panel's link counts the new ones. **Errors**
+(`ADMIN` only) is what went wrong on the server; **Audit log** (`ADMIN` only)
+who did what in the admin panel; **Backups** (`ADMIN` only) the backups of the
+whole database (*Your progress* above). These pages are the anotoki
+library's (since anotoki-lib 0.4.0), the same on every anotoki site.
 **Migrations** (`ADMIN` only) shows the database's migrations, applied and
 pending (a file still being written or uploaded as a "draft", which waits),
 each one's SQL, and **Apply pending**. A new version that brings one does not
@@ -326,7 +364,8 @@ the anotoki IAM (https://iam.anotoki.eu), which every anotoki site shares, and
 keeps each person's progress, settings and exam history apart. Every account
 may study; the roles `EDITOR` (rewords the app's words) and `ADMIN` (also
 keeps the languages, sees the people and deletes a person's data, after a
-copy of it, and applies the database's updates on the Migrations page) open
+copy of it, reads the feedback and the error and audit logs, keeps the
+backups, and applies the database's updates on the Migrations page) open
 the admin panel. Your menu at the top right shows who is
 signed in (name, address, role), links to your anotoki account and (for those
 roles) the admin panel, and signs out — after the answers still on their way
@@ -392,13 +431,15 @@ backend/                   the server: PHP 8.2+, Slim 4, PostgreSQL (backend/REA
   vendor/                  Composer's packages (Slim, the anotoki library), committed: a website has no shell to install them
   public/                  index.php and .htaccess, for Apache on a website
   data/                    what the study content is built from, and the audio
-  storage/                 the copies of your study data (backups/), the IAM's keys (not in git)
+  storage/                 the copies of your study data and the database's backups (backups/), the error log
+                           (logs/), the IAM's keys (not in git)
   tests/                   PHP unit and API tests
   tools/                   data and audio builders, the website's upload (build-dist.php),
                            php.js (finds a PHP 8.2+), the PDF page tool (pdf/, with its own package.json)
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
-  src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, i18n, the site's
-                           status), admin/ (Translations, Languages, People, Migrations), standin/ (sign in, a problem)
+  src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, feedback, i18n, the
+                           site's status, the admin tools), admin/ (Translations, Languages, People, Feedback, Errors,
+                           Audit log, Backups, Migrations), standin/ (sign in, a problem)
   public/                  favicon, changelog.json
   e2e/                     the browser suites (Edge, playwright-core)
   scripts/                 ensure-build.mjs (builds when the sources changed), the catalog fixture
@@ -419,9 +460,12 @@ the rest.
 
 The database migrations - applying them, and what the site does while one
 waits -, the app's words (serving them, the Translations and Languages
-pages, the command line), and the family's UI kit the pages are drawn with
+pages, the command line), the family's UI kit the pages are drawn with
 (buttons, dialogs, fields, menus), its styles and font (Manrope) and the top
-bar, in this app's own colours, are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
+bar, in this app's own colours, the sign-in (the site's half of it), the
+people (the People page, and blanking who somebody was once the IAM deleted
+their account) and the admin tools (the error log, the audit log, the
+feedback and its form, the backups) are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
 site; its repository is `../anotoki-lib`, published as
 https://github.com/irelevant25/anotoki-lib): the Composer package
 `anotoki/lib` in `backend/vendor/` and the npm package `@anotoki/lib` in

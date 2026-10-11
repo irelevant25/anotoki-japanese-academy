@@ -3,10 +3,13 @@
     "version": "0.4.0",
     "date": "2026-10-07",
     "changes": {
-      "added": [],
+      "added": [
+        "Send feedback, at the foot of every page: tell us about a mistake you found, an idea, or anything else"
+      ],
       "updated": [
         "While Japanese Academy is being updated, the page says so in your language instead of showing an error, and comes back by itself when the update is done",
-        "The anotoki family's look: the same font, buttons, fields and dialogs as on the other anotoki sites, in Japanese Academy's own colours"
+        "The anotoki family's look: the same font, buttons, fields and dialogs as on the other anotoki sites, in Japanese Academy's own colours",
+        "When signing in does not work, a page says why, with Try again and Back"
       ]
     }
   },

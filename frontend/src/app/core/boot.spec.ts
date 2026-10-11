@@ -16,6 +16,7 @@ import { AcademyTitleStrategy } from './i18n/title.strategy';
 import { LANGUAGE_CACHE_KEY, LANGUAGE_KEY, provideTranslations } from './i18n/translations.config';
 import { provideSiteStatus } from './site-status.config';
 import { provideTestSiteStatus } from './testing/site-status';
+import { provideAuth } from './auth/auth.config';
 
 const ENGLISH = {
   'title.exam': 'Exam',
@@ -92,6 +93,7 @@ describe('boot(): the whole start', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         TranslatePipe,
         // as app.config.ts has them - on fetch(), so that serve() answers where the site stands too
         provideHttpClient(withFetch(), withInterceptors([siteStatusInterceptor])),
@@ -330,6 +332,7 @@ describe('AcademyTitleStrategy', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
         provideRouter(ROUTES),
         { provide: TitleStrategy, useClass: AcademyTitleStrategy },
@@ -412,6 +415,7 @@ describe('AcademyTitleStrategy with no strings at all', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         { provide: AuthService, useValue: auth },
         provideRouter(ROUTES),
         { provide: TitleStrategy, useClass: AcademyTitleStrategy },
@@ -448,7 +452,7 @@ describe('keptWord(): a string for what is drawn while there may be no strings',
 
   it('is the string of the language on the page when there is one, with its placeholders filled', () => {
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideTestTranslations({ 'signIn.failed': 'Prihlásenie sa nepodarilo. ({code})' }, { language: 'sk', english: { 'signIn.failed': 'Signing in did not work. ({code})' } })],
+      providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations({ 'signIn.failed': 'Prihlásenie sa nepodarilo. ({code})' }, { language: 'sk', english: { 'signIn.failed': 'Signing in did not work. ({code})' } })],
     });
     const i18n = TestBed.inject(TranslationService);
     expect(keptWord(i18n, 'signIn.failed', 'Signing in did not work. ({code})', { code: 'state_mismatch' })).toBe('Prihlásenie sa nepodarilo. (state_mismatch)');
@@ -456,7 +460,7 @@ describe('keptWord(): a string for what is drawn while there may be no strings',
 
   it('is the English written in the code when there is none — filled the same way, and never the key', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth()] });
     const i18n = TestBed.inject(TranslationService);
     expect(keptWord(i18n, 'signIn.button', 'Sign in')).toBe('Sign in');
     expect(keptWord(i18n, 'signIn.failed', 'Signing in did not work. ({code})', { code: 'state_mismatch' })).toBe('Signing in did not work. (state_mismatch)');

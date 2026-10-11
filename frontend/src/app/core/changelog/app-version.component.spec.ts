@@ -4,6 +4,7 @@ import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppVersionComponent } from './app-version.component';
 import { ChangelogEntry, ChangelogService } from './changelog.service';
+import { provideAuth } from '../auth/auth.config';
 
 const ENTRIES: ChangelogEntry[] = [
   { version: '0.2.0', date: '2026-10-06', changes: { added: ['A setup page'], fixed: ['A missing space'] } },
@@ -12,7 +13,7 @@ const ENTRIES: ChangelogEntry[] = [
 
 /** The app with these entries for its changelog, and whatever else a test provides (its strings). */
 function setUp(providers: Provider[] = []): void {
-  TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), ...providers] });
+  TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth(), ...providers] });
   const changelog = TestBed.inject(ChangelogService);
   changelog.load = () => Promise.resolve(changelog.entries.set(ENTRIES));
 }

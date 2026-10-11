@@ -94,22 +94,3 @@ export function errorParams(error: Failure): TranslationParams {
   const max = error.body?.max;
   return typeof max === 'number' && Number.isFinite(max) ? { status: error.status, max } : { status: error.status };
 }
-
-/** An OAuth error code, or one of the SDK's own: a short word, nothing a sentence could hide in. */
-const FAILURE_CODE = /^[A-Za-z0-9_.-]{1,40}$/;
-
-/**
- * The key for a sign-in that came back without one. `access_denied` is the IAM
- * turning the account away, or the person going back from its page — one
- * sentence that is true either way. Anything else is `signIn.failed`, which
- * has a `{code}`: the code (signInFailureParams()), never the IAM's or the
- * SDK's own English sentence.
- */
-export function signInFailureKey(code: string): string {
-  return code === 'access_denied' ? 'signIn.notCompleted' : 'signIn.failed';
-}
-
-/** The `{code}` of `signIn.failed`: the code when it looks like one, `unknown` otherwise — it came through the address. */
-export function signInFailureParams(code: string): TranslationParams {
-  return { code: FAILURE_CODE.test(code) ? code : 'unknown' };
-}

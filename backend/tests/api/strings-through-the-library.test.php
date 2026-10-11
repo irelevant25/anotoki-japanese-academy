@@ -57,9 +57,14 @@ function every_word(): array
 before(function (): void {
     test_db_empty();
     db_migrations_table();
-    // Up to 008 only: 009 and the library's files taken for applied, then off the list again.
+    // Up to 008 only: 009 and the library's files of the words taken for applied, then off the list again. The
+    // files of later rounds - this site's after 009, the library's admin tools and people - stay taken for applied:
+    // they are other tests' (people-migration.test.php).
     $later = array_merge([MIGRATION_009], library_migrations());
-    foreach ($later as $name) {
+    $own = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
+    $others = array_merge(array_values(array_filter($own, static fn (string $name): bool => strcmp($name, MIGRATION_009) > 0)),
+        library_migrations('anotoki_admin'), library_migrations('anotoki_people'));
+    foreach (array_merge($later, $others) as $name) {
         db_exec('INSERT INTO migrations (name) VALUES (?)', [$name]);
     }
     db_migrate();
@@ -136,7 +141,8 @@ test('the upload: 009, then the library\'s set; every string of the words that m
 
     // The library's other words: its own, written by nobody - the app had none.
     assert_same([['Cancel', null], ['Zrušiť', null]], [array_slice($after['anotoki.ui.cancel']['en'], 0, 2), array_slice($after['anotoki.ui.cancel']['sk'], 0, 2)]);
-    assert_same(54, count(array_filter(array_keys($after), static fn (string $key): bool => str_starts_with($key, 'anotoki.'))), 'every word of the library, with a string');
+    assert_same(count(Anotoki\Lib\Translations\LibraryWords::keys()), count(array_filter(array_keys($after), static fn (string $key): bool => str_starts_with($key, 'anotoki.'))),
+        'every word of the library, with a string');
     // Descriptions are the library's, those of the keys 009 made ahead of it too.
     foreach (Anotoki\Lib\Translations\LibraryWords::all() as $key => $words) {
         assert_same($words['description'], db_value('SELECT description FROM translation_keys WHERE name = ?', [$key]), "$key: the library's description");

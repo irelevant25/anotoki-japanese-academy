@@ -1,4 +1,5 @@
 import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
+import type { VisitorKeyStore } from '@anotoki/lib/auth';
 import { ApiService, toApiError } from '../api/api.service';
 import { VisitorMove } from '../api/api.types';
 import { readStorage, storageUsable, writeStorage } from '../storage';
@@ -33,9 +34,10 @@ export const MOVE_AT_START_MS = 5_000;
  * *Visitors*). The server makes it at the first save of somebody with neither
  * a token nor a key (a lesson, a review, practice, a note, a setting, an exam
  * handed in) and sends it once, in that answer's `X-Visitor-Key` header; it
- * keeps only its hash. This browser keeps the key in localStorage, and
- * authInterceptor sends it on the requests issued for a visitor (the page in
- * the state visiting), never on a person's.
+ * keeps only its hash. This browser keeps the key in localStorage, and the
+ * anotoki library's interceptor sends it on the requests issued for a visitor
+ * (the page in the state visiting), never on a person's: this is the store the
+ * library is given (core/auth/auth.config.ts, `visitors`).
  *
  * - **Read at send time.** `current()` reads storage on every request, and a
  *   `storage` event keeps the `key` signal in step: every tab sends the key the
@@ -66,11 +68,11 @@ export const MOVE_AT_START_MS = 5_000;
  *
  * A private window that refuses storage: the key lives in memory for the tab.
  *
- * This service reads AuthService, and never the other way round (AuthService
- * knows nothing of the key: its fetch() is handed it).
+ * This service reads AuthService, and never the other way round: the library
+ * asks for it (`visitors`) as a visitor's request leaves.
  */
 @Injectable({ providedIn: 'root' })
-export class VisitorKey {
+export class VisitorKey implements VisitorKeyStore {
   private readonly auth = inject(AuthService);
   private readonly api = inject(ApiService);
 

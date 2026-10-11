@@ -4,6 +4,7 @@ import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { AuthService } from './auth.service';
 import { SignOutService } from './sign-out.service';
+import { provideAuth } from './auth.config';
 
 const SLOVAK = {
   'signOut.notSaved': 'Niektoré tvoje odpovede alebo poznámky sa nepodarilo uložiť a odhlásením sa stratia. Chceš sa aj tak odhlásiť?',
@@ -11,14 +12,15 @@ const SLOVAK = {
 };
 
 describe('SignOutService: nothing the learner did goes unsaved without asking', () => {
-  const logout = vi.fn(() => Promise.resolve());
+  // AuthService.logout(): true once the IAM has been asked.
+  const logout = vi.fn(() => Promise.resolve(true));
   let asked: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     logout.mockClear();
     asked = vi.spyOn(window, 'confirm').mockReturnValue(true);
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk' }), { provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
+      providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations(SLOVAK, { language: 'sk' }), { provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });
   });
   afterEach(() => vi.restoreAllMocks());

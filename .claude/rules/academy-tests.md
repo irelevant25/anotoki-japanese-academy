@@ -27,10 +27,11 @@ use the `academy-test` skill.
   template and builds it again from every migration and the content (not while
   another test run is going on). Nothing else may drop the template.
 - Sign-in is tested with the test IAM only: a key pair of the run's own and
-  tokens signed with the SDK's test helpers (`test_iam()`, `test_token()`,
+  tokens signed with it - the anotoki library's `TestIam` (`test_iam()`, `test_token()`,
   `call()`'s `TEST_USER` and `no_token()` in PHP; `iamToken()`, `iamSession()`,
-  `plant()`, `app.api()` in Node), and the stand-in IAM
-  (`backend/tests/tools/stand-in-iam.php`) for the setup page's Test
+  `plant()`, `app.api()` in Node) -, the IAM's other answers from files of the
+  test's (`test_access()`, `test_anonymized()`), and the library's stand-in IAM
+  (`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`) for the setup page's Test
   connection and for every browser suite's sign-in by redirect
   (`startApp()` starts it on this computer; `iamState()` says whom it signs
   in). PHP's issuer `https://iam.test` exists nowhere. Never let a test reach a real IAM, and
@@ -38,8 +39,8 @@ use the `academy-test` skill.
 - Every PHP test signs in: `call()` goes as `TEST_USER` (1, no role) unless a
   test sends another token (`test_bearer(test_token($id, ['EDITOR']))`) or
   none (`no_token()`); use `TEST_USER`, not a literal 1. `stand_in_iam()`
-  starts the stand-in IAM (`backend/tests/tools/stand-in-iam.php`) for a
-  sign-in by redirect, and `start_app(['issuer' => …])` takes its tokens. Direct calls of the app's
+  starts the library's stand-in IAM for a
+  sign-in by redirect (or the deleted accounts' list), and `start_app(['issuer' => …])` takes its tokens. Direct calls of the app's
   functions take the user id first.
 - A test that needs another PostgreSQL user (a site's own, as a host makes one:
   `test_site()`, `testdb.php site`) names it `academy_test_…_site`, and drops it
@@ -68,9 +69,14 @@ use the `academy-test` skill.
     `node frontend/scripts/ensure-build.mjs`.
   - `backend/tests/tools/`: `testdb.php` (the throwaway databases, their
     settings and site users; only `academy_test_…` names), `test-config.php`,
-    `catalog.php`, `iam.php` (the test IAM's keys and tokens, for Node),
-    `stand-in-iam.php` and `front-controller.php` (what `public/.htaccess`
-    does, for PHP's built-in server).
+    `catalog.php`, `iam.php` (the test IAM's keys and tokens, for Node: the
+    library's `TestIam`) and `front-controller.php` (what `public/.htaccess`
+    does, for PHP's built-in server). The stand-in IAM is the library's.
+  - A test server's storage is its settings folder (`storage_dir()`: the
+    error log, the library's cache and key), and the scrub's and the
+    library's daily backup's stamps are written as done there, so a server
+    does neither by itself: a test of either removes its stamp. Never point a
+    test at `backend/storage/`.
 - Never weaken or delete an assertion to get a pass. Find out whether the code
   or the expectation is wrong, and say which.
 - Expected values that come from the books (chart cells, per-lesson kanji
@@ -92,7 +98,9 @@ use the `academy-test` skill.
   English string of the bundle whose Slovak differs outside `[lang=en]` /
   `[lang=ja]`, and no overflow; every screen in every variant is checked for
   key-shaped text (`keyShaped()`). The room (`node frontend/e2e/screens.js room`)
-  measures the top bar at 360, 390, 760, 761, 960, 961 and 1280 px, in both
+  measures the top bar at 360, 390, 760, 761, 960, 961 and 1280 px (the admin
+  panel's at 360, 390, 1170, 1171, 1351 and 1530, read from
+  `top-bar.component.ts`), in both
   languages, light and dark, signed in with 999 due, signed out, visiting
   (sign-in not required) and in the admin panel, and Tabs out of its open menus; the kanji tab strip is checked
   on every screen. Keep these checks when a screen is added.

@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
-import type { AnotokiDateFormat, AnotokiTimeFormat } from './auth/sdk/anotoki-auth';
+import type { AnotokiDateFormat, AnotokiTimeFormat } from '@anotoki/lib/auth';
 import {
   dateInOrder,
   fmtAdminMoment,

@@ -13,8 +13,8 @@
  * The scan is the anotoki library's (Anotoki\Lib\Translations\Cli\KeyScanner,
  * every anotoki site's, which grew from this app's), set up here for this
  * frontend (translation_key_scanner()): every .ts and .html of
- * frontend/src/app, but the specs, core/testing/ and the IAM's SDK in
- * core/auth/sdk/; the keys put together at run time declared in
+ * frontend/src/app, but the specs and core/testing/; the keys put together at
+ * run time declared in
  * core/i18n/dynamic-keys.ts (prefix -> every tail); the `translate` and
  * `translatePlural` pipes and the calls .t(), .around(), .has(), .plural()
  * read for how a key is asked for; innerHTML given a translated string fails.
@@ -58,7 +58,7 @@ function translation_keys_frontend_root(): string
  */
 function translation_key_scanner(?string $root = null): KeyScanner
 {
-    return new KeyScanner($root ?? translation_keys_frontend_root(), ['core/testing/**', 'core/auth/sdk/**'], TRANSLATION_DYNAMIC_KEYS_FILE);
+    return new KeyScanner($root ?? translation_keys_frontend_root(), ['core/testing/**'], TRANSLATION_DYNAMIC_KEYS_FILE);
 }
 
 /* ------------------------------------------ a language's strings from a file */

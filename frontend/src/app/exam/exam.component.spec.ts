@@ -20,6 +20,7 @@ import { KanjiStateService } from '../kanji/kanji-state.service';
 import { TopBarComponent } from '../top-bar/top-bar.component';
 import { ExamComponent, KEPT_PAPER_KEY, KeptPaper } from './exam.component';
 import { derivedFromState } from '../core/testing/auth-states';
+import { provideAuth } from '../core/auth/auth.config';
 
 /** Intl writes a no-break space between the thousands, and before a unit, in Slovak. */
 const NBSP = String.fromCharCode(0xa0);
@@ -368,6 +369,7 @@ describe('ExamComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         language === 'en' ? provideTestTranslations(ENGLISH) : provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
         { provide: ApiService, useValue: api },
         { provide: PrivateLinksService, useValue: { click: vi.fn() } },
@@ -395,6 +397,7 @@ describe('ExamComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: api },
         { provide: PrivateLinksService, useValue: { click: vi.fn() } },

@@ -9,6 +9,9 @@
 
 declare(strict_types=1);
 
+use Anotoki\Lib\Auth\Http\AuthRoutes;
+use Anotoki\Lib\Auth\Http\RequireCaller;
+use Anotoki\Lib\Auth\Http\RequirePerson;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Interfaces\RouteGroupInterface;
@@ -16,10 +19,13 @@ use Slim\Interfaces\RouteInterface;
 
 /**
  * An address with somebody's data, or a group of them: the study content up
- * to date with the files, a signed-in person; $pageLoad also takes the day's
- * backup (a page load of a new day, never an answer). They run in that order,
- * after the SiteGate (api/app.php) let the request through: a site set up,
- * and no migration waiting.
+ * to date with the files, who is asking (the anotoki library's Identify,
+ * academy_identify_person(): a token alone - a visitor's key is never read
+ * here), a signed-in person (its RequirePerson: else 401 sign_in_required),
+ * their row and their zone (person_middleware()); $pageLoad also takes the
+ * day's backup (a page load of a new day, never an answer). They run in that
+ * order, after the SiteGate (api/app.php) let the request through: a site set
+ * up, and no migration waiting.
  *
  * @param RouteInterface|RouteGroupInterface $route
  */
@@ -29,15 +35,18 @@ function data_route($route, bool $pageLoad = false): void
         $route->add(daily_backup_middleware());
     }
     $route->add(person_middleware());
+    $route->add(new RequirePerson());
+    $route->add(academy_identify_person());
     $route->add(upkeep_middleware());
 }
 
 /**
  * A study address (the kanji SRS, the exam, a report): as data_route(), but
- * whoever learner_middleware() finds - a signed-in person, or where the IAM
- * lets people study without signing in, a visitor, or nobody yet (an empty
- * learner). $mayMake: a save by nobody makes a visitor for it. $cap: what a
- * visitor's request would grow ('attempts', 'answers'), refused at its cap.
+ * whoever RequireCaller and learner_middleware() take - a signed-in person, or
+ * where the IAM lets people study without signing in, a visitor, or nobody
+ * yet (an empty learner). $mayMake: a save by nobody makes a visitor for it
+ * (RequireCaller 'make'). $cap: what a visitor's request would grow
+ * ('attempts', 'answers'), refused at its cap.
  *
  * @param RouteInterface|RouteGroupInterface $route
  */
@@ -46,18 +55,23 @@ function study_route($route, bool $pageLoad = false, bool $mayMake = false, ?str
     if ($pageLoad) {
         $route->add(daily_backup_middleware());
     }
-    $route->add(learner_middleware($mayMake, $cap));
+    $route->add(learner_middleware($cap));
+    $route->add(new RequireCaller($mayMake ? RequireCaller::MAKE : RequireCaller::EMPTY));
+    $route->add(academy_identify());
     $route->add(upkeep_middleware());
 }
 
 function academy_site_routes(Slim\App $app): void
 {
-    // How to sign in: the browser's first question. No sign-in needed: the
-    // IAM's address and this app's client id are no secret. It answers while
-    // a migration waits too (the SiteGate lets it through): an administrator
-    // signs in to apply it.
-    $app->get('/api/auth/config', static function (Request $request, Response $response): Response {
-        return json_response($response, auth_public_config());
+    // How to sign in: the browser's first question - the anotoki library's
+    // boot configuration, {issuer, client_id, login_required,
+    // sign_in_available}, and how long a visitor's study is kept
+    // (visitor_keep_days, src/visitors.php). No sign-in needed: the IAM's
+    // address and this app's client id are no secret, and no token is looked
+    // at. It answers while a migration waits too (the SiteGate lets it
+    // through): an administrator signs in to apply it.
+    AuthRoutes::config($app, academy_sign_in_rule(), academy_iam(), AuthRoutes::CONFIG_PATH, static function (): array {
+        return ['visitor_keep_days' => visitors_keep_days()];
     });
 
     // That it answers. To a request straight from this computer under PHP's

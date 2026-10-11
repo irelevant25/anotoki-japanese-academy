@@ -159,9 +159,9 @@ To give that person some progress, post to the API from Node with the token
 node -e "const t=require('fs').readFileSync(process.env.KEYS+'/token','utf8').trim();(async()=>{for(const id of ['k:一','k:二','k:大'])console.log(id,(await fetch('http://127.0.0.1:8590/api/kanji/learn',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({id})})).status)})()"
 ```
 
-For a sign-in by redirect, the stand-in IAM
-(`backend/tests/tools/stand-in-iam.php`, `STAND_IN_DIR="$KEYS"`, its header
-says how) signs the configured person in at once. In a browser, any page of
+For a sign-in by redirect, the anotoki library's stand-in IAM
+(`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, `STAND_IN_DIR="$KEYS"`, its header
+says how; `"hint_cookie": null` in its `state.json`, as this app reads no hint) signs the configured person in at once. In a browser, any page of
 such a server goes straight to its issuer (`https://iam.test`, which exists
 nowhere): to sign in by hand, start a stand-in IAM on 8590-8599 with
 `STAND_IN_DIR="$KEYS"` and write the settings with its address as the

@@ -12,6 +12,7 @@ import { authStandIn } from '../core/testing/auth-states';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { HomeComponent } from './home.component';
 import { YourDataComponent } from './your-data/your-data.component';
+import { provideAuth } from '../core/auth/auth.config';
 
 /** Where the stand-in for Your data says it is there: the card has a spec of its own (your-data.component.spec.ts). */
 @Injectable({ providedIn: 'root' })
@@ -169,6 +170,7 @@ async function draw(served: Served, language: 'en' | 'sk' = 'en', extra: Provide
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
+      provideAuth(),
       provideRouter([]),
       language === 'en' ? provideTestTranslations(ENGLISH) : provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }),
       {
@@ -248,6 +250,7 @@ describe('HomeComponent: in English, as it read before it had strings', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         provideRouter([]),
         provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: { summary: () => never, meta: () => never, attempts: () => never } },
@@ -416,7 +419,8 @@ describe('HomeComponent: somebody studying without signing in (visiting)', () =>
     expect(auth.logins, 'not while an answer is on its way').toEqual([]);
     expect(el.querySelector<HTMLButtonElement>('#visitorSignIn')!.disabled).toBe(true);
     saved();
-    await vi.waitFor(() => expect(auth.logins).toEqual(['en']));
+    // Back to this page, in the language read here: the library's to add (core/auth/auth.config.ts).
+    await vi.waitFor(() => expect(auth.logins).toEqual([undefined]));
   });
 
   it('Sign in with an exam paper open asks first, in the words of signing in — and stays when told to', async () => {

@@ -1,8 +1,11 @@
 <?php
-// The People page's addresses (GET and DELETE /api/admin/people…): the
+// The People page's addresses (GET and DELETE /api/admin/people…: the anotoki
+// library's PeopleRoutes, on this site's people - src/people.php): the
 // administrators alone see who has data here and delete a person's, after a
-// copy of it; the editors and everybody else are refused. A delete and a
-// request of that person still on its way take turns: neither fails.
+// copy of it, recorded in the audit log; the editors and everybody else are
+// refused. A delete and a request of that person still on its way take turns:
+// neither fails. (The scrub of the accounts the IAM deleted:
+// people-migration.test.php.)
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -28,6 +31,11 @@ before(function (): void {
     assert_same(200, person(WAITER, 'POST', '/api/kanji/learn', ['id' => $a])['status']);
     person(EDITOR, 'GET', '/api/kanji/summary');
     person(BOSS, 'GET', '/api/kanji/summary');
+    // Feedback of the leaver and of the stayer, each with the address to answer at and their browser.
+    assert_same(201, person(LEAVER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the leaver.', 'email' => 'leaver@example.test'],
+        ['User-Agent: LeaverBrowser/1.0'])['status']);
+    assert_same(201, person(STAYER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the stayer.', 'email' => 'stayer@example.test'],
+        ['User-Agent: StayerBrowser/1.0'])['status']);
     // A string the leaver once reworded, as an editor of before.
     db_exec("INSERT INTO translation_keys (name, description) VALUES ('test.people', 'a test''s own') ON CONFLICT DO NOTHING");
     db_exec("INSERT INTO translations (key_name, language_code, value, updated_by) VALUES ('test.people', 'sk', 'Ľudia', ?)", [LEAVER]);
@@ -60,24 +68,36 @@ function rows_of(int $uid): array
 test('the administrators see everybody the site has data of, the latest seen first, with how much they studied', function (): void {
     db_exec("UPDATE users SET last_seen_at = now() - interval '10 years' WHERE id = ?", [STAYER]);
     $r = person(BOSS, 'GET', '/api/admin/people');
-    assert_same(200, $r['status']);
-    $people = array_column($r['body']['people'], null, 'id');
+    assert_same(200, $r['status'], $r['raw']);
+    // The anotoki library's answer (PeopleRoutes), with this site's columns.
+    $people = array_column($r['body']['people'], null, 'sub');
     foreach ($r['body']['people'] as $p) {
-        assert_same(['id', 'username', 'createdAt', 'lastSeenAt', 'timeZone', 'items', 'attempts'], array_keys($p));
+        assert_same(['sub', 'name', 'first_seen_at', 'last_seen_at', 'anonymized_at', 'iam_url', 'time_zone', 'learned', 'attempts'], array_keys($p));
     }
-    assert_same(['id' => LEAVER, 'username' => 'person-' . LEAVER, 'timeZone' => 'Asia/Tokyo', 'items' => 2, 'attempts' => 1],
-        array_intersect_key($people[LEAVER], array_flip(['id', 'username', 'timeZone', 'items', 'attempts'])));
-    assert_same([1, 0, null], [$people[STAYER]['items'], $people[STAYER]['attempts'], $people[STAYER]['timeZone']]);
-    $seen = array_column($r['body']['people'], 'lastSeenAt');
+    assert_same([['key' => 'time_zone', 'label' => 'Time zone', 'kind' => 'text'], ['key' => 'learned', 'label' => 'Learned', 'kind' => 'count'],
+        ['key' => 'attempts', 'label' => 'Exam', 'kind' => 'count']], $r['body']['columns']);
+    assert_same(['sub' => (string) LEAVER, 'name' => 'person-' . LEAVER, 'anonymized_at' => null, 'iam_url' => 'https://iam.test/admin/users/' . LEAVER,
+        'time_zone' => 'Asia/Tokyo', 'learned' => 2, 'attempts' => 1],
+        array_intersect_key($people[(string) LEAVER], array_flip(['sub', 'name', 'anonymized_at', 'iam_url', 'time_zone', 'learned', 'attempts'])));
+    assert_same([1, 0, null], [$people[(string) STAYER]['learned'], $people[(string) STAYER]['attempts'], $people[(string) STAYER]['time_zone']],
+        'none: 0 for a count, nothing for a zone never named');
+    $seen = array_column($r['body']['people'], 'last_seen_at');
     $sorted = $seen;
     rsort($sorted);
     assert_same($sorted, $seen, 'the latest seen first');
-    assert_same(STAYER, end($r['body']['people'])['id'], 'the one not seen for ten years, last');
+    assert_same((string) STAYER, end($r['body']['people'])['sub'], 'the one not seen for ten years, last');
+    assert_same([(int) db_value('SELECT count(*) FROM users WHERE id > 0'), 1, 50, true, []],
+        [$r['body']['total'], $r['body']['page'], $r['body']['page_size'], $r['body']['ready'], $r['body']['problems']],
+        'everybody with a row here (the visitors are a line of their own), one page; the database ready for the library');
+    assert_same(['count' => 0, 'oldest_seen_at' => null, 'keep_days' => 30, 'max' => 300], $r['body']['visitors'], 'and no visitor now');
+    $found = person(BOSS, 'GET', '/api/admin/people?q=' . rawurlencode('person-' . LEAVER))['body'];
+    assert_same([(string) LEAVER], array_column($found['people'], 'sub'), 'a search by name');
+    assert_same([(string) STAYER], array_column(person(BOSS, 'GET', '/api/admin/people?q=' . STAYER)['body']['people'], 'sub'), 'or by IAM id');
 });
 
 test('nobody else sees them, nor deletes anybody: an editor, a learner, somebody signed out', function (): void {
     $before = [rows_of(LEAVER), everything_of(LEAVER)];
-    foreach (['GET /api/admin/people', 'DELETE /api/admin/people/' . LEAVER] as $route) {
+    foreach (['GET /api/admin/people', 'DELETE /api/admin/people/' . LEAVER, 'POST /api/admin/people/sync'] as $route) {
         [$method, $url] = explode(' ', $route);
         assert_refused(403, 'admin_only', 'This is for the site\'s administrators.', person(EDITOR, $method, $url), "$route, an editor");
         assert_refused(403, 'staff_only', 'This is for the site\'s editors and administrators.', person(STAYER, $method, $url), "$route, a learner");
@@ -89,21 +109,32 @@ test('nobody else sees them, nor deletes anybody: an editor, a learner, somebody
 
 test('deleting a person’s data: a copy of all of it first, then every row of theirs; nobody else’s; the strings they reworded stay', function (): void {
     $leaving = everything_of(LEAVER);
+    $rows = rows_of(LEAVER);
     $staying = [everything_of(STAYER), rows_of(BOSS), rows_of(STAYER)];
     $r = person(BOSS, 'DELETE', '/api/admin/people/' . LEAVER);
     assert_same(200, $r['status'], $r['raw']);
-    assert_same(LEAVER, $r['body']['deleted']);
-    assert_match('/^academy-before-delete-user-' . LEAVER . '-\d{8}-\d{6}-\d{3}(-\d+)?\.json$/D', $r['body']['copy'], 'named after whose data it holds');
+    // What went, by the page's labels, and the copy named in the note.
+    assert_same(['Kanji and words' => $rows['srs_progress'], 'Answers' => $rows['srs_log'], 'Exam attempts' => $rows['exam_attempts']], $r['body']['deleted']);
+    assert_true(preg_match('/^A copy of their data is in backups\/(academy-before-delete-user-' . LEAVER . '-\d{8}-\d{6}-\d{3}(-\d+)?\.json)\.$/D', (string) $r['body']['note'], $named) === 1,
+        'named after whose data it holds: ' . $r['body']['note']);
+    // Recorded in the audit log: who deleted whose data, and how much.
+    assert_same([['actor_id' => BOSS, 'action' => 'person.data_deleted', 'target_type' => 'user', 'target_id' => (string) LEAVER]],
+        array_map(static fn (array $e): array => ['actor_id' => (int) $e['actor_id']] + array_slice($e, 1),
+            db_all("SELECT actor_id, action, target_type, target_id FROM anotoki_audit_log WHERE action = 'person.data_deleted'")));
 
-    $copy = backup_read(backup_dir() . '/' . $r['body']['copy']);
+    $copy = backup_read(backup_dir() . '/' . $named[1]);
     assert_same([false, [LEAVER]], [$copy['everybody'], array_column($copy['users'], 'id')]);
     assert_same($leaving, [$copy['users'][0]['kanji'], $copy['users'][0]['log'], $copy['users'][0]['attempts']], 'all of it, as it was');
     assert_same('Asia/Tokyo', $copy['users'][0]['timeZone']);
 
     assert_same(array_fill_keys(array_merge(USER_TABLES, ['users']), 0), rows_of(LEAVER), 'every row of theirs gone, their users row too');
     assert_same(['Ľudia', null], array_values(db_one("SELECT value, updated_by FROM translations WHERE key_name = 'test.people'")), 'the string stays, by nobody now');
+    assert_same([['From the leaver.', LEAVER, null, null], ['From the stayer.', STAYER, 'stayer@example.test', 'StayerBrowser/1.0']],
+        array_map(static fn (array $f): array => [$f['message'], (int) $f['user_id'], $f['contact_email'], $f['user_agent']],
+            db_all('SELECT message, user_id, contact_email, user_agent FROM anotoki_feedback ORDER BY id')),
+        'their feedback keeps its words, but no longer where to answer them nor their browser; nobody else\'s touched');
     assert_same($staying, [everything_of(STAYER), rows_of(BOSS), rows_of(STAYER)], 'nobody else’s touched');
-    assert_false(in_array(LEAVER, array_column(person(BOSS, 'GET', '/api/admin/people')['body']['people'], 'id'), true), 'gone from the list');
+    assert_false(in_array((string) LEAVER, array_column(person(BOSS, 'GET', '/api/admin/people')['body']['people'], 'sub'), true), 'gone from the list');
 
     // the copy restores them, and them alone
     $counts = backup_restore($copy);
@@ -118,7 +149,7 @@ test('deleting a person’s data: a copy of all of it first, then every row of t
 
 test('nobody of that id: 404 not_found, for any address that is no id', function (): void {
     foreach ([(string) LEAVER, '999999', '0', '-1', 'abc', '1e3', str_repeat('9', 20)] as $id) {
-        assert_refused(404, 'not_found', 'There is nobody of that id here.', person(BOSS, 'DELETE', "/api/admin/people/$id"), $id);
+        assert_refused(404, 'not_found', 'There is nobody with that id here.', person(BOSS, 'DELETE', "/api/admin/people/$id"), $id);
     }
 });
 

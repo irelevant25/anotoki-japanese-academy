@@ -11,15 +11,13 @@ import {
   ExamResult,
   ExamSpec,
   ItemPatch,
-  Person,
   Progress,
   Settings,
   StateAnswer,
   Summary,
   VisitorMove,
-  VisitorsCount,
 } from './api.types';
-import { CARRIES_VISITOR_KEY, issuedAs, VISITOR_KEY_HEADER } from '../auth/issued-as';
+import { CARRIES_VISITOR_KEY, issuedAs, VISITOR_KEY_HEADER } from '@anotoki/lib/auth';
 
 /**
  * What a failure is called: the word the server put in its answer; `offline`
@@ -59,8 +57,8 @@ const AS_PERSON = issuedAs('person');
 
 /**
  * Every call the app makes to its backend, same-origin (/api/...). The token
- * of a sign-in — or a visitor's key — is the interceptor's to add
- * (core/auth/auth.interceptor.ts), for whom the page is shown to as the call
+ * of a sign-in — or a visitor's key — is the anotoki library's interceptor's to add
+ * (core/auth/auth.config.ts), for whom the page is shown to as the call
  * is issued; the calls only a person may make say so (AS_PERSON), and go with
  * a token or not at all.
  */
@@ -154,26 +152,6 @@ export class ApiService {
     return this.call(
       this.http.post<VisitorMove>('/api/visitor/move', {}, { headers: { [VISITOR_KEY_HEADER]: key }, context: issuedAs('person').set(CARRIES_VISITOR_KEY, true) }),
     );
-  }
-
-  /* --------------------------------------------------- the admin panel: people */
-  // ADMIN alone (backend/api/middleware/staff.php). The pages only hide what the server refuses. (The
-  // Translations, Languages and Migrations pages are the anotoki library's, which ask their own addresses
-  // through this app's HttpClient: core/i18n/translations.config.ts, core/site-status.config.ts.)
-
-  /** Everybody the site has, the latest seen first (ADMIN). */
-  people(): Promise<Person[]> {
-    return this.call(this.http.get<{ people: Person[] }>('/api/admin/people', { context: AS_PERSON })).then((r) => r.people);
-  }
-
-  /** All of this person's data goes, after a copy of it on the server: answers the copy's file name (ADMIN). */
-  deletePerson(id: number): Promise<{ deleted: number; copy: string }> {
-    return this.call(this.http.delete<{ deleted: number; copy: string }>(`/api/admin/people/${encodeURIComponent(String(id))}`, { context: AS_PERSON }));
-  }
-
-  /** How many visitors the site keeps now, the oldest seen when, and its limits (ADMIN): the People page's line. */
-  visitors(): Promise<VisitorsCount> {
-    return this.call(this.http.get<VisitorsCount>('/api/admin/visitors', { context: AS_PERSON }));
   }
 
   /** The answer, or an ApiError: its status, its code and the server's answer. */

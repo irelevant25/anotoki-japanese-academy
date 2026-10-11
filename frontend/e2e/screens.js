@@ -3,8 +3,11 @@
  * visual check after UI changes - everybody signed in through the stand-in
  * IAM (a session planted in the browser; helpers.js). Seeds a little progress
  * first so the dashboard, reviews and item pages have something to show. The
- * reader is an ADMIN, so the admin panel's four pages are shot too; the Sign
- * in card is a refused sign-in's; home-visitor is the home page of somebody
+ * reader is an ADMIN, so the admin panel's pages are shot too - the anotoki
+ * library's People, Feedback, Errors, Audit log and Backups among them, with a
+ * message of the reader's own to read; feedback-form is Send feedback's form
+ * (the library's) in its dialog; sign-in-failed is the anotoki library's screen
+ * of a refused sign-in; home-visitor is the home page of somebody
  * studying without signing in (the stand-in IAM saying sign-in is not
  * required here), with its notice; update-waiting is what a learner reads
  * while a database update waits (the anotoki library's page), and
@@ -20,14 +23,18 @@
  *
  * The room: the family's top bar measured piece by piece at 360, 390, 760,
  * 761, 960, 961 and 1280 px, in English and in Slovak, light and dark -
- * signed in with a 20-character name and 999 reviews due, signed out (the
- * Sign in card), visiting (sign-in not required: the links and Sign in), and
- * in the admin area: one row, in order, nothing
- * overlapping, nothing off the screen, no sideways scroll, the brand whole;
- * a phone's bar (up to 760) with its menu button and the due count on it, a
- * desktop's with the links and the person's button, the name beside it from
- * 961. Then the menus open, light and dark, shot, and a real Tab press from
- * an item: the menu closed, the focus on its button, never <body>.
+ * signed in with a 20-character name and 999 reviews due, signed out (a
+ * refused sign-in: the library's screen, and Sign in in the bar), visiting
+ * (sign-in not required: the links and Sign in), and in the admin area (its
+ * eight links and the new feedback beside Feedback, at 360, 390, its fold and
+ * one pixel past it, where its full brand fits and where the name does, all
+ * read from top-bar.component.ts): one row, in order,
+ * nothing overlapping, nothing off the screen, no sideways scroll, the brand
+ * whole; a phone's bar (up to 760; the admin panel's up to its own fold) with
+ * its menu button and the due count on it, a desktop's with the links and the
+ * person's button, the name beside it from 961. Then the menus open, light
+ * and dark, shot, and a real Tab press from an item: the menu closed, the
+ * focus on its button, never <body>.
  *
  *   node frontend/e2e/screens.js          → frontend/e2e/shots/screen-*.png, bar-*.png, menu-*.png
  *   node frontend/e2e/screens.js kanji    → only screens whose name contains "kanji"
@@ -42,6 +49,20 @@ isolate('academy-screens'); // before the server starts: a throwaway database
 const { launch, newContext, watch, keyShaped, BAR, focusedOn, SHOTS } = require('./browser');
 
 const FILTER = process.argv[2] || '';
+
+/** The bar's widths as the app has them (top-bar.component.ts): where each bar folds, and where the name stands beside the initial. */
+const TOP_BAR = fs.readFileSync(path.join(__dirname, '..', 'src', 'app', 'top-bar', 'top-bar.component.ts'), 'utf8');
+const barWidth = (name) => Number(new RegExp(`export const ${name} = (\\d+);`).exec(TOP_BAR)?.[1] ?? NaN);
+const PHONE_BAR_MAX = barWidth('PHONE_BAR_MAX');
+const ADMIN_PHONE_BAR_MAX = barWidth('ADMIN_PHONE_BAR_MAX');
+const NAME_BAR_MIN = barWidth('NAME_BAR_MIN');
+const ADMIN_SHORT_BRAND_MAX = barWidth('ADMIN_SHORT_BRAND_MAX');
+const ADMIN_NAME_BAR_MIN = barWidth('ADMIN_NAME_BAR_MIN');
+if (![PHONE_BAR_MAX, ADMIN_PHONE_BAR_MAX, NAME_BAR_MIN, ADMIN_SHORT_BRAND_MAX, ADMIN_NAME_BAR_MIN].every(Number.isFinite)) {
+  throw new Error('the bar’s widths could not be read from top-bar.component.ts');
+}
+/** The admin panel's sections, in the bar's order. */
+const ADMIN_LINKS = ['translations', 'languages', 'people', 'feedback', 'errors', 'audit', 'backups', 'migrations'].map((page) => `/admin/${page}`);
 
 /** The person on the screens: an ADMIN, so the admin area's pages are there too. */
 const READER = { sub: 4501, name: 'kanji-reader', roles: ['MEMBER', 'ADMIN'] };
@@ -110,13 +131,29 @@ const SCREENS = [
     await page.click(phone ? BAR.menuButton : BAR.userButton);
     await page.waitForSelector(BAR.menu);
   }],
-  ['signed-out', '/', async (page) => page.waitForSelector('#signin-button'), { signedOut: true }],
+  // Send feedback, from the foot: the anotoki library's form in the kit's dialog
+  ['feedback-form', '/', async (page) => {
+    await page.waitForSelector('.homecards');
+    await page.click('#sendFeedback');
+    await page.waitForSelector('anotoki-feedback-form form');
+  }],
+  // a refused sign-in: the anotoki library's screen, in the app's frame
+  ['sign-in-failed', '/', async (page) => page.waitForSelector('#signInFailure [data-retry]'), { signedOut: true }],
   // nobody signed in, where the IAM does not require it: a visitor's home, with the notice
   ['home-visitor', '/', async (page) => page.waitForSelector('#visitorNotice'), { visiting: true }],
   // the admin area: English, whatever the reader chose
   ['admin-translations', '/admin/translations', async (page) => page.waitForSelector('anotoki-translations-page .anotoki-translations-page__grid'), { admin: true }],
   ['admin-languages', '/admin/languages', async (page) => page.waitForSelector('anotoki-languages-page form.anotoki-languages-page__add'), { admin: true }],
-  ['admin-people', '/admin/people', async (page) => page.waitForSelector('#people'), { admin: true }],
+  // the anotoki library's admin pages, in the panel's frame
+  ['admin-people', '/admin/people', async (page) => page.waitForSelector('anotoki-people-page [data-people]'), { admin: true }],
+  ['admin-feedback', '/admin/feedback', async (page) => page.waitForSelector('anotoki-feedback-page [data-messages] [data-message]'), { admin: true }],
+  ['admin-feedback-message', '/admin/feedback', async (page) => {
+    await page.click('anotoki-feedback-page [data-messages] [data-message]');
+    await page.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
+  }, { admin: true }],
+  ['admin-errors', '/admin/errors', async (page) => page.waitForSelector('anotoki-error-log-page [data-counts]'), { admin: true }],
+  ['admin-audit', '/admin/audit', async (page) => page.waitForSelector('anotoki-audit-log-page [data-entries]'), { admin: true }],
+  ['admin-backups', '/admin/backups', async (page) => page.waitForSelector('anotoki-backups-page [data-backups]'), { admin: true }],
   ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('[data-applied] .anotoki-migrations-page__file'), { admin: true }],
   // a database update waiting: the anotoki library's page, as a learner reads it, and as the site's ADMIN does
   ['update-waiting', '/', async (page) => page.waitForSelector('anotoki-site-status h1'), { updating: true, learner: true }],
@@ -178,26 +215,22 @@ function slovakProblems(page, bundle) {
 }
 
 /**
- * What the reviews found by eye, measured on every screen where it is: the
- * People table's zone on one line and every Delete data in view (at 390 px
- * too); the What's new dot beside its words, not floating above them on a
- * touch screen; the Your data question's focus on Keep mine with the accent's
+ * What the reviews found by eye, measured on every screen where it is: every
+ * Delete their data of the People page (the library's) in view, at 390 px
+ * too; the What's new dot beside its words, not floating above them on a
+ * touch screen, and clear of the '·' before Send feedback after it; the Your
+ * data question's focus on Keep mine with the accent's
  * ring, never on the dialog; in dark, the anotoki mark with its light halo.
  */
 function looks(page, dark) {
   return page.evaluate(({ dark, bar }) => {
     const out = [];
-    const people = document.querySelector('#people');
+    const people = document.querySelector('anotoki-people-page');
     if (people) {
-      const box = (people.closest('.scroll') || people).getBoundingClientRect();
-      const right = Math.min(box.right, document.documentElement.clientWidth);
-      for (const code of people.querySelectorAll('tbody td code')) {
-        const lines = Math.round(code.getBoundingClientRect().height / parseFloat(getComputedStyle(code).lineHeight || '0') || 0);
-        if (code.getClientRects().length > 1 || lines > 1) out.push(`the zone "${code.textContent}" breaks over lines`);
-      }
-      for (const button of people.querySelectorAll('tbody button')) {
+      const right = document.documentElement.clientWidth;
+      for (const button of people.querySelectorAll('[data-delete]')) {
         const r = button.getBoundingClientRect();
-        if (r.right > right + 0.5 || r.left < box.left - 0.5) out.push(`"${button.textContent.trim()}" is cut at the table's edge (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(box.left)}..${Math.round(right)})`);
+        if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`"${button.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
       }
     }
     const dot = document.querySelector('#whatsNew .dot');
@@ -212,6 +245,15 @@ function looks(page, dark) {
         const middle = (d.top + d.bottom) / 2;
         if (middle < words.top - 2 || middle > words.bottom || d.left < words.right - 2 || d.left > words.right + 12) {
           out.push(`the What's new dot is not beside its words (dot ${Math.round(d.left)},${Math.round(middle)}; words ${Math.round(words.left)}..${Math.round(words.right)}, ${Math.round(words.top)}..${Math.round(words.bottom)})`);
+        }
+      }
+      // What follows it in the foot's line - the '·' before Send feedback - keeps clear of it (on the same line).
+      const sep = document.querySelector('app-feedback-button .sep');
+      if (sep) {
+        const d = dot.getBoundingClientRect();
+        const s = sep.getBoundingClientRect();
+        if (s.width && Math.abs((s.top + s.bottom) / 2 - (d.top + d.bottom) / 2) < 16 && s.left < d.right + 4) {
+          out.push(`the What's new dot touches the '·' before Send feedback (the dot ends at ${Math.round(d.right)}, the '·' starts at ${Math.round(s.left)})`);
         }
       }
     }
@@ -277,6 +319,11 @@ function measureBar(page) {
     await app.api('/api/kanji/learn', READER, { method: 'POST', body: { id } });
   }
   app.makeDue(['k:大', 'k:学'], 60000, READER.sub);
+  await app.api('/api/feedback', READER, { method: 'POST', body: { kind: 'idea', section: 'Kanji', message: 'The stroke order of 学 would help me a lot.', page: '/kanji' } });
+  // something in the audit log: a language added (hidden: nobody is offered it)
+  await app.api('/api/admin/languages', READER, { method: 'POST', body: { code: 'de', name: 'German', native_name: 'Deutsch', enabled: false } });
+  // a backup of the database, made by the reader (an ADMIN signed in just now), for the Backups page to list
+  await app.api('/api/admin/backups', { ...READER, auth_time: Math.floor(Date.now() / 1000) }, { method: 'POST', body: { description: 'Before the screenshots' } });
   const bundle = await (await fetch(app.base + '/api/translations/sk')).json();
   const updateAppliedAt = app.sql('SELECT applied_at FROM migrations WHERE name = ?', UPDATE)[0].applied_at;
   if (bundle.language !== 'sk' || !bundle.english) throw new Error(`no Slovak bundle: ${JSON.stringify(bundle).slice(0, 200)}`);
@@ -360,6 +407,8 @@ function measureBar(page) {
   if (!FILTER || FILTER === 'room') {
     console.log('the room: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px');
     for (const person of [ROOMY, ROOMY_ADMIN]) await app.api('/api/kanji/summary', person); // their rows
+    // a new message nobody opened: its count beside the admin panel's Feedback (the screens before read theirs)
+    await app.api('/api/feedback', ROOMY, { method: 'POST', body: { kind: 'bug', section: 'Exam', message: 'The timer kept running after I finished.' } });
     app.sql(
       "INSERT INTO srs_progress (user_id, item_id, stage, learned_at, next_review) SELECT ?, id, 1, now() - interval '2 days', now() - interval '1 hour' FROM srs_items ORDER BY ord LIMIT 999 ON CONFLICT DO NOTHING",
       ROOMY.sub
@@ -374,7 +423,11 @@ function measureBar(page) {
           cases.push({ mode: 'signed-in', lang, dark, width, url: '/kanji', person: ROOMY });
           if (SHOT.includes(width)) cases.push({ mode: 'signed-out', lang, dark, width, url: '/kanji' });
           if (SHOT.includes(width)) cases.push({ mode: 'visiting', lang, dark, width, url: '/kanji' });
-          if ([360, 390, 761, 961, 1280].includes(width)) cases.push({ mode: 'admin', lang, dark, width, url: '/admin/people', person: ROOMY_ADMIN });
+        }
+        // the admin panel: on phones, on both sides of its own fold, where its full brand fits, and where the name does
+        for (const width of [360, 390, ADMIN_PHONE_BAR_MAX, ADMIN_PHONE_BAR_MAX + 1, ADMIN_SHORT_BRAND_MAX + 1, ADMIN_NAME_BAR_MIN]) {
+          if (dark && width === ADMIN_PHONE_BAR_MAX) continue;
+          cases.push({ mode: 'admin', lang, dark, width, url: '/admin/people', person: ROOMY_ADMIN });
         }
       }
     }
@@ -387,7 +440,7 @@ function measureBar(page) {
         visiting = true;
       }
       const label = `room ${c.mode} ${c.lang} ${c.dark ? 'dark' : 'light'} ${c.width}px`;
-      const phone = c.width <= (c.mode === 'admin' ? 960 : 760); // ADMIN_PHONE_BAR_MAX and PHONE_BAR_MAX in top-bar.component.ts
+      const phone = c.width <= (c.mode === 'admin' ? ADMIN_PHONE_BAR_MAX : PHONE_BAR_MAX);
       const context = await newContext(browser, { viewport: { width: c.width, height: 800 }, colorScheme: c.dark ? 'dark' : 'light', ...(c.lang === 'sk' ? { locale: 'sk-SK' } : {}) });
       if (c.person) await plant(context, c.person, c.lang === 'sk' ? 'sk' : null);
       else {
@@ -397,10 +450,12 @@ function measureBar(page) {
       const page = await context.newPage();
       const errors = watch(page);
       await page.goto(app.base + c.url);
-      await page.waitForSelector(c.mode === 'signed-out' ? '#signin-button' : phone ? BAR.menuButton : c.mode === 'visiting' ? BAR.signInButton : BAR.userButton);
+      await page.waitForSelector(c.mode === 'signed-out' ? '#signInFailure [data-retry]' : phone ? BAR.menuButton : c.mode === 'visiting' ? BAR.signInButton : BAR.userButton);
       if (c.mode === 'visiting') await page.waitForSelector('#visitorNotice');
       if (c.mode === 'signed-in') await page.waitForSelector(phone ? BAR.menuDue : BAR.navDue);
-      if (c.mode === 'admin') await page.waitForSelector('#people');
+      if (c.mode === 'admin') await page.waitForSelector('anotoki-people-page [data-people]');
+      // the new feedback beside Feedback, once the bar has asked
+      if (c.mode === 'admin' && !phone) await page.waitForSelector(`${BAR.nav} a[href="/admin/feedback"] .anotoki-top-bar__badge`);
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(150);
       const m = await measureBar(page);
@@ -414,8 +469,15 @@ function measureBar(page) {
       if (c.mode === 'visiting' && m.pieces.person) found.push('a person’s button for a visitor');
       if (c.mode === 'signed-in' && m.badge !== '999') found.push(`the due count says "${m.badge}", not 999`);
       if (['signed-in', 'visiting'].includes(c.mode) && !phone && m.links.join(',') !== '/kanji,/exam') found.push(`links ${m.links.join(',')}`);
-      if (c.mode === 'admin' && !phone && m.links.join(',') !== '/admin/translations,/admin/languages,/admin/people,/admin/migrations') found.push(`admin links ${m.links.join(',')}`);
-      if (!['signed-out', 'visiting'].includes(c.mode) && !phone && m.nameShown !== c.width >= 961) found.push(`the name ${m.nameShown ? 'shown' : 'hidden'} at ${c.width} px`);
+      if (c.mode === 'admin' && !phone && m.links.join(',') !== ADMIN_LINKS.join(',')) found.push(`admin links ${m.links.join(',')}`);
+      if (!['signed-out', 'visiting'].includes(c.mode) && !phone && m.nameShown !== c.width >= (c.mode === 'admin' ? ADMIN_NAME_BAR_MIN : NAME_BAR_MIN)) {
+        found.push(`the name ${m.nameShown ? 'shown' : 'hidden'} at ${c.width} px`);
+      }
+      if (c.mode === 'admin' && !phone) {
+        const wordmark = await page.$$eval(`${BAR.wordmark} > span`, (spans) => spans.map((span) => span.textContent.trim()).join(' '));
+        const full = c.width > ADMIN_SHORT_BRAND_MAX;
+        if (wordmark !== (full ? 'anotoki Japanese · admin panel' : 'Japanese · admin panel')) found.push(`the brand "${wordmark}" at ${c.width} px`);
+      }
       if (!m.pieces.brand || !m.pieces.theme) found.push('the brand or the theme switch missing');
       const lang = await page.getAttribute('html', 'lang');
       const expected = c.mode === 'admin' ? 'en' : c.lang;
@@ -424,7 +486,7 @@ function measureBar(page) {
       found.push(...errors);
       problems.push(...found.map((p) => `${label}: ${p}`));
       console.log(`${label}: ${Object.entries(m.pieces).map(([k, v]) => `${k} ${v[0]}-${v[1]}`).join(', ')}${m.badge ? `; due ${m.badge}` : ''}`);
-      if (SHOT.includes(c.width) && (c.mode !== 'admin' || [360, 390, 761, 1280].includes(c.width))) {
+      if (c.mode === 'admin' ? c.width !== ADMIN_PHONE_BAR_MAX : SHOT.includes(c.width)) {
         await page.screenshot({ path: path.join(SHOTS, `bar-${c.mode}-${c.lang}-${c.width}-${c.dark ? 'dark' : 'light'}.png`), clip: { x: 0, y: 0, width: c.width, height: 140 } });
       }
       await context.close();

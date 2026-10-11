@@ -113,12 +113,16 @@ async function cleanup() {
   const port = await serve(['-t', path.join(DIR, 'public'), path.join(BACKEND, 'tests', 'tools', 'front-controller.php')], DIR, { ACADEMY_MIGRATION_DRAFTS: waiting });
   const local = `http://127.0.0.1:${port}`;
   const website = `http://${WEBSITE}:${port}`;
-  // What the setup page applies, as it names it: this app's own migrations, then the anotoki library's set of the
-  // words (anotoki_translations, from the upload's vendor/), each of those with its set.
+  // What the setup page applies, as it names it, in the order the sets run (backend/src/db.php): the anotoki
+  // library's admin tools' tables (anotoki_admin), this app's own migrations, the library's words
+  // (anotoki_translations) and its people (anotoki_people) - the library's from the upload's vendor/, each with its set.
   const sqlIn = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  const library = (folder, set) => sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'php', 'migrations', folder)).map((f) => `${set}/${f}`);
   const migrations = [
+    ...library('admin', 'anotoki_admin'),
     ...sqlIn(path.join(DIR, 'backend', 'migrations')),
-    ...sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'php', 'migrations', 'translations')).map((f) => `anotoki_translations/${f}`),
+    ...library('translations', 'anotoki_translations'),
+    ...library('people', 'anotoki_people'),
   ];
 
   // The website's name leads to this computer, as a host's DNS would lead to the

@@ -17,6 +17,8 @@
  *
  *   visitors_find()    the visitor of a key, seen now (written at most every
  *                      five minutes); unknown or malformed: 401 visitor_unknown
+ *                      (visitors_of_key(): the anotoki library's Identify asks it,
+ *                      src/auth.php)
  *   visitors_make()    a new visitor, after the limits (visitors at once, new
  *                      ones an hour per address and in all), inside the
  *                      transaction of the save that makes it: a save refused
@@ -33,8 +35,9 @@
  * set in backend/config/app.local.php, which is optional and never written by
  * the setup page: 'visitors' => ['max' => 300, …] (docs/kb/hosting.md).
  *
- * While migration 007 is not applied the database cannot keep visitors: access_login_required()
- * then says sign-in is required whatever the IAM says, so no visitor path is
+ * While migration 007 is not applied the database cannot keep visitors: the
+ * sign-in rule (academy_sign_in_rule(), src/auth.php) then says sign-in is
+ * required whatever the IAM says, so no visitor path is
  * reached; the move (which works whatever the switch) answers 503
  * visitors_unavailable, and the sweep does nothing.
  */
@@ -142,7 +145,7 @@ function visitors_must_be_ready(): void
  * The visitor of this key: ['id' => negative, 'timeZone' => theirs for this
  * request]. Seen now: last_seen_at (and a time zone their browser named that
  * differs from the kept one) written at most every five minutes, as
- * users_seen() does for a person. The zone: the request's ($zone, checked),
+ * people_seen() does for a person. The zone: the request's ($zone, checked),
  * else the one kept on their row, else UTC.
  */
 function visitors_find(string $key, ?string $zone): array
@@ -165,8 +168,30 @@ function visitors_find(string $key, ?string $zone): array
 }
 
 /**
+ * Who a key is, for the anotoki library's Identify (academy_identify(),
+ * src/auth.php), which asks only for a request with a key and no token while
+ * sign-in is not required here: the visitor (visitors_find(), seen now, in
+ * the zone the request names), or null for a key that is nobody's or no key
+ * at all - Identify answers that 401 visitor_unknown.
+ */
+function visitors_of_key(string $key): ?array
+{
+    if (!visitors_well_formed($key)) {
+        return null;
+    }
+    try {
+        return visitors_find($key, auth_time_zone_header($_SERVER));
+    } catch (HttpError $e) {
+        if ($e->errorCode === 'visitor_unknown') {
+            return null;
+        }
+        throw $e;
+    }
+}
+
+/**
  * A new visitor for the save that is about to run, and its key: [id, key].
- * Called inside that save's transaction (learner_middleware()), which it
+ * Called inside that save's transaction (learner_first_save()), which it
  * holds VISITORS_LOCK for, so the limits count exactly; a save that is
  * refused or fails rolls the visitor back with it. Over a limit: 429
  * too_many_visitors, and nothing is made.

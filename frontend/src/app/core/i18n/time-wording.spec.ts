@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from '../auth/auth.service';
-import { AnotokiPreferences } from '../auth/sdk/anotoki-auth';
+import { AnotokiPreferences } from '@anotoki/lib/auth';
 import { fmtDateTime, fmtIn } from '../format';
 import { TimeWording } from './time-wording';
 

@@ -136,7 +136,7 @@ test('while it waits, a crafted path is not an open one: dot segments, %2e%2e, %
     // One segment after /api/translations/ reaches the words' route alone, whatever it holds, and that route judges
     // it: here no language code ("en" and a line break), refused before any query - never another route's answer.
     $r = raw_get('/api/translations/en%0A', no_token());
-    assert_same([404, ['error' => 'There is no such language', 'code' => 'not_found']], [$r['status'], $r['body']], 'the words’ route’s own answer');
+    assert_same([404, ['error' => 'There is no such language.', 'code' => 'not_found']], [$r['status'], $r['body']], 'the words’ route’s own answer');
     // The Migrations page's own three answer as ever (Apply: the next test), with a trailing slash too (dropped before the gate).
     $admin = test_bearer(test_token(ADMIN, ['ADMIN']));
     assert_same(200, raw_get('/api/admin/migrations', $admin)['status'], 'the list');
@@ -158,17 +158,12 @@ test('the Migrations page: an administrator’s, read from the token alone - and
     }
     assert_same(null, db_value("SELECT to_regclass('migrations')"), 'still nothing: asking who it is wrote no row');
 
-    // This site's own files, then the anotoki library's set of the words (db_migration_sets()).
-    $own = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    sort($own);
-    $files = array_merge(
-        array_map(static fn (string $f): array => ['set' => MIGRATION_SET, 'name' => $f], $own),
-        array_map(static fn (string $label): array => ['set' => 'anotoki_translations', 'name' => substr($label, strlen('anotoki_translations/'))], library_migrations())
-    );
+    // The anotoki library's admin tools, this site's own files, then the library's words and people (db_migration_sets()).
+    $files = all_migration_files();
     $list = app_call('GET', '/api/admin/migrations', ADMIN, ['ADMIN']);
     assert_same(200, $list['status']);
-    assert_same([[MIGRATION_SET, 'anotoki_translations'], [], []], [$list['body']['sets'], $list['body']['applied'], $list['body']['missing']]);
-    assert_same($files, array_map(static fn (array $p): array => ['set' => $p['set'], 'name' => $p['name']], $list['body']['pending']), 'every file waits, the library’s last');
+    assert_same([MIGRATION_SETS_IN_ORDER, [], []], [$list['body']['sets'], $list['body']['applied'], $list['body']['missing']]);
+    assert_same($files, array_map(static fn (array $p): array => ['set' => $p['set'], 'name' => $p['name']], $list['body']['pending']), 'every file waits, in the order they run');
     assert_same([true], array_values(array_unique(array_column($list['body']['pending'], 'ready'))), 'and may run');
 
     $r = app_call('POST', '/api/admin/migrations/apply', ADMIN, ['ADMIN']);

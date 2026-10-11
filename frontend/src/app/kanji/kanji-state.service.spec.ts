@@ -5,6 +5,7 @@ import { ApiService } from '../core/api/api.service';
 import { Catalog, ItemState, Progress, Summary } from '../core/api/api.types';
 import { VisitorKey } from '../core/auth/visitor-key';
 import { KanjiStateService } from './kanji-state.service';
+import { provideAuth } from '../core/auth/auth.config';
 
 const catalog = { ...(fixture as unknown as Catalog), stages: [], groups: [] } as Catalog;
 const NOW = Date.now();
@@ -47,6 +48,7 @@ describe('KanjiStateService', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         {
           provide: ApiService,
           useValue: {

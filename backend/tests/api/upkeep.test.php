@@ -78,14 +78,50 @@ test('a migration still being written waits on every database but the tests’, 
     assert_true(db_migration_ready('001_init.sql', 'CREATE TABLE before_the_rule (id int);'), '001 is from before the rule');
 });
 
-test('the engine: this site’s table as it is, two sets - this site’s, then the anotoki library’s -, each file whole in one exec, under the upkeep’s lock', function (): void {
+test('while one of this site’s own files is a draft, the anotoki library’s files wait with it - those that run before it too - on every database but the tests’', function (): void {
+    $drafts = test_config_migration_drafts();
+    $library = [];
+    foreach (db_migration_sets() as $set) {
+        if ($set->library) {
+            foreach (glob($set->directory . '/*.sql') ?: [] as $file) {
+                $library[$set->name . '/' . basename($file)] = [basename($file), (string) file_get_contents($file)];
+            }
+        }
+    }
+    assert_true(isset($library['anotoki_admin/001_audit_log.sql']), 'the library\'s files, the admin tools\' that run first among them: ' . implode(', ', array_keys($library)));
+    foreach (['academy_test_template', db_name()] as $test) {
+        assert_same(null, db_own_draft($test), "$test: the tests' databases hold nothing back - they apply the drafts they name");
+    }
+    foreach ($library as $label => [$name, $sql]) {
+        assert_true(db_migration_ready($name, $sql, false), "$label, on this database of the tests: whole");
+    }
+    try {
+        // A database of anybody's - the owner's own server serving this working tree: read, never connected to.
+        config_overrides(['db' => ['name' => 'japanese_academy']]);
+        assert_same($drafts === [] ? null : $drafts[0], db_own_draft('japanese_academy'), 'the draft of this site\'s own that holds them back');
+        foreach ($library as $label => [$name, $sql]) {
+            assert_same($drafts === [], db_migration_ready($name, $sql, false),
+                "$label, on a database of anybody's: " . ($drafts === [] ? 'no draft, whole' : 'waits while ' . $drafts[0] . ' is a draft'));
+        }
+    } finally {
+        config_overrides([]);
+    }
+});
+
+test('the engine: this site’s table as it is, four sets - the anotoki library’s admin tools, this site’s, the library’s words and people -, each file whole in one exec, under the upkeep’s lock', function (): void {
     $status = db_migrator()->status();
-    assert_same([MIGRATION_SET, 'anotoki_translations'], $status['sets'], 'this site’s own, then the library’s words');
-    $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    sort($files);
-    assert_same(array_merge($files, library_migrations()), array_map('db_migration_label', $status['applied']), 'every file applied, in the order they ran');
-    assert_same(library_migrations(), array_values(array_filter(array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'), static fn (string $n): bool => str_contains($n, '/'))),
-        'the library’s recorded by their set and name, in the table as it is');
+    assert_same(MIGRATION_SETS_IN_ORDER, $status['sets'], 'the library’s admin tools first, this site’s own, then the library’s words and people');
+    // Every file applied (in the order they ran, which is the template's history: a set added later ran later).
+    $applied = array_map('db_migration_label', $status['applied']);
+    $everyFile = all_migration_labels();
+    sort($applied);
+    sort($everyFile);
+    assert_same($everyFile, $applied, 'every file applied');
+    $library = array_merge(library_migrations('anotoki_admin'), library_migrations(), library_migrations('anotoki_people'));
+    $recorded = array_values(array_filter(array_column(db_all('SELECT name FROM migrations'), 'name'), static fn (string $n): bool => str_contains($n, '/')));
+    sort($library);
+    sort($recorded);
+    assert_same($library, $recorded, 'the library’s recorded by their set and name, in the table as it is');
     assert_same([[], []], [$status['pending'], $status['missing']]);
     assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $status['applied'][0]['applied_at'], 'when, in UTC');
     // The bookkeeping table is the one this site has always had: never another shape.
@@ -232,12 +268,12 @@ test('a migration that fails on Apply: its administrator reads PostgreSQL’s ow
     ini_set('error_log', $log);
     db_exec('DELETE FROM migrations WHERE name = ?', [$name]);
     test_iam(); // the settings name its keys: the token below is checked against them
-    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . test_token(7, ['ADMIN']);
     try {
-        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/api/admin/migrations/apply');
+        // The token on the request itself, as a browser sends it (the anotoki library's Identify reads the request's header).
+        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/api/admin/migrations/apply')
+            ->withHeader('Authorization', 'Bearer ' . test_token(7, ['ADMIN']));
         $response = academy_app()->handle($request);
     } finally {
-        unset($_SERVER['HTTP_AUTHORIZATION']);
         db_exec('INSERT INTO migrations (name, applied_at) VALUES (?, ?) ON CONFLICT (name) DO NOTHING', [$name, $when]);
         ini_set('error_log', (string) $logBefore);
     }

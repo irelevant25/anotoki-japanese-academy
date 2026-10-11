@@ -29,26 +29,23 @@ function manage(string ...$options): array
 }
 
 /**
- * Every migration file, in the order they run: this site's own
- * (backend/migrations/), then the anotoki library's set of the words
- * (anotoki_translations/…, db_migration_sets()), as db_migration_label() names them.
+ * Every migration file, in the order they run: the anotoki library's admin
+ * tools (anotoki_admin/…), this site's own (backend/migrations/), then the
+ * library's words (anotoki_translations/…) and people (anotoki_people/…) -
+ * db_migration_sets() - as db_migration_label() names them.
  */
 function every_migration(): array
 {
-    $files = [];
-    foreach (db_migration_sets() as $set) {
-        $names = array_map('basename', glob($set->directory . '/*.sql') ?: []);
-        sort($names);
-        foreach ($names as $name) {
-            $files[] = db_migration_label(['set' => $set->name, 'name' => $name]);
-        }
-    }
-    return $files;
+    return all_migration_labels();
 }
 
 test('from nothing: every migration, in order, each in a transaction of its own, listed in this site’s table', function (): void {
     assert_same(null, db_value("SELECT to_regclass('migrations')"), 'an empty database');
-    assert_same(['anotoki_translations/001_languages_and_strings.sql', 'anotoki_translations/002_library_words.sql'], array_slice(every_migration(), -2), 'the library’s set last');
+    assert_same(MIGRATION_SETS_IN_ORDER, array_map(static fn ($set): string => $set->name, db_migration_sets()), 'the sets, in the order they run');
+    assert_same(array_merge(library_migrations('anotoki_admin'), ['001_init.sql']), array_slice(every_migration(), 0, count(library_migrations('anotoki_admin')) + 1),
+        'the library’s admin tools first (a site’s own file may move rows into their tables), then this site’s own');
+    assert_same(array_merge(library_migrations(), library_migrations('anotoki_people')),
+        array_slice(every_migration(), -count(library_migrations()) - count(library_migrations('anotoki_people'))), 'the library’s words and people last');
     assert_same(every_migration(), db_pending_migrations(), 'everything waits');
     assert_same(every_migration(), db_migrations_ready(), 'and may run: none is a draft the tests do not name');
     assert_same(every_migration(), db_migrate(), 'every one, in order: this site’s own, then the library’s');

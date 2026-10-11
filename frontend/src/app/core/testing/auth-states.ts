@@ -1,5 +1,5 @@
 import { computed, Signal, signal, WritableSignal } from '@angular/core';
-import type { AnotokiPreferenceChanges, AnotokiPreferences, AnotokiSavedPreferences, AnotokiUser } from '../auth/sdk/anotoki-auth';
+import type { AnotokiPreferenceChanges, AnotokiPreferences, AnotokiSavedPreferences, AnotokiUser } from '@anotoki/lib/auth';
 import type { AppState, SignInFailure } from '../auth/auth.service';
 
 /**
@@ -27,7 +27,7 @@ export function derivedFromUser(state: Signal<AppState | string>, user: Signal<A
 /**
  * A save of the account's preferences that a spec answers, as the IAM would:
  * `accept()` puts the account as it now stands into `user` first, then the
- * save resolves — the SDK's order (user() follows at once); `refuse(code)`
+ * save resolves — the library's client's order (user() follows at once); `refuse(code)`
  * rejects it with the IAM's or the SDK's code.
  */
 export interface PendingSave {
@@ -49,8 +49,9 @@ export interface AuthStandIn {
   preferences: Signal<AnotokiPreferences | null>;
   isStaff: Signal<boolean>;
   isAdmin: Signal<boolean>;
+  /** Every login() asked for: the address to come back to, when one was given. */
   logins: (string | undefined)[];
-  login(uiLocales?: string): Promise<boolean>;
+  login(returnTo?: string): Promise<boolean>;
   /** Every savePreferences() asked for, in order, each waiting for the spec's answer. */
   saves: PendingSave[];
   savePreferences(changes: AnotokiPreferenceChanges): Promise<AnotokiSavedPreferences>;
@@ -60,7 +61,7 @@ export interface AuthStandIn {
 export const NO_CHOICE: AnotokiPreferences = { theme: 'auto', date_format: null, time_format: null };
 
 /**
- * Somebody signed in, as the SDK gives them (user()): user 7, Hana, with
+ * Somebody signed in, as the library's client gives them (user()): user 7, Hana, with
  * the account's preferences — `null` for an IAM that sends none.
  */
 export function person(preferences: AnotokiPreferences | null = NO_CHOICE, locale: string | null = 'en'): AnotokiUser {
@@ -70,7 +71,8 @@ export function person(preferences: AnotokiPreferences | null = NO_CHOICE, local
 /**
  * A page shown to a person (`ready`, the default) or to a visitor
  * (`visiting`: sign-in not required here, `visitorKeepDays` 30). `logins`
- * records each login()'s language; `saves` each save of the account's
+ * records each login() (the address it comes back to, when one was given: the
+ * language is the library's to add); `saves` each save of the account's
  * preferences, answered by the spec.
  */
 export function authStandIn(initial: AppState = 'ready'): AuthStandIn {
@@ -89,8 +91,8 @@ export function authStandIn(initial: AppState = 'ready'): AuthStandIn {
     isStaff: signal(false),
     isAdmin: signal(false),
     logins,
-    login: (uiLocales?: string) => {
-      logins.push(uiLocales);
+    login: (returnTo?: string) => {
+      logins.push(returnTo);
       return Promise.resolve(true);
     },
     saves,

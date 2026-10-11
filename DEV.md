@@ -9,7 +9,7 @@ and using it); `backend/README.md` and `frontend/README.md` map each half;
 
 | Part | Folder | What |
 |---|---|---|
-| Backend | `backend/` | PHP 8.2+, Slim 4, PostgreSQL, the anotoki library (`anotoki/lib`: the migrations). `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs `public/index.php`. Both go through `api/front.php` |
+| Backend | `backend/` | PHP 8.2+, Slim 4, PostgreSQL, the anotoki library (`anotoki/lib`: the migrations, the words, the sign-in's checks, the people, the admin tools). `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs `public/index.php`. Both go through `api/front.php` |
 | Frontend | `frontend/` | Angular 21: standalone components, zoneless, signals. Built into `frontend/dist/japanese-academy/browser/`, which the backend serves |
 | Data | `backend/data/` | what the study content is built from, and the audio clips |
 
@@ -114,7 +114,9 @@ work at 4400 (the built app on 8200 has no sign-in address there).
    `http://localhost:4300` and the client id `japanese-academy`; its **Test
    connection** fetches the IAM's discovery document and keys.
 3. Open http://localhost:4400. Any page sends you to the IAM's sign-in and
-   comes back to `/auth/callback`, then to the page you asked for. Every
+   comes back to `/auth/callback`, then to the page you asked for (the
+   anotoki library's sign-in, `docs/kb/sign-in.md`; a sign-in that came back
+   without one: its screen at `/sign-in-failed`, Try again and Back). Every
    account may study; the roles `EDITOR` and `ADMIN` (given in the IAM's
    admin console) open the admin panel (`/admin`: **Admin panel** in the account
    menu). The browser names its time zone with every request (`X-Time-Zone`):
@@ -169,8 +171,10 @@ insert leaves it alone. To add one:
    column, the strings of Your data, of signing out and of the family's top
    bar - and is final since 2026-10-04; 006, "Admin panel" and the words of
    an update that waits, likewise; 008, the words the library's status page
-   took over, since 2026-10-11. 009, the kit's words moved under the
-   library's keys, is a draft until the owner accepts it.)
+   took over, and 009, the kit's words moved under the library's keys, since
+   2026-10-11. 010, the people's `anonymized_at` and the words of a failed
+   sign-in moved under the library's keys, is a draft until the owner
+   accepts it.)
    `backend/tools/build-dist.php` refuses to build the upload while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in
@@ -192,37 +196,61 @@ Languages pages, the command line's work), on this app's three tables and
 behind this app's checks (`backend/src/translations.php`,
 `backend/api/routes/translations.php`, `frontend/src/app/core/i18n/translations.config.ts`).
 Its own keys are under `anotoki.` - the words of its kit (the top bar, the
-language and theme switches, the dialogs) and of its status page -, written
-by its migration set `anotoki_translations` only where a key has no string
-yet: `anotoki.` is the library's namespace, never a key of the app's own. The
-owner rewords them on the Translations page like any other; 009 copied the
-app's own words for the kit there.
+language and theme switches, the dialogs), of its status page, of its
+sign-in screens (`anotoki.signIn.*`) and of the feedback form
+(`anotoki.feedback.*`) -, written by its migration set `anotoki_translations`
+only where a key has no string yet: `anotoki.` is the library's namespace,
+never a key of the app's own. The owner rewords them on the Translations page
+like any other; 009 copied the app's own words for the kit there, 010 the
+owner's rewording of a failed sign-in's, where there is one. The admin tools' pages
+(People, Feedback, Errors, Audit log, Backups) are English, as the admin panel
+is: their words are no keys.
 
 ### The anotoki library
 
-The database migrations and the app's words are the anotoki library's
-(`anotoki-lib`, shared by every anotoki site:
-https://github.com/irelevant25/anotoki-lib, a clone of it beside this
+The database migrations, the app's words, the sign-in, the people and the
+admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
+site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both are
-0.3.0 (the translations, and the kit a piece at a time):
+0.4.1 (0.3.0 the translations and the kit a piece at a time; 0.4.0 the
+sign-in, the people and the admin tools; 0.4.1 a fix):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
   for this site: its `migrations` table as it has always been, each file sent
-  whole, a file without its last line a draft, and after this app's own
-  files the library's set `anotoki_translations` (recorded as
-  `anotoki_translations/001_…`; a draft of the app's holds it back too) -,
-  the gate in front of every route (`SiteGate`, `backend/api/app.php`: 503
-  `not_set_up` and `update_pending`, and the few addresses that stay open),
-  `/api/site-status`, the Migrations page's addresses, and the words
-  (`Anotoki\Lib\Translations`: the words' address, the admin panel's
-  addresses for the strings and the languages, `TranslationsCommand` behind
-  `backend/translations.php`);
+  whole, a file without its last line a draft, and four sets of files in
+  this order: the library's `anotoki_admin` (the audit log's and the
+  feedback's tables), this app's own, the library's `anotoki_translations`
+  and `anotoki_people` (recorded as `anotoki_admin/001_…` and so on; a draft
+  of the app's holds every one after it back too, and on any database but
+  the tests' every library file, the `anotoki_admin` ones before it as
+  well) -, the gate in front of
+  every route (`SiteGate`, `backend/api/app.php`: 503 `not_set_up` and
+  `update_pending`, and the few addresses that stay open), `/api/site-status`,
+  the Migrations page's addresses, the words (`Anotoki\Lib\Translations`:
+  the words' address, the admin panel's addresses for the strings and the
+  languages, `TranslationsCommand` behind `backend/translations.php`), the
+  sign-in's server half (`Anotoki\Lib\Auth`: the IAM's tokens checked, who a
+  request is, the boot configuration - `backend/src/auth.php`; it replaced
+  the IAM's PHP SDK, `src/anotoki_iam.php`), the people
+  (`Anotoki\Lib\People`: each person's row kept from their token, the scrub
+  of the accounts the IAM deleted, the People page's addresses -
+  `backend/src/people.php`) and the admin tools (`Anotoki\Lib\ErrorLog`,
+  `Audit`, `Feedback`, `Backups` - `backend/src/admin.php`,
+  `backend/api/routes/admin.php`); its stand-in IAM and test IAM for the
+  tests (`php/testing/`);
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
   shows, and the Migrations page (`@anotoki/lib/migrations/page`) - wired to
-  this app in `frontend/src/app/core/site-status.config.ts`. The pages are
+  this app in `frontend/src/app/core/site-status.config.ts`. The sign-in
+  (`@anotoki/lib/auth`: the session, the callback, the guards, the
+  interceptor, the failure's screen; it replaced the IAM's browser SDK,
+  `core/auth/sdk/`) - wired in `core/auth/auth.config.ts`, behind this app's
+  `AuthService`. The People page (`@anotoki/lib/people/page`), the admin
+  tools' pages and the panel's badge (`@anotoki/lib/admin`) - wired in
+  `core/admin.config.ts` - and the visitors' feedback form
+  (`@anotoki/lib/feedback/form`) - wired in `core/feedback.config.ts`. The pages are
   the gate's marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
   in `app.component.html`): made only while the site is open, so none runs
@@ -246,7 +274,7 @@ To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.3"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.4.1"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);
@@ -261,8 +289,8 @@ version is 0.x a new minor version may need changes here: read its
 | Command | What | Time |
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | the PHP unit and API tests, each file in its own throwaway database (`… run.php backend/tests/api/exam-api.test.php` runs some files) | ~25 s |
-| `npm test` in `frontend/` | the Angular unit tests (Vitest, in jsdom): answer checking against the whole catalog, the session engine, the interceptor, the changelog … | ~15 s |
-| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the tests' stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, the whole study loop, an exam, the top bar's keys and menus, Your data, sign-out, the admin panel by role, People, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held | ~4 min |
+| `npm test` in `frontend/` | the Angular unit tests (Vitest, in jsdom): answer checking against the whole catalog, the session engine, the sign-in as this app sees it, the changelog … | ~15 s |
+| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, Your data, sign-out, the admin panel by role, People, feedback sent from the foot and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held | ~4 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js` | the setup page in Edge, on a built upload: this computer's way and a website's, each then signing in | ~1 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark), then the top bar measured at 360–1280 px and its menus → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, a bar out of its row; look at the shots | ~10 min |
 
@@ -324,8 +352,9 @@ node backend/tools/pdf/pages.js textbook-1 12-14          # page images; the aca
   only from the tokens in `frontend/src/styles/_tokens.scss`, each defined
   for light and dark (the palette is given to the library's tokens there);
   every screen works at phone width (390 px). The app talks to the backend through
-  `ApiService` and the HTTP interceptor, which adds the sign-in's token to this
-  site's `/api` and `/report` addresses only.
+  `ApiService` and the anotoki library's HTTP interceptor, which adds the
+  sign-in's token (or a visitor's key) to this site's `/api` and `/report`
+  addresses only.
 - **Migrations** are numbered SQL files in `backend/migrations/`; a committed
   one is never edited, and every one after 001 ends with `-- end of NNN` —
   written last: without it a migration is a draft, which no real database

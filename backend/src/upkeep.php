@@ -70,14 +70,16 @@ function upkeep_stamp(): string
  * the same, the tries are of the same files on the same tables (a failed one
  * rolls back, and nobody can study while one waits), so the copy is still
  * what is there. Another upload, a fixed file or the failing one put back
- * after the site was used, changes the stamp, and gets its own copy.
+ * after the site was used, changes the stamp, and gets its own copy. (The
+ * note is .before-migration-raw.json: the anotoki library's backup before an
+ * update keeps a note of its own, .before-migration.json, in the same folder.)
  */
 function upkeep_copy_before(array $ready, string $stamp): ?string
 {
     if (!$ready || !db_value("SELECT to_regclass('srs_progress') IS NOT NULL") || !learner_has_data(true)) {
         return null;
     }
-    $note = backup_dir() . '/.before-migration.json';
+    $note = backup_dir() . '/.before-migration-raw.json';
     $now = ['database' => db_name(), 'stamp' => $stamp, 'pending' => $ready];
     $last = is_file($note) ? json_decode((string) @file_get_contents($note), true) : null;
     if (is_array($last) && array_intersect_key($last, $now) === $now) {
@@ -97,13 +99,25 @@ function upkeep_copy_before(array $ready, string $stamp): ?string
  * stops the apply before anything runs, with a sentence that says so: the
  * reason only to this computer (error_reason()), and to the error log.
  *
+ * Then the anotoki library's backup of the whole database before an update
+ * (academy_backups()'s beforeApplyHook(), src/admin.php: once for each list of
+ * pending files, none for a database that has nothing applied yet), named in
+ * the note too; one that cannot be made stops the apply as well. The two sit
+ * side by side (the owner's choice may drop the raw copy one day).
+ *
  * It runs once there is something to apply, so it also asks for the time the
- * work may take: the copy and the files, seconds perhaps, on a website whose
+ * work may take: the copies and the files, seconds perhaps, on a website whose
  * PHP stops a request after 30. Cut off by the time limit, or by the
  * administrator leaving the page, the file being applied would roll back
  * whole, and every try after it stop at the same place.
  */
 function upkeep_before_apply(?string &$backup = null): Closure
+{
+    return academy_backups()->beforeApplyHook(upkeep_raw_copy_before_apply($backup));
+}
+
+/** upkeep_before_apply()'s first half: this site's raw copy of every table. */
+function upkeep_raw_copy_before_apply(?string &$backup = null): Closure
 {
     return static function (PDO $pdo, array $files) use (&$backup): ?string {
         if (function_exists('set_time_limit')) {

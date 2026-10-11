@@ -12,13 +12,18 @@
         <router-outlet />
       }
       @case ('visiting') {
-        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor; a sign-in that came back without one is said above it. -->
-        <app-sign-in-failed />
-        <router-outlet />
+        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page). -->
+        @if (auth.signInError()) {
+          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure /></main>
+        } @else {
+          <router-outlet />
+        }
       }
       @case ('signed-out') {
-        <!-- On the way to the IAM (signInGuard) nothing is drawn; the card only after a failed sign-in, or a session that ended here. -->
-        @if (auth.showSignIn()) {
+        <!-- A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
+        @if (auth.signInError()) {
+          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure /></main>
+        } @else if (auth.showSignIn()) {
           <app-sign-in />
         }
       }
@@ -31,6 +36,7 @@
 
 <footer class="foot">
   <app-version />
+  <app-feedback-button />
 </footer>
 
 <!-- The kit's one question (ConfirmService: the admin panel's "Delete…?", "Leave without saving?"), drawn over the page. -->

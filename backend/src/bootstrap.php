@@ -63,9 +63,7 @@ require __DIR__ . '/util.php';
 require __DIR__ . '/errors.php';
 require __DIR__ . '/db.php';
 
-// The IAM's SDK, a copy this app never edits (docs/kb/sign-in.md).
-require __DIR__ . '/anotoki_iam.php';
-
+// Who is asking: the anotoki library's auth module, set up for this site (docs/kb/sign-in.md).
 require __DIR__ . '/auth.php';
 require __DIR__ . '/access.php';
 require __DIR__ . '/users.php';
@@ -87,4 +85,5 @@ require __DIR__ . '/translations.php';
 require __DIR__ . '/backup.php';
 require __DIR__ . '/me.php';
 require __DIR__ . '/people.php';
+require __DIR__ . '/admin.php';
 require __DIR__ . '/upkeep.php';

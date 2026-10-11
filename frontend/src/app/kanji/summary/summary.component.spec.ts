@@ -8,6 +8,7 @@ import { CatalogItem, Stage, Summary } from '../../core/api/api.types';
 import { KanjiStateService } from '../kanji-state.service';
 import { DoneEntry, SessionResult } from '../session/session-engine';
 import { SummaryComponent } from './summary.component';
+import { provideAuth } from '../../core/auth/auth.config';
 
 const ENGLISH: Record<string, string> = {
   'summary.title.lesson': 'Lessons done',
@@ -132,6 +133,7 @@ describe('SummaryComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         provideRouter([]),
         options.slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: {} },

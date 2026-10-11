@@ -161,7 +161,7 @@ test('without a built app, the pages say how to build it; the API answers all th
 });
 
 test('the browser is told where to sign in, and health needs no token', function (): void {
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, no_token())['body']);
     $health = call($GLOBALS['app']['base'], 'GET', '/api/health', null, no_token())['body'];
     assert_false(isset($health['auth']), 'there is one way to sign in: health names none');
     assert_same(true, $health['contentCurrent']);

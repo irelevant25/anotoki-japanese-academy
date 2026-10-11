@@ -10,7 +10,7 @@
 // choice every anotoki site follows), which then win over the language's.
 
 import type { TranslationParams } from '@anotoki/lib/translations';
-import type { AnotokiDateFormat, AnotokiTimeFormat } from './auth/sdk/anotoki-auth';
+import type { AnotokiDateFormat, AnotokiTimeFormat } from '@anotoki/lib/auth';
 
 /**
  * What words a time: TimeWording is one; a spec may hand in its own. The

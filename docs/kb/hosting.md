@@ -12,7 +12,7 @@ meant for `https://japanese.anotoki.eu`, with sign-in through the anotoki IAM
 |---|---|
 | `composer start` in `backend/`: PHP's built-in server, `router.php` as its router | Apache, the site's document root at `public/` (the built app, `index.php`, `.htaccess`): `.htaccess` sends `/api`, `/audio`, `/report` and `/setup.php` to `index.php`, and serves the app's files itself |
 | both hand the request to the same front controller, `backend/api/front.php`, and the same Slim app | |
-| the start-time work, lazily: nothing at start; the first request after the files changed rebuilds the study content, and a new migration waits for an ADMIN's Apply on the admin panel's Migrations page (a raw copy of every table first); the day's first page load takes the day's backup | the same, after an upload (`backend/src/upkeep.php`) |
+| the start-time work, lazily: nothing at start; the first request after the files changed rebuilds the study content, and a new migration waits for an ADMIN's Apply on the admin panel's Migrations page (a raw copy of every table and the library's backup of the whole database first); the day's first page load takes the day's backups; after an answer, at most hourly, the scrub of the accounts the IAM deleted | the same, after an upload (`backend/src/upkeep.php`, the library's `PeopleUpkeep` and `Backups`) |
 | sign-in through the development IAM (`http://localhost:4300`) | sign-in through `https://iam.anotoki.eu`: the one way there is, on both |
 | the setup page without a token (this computer) | the setup page with a token, which deletes itself when done |
 | Composer's packages from `backend/vendor/` (committed) | the same folder, uploaded: there is no shell to install them |
@@ -66,8 +66,12 @@ The raw copy of every table is taken once per upload, before the first
 Apply (or the setup page's Save, or `manage.php --sync`): a migration that
 fails rolls back whole, the Apply stops there and tells its `ADMIN` why, and
 the next Apply tries it again without another full copy.
-`backend/storage/backups/.before-migration.json` notes the stamp and the
-pending migrations the last copy was taken with; while both are the same,
+`backend/storage/backups/.before-migration-raw.json` notes the stamp and the
+pending migrations the last copy was taken with (`.before-migration.json`
+until 2026-10-11: that name is the library's note now, for its own backup
+before an update, taken right after the raw copy; on a site that has the
+old note, the library writes over it at its first Apply, and the raw copy
+is taken once more - nothing else is lost); while both are the same,
 the tries are of the same files on the same tables (nobody can study while a
 migration waits), and the copy is still what the tables hold. Another upload
 — the fixed file, or the failing one taken out and put back after the site
@@ -95,7 +99,10 @@ It sets no `DirectoryIndex` and no `Options`: a host that does not allow those
 in `.htaccess` would answer 500 for the whole site.
 
 On a hosted site, errors reach the browser as a sentence only (the error log
-has the details: a database error names the user and the host) - except why
+has the details: a database error names the user and the host; the
+admin panel's **Errors** page shows the library's own, redacted log of what
+went wrong, in `backend/storage/logs/` - *Logs and backups on the site*,
+below) - except why
 the Migrations page's Apply stopped, which its ADMIN reads in PostgreSQL's
 own words, as on the IAM's page (and the log has it too) - and
 `/api/health` leaves out the database's name, the backup folder and the owner.
@@ -115,7 +122,7 @@ draft would wait on the site, and the study content with it.
 | Folder | What | On the host |
 |---|---|---|
 | `public/` | the built Angular app, `index.php` (the front controller) and `.htaccess` | **the document root**: point the (sub)domain here |
-| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`; `data/`: what the study content is built from (the `backend/data/` files of `CONTENT_FILES`) and the clips `data/audio/*.mp3`; and an empty `storage/` (writable by PHP) for the daily copies (`storage/backups/`), the IAM's keys and the setup page's lock | beside `public/` |
+| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`; `data/`: what the study content is built from (the `backend/data/` files of `CONTENT_FILES`) and the clips `data/audio/*.mp3`; and an empty `storage/` (writable by PHP) for the daily copies and the library's backups (`storage/backups/`), the error log (`storage/logs/`), the IAM's keys and the library's stamps (`storage/cache/`), the library's key (`storage/anotoki-lib.key`) and the setup page's lock | beside `public/` |
 
 Nothing else goes up beside `public/` (until 2026-10-04 the upload had
 `data/` and `backups/` there too; see *Updates* for the one-time move on a
@@ -239,6 +246,25 @@ bar says what it said. Before the upload:
   be);
 - upload `backend/vendor/` first: the new code needs the library's classes,
   and a request served between the two would fail.
+
+**The update that brings the library's sign-in, people and admin tools**
+(anotoki-lib 0.4.1) brings the library's `anotoki_admin` 001 and 002, this
+app's 010 (a draft until the owner accepts it: no upload is built before
+then), the library's `anotoki_translations` 003 and 004 and its
+`anotoki_people` 001 - one **Apply pending**, in that order, after the raw
+copy and the library's first backup of the whole database. Before the
+upload:
+
+- upload `backend/vendor/` first, as before (the new code needs the
+  library's `Auth`, `People` and admin tools classes); `backend/src/anotoki_iam.php`
+  left on the host is read by nothing any more - delete it by FTP whenever
+  you like;
+- the browser keeps everybody signed in across it (the library reads the
+  sessions where the IAM's SDK kept them);
+- the old raw copy's note, `backend/storage/backups/.before-migration.json`,
+  becomes the library's note at the first Apply (*How the same app runs
+  under Apache*, above); every backup and log already there stays where it
+  is.
 
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
@@ -379,8 +405,9 @@ attempts, 20,000 answers, their items), and 300 of them about 1.2 GB - a
 worst case nobody reaches by studying, but somebody could on purpose. Lower
 `max_attempts`, `max_answers` or `max` when the host's database is small.
 
-**Watching it.** `GET /api/admin/visitors` (ADMIN; a line on the People page:
-"Visitors (not signed in): N, the oldest seen …") says how many visitors there are and the longest unseen;
+**Watching it.** The People page's line about the visitors (ADMIN; the
+`visitors` of `GET /api/admin/people`, until 2026-10-11 `GET
+/api/admin/visitors`) says how many visitors there are and the longest unseen;
 `manage.php --check` counts them. Somebody who makes visitors from many
 addresses (10 an hour from each) can fill the 300 in hours, and they then
 stay for their 30 days: new visitors are refused (people who sign in never
@@ -421,14 +448,86 @@ alone before their reset, before they bring a file back and before an
 administrator deletes their data, and before what they studied without
 signing in moves into their account (`academy-before-reset-user-<id>-<time>.json`,
 `…-before-import-…`, `…-before-delete-…`, `…-before-move-…`; their last 14 of
-each kept; never a visitor's data, which is in no backup), a raw
+each kept; never a visitor's data, which is in none of these copies), a raw
 copy before a migration, and the strings of a language the owner deleted
 (`academy-before-language-delete-<code>-<time>.json`). A copy of everybody
 also holds the app's words as the owner reworded them (`translations`); a
 restore passes them over, and on a computer `php backend/translations.php
 --import <code> <file>` takes a language's strings from it. Download them by
-FTP now and then: they are the only copy outside the host's database. There is no restore on the site; a backup
-restores on a computer with `php backend/manage.php --restore=FILE`.
+FTP now and then: they are the only copy outside the host's database. They do
+not restore on the site; one restores on a computer with
+`php backend/manage.php --restore=FILE`.
+
+## Logs and backups on the site (the anotoki library's)
+
+Since anotoki-lib 0.4.0 (2026-10-11) the site also keeps the library's admin
+tools, the same on every anotoki site and the site's `ADMIN`'s alone
+([architecture.md](architecture.md), *The admin tools*):
+
+- **The error log**: `backend/storage/logs/errors-<UTC day>.jsonl`, one line
+  for each thing that went wrong (a 5xx, a 404, 405, 413, 415 or 429
+  answered, PHP's warnings and fatal errors), redacted - never a header, a
+  body, a query string or a token; a keyed hash of the address bucket, never
+  the address, and no person's id (a line is written outside the routes,
+  before who is asking is known). Files, so it is written while the
+  database is down too. Read and cleared on the admin panel's **Errors**
+  page. The library keeps 30 days of it, 64 MB at most. (The pages' own
+  errors in the browser come with the library's 0.4.2.) PHP's own error log,
+  the host's, goes on beside it.
+- **The audit log** (the table `anotoki_audit_log`): who did what in the
+  admin panel; read on **Audit log**; kept.
+- **Feedback** (the table `anotoki_feedback`): the messages sent with **Send
+  feedback** at the foot of every page; read on **Feedback**. No mail is
+  sent: the admin panel's bar counts the new ones beside the link.
+- **The library's backups of the whole database**:
+  `backend/storage/backups/<id>.anotoki-backup` with its `.json` beside, beside
+  the app's own copies above: one a day (asked for by the day's first page
+  load, made after its answer), one before every update (the Apply's, right
+  after the app's raw copy), one before a restore, and the `ADMIN`'s own
+  (**Back up now**). The **Backups** page lists them, downloads one (a
+  single-use link), deletes one, and restores one in place (where the
+  database's schema is the backup's; the audit log and the bookkeeping stay,
+  and so do the app's own copies) - each of those after a sign-in of the last
+  ten minutes (**Sign in again** asks the IAM for the password). **How many
+  are kept is the library's rotation by number**: the last 14 daily ones, 5
+  made before an update, 5 before a restore, and the `ADMIN`'s own until the
+  owner deletes them on the Backups page; none is deleted for its age (the
+  owner's decision of 2026-10-11, for every anotoki site: [decisions.md](decisions.md)).
+  Each is about the size of the database: watch the host's disk quota, and
+  delete the `ADMIN`'s own old ones there. A person whose anotoki account the
+  IAM deleted stays in a backup made before, until it rotates out or the
+  owner deletes it. A restore runs the scrub of the IAM's deleted accounts
+  at once (when the IAM cannot be reached, the page says so, and the next
+  request tries again); it brings back the data of somebody an `ADMIN`
+  deleted on the People page after the backup was made - delete it there
+  again (the library does it by itself from its 0.4.2).
+
+Nothing of this deletes a file that was there before it: the app's own JSON
+copies keep their own rule (the last 14 days', each person's last 14 of each
+kind), and backups or logs already on a host stay where they are, for the
+owner to remove. Every folder the library writes is guarded by a deny-all
+`.htaccess`, in case the document root ends up above `public/`.
+
+**The scrub of the IAM's deleted accounts** needs the same outbound HTTPS as
+the sign-in's keys: at most once an hour, after an answer, the site asks
+`{issuer}/api/public/anonymized-accounts` and blanks who each deleted
+account was here ([sign-in.md](sign-in.md), *Accounts the IAM deleted*). The
+People page says when it last asked, and why it stopped if it did; **Check
+now** asks at once.
+
+**The update that brings anotoki-lib 0.4** asks for one Apply that runs, in
+order, the library's `anotoki_admin/001_audit_log.sql` and
+`002_feedback.sql`, this app's `010_people_and_signing_in.sql`, the
+library's `anotoki_translations/003_sign_in_words.sql` and
+`004_feedback_words.sql`, and `anotoki_people/001_people.sql` - with the raw
+copy and the library's backup before it. While 010 is a draft (it is, until
+the owner writes its last line), `build-dist.php` refuses to build the
+upload, and on the owner's own computer, serving this working tree, every
+one of them waits with it - the library's files too, the `anotoki_admin`
+ones that run before 010 included (`db_migration_ready()`: while one of this
+site's own files is a draft, the library's files wait on every database but
+the tests'). So their study pages keep working, and nothing of the change -
+not even the library's tables - is applied before the owner accepts it.
 
 ## If something is wrong
 
@@ -444,6 +543,9 @@ restores on a computer with `php backend/manage.php --restore=FILE`.
 | Apply says another database update is running (409) | another Apply, the setup page, `manage.php` or the content's rebuild after an upload holds the lock (Apply does not wait for it): let that one finish, then Apply again |
 | after an Apply the list still shows a "draft" | the files before it are applied; that one has no last line yet (still uploading): upload it whole, then Apply again |
 | a new migration is listed as a "draft" ("it does not run until it is finished"), and Apply stays off | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
+| the Backups page offers **Sign in again** instead of making, downloading, deleting or restoring | each of those wants a sign-in of the last ten minutes (the token's `auth_time`): sign in again there, and the IAM asks for the password |
+| the People page says not everything it needs is in the database yet | migration 010 or the library's `anotoki_people/001` has not been applied: **Apply pending** on the Migrations page (010 waits as a draft until the owner writes its last line) |
+| the People page says the last check of the IAM's deleted accounts stopped | the server could not ask the IAM (outbound HTTPS blocked, the IAM away): it asks again within the hour; **Check now** tries at once |
 | the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
 | the page says "This site is not set up yet" on a copy that was set up long ago | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone (`php backend/manage.php --check` says "sign-in without the IAM is gone"): run the setup page and save |
 | the app shows, `/api/...` answers 404 | `mod_rewrite` is off, or the document root is not `public/` |

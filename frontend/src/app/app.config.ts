@@ -1,12 +1,15 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter, TitleStrategy, withDisabledInitialNavigation, withInMemoryScrolling } from '@angular/router';
+import { anotokiAuthInterceptor } from '@anotoki/lib/auth';
 import { siteStatusInterceptor } from '@anotoki/lib/migrations';
 import { ThemeService } from '@anotoki/lib/shell';
 import { routes } from './app.routes';
+import { provideAdminTools } from './core/admin.config';
 import { notSetUpInterceptor } from './core/api/not-set-up.interceptor';
-import { authInterceptor } from './core/auth/auth.interceptor';
+import { provideAuth } from './core/auth/auth.config';
 import { boot } from './core/boot';
+import { provideFeedback } from './core/feedback.config';
 import { AcademyTitleStrategy } from './core/i18n/title.strategy';
 import { provideTranslations } from './core/i18n/translations.config';
 import { provideKit } from './core/kit.config';
@@ -35,17 +38,28 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withDisabledInitialNavigation(), withInMemoryScrolling({ anchorScrolling: 'enabled' })),
     // A page's title in the language on the page, before the app's name.
     { provide: TitleStrategy, useClass: AcademyTitleStrategy },
-    // The token on the way out; on the way back, an answer that the site is
-    // being updated, or not set up after all, tells SiteStatus, and the gate
-    // puts up the library's page (core/site-status.config.ts) - not set up,
-    // nothing of the app goes on either.
-    provideHttpClient(withInterceptors([siteStatusInterceptor, notSetUpInterceptor, authInterceptor])),
+    // The token (or a visitor's key) and the reader's time zone on the way out
+    // - the anotoki library's interceptor (core/auth/auth.config.ts); on the
+    // way back, an answer that the site is being updated, or not set up after
+    // all, tells SiteStatus, and the gate puts up the library's page
+    // (core/site-status.config.ts) - not set up, nothing of the app goes on
+    // either.
+    provideHttpClient(withInterceptors([siteStatusInterceptor, notSetUpInterceptor, anotokiAuthInterceptor])),
     provideSiteStatus(),
+    // Signing in through the anotoki IAM: the anotoki library's auth module,
+    // wired to this app (core/auth/auth.config.ts).
+    provideAuth(),
     // The app's words and languages: the anotoki library's translations, wired
     // to this app (core/i18n/translations.config.ts) - the admin panel's
     // Translations and Languages pages with them.
     provideTranslations(),
     // The anotoki library's kit, its bar and its theme, in this app's words.
     provideKit(),
+    // The admin panel's People, Errors, Audit log, Feedback and Backups pages
+    // (the anotoki library's, each loaded with its route; core/admin.config.ts),
+    // and the visitors' feedback form behind Send feedback at the foot
+    // (core/feedback.config.ts).
+    provideAdminTools(),
+    provideFeedback(),
   ],
 };

@@ -56,7 +56,8 @@ test('the check at the end fails the migration when a row changed on the way, an
         db()->exec('DROP TRIGGER academy_test_tamper ON srs_progress');
         db()->exec('DROP FUNCTION academy_test_tamper()');
     }
-    assert_same(['001_init.sql'], array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'), 'not applied');
+    // The anotoki library's admin tools' tables come first (db_migration_sets()) and stay: they hold nothing of anybody's.
+    assert_same(array_merge(['001_init.sql'], library_migrations('anotoki_admin')), array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'), 'not applied');
     assert_same(null, db_value("SELECT to_regclass('users')"), 'no users table');
     assert_same(null, db_value("SELECT column_name FROM information_schema.columns WHERE table_name = 'srs_progress' AND column_name = 'user_id'"));
     assert_same($before, rows_001(), 'every row as it was');
@@ -68,8 +69,8 @@ test('every row comes through as it was, and is the owner’s', function (): voi
     sort($after001);
     assert_same(['002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
         array_slice($after001, 0, 6), 'the migrations of this test, the first of every file after 001');
-    // Then the anotoki library's set of the words, after this site's own (db_migration_sets()).
-    assert_same(array_merge($after001, library_migrations()), db_migrate(), 'every one after 001, in order, the library’s last');
+    // Then the anotoki library's sets of the words and the people, after this site's own (db_migration_sets()).
+    assert_same(array_merge($after001, library_migrations(), library_migrations('anotoki_people')), db_migrate(), 'every one after 001, in order, the library’s last');
     assert_same($before, rows_001(), 'the same rows, the same content');
     foreach (USER_TABLES as $table) {
         assert_same([1], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')), "$table: the owner's");

@@ -1,19 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, provideZonelessChangeDetection, signal } from '@angular/core';
+import { HttpTestingController } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { provideAnotokiAdmin } from '@anotoki/lib/admin';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { ThemeService } from '@anotoki/lib/shell';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppState, AuthService } from '../core/auth/auth.service';
-import { AnotokiPreferenceChanges, AnotokiUser } from '../core/auth/sdk/anotoki-auth';
+import { AnotokiPreferenceChanges, AnotokiUser } from '@anotoki/lib/auth';
 import { provideKit } from '../core/kit.config';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { derivedFromState, derivedFromUser, NO_CHOICE } from '../core/testing/auth-states';
 import { provideKitEnglish } from '../core/testing/kit-english';
 import { provideTestSiteStatus } from '../core/testing/site-status';
 import { KanjiStateService } from '../kanji/kanji-state.service';
-import { ADMIN_PHONE_BAR_MAX, NAME_BAR_MIN, PHONE_BAR_MAX, TopBarComponent } from './top-bar.component';
+import { ADMIN_NAME_BAR_MIN, ADMIN_PHONE_BAR_MAX, ADMIN_SHORT_BRAND_MAX, NAME_BAR_MIN, PHONE_BAR_MAX, TopBarComponent } from './top-bar.component';
 
 /**
  * The bar's words as the database has them since migration 009: the app's
@@ -112,12 +114,13 @@ describe('TopBarComponent', () => {
     user,
     ...derivedFromUser(state, user),
     showSignIn,
+    signInError: signal<{ code: string } | null>(null),
     displayName: computed(() => user()?.preferred_username || user()?.email || ''),
     isAdmin: computed(() => roles().includes('ADMIN')),
     isStaff: computed(() => roles().includes('ADMIN') || roles().includes('EDITOR')),
     accountUrl: () => 'https://iam.example.test/account',
-    login: vi.fn(async (_uiLocales?: string) => true),
-    logout: vi.fn(async () => undefined),
+    login: vi.fn(async (_returnTo?: string) => true),
+    logout: vi.fn(async () => true),
     savePreferences: (changes: AnotokiPreferenceChanges) => {
       saved.push(changes);
       return refuseWith === undefined ? Promise.resolve({}) : Promise.reject(Object.assign(new Error('refused'), { code: refuseWith }));
@@ -289,12 +292,17 @@ describe('TopBarComponent', () => {
   });
 
   it('in the admin panel: its sections, English, for whom they are; no language; the brand "anotoki Japanese · admin panel" to the panel, by its name', async () => {
+    windowOf(ADMIN_SHORT_BRAND_MAX + 1);
     await draw();
     await at('/admin/translations');
     expect(links().map(described)).toEqual([
       'Translations /admin/translations [page] [here]',
       'Languages /admin/languages',
       'People /admin/people',
+      'Feedback /admin/feedback',
+      'Errors /admin/errors',
+      'Audit log /admin/audit',
+      'Backups /admin/backups',
       'Migrations /admin/migrations',
     ]);
     expect(links().every((link) => link.getAttribute('lang') === 'en')).toBe(true);
@@ -307,13 +315,33 @@ describe('TopBarComponent', () => {
       'Translations /admin/translations',
       'Languages /admin/languages',
       'People /admin/people',
+      'Feedback /admin/feedback',
+      'Errors /admin/errors',
+      'Audit log /admin/audit',
+      'Backups /admin/backups',
       'Migrations /admin/migrations [page] [here]',
     ]);
 
-    // An editor's admin panel is Translations alone: Languages, People and Migrations are an administrator's.
+    // An editor's admin panel is Translations alone: every other page is an administrator's.
     roles.set(['EDITOR']);
     await fixture.whenStable();
     expect(links().map(described)).toEqual(['Translations /admin/translations']);
+  });
+
+  it('the new feedback beside Feedback, asked for as the site’s ADMIN enters the panel (the anotoki library’s FeedbackUnread: no mail is sent for a message)', async () => {
+    windowOf(ADMIN_PHONE_BAR_MAX + 1);
+    TestBed.configureTestingModule({ providers: [provideAnotokiAdmin(() => ({ isAdmin: () => roles().includes('ADMIN') }))] });
+    await draw();
+    const http = TestBed.inject(HttpTestingController);
+    expect(http.match('/api/admin/feedback/unread'), 'not asked on the learner’s pages').toEqual([]);
+    await at('/admin/translations');
+    const asked = http.match('/api/admin/feedback/unread');
+    expect(asked.length).toBeGreaterThan(0);
+    asked.forEach((request) => request.flush({ unread: 3 }));
+    await new Promise((done) => setTimeout(done));
+    await fixture.whenStable();
+    expect(links().map(words)).toContain('Feedback 3');
+    expect(words(host.querySelector('nav.anotoki-top-bar__nav a[href="/admin/feedback"] .anotoki-top-bar__badge'))).toBe('3');
   });
 
   it('reads in English in the admin area, whatever the person reads — the kit’s words too, with no case of its own', async () => {
@@ -547,7 +575,21 @@ describe('TopBarComponent', () => {
     expect(words(signInButton())).toBe('Prihlásiť sa');
     signInButton()!.click();
     await new Promise((done) => setTimeout(done));
-    expect(auth.login).toHaveBeenCalledWith('sk');
+    expect(auth.login).toHaveBeenCalledTimes(1);
+  });
+
+  it('signed out after a sign-in that came back without one (the anotoki library’s screen on the page): Sign in there too — and no links', async () => {
+    state.set('signed-out');
+    user.set(null);
+    roles.set([]);
+    auth.signInError.set({ code: 'access_denied' });
+    try {
+      await draw();
+      expect(links()).toEqual([]);
+      expect(words(signInButton())).toBe('Prihlásiť sa');
+    } finally {
+      auth.signInError.set(null);
+    }
   });
 
   it('visiting (nobody signed in, sign-in not required here): Kanji and Exam, and Sign in — nobody’s menu', async () => {
@@ -577,7 +619,7 @@ describe('TopBarComponent', () => {
 
     land();
     await new Promise((done) => setTimeout(done));
-    expect(auth.login).toHaveBeenCalledWith('sk');
+    expect(auth.login).toHaveBeenCalledTimes(1);
   });
 
   it('visiting: an exam paper open is asked about first, in the words of signing in — and Cancel stays', async () => {
@@ -755,7 +797,7 @@ describe('TopBarComponent', () => {
       await draw();
       await at('/admin/translations');
       await openMenu();
-      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
+      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
       items()[1].click();
       await fixture.whenStable();
       expect(items()).toEqual([]);
@@ -782,7 +824,7 @@ describe('TopBarComponent', () => {
       items()[0].click();
       await new Promise((done) => setTimeout(done));
       await fixture.whenStable();
-      expect(auth.login).toHaveBeenCalledWith('sk');
+      expect(auth.login).toHaveBeenCalledTimes(1);
       expect(items()).toEqual([]);
     });
 
@@ -797,7 +839,7 @@ describe('TopBarComponent', () => {
       expect(items().map(words)).toEqual(['Kanji', 'Skúška', 'Prihlásiť sa']);
       items()[2].click();
       await new Promise((done) => setTimeout(done));
-      expect(auth.login).toHaveBeenCalledWith('sk');
+      expect(auth.login).toHaveBeenCalledTimes(1);
     });
 
     it('visiting: Sign in waits in the open menu — its spinner and “Saving…”, the focus on the menu button, never on <body> — then the IAM, the menu closed', async () => {
@@ -823,7 +865,7 @@ describe('TopBarComponent', () => {
       land();
       await new Promise((done) => setTimeout(done));
       await fixture.whenStable();
-      expect(auth.login).toHaveBeenCalledWith('sk');
+      expect(auth.login).toHaveBeenCalledTimes(1);
       expect(items()).toEqual([]);
       expect(phoneButton().getAttribute('aria-expanded')).toBe('false');
       expect(document.activeElement).toBe(phoneButton());
@@ -868,7 +910,7 @@ describe('TopBarComponent', () => {
       expect(host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless')).toBe(false);
     });
 
-    it(`the admin panel's four links fold up to ${ADMIN_PHONE_BAR_MAX} px, "Japanese" and "admin panel" beside the button; its name beside the initial from ${NAME_BAR_MIN} too`, async () => {
+    it(`the admin panel's eight links fold up to ${ADMIN_PHONE_BAR_MAX} px, "Japanese" and "admin panel" beside the button; the full brand from ${ADMIN_SHORT_BRAND_MAX + 1}, the name beside the initial from ${ADMIN_NAME_BAR_MIN}`, async () => {
       windowOf(ADMIN_PHONE_BAR_MAX);
       await draw();
       await at('/admin/translations');
@@ -877,12 +919,18 @@ describe('TopBarComponent', () => {
       expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['Japanese', '·', 'admin panel']);
       expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese admin panel: home');
       await openMenu();
-      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
+      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
       await resize(ADMIN_PHONE_BAR_MAX + 1);
       expect(items(), 'the menu closes as the bar unfolds').toEqual([]);
-      expect(links().map(words)).toEqual(['Translations', 'Languages', 'People', 'Migrations']);
+      expect(links().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations']);
+      expect(parts('anotoki-brand .anotoki-brand__wordmark > span'), 'the short brand beside the eight links').toEqual(['Japanese', '·', 'admin panel']);
+      const nameless = () => host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless');
+      expect(nameless(), 'the initial alone').toBe(true);
+      await resize(ADMIN_SHORT_BRAND_MAX + 1);
       expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['anotoki', 'Japanese', '·', 'admin panel']);
-      expect(host.querySelector('header.anotoki-top-bar__topbar')?.classList.contains('anotoki-top-bar__topbar--nameless')).toBe(false);
+      expect(nameless()).toBe(true);
+      await resize(ADMIN_NAME_BAR_MIN);
+      expect(nameless(), 'and the name beside it').toBe(false);
       // The learner's pages fold at their own width: a desktop's bar at the same window.
       await resize(ADMIN_PHONE_BAR_MAX);
       await at('/kanji');

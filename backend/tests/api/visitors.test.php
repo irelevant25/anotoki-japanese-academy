@@ -90,7 +90,7 @@ function eventually(callable $done, string $message): void
 
 test('the relay says sign-in is not required here, and how long a visitor\'s data is kept', function (): void {
     $r = call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, nobody());
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => false, 'visitorKeepDays' => 30], $r['body']);
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => false, 'sign_in_available' => true, 'visitor_keep_days' => 30], $r['body']);
 });
 
 test('nobody reads as a learner with no data, and nothing is written: the reads, a paper, the resets', function (): void {
@@ -172,6 +172,46 @@ test('a first save that is refused or fails makes nobody and counts nothing', fu
     assert_same($before, visitors_here(), 'nobody made');
     new_visitor($base, 'k:一');
     assert_same($before + 1, visitors_here(), 'thirteen refused saves from this address, and a new visitor is still welcome (10 an hour)');
+});
+
+/**
+ * A write as another site's page may send it here without asking first (a "simple" request: a form, plain text, or
+ * no type at all), from nobody: its status, its code, and whether it handed out a key.
+ */
+function simple_write(string $base, string $url, ?string $type, string $raw): array
+{
+    $ch = curl_init($base . $url);
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => true,
+        // An empty "Content-Type:" makes curl send none at all.
+        CURLOPT_HTTPHEADER => ['Origin: https://elsewhere.example', 'Content-Type:' . ($type === null ? '' : " $type")],
+        CURLOPT_POSTFIELDS => $raw,
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $out = (string) curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $size = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    $body = json_decode(substr($out, $size), true);
+    return [$status, is_array($body) ? ($body['code'] ?? null) : null, (bool) preg_match('/^x-visitor-key:/mi', substr($out, 0, $size))];
+}
+
+test('a write of any type but JSON is refused before anything happens: 415, nobody made - what another site\'s page could send here unasked', function (): void {
+    $base = $GLOBALS['app']['base'];
+    $before = visitors_here();
+    $writes = ['/api/kanji/settings' => '{"batch":3}', '/api/kanji/learn' => '{"id":"k:大"}', '/api/kanji/item' => '{"id":"k:大","meaningNote":"x"}',
+        '/api/exam' => '{"size":5}', '/api/submit' => '{}'];
+    foreach ($writes as $url => $json) {
+        foreach (['text/plain', 'text/plain;charset=UTF-8', 'application/x-www-form-urlencoded', null, 'application/jsonp'] as $type) {
+            assert_same([415, 'unsupported_media_type', false], simple_write($base, $url, $type, $json), "$url as " . ($type ?? 'no type'));
+        }
+    }
+    assert_same($before, visitors_here(), 'nobody made, no row written');
+    // JSON itself, as ever - with its charset too (which no page can send to another site without asking first).
+    assert_same([200, null, false], simple_write($base, '/api/exam', 'application/json; charset=utf-8', '{"size":5,"seed":"json"}'));
+    assert_same($before, visitors_here(), 'a paper saves nothing');
+    assert_same([], server_problems($GLOBALS['app']));
 });
 
 test('limits: per address (IPv6 by its /64, a trusted proxy\'s header, never X-Forwarded-For alone), per hour, at once; a visitor already here keeps working', function (): void {
@@ -300,21 +340,33 @@ test('sign-in required: a key is 401 sign_in_required and is not even looked at,
         }
         assert_same($seen, db_value('SELECT last_seen_at FROM users WHERE id = ?', [$id]), 'not seen');
         assert_same(200, call($base, 'GET', '/api/kanji/progress')['status'], 'a person, as ever');
-        assert_same(true, call($base, 'GET', '/api/auth/config', null, nobody())['body']['loginRequired'] ?? null, 'the relay says so');
+        assert_same(true, call($base, 'GET', '/api/auth/config', null, nobody())['body']['login_required'] ?? null, 'the relay says so');
     } finally {
         test_access(false);
     }
     assert_same(1, call($base, 'GET', '/api/kanji/progress', null, as_visitor($key))['body']['summary']['learned'] ?? null, 'off again: the visitor\'s data is there');
 });
 
-test('a key opens nothing that needs a signed-in person: a data file, the admin panel, the Migrations page', function (): void {
+test('a key opens nothing that needs a signed-in person: a data file, the admin panel, the Migrations page - and is not even read there', function (): void {
     $base = $GLOBALS['app']['base'];
     $key = new_visitor($base, 'k:大');
-    foreach ([['GET', '/api/me/data'], ['PUT', '/api/me/data'], ['GET', '/api/admin/people'], ['GET', '/api/admin/visitors'],
-        ['GET', '/api/admin/translations'], ['GET', '/api/admin/migrations'], ['POST', '/api/admin/migrations/apply'], ['POST', '/api/visitor/move']] as [$method, $url]) {
-        $r = call($base, $method, $url, $method === 'GET' ? null : new stdClass(), as_visitor($key));
-        assert_same([401, 'sign_in_required'], [$r['status'], $r['body']['code'] ?? null], "$method $url");
+    $id = visitor_of($key);
+    // Last seen an hour ago: a key that was read would be seen now (visitors_find() writes it after five minutes).
+    db_exec("UPDATE users SET last_seen_at = now() - interval '1 hour' WHERE id = ?", [$id]);
+    $seen = db_value('SELECT last_seen_at FROM users WHERE id = ?', [$id]);
+    foreach ([['GET', '/api/me/data'], ['PUT', '/api/me/data'], ['GET', '/api/admin/people'], ['POST', '/api/admin/people/sync'],
+        ['GET', '/api/admin/translations'], ['GET', '/api/admin/migrations'], ['POST', '/api/admin/migrations/apply'], ['POST', '/api/visitor/move'],
+        ['GET', '/api/admin/errors'], ['GET', '/api/admin/audit'], ['GET', '/api/admin/feedback'], ['GET', '/api/admin/backups'], ['POST', '/api/admin/backups']] as [$method, $url]) {
+        // A visitor's key, and one nobody has: the same 401 - the key is no business of an address that takes a person alone.
+        foreach ([$key, stray_key()] as $sent) {
+            $r = call($base, $method, $url, $method === 'GET' ? null : new stdClass(), as_visitor($sent));
+            assert_same([401, 'sign_in_required'], [$r['status'], $r['body']['code'] ?? null], "$method $url");
+        }
     }
+    assert_same($seen, db_value('SELECT last_seen_at FROM users WHERE id = ?', [$id]), 'the visitor not seen: the key was never read');
+    // On a study address the same key is the visitor's, and seen.
+    assert_same(200, call($base, 'GET', '/api/kanji/progress', null, as_visitor($key))['status']);
+    assert_true($seen !== db_value('SELECT last_seen_at FROM users WHERE id = ?', [$id]), 'seen on a study address');
 });
 
 test('a visitor\'s own resets: their progress goes, no copy is taken - a visitor has no data file', function (): void {
@@ -488,13 +540,14 @@ test('no visitor on the People page, in a backup or in the day\'s copy; the admi
     $base = $GLOBALS['app']['base'];
     $key = new_visitor($base, 'k:大');
     $admin = test_bearer(test_token(705, ['ADMIN']));
-    $people = call($base, 'GET', '/api/admin/people', null, $admin)['body']['people'];
-    assert_same([], array_values(array_filter(array_column($people, 'id'), static fn (int $id): bool => $id < 1)), 'people only');
-    $count = call($base, 'GET', '/api/admin/visitors', null, $admin);
-    assert_same(200, $count['status']);
-    assert_same([true, visitors_here(), 30, 300], [$count['body']['ready'], $count['body']['count'], $count['body']['keepDays'], $count['body']['max']]);
-    assert_true(is_int($count['body']['oldestSeenAt']));
-    assert_same(403, call($base, 'GET', '/api/admin/visitors', null, test_bearer(test_token(706, ['EDITOR'])))['status'], 'administrators only');
+    $page = call($base, 'GET', '/api/admin/people', null, $admin);
+    assert_same(200, $page['status'], $page['raw']);
+    assert_same([], array_values(array_filter(array_column($page['body']['people'], 'sub'), static fn (string $id): bool => (int) $id < 1)), 'people only');
+    // The visitors are a line of their own on the People page: how many now, the longest unseen, the limits.
+    $visitors = $page['body']['visitors'];
+    assert_same([visitors_here(), 30, 300], [$visitors['count'], $visitors['keep_days'], $visitors['max']]);
+    assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/', (string) $visitors['oldest_seen_at'], 'the longest unseen, when');
+    assert_same(403, call($base, 'GET', '/api/admin/people', null, test_bearer(test_token(706, ['EDITOR'])))['status'], 'administrators only');
 
     $data = backup_data();
     assert_same([], array_values(array_filter(array_column($data['users'], 'id'), static fn (int $id): bool => $id < 1)), 'a backup holds people only');

@@ -1,6 +1,6 @@
 // The anotoki family's bar is the library's (<anotoki-top-bar>), in this app's palette (the --anotoki-*
 // tokens of styles/_tokens.scss). Sticky, above the page; what sticks under it (the exam's progress)
-// starts at --topbar-height. Two things of Japanese's own:
+// starts at --topbar-height. Three things of Japanese's own:
 :host {
   display: block;
   position: sticky;
@@ -8,6 +8,12 @@
   z-index: 30;
   // the row as wide as the app's widest pages (.wrap.wide), not the kit's 84rem
   --anotoki-topbar-max-width: 1040px;
+}
+
+// The admin panel's row: its eight links, the full brand and the name need more than the learner's 1040 px
+// (top-bar.component.ts, ADMIN_NAME_BAR_MIN).
+:host(.admin) {
+  --anotoki-topbar-max-width: 1540px;
 }
 
 // The reviews due - on the Kanji link, and on the phone's menu button - in the kanji's vermilion, as

@@ -225,7 +225,7 @@ try {
         throw new RuntimeException('These must not be uploaded: ' . implode(', ', $wrong));
     }
     $needed = ['public/index.html', 'public/index.php', 'public/.htaccess', 'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php',
-        'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php', 'backend/config/config.php', 'backend/vendor/autoload.php', 'backend/data/vocab.json'];
+        'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php', 'backend/config/config.php', 'backend/vendor/autoload.php', 'backend/data/vocab.json'];
     foreach ($needed as $file) {
         if (!in_array($file, $built, true)) {
             throw new RuntimeException("$file is missing from the build.");

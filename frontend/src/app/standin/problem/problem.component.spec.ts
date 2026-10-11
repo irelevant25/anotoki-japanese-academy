@@ -4,6 +4,7 @@ import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService, StartProblem } from '../../core/auth/auth.service';
 import { ProblemComponent } from './problem.component';
+import { provideAuth } from '../../core/auth/auth.config';
 
 /** The problem page for a start that failed this way; `admin`: the person signed in is an administrator. */
 async function draw(problem: StartProblem, admin = false): Promise<HTMLElement> {
@@ -26,7 +27,7 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
   let warn: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth()] });
     warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
   afterEach(() => {
@@ -71,7 +72,7 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
     ];
     for (const [problem, reason] of cases) {
       TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth()] });
       const el = await draw(problem);
       expect(said(el), problem.kind === 'server' ? problem.code : problem.kind).toBe(`Japanese Academy could not start: ${reason}`);
     }
@@ -84,7 +85,7 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
       [{ kind: 'offline' }, false],
     ] as [StartProblem, boolean][]) {
       TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth()] });
       const el = await draw(problem, admin);
       expect(el.querySelector('a'), JSON.stringify([problem, admin])).toBeNull();
       expect(Array.from(el.querySelectorAll('button'), (button) => button.textContent?.trim())).toEqual(['Try again']);
@@ -121,7 +122,7 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     'error.not_up_to_date': 'Databáza ešte nie je zosúladená s touto verziou aplikácie: najprv ju musí aktualizovať administrátor. Skús to neskôr.',
   };
 
-  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] }));
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] }));
 
   it('reads in that language, the detail still English, and follows the language when it changes', async () => {
     const el = await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: 'the migration 004 failed' });
@@ -148,7 +149,7 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
       [{ kind: 'signIn', detail: null }, 'Prihlasovanie sa nepodarilo pripraviť.'],
     ] as [StartProblem, string][]) {
       TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] });
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })] });
       expect(said(await draw(problem))).toBe(`Aplikáciu Japanese Academy sa nepodarilo spustiť: ${reason}`);
     }
   });

@@ -5,6 +5,7 @@ import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AuthService } from '../auth/auth.service';
 import { authStandIn, NO_CHOICE, person } from '../testing/auth-states';
 import { LocalDatePipe } from './local-date.pipe';
+import { provideAuth } from '../auth/auth.config';
 
 const ENGLISH = {
   'home.left': 'Left: {n}',
@@ -26,6 +27,7 @@ function pipes(language: 'en' | 'sk', more: Provider[] = []) {
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
+      provideAuth(),
       language === 'sk' ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
       TranslatePipe,
       TranslatePluralPipe,

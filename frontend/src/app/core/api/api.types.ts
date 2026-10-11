@@ -1,13 +1,21 @@
 // What the backend answers (backend/api/routes/*.php), as the frontend reads it.
 
 /**
- * GET /api/auth/config: where the IAM is, which of its clients this site is,
- * whether the IAM requires sign-in here (`loginRequired`: missing reads as
+ * GET /api/auth/config (the anotoki library's AuthRoutes::config(), snake_case
+ * like every anotoki site's): where the IAM is, which of its clients this site
+ * is, whether the IAM requires sign-in here (`login_required`: missing reads as
  * true - the server says false only when the IAM does and visitors can be
- * kept), and how many days a visitor's study is kept after their last visit.
+ * kept), whether the IAM knows this site (`sign_in_available`), and how many
+ * days a visitor's study is kept after their last visit. The camelCase a
+ * server from before the library answered is read too, while an upload is
+ * under way.
  */
 export interface AuthConfig {
   issuer?: string;
+  client_id?: string;
+  login_required?: boolean;
+  sign_in_available?: boolean;
+  visitor_keep_days?: number;
   clientId?: string;
   loginRequired?: boolean;
   visitorKeepDays?: number;
@@ -25,16 +33,6 @@ export interface VisitorMove {
   kept: number;
   attempts: number;
   answers: number;
-}
-
-/** GET /api/admin/visitors (ADMIN): how many visitors the site keeps now; ready false while migration 007 waits. */
-export interface VisitorsCount {
-  ready: boolean;
-  count: number;
-  /** milliseconds, or null when there is none */
-  oldestSeenAt: number | null;
-  keepDays: number;
-  max: number;
 }
 
 /**
@@ -304,19 +302,6 @@ export interface BroughtBack {
   attempts: number;
   reports: number;
   copy: boolean;
-}
-
-/** One person of GET /api/admin/people; times in milliseconds. */
-export interface Person {
-  id: number;
-  username: string | null;
-  createdAt: number | null;
-  lastSeenAt: number | null;
-  timeZone: string | null;
-  /** items learned (a stage above 0) */
-  items: number;
-  /** exam attempts */
-  attempts: number;
 }
 
 /** One line of GET /api/attempts (newest first). */

@@ -16,11 +16,11 @@ node frontend/e2e/setup.js               # the setup page and the anotoki librar
 ```
 
 The script runs the real server (`backend/router.php`) on a throwaway
-database serving that build, with the tests' stand-in IAM as its issuer
+database serving that build, with the anotoki library's stand-in IAM as its issuer
 (`frontend/e2e/helpers.js`), and seeds some progress, so every screen has
 content: 一, 二, 大, 学 and 大学 are learned, and 大 and 学 are due. The person
 on the screens is an ADMIN (a session planted in the browser), so the admin
-area is shot too; the Sign in card is a refused sign-in's. It then drives
+area is shot too; the library's failure screen is a refused sign-in's. It then drives
 Edge and writes `frontend/e2e/shots/screen-<name>-<variant>.png`, the
 variants `light`, `dark`, `phone` (English) and `sk-phone`, `sk-phone-dark`
 (390 px, a Slovak browser: the Slovak pass; the admin panel stays English).
@@ -42,16 +42,23 @@ variants `light`, `dark`, `phone` (English) and `sk-phone`, `sk-phone-dark`
 | what's new (the changelog) | `changelog` |
 | Your data's question before a file replaces the data | `your-data-question` |
 | the bar's menu open over the kanji dashboard (the person's; on a phone the one menu) | `bar-menu` |
-| the Sign in card (a refused sign-in) | `signed-out` |
+| the feedback form, opened by Send feedback at the foot (the anotoki library's form) | `feedback-form` |
+| a refused sign-in: the anotoki library's screen, Try again and Back | `sign-in-failed` |
 | a visitor's home (sign-in not required, nobody signed in): the notice and its Sign in | `home-visitor` |
 | the admin panel's Translations page (English) | `admin-translations` |
 | the admin panel's Languages page (English) | `admin-languages` |
-| the admin panel's People page (English) | `admin-people` |
+| the admin panel's People page (English, the anotoki library's): the list, the visitors' line, the IAM's deleted accounts, Delete their data | `admin-people` |
+| the admin panel's Feedback page (the library's), and a message open in it | `admin-feedback`, `admin-feedback-message` |
+| the admin panel's Errors page (the library's) | `admin-errors` |
+| the admin panel's Audit log page (the library's) | `admin-audit` |
+| the admin panel's Backups page (the library's) | `admin-backups` |
 | the admin panel's Migrations page (English, the anotoki library's): pending and applied, Apply | `admin-migrations` |
 | a database update waiting, as a learner reads it: the anotoki library's "The site is being updated" | `update-waiting` |
 | a database update waiting, as the site's ADMIN reads it: "A database update is waiting", Open Migrations | `update-waiting-admin` |
 
-Then **the room**: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px,
+Then **the room**: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px
+(the admin panel's at 360, 390, 1170, 1171, 1351 and 1530, its eight links
+and the Feedback count),
 English and Slovak, light and dark — signed in with a 20-character name and
 999 reviews due, signed out (the card), visiting (sign-in not required: the
 links and Sign in, no person's button) and the admin panel — measured and
@@ -61,8 +68,9 @@ with a real Tab and Shift+Tab from an item.
 
 `node frontend/e2e/run.js` adds shots of its own (`dashboard-empty.png`,
 `quiz-wrong.png`, `review.png`, `review-summary.png`, `changelog.png`,
-`signed-out.png`, `your-data-question.png`, `account-menu.png`,
-`admin-translations.png`, `admin-people.png`, and a migration waiting:
+`sign-in-failed.png`, `your-data-question.png`, `account-menu.png`,
+`admin-translations.png`, `admin-people.png`, `admin-feedback-message.png`,
+`admin-backups.png`, and a migration waiting:
 `waiting-visitor.png`, `waiting-learner.png`, `waiting-admin.png`,
 `admin-migrations-waiting.png`, `admin-migrations-failed.png`,
 `admin-migrations.png`, and a visitor's:
@@ -77,8 +85,9 @@ logged (a key with no string warns) or a failed request; on text that looks
 like a key anywhere (`yourData.title`); on a Slovak page that is not `<html
 lang="sk">`, or leaves an English string of the app outside `[lang=en]` /
 `[lang=ja]`; on a kanji tab strip that scrolls; on what the reviews found by
-eye (`looks()`): People's zone broken over lines or a Delete data cut at the
-table's edge, the What's new dot not beside its words, Your data's question
+eye (`looks()`): a Delete their data of the People page (the library's) off
+the screen, at 390 px too, the What's new dot not beside its words or touching the
+'·' before Send feedback, Your data's question
 with the focus anywhere but Keep mine (or without the accent's ring), and in
 dark the anotoki mark without its light halo; on a top bar that is not one
 row in order, whose pieces overlap or leave the screen, a phone's without
@@ -129,10 +138,16 @@ variants. Always include the phone shots. Go through this list:
   language: the app cannot word them.
 - **States.** Empty states say what to do next. Counts on the dashboard agree
   with the seeded data: 5 learned, 2 due.
-- **Sign-in.** A signed-out page goes straight to the IAM; the Sign in card
-  shows only after a failed sign-in (or a session that ended): plain — the
+- **Sign-in.** A signed-out page goes straight to the IAM; a sign-in that
+  came back without one shows the anotoki library's screen in the app's frame
+  under the bar ("Signing in did not work", why, **Try again** and **Back**,
+  in the reader's language, light and dark, whole at 390 px); the Sign in
+  card shows only after a session that ended: plain — the
   name, one short sentence, one button, no empty error line — with **Sign in**
-  in the top bar too (in its menu on a phone). Where sign-in is not required,
+  in the top bar too (in its menu on a phone). **Send feedback** at the foot
+  opens the library's form in a dialog: the kinds, the place (Kanji, Exam),
+  the message, the address written in for a person and "Send it without my
+  name", whole at 390 px, in Slovak too. Where sign-in is not required,
   a visitor's page instead: the notice at the top (the days, one Sign in), the
   links in the bar and Sign in beside them (in the menu on a phone, which
   stays open with "Saving…" while the saves on their way are waited for), no
@@ -151,18 +166,23 @@ variants. Always include the phone shots. Go through this list:
   person, the reviews due on its corner; its menu and the person's open
   inside the screen, above the page, readable in dark mode, the page's own
   link marked. In the admin panel "anotoki Japanese · admin panel" (up to
-  960 px, folded: "Japanese" with "admin panel" under it), the area's links
-  (Translations; Languages, People and Migrations for ADMIN), English.
+  1170 px folded, and up to 1350 the short brand: "Japanese" with "admin
+  panel" under it), the area's links (Translations; Languages, People,
+  Feedback with the count of new messages, Errors, Audit log, Backups and
+  Migrations for ADMIN), English, the person's name from 1530.
   Nothing overlaps, leaves the screen or is cut at 360, 390, 760, 761, 960,
-  961 and 1280 px, in English and Slovak, with a three-digit due count.
+  961 and 1280 px (the admin panel's 1170, 1171, 1351, 1530), in English and
+  Slovak, with a three-digit due count.
   The five kanji tabs fit 390 px in Slovak.
 - **The setup page.** Stands alone (its own small stylesheet, the app's
   colours, light and dark): the database and the IAM only, the fields in two columns on
   wide screens and one on a phone, the Test connection results in green or
   red, no overflow; a website's shows nothing of what is saved, before the
   token or after it.
-- **The admin panel's People page** at 390 px: the table scrolls sideways in
-  its own box (`.scroll`), never the page.
+- **The admin panel's pages** (People, Feedback, Errors, Audit log, Backups:
+  the anotoki library's, English, in the panel's frame) at 390 px: a table
+  scrolls sideways in its own box, never the page; People's Delete their
+  data in view; the bar's Feedback count beside its link.
 - **Consistency.** Same buttons, colours and headings as the other screens:
   buttons, dialogs, fields and menus are the anotoki library's kit (its
   fields' edges and the secondary button's at 3:1, 44 px targets, Manrope),

@@ -1,12 +1,16 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentProviders, OnDestroy, Provider, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, Routes } from '@angular/router';
+import { ANOTOKI_AUTH_CLIENT_FACTORY, AnotokiAuthEnvironment, AnotokiAuthOptions } from '@anotoki/lib/auth';
+import { FakeAuthClient } from '@anotoki/lib/auth/testing';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { AppComponent } from './app.component';
+import { provideAuth } from './core/auth/auth.config';
 import { AuthService } from './core/auth/auth.service';
 import { ChangelogService } from './core/changelog/changelog.service';
+import { provideFeedback } from './core/feedback.config';
 import { provideKit } from './core/kit.config';
 import { provideKitEnglish } from './core/testing/kit-english';
 import { provideTestSiteStatus } from './core/testing/site-status';
@@ -15,11 +19,11 @@ import { KanjiStateService } from './kanji/kanji-state.service';
 const ENGLISH = { 'topbar.exam': 'Exam', 'anotoki.language.button': 'Language: {name} ({code})' };
 const SLOVAK = { 'topbar.exam': 'Skúška', 'anotoki.language.button': 'Jazyk: {name} ({code})' };
 
-/** These specs' own client id: the SDK's storage listeners of other specs never hear their tabs. */
+/** These specs' own client id: the client's storage listeners of other specs never hear their tabs. */
 const CLIENT = 'academy-test-app';
 const KEY = `anotoki-auth:${CLIENT}`;
 
-/** A signed-in session as the SDK keeps it, for IAM user 7, with these roles here. */
+/** A signed-in session as the anotoki library's client keeps it (the IAM's SDK's way, the same key), for IAM user 7, with these roles here. */
 function session(roles: string[] = []): string {
   return JSON.stringify({
     access_token: 'token-of-7',
@@ -65,7 +69,17 @@ const ROUTES: Routes = [
  */
 async function draw(providers: (Provider | EnvironmentProviders)[] = [], due = 0, signedIn = true, config: Record<string, unknown> = {}, roles: string[] = []): Promise<HTMLElement> {
   TestBed.configureTestingModule({
-    providers: [provideZonelessChangeDetection(), provideRouter(ROUTES), provideTestSiteStatus(), provideKitEnglish(), provideKit(), { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } }, ...providers],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideRouter(ROUTES),
+      provideTestSiteStatus(),
+      provideAuth(),
+      provideFeedback(),
+      provideKitEnglish(),
+      provideKit(),
+      { provide: KanjiStateService, useValue: { reviewsDue: signal(due) } },
+      ...providers,
+    ],
   });
   TestBed.inject(ChangelogService).load = () => Promise.resolve(); // no version button: it has a spec of its own
   if (signedIn) {
@@ -92,6 +106,22 @@ function words(el: Element | null | undefined): string {
 }
 
 const settle = () => TestBed.inject(ApplicationRef).whenStable();
+
+/** A page load that came back from the IAM without a sign-in ($code: the IAM's), as the library's client reports it. */
+function refusedSignIn(code: string): Provider {
+  return {
+    provide: ANOTOKI_AUTH_CLIENT_FACTORY,
+    useValue: (options: AnotokiAuthOptions, environment: AnotokiAuthEnvironment) => {
+      const client = new FakeAuthClient(options, environment, null);
+      client.initResult = { returnTo: '/', error: Object.assign(new Error('refused'), { code }), silent: false };
+      refusedClient = client;
+      return client;
+    },
+  };
+}
+
+/** The stand-in client of the last refusedSignIn(): a test signs somebody in with it, as another tab would. */
+let refusedClient: FakeAuthClient | null = null;
 
 describe('AppComponent: the bar above, the foot below — in every state', () => {
   const realFetch = globalThis.fetch;
@@ -283,11 +313,15 @@ describe('AppComponent: nobody signed in', () => {
     expect(links(el), 'nothing to follow that would load data').toEqual([]);
   });
 
-  it('a sign-in that came back without one: the card, so the browser does not go round to the IAM and back for ever', async () => {
-    const el = await draw([], 0, false);
-    TestBed.inject(AuthService).signInError.set({ code: 'access_denied' });
-    await TestBed.inject(ApplicationRef).whenStable();
-    expect(el.querySelector('#signin')).not.toBeNull();
+  it('a sign-in that came back without one: the anotoki library’s screen says why, so the browser does not go round to the IAM and back for ever', async () => {
+    const el = await draw([refusedSignIn('access_denied')], 0, false);
+    expect(TestBed.inject(AuthService).state()).toBe('signed-out');
+    const failure = el.querySelector('#signInFailure');
+    expect(failure?.tagName.toLowerCase(), 'in the page’s landmark').toBe('main');
+    expect(words(failure?.querySelector('.anotoki-sign-in-failure__title'))).toBe('Signing in did not work');
+    expect(failure?.querySelector('.anotoki-sign-in-failure__message')?.getAttribute('role')).toBe('alert');
+    expect(failure?.querySelector('[data-retry]')).not.toBeNull();
+    expect(el.querySelector('#signin'), 'not the Sign in card').toBeNull();
   });
 
   it('nobody signed in where sign-in is not required: the app itself, for a visitor — its sections, and Sign in in the bar; no card', async () => {
@@ -297,19 +331,30 @@ describe('AppComponent: nobody signed in', () => {
     expect(el.querySelector('#signin')).toBeNull();
     expect(links(el)).toEqual(['Kanji', 'Exam']);
     expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in')).not.toBeNull();
-    expect(el.querySelector('#signInFailed')).toBeNull();
+    expect(el.querySelector('#signInFailure')).toBeNull();
   });
 
-  it('visiting after a sign-in that came back without one (access_denied: the IAM turned the account away): said above the page, until closed — never swallowed', async () => {
-    const el = await draw([], 0, false, { loginRequired: false });
-    TestBed.inject(AuthService).signInError.set({ code: 'access_denied' });
+  it('visiting after a sign-in that came back without one (access_denied: the IAM turned the account away): the library’s screen in the place of the page, until Back — never swallowed', async () => {
+    const el = await draw([refusedSignIn('access_denied')], 0, false, { loginRequired: false });
+    expect(TestBed.inject(AuthService).state()).toBe('visiting');
+    const failure = el.querySelector('#signInFailure');
+    expect(words(failure?.querySelector('.anotoki-sign-in-failure__message'))).toBe('The sign-in was not completed.');
+    expect(el.querySelector('router-outlet'), 'the screen in the place of the page').toBeNull();
+    el.querySelector<HTMLButtonElement>('[data-back]')!.click();
     await TestBed.inject(ApplicationRef).whenStable();
-    const failed = el.querySelector('#signInFailed');
-    expect(failed?.getAttribute('role')).toBe('alert');
-    expect(failed?.querySelector('p')?.textContent?.trim()).toBe('Signing in was not completed. Try again.');
-    expect(el.querySelector('router-outlet'), 'the page goes on, for a visitor').not.toBeNull();
-    el.querySelector<HTMLButtonElement>('#signInFailedClose')!.click();
-    await TestBed.inject(ApplicationRef).whenStable();
-    expect(el.querySelector('#signInFailed')).toBeNull();
+    expect(el.querySelector('#signInFailure')).toBeNull();
+    expect(el.querySelector('router-outlet'), 'and the page, for a visitor').not.toBeNull();
+  });
+
+  it('signed in after all - in another tab - while the failure is said: it is put away, and the app is theirs', async () => {
+    const el = await draw([refusedSignIn('access_denied')], 0, false);
+    expect(el.querySelector('#signInFailure')).not.toBeNull();
+    refusedClient?.signIn({ sub: '7' });
+    await settle();
+    await settle();
+    const auth = TestBed.inject(AuthService);
+    expect([auth.state(), auth.signInError()]).toEqual(['ready', null]);
+    expect(el.querySelector('#signInFailure')).toBeNull();
+    expect(el.querySelector('router-outlet')).not.toBeNull();
   });
 });

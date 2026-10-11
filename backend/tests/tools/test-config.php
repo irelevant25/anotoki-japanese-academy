@@ -45,14 +45,22 @@ function test_config_migration_drafts(): array
  * test IAM (issuer https://iam.test, which exists nowhere), whose keys are
  * the JWKS file $jwks; backups in $backups, and optionally the built frontend
  * in $frontend. $issuer names another IAM than https://iam.test: the stand-in
- * IAM's address (tests/tools/stand-in-iam.php), whose tokens carry it. The
- * SDK's cache is DIR/cache, never backend/storage/cache/. $auth adds to
- * auth.local.php: 'application_file' (the IAM's answer whether sign-in is
- * required, from a file: a test without a stand-in IAM must name one, or the
- * server would ask an issuer that exists nowhere), 'application_ttl' (seconds
- * the answer is kept, for a test that switches it). $app adds to
- * app.local.php: 'visitors' (the visitors' limits, src/visitors.php),
- * 'client_address' (the trusted proxies).
+ * IAM's address (the anotoki library's, vendor/anotoki/lib/php/testing/
+ * stand-in-iam.php), whose tokens carry it. The library's cache is DIR/cache,
+ * never backend/storage/cache/, and the app's storage DIR itself (its logs,
+ * its key: storage_dir()). $auth adds to auth.local.php: 'application_file'
+ * (the IAM's answer whether sign-in is required, from a file: a test without
+ * a stand-in IAM must name one, or the server would ask an issuer that exists
+ * nowhere), 'anonymized_file' (the IAM's deleted accounts, the same way),
+ * 'application_ttl' (seconds the answer is kept, for a test that switches it).
+ * $app adds to app.local.php: 'visitors' (the visitors' limits,
+ * src/visitors.php), 'client_address' (the trusted proxies).
+ *
+ * The work a server does after an answer now and then is done already for the
+ * day, so a server of the tests never does it by itself: the scrub of the
+ * IAM's deleted accounts (its hourly stamp, written now) and the anotoki
+ * library's backup of the day (its daily stamp). A test of either removes its
+ * stamp.
  */
 function test_config_write(string $dir, string $name, string $jwks, string $backups, ?string $frontend = null, string $issuer = 'https://iam.test', array $auth = [], array $app = []): void
 {
@@ -77,21 +85,22 @@ function test_config_write(string $dir, string $name, string $jwks, string $back
         $app['frontend_dir'] = $frontend;
     }
     $write('app.local.php', 'return ' . var_export($app, true) . ';');
+    if (!is_dir("$dir/cache") && !mkdir("$dir/cache", 0700, true) && !is_dir("$dir/cache")) {
+        throw new RuntimeException("Cannot make $dir/cache");
+    }
+    touch("$dir/cache/anotoki-people.stamp");
+    file_put_contents("$dir/cache/anotoki-backup-daily.json", json_encode(['date' => gmdate('Y-m-d'), 'status' => 'done', 'at' => time()]));
 }
 
-/** Removes a settings folder of the tests. */
+/** Removes a settings folder of the tests, with what the app kept in it: the library's cache, the logs, the key. */
 function test_config_remove(string $dir): void
 {
-    if (!str_contains(str_replace('\\', '/', $dir), '/academy-test-config-')) {
+    if (!str_contains(str_replace('\\', '/', $dir), '/academy-test-config-') || !is_dir($dir)) {
         return;
     }
-    foreach (glob("$dir/*.php") ?: [] as $file) {
-        @unlink($file);
+    $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($items as $item) {
+        $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
     }
-    // the SDK's cache: the key set, the IAM's answer, its lock
-    foreach (array_diff(is_dir("$dir/cache") ? (scandir("$dir/cache") ?: []) : [], ['.', '..']) as $file) {
-        @unlink("$dir/cache/$file");
-    }
-    @rmdir("$dir/cache");
     @rmdir($dir);
 }

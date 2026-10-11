@@ -53,3 +53,8 @@
   border-radius: 50%;
   background: var(--kanji);
 }
+// The dot stands past the words, outside the button: while it shows, the button keeps it that much room, so
+// what follows in the foot's line (the '·' before Send feedback) never touches it.
+.whats-new.unseen {
+  margin-inline-end: 10px;
+}

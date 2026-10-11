@@ -5,7 +5,8 @@ paths:
   - "backend/src/upkeep.php"
   - "backend/src/translations.php"
   - "backend/translations.php"
-  - "backend/src/anotoki_iam.php"
+  - "backend/src/people.php"
+  - "backend/src/admin.php"
   - "backend/api/**"
   - "backend/config/**"
   - "backend/migrations/**"
@@ -41,11 +42,14 @@ For building and uploading, use the `academy-deploy` skill.
   `Forwarded`, `X-Forwarded-For` or `X-Real-IP`) decides only what this
   computer is told (the setup page's nonce, a reason, health's database),
   never who anybody is.
-- The person asking comes from `auth_user()` only (the person middleware puts
-  it on the request): a verified access token in mode `iam`
-  (`backend/src/anotoki_iam.php` checks signature, `typ at+jwt`, issuer,
-  audience, expiry; keep the key cache in `backend/storage/`, not the temp
-  folder). No token or a bad one is a 401, never a fallback to anybody. A
+- The person asking comes from the anotoki library's `Identify` only
+  (`academy_identify_person()` - a token alone, a visitor's key never read -
+  and, on the study addresses and the feedback form, `academy_identify()`,
+  in `backend/src/auth.php`; the person middleware puts
+  the id on the request): a verified access token (the library's
+  `AccessTokens` checks signature, `typ at+jwt`, issuer, audience, expiry;
+  keep the key cache in `backend/storage/cache/`, not the temp folder). No
+  token or a bad one is a 401, never a fallback to anybody. A
   token with no role is a learner. Never take a user id or a role from a
   request's body, address or headers of the app's own.
 - Where the site stands is the anotoki library's (`anotoki/lib`, committed
@@ -53,31 +57,44 @@ For building and uploading, use the `academy-deploy` skill.
   its `SiteGate` in front of every route answers 503 `not_set_up`, or
   `update_pending` while a whole migration waits, to everything but
   `/api/site-status` and `academy_site_open_paths()` in `backend/api/app.php`
-  (how to sign in, the words - the library's `TranslationsRoutes::openPath()` -,
-  the health check, the clips, the Migrations page's three routes) - an address
+  (how to sign in - the library's `AuthRoutes::openPath()` -, the words - its
+  `TranslationsRoutes::openPath()` -, the health check, the clips, the
+  Migrations page's three routes, the error log's and the backups' - its
+  `openPaths()`, never a restore) - an address
   added there is its exact route, never a prefix (the gate reads the path
   decoded once: a prefix lets `/…/../x`, `%2e%2e`, `%2F` past it), and must
   work on tables a waiting migration may not have made; and nothing of the
   site's sign-in may stand in front of `/api/site-status`.
   The Migrations page's routes are the library's (`MigrationsRoutes::admin()`)
-  behind `migrations_admin_middleware()`: `ADMIN` from the token, no table read.
+  behind `admin_token_checks()`: `ADMIN` from the token, no table read (the
+  error log's and the backups' the same).
 - Every address with somebody's data is registered with `data_route()`
   (`backend/api/routes/site.php`: upkeep → the person → on a page load
   the day's backup, behind the SiteGate) - a study address (kanji, exam, report) with
   `study_route()`, the same with the learner in the person's place (a person,
   or while the IAM says sign-in is not required a visitor or nobody:
-  `docs/kb/sign-in.md`, *Visitors*) - and passes the user id down. Only
+  `docs/kb/sign-in.md`, *Visitors*; the library's `RequireCaller`) - and
+  passes the user id down. Only
   `/api/site-status`, `/api/auth/config`,
   `/api/health`, `/api/translations/{code}` (the app's own words, the same for
   everybody: upkeep, no person, no token looked at) and the clips
-  need no sign-in. The `/api/admin/…` addresses are two Slim route groups
-  (`backend/api/routes/translations.php`) with the checks on the groups:
-  `data_route()` and `staff_middleware()` on the outer one (`EDITOR` or
-  `ADMIN`, else 403 `staff_only`; a body over 1 MiB 413), `admin_middleware()`
-  on the inner one (`ADMIN`, else 403 `admin_only`: adding, changing,
-  deleting languages, and what else only an administrator may do). A new
-  admin route goes into the group whose check it needs, never with a check
-  of its own.
+  need no sign-in (and a backup's download, whose single-use ticket is its
+  check). The `/api/admin/…` addresses are Slim route groups
+  (`backend/api/routes/translations.php`, `people.php`, `admin.php`,
+  `migrations.php`) with the checks on the groups: `staff_middleware()`
+  (`EDITOR` or `ADMIN`, else 403 `staff_only`; the words' and languages'
+  groups a body over 1 MiB 413), `admin_middleware()` (`ADMIN`, else 403
+  `admin_only`: adding, changing, deleting languages, the people, the admin
+  tools - error log, audit log, feedback, backups -, the migrations), the
+  library's `RequireRole`; the library's own groups carry their own `ADMIN`
+  check inside too. A new admin route goes into the group whose check it
+  needs, never with a check of its own. The admin tools write only under
+  `storage_dir()`; the library's backups rotate by number - 14 daily, 5
+  before an update, 5 before a restore, the ADMIN's own until the owner
+  deletes them, none for its age (`academy_backups()`: the owner's decision
+  of 2026-10-11) -, and nothing deletes a backup or a log that was there
+  before. A write that is not JSON is 415 `unsupported_media_type`
+  (`request_body()`): never read a form or text as a body.
 - Every query of a study table has `WHERE user_id = ?`, and a new study table
   gets `user_id` first in its primary key, referencing `users (id)` with
   `ON UPDATE CASCADE`, and goes into `USER_TABLES` (`backend/src/users.php`).
@@ -102,12 +119,11 @@ For building and uploading, use the `academy-deploy` skill.
   so the owner's `composer start` never applies it half done; only the tests
   apply a draft, by name (`ACADEMY_MIGRATION_DRAFTS`, `academy_test_…` only).
   Never upload a build whose newest migration is a draft: it waits there too.
-- `backend/src/anotoki_iam.php` (v1.1.0) and
-  `frontend/src/app/core/auth/sdk/anotoki-auth.mjs` + `.d.ts` (v1.2.0) are the
-  IAM's SDKs, copied unchanged from `../anotoki-iam/sdk/`: never edit them;
-  update by copying a new version and the version notes
-  (`backend/src/auth.php`, `auth.service.ts`, `docs/kb/sign-in.md`; a test pins
-  them).
+- The IAM's SDKs are no longer copied here (`backend/src/anotoki_iam.php`
+  and `frontend/src/app/core/auth/sdk/` went on 2026-10-11, a test holds them
+  gone): signing in is the anotoki library's on both halves
+  (`backend/src/auth.php`, `frontend/src/app/core/auth/auth.config.ts`), its
+  vendored code never edited here.
 - The setup page (`backend/setup.php`): from this computer no token, but the
   nonce cookie (`HttpOnly`, `SameSite=Strict`) echoed by the form and the
   `Origin` checked (so its `Referrer-Policy` stays `same-origin`: under

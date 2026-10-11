@@ -101,7 +101,7 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.']]);
   });
 
-  it('a visitor’s report (studying without signing in): fetched with the key this browser holds, never a token — and a key the server no longer knows is forgotten', async () => {
+  it('a visitor’s report (studying without signing in): fetched as the visitor’s (the library’s fetch() sends the key this browser holds) — and a key the server no longer knows is forgotten', async () => {
     const key = 'k'.repeat(43);
     localStorage.setItem(VISITOR_STORAGE_KEY, key);
     const sent: (string | null)[] = [];
@@ -112,8 +112,9 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
         state: visiting,
         ...derivedFromState(visiting),
         user: signal(null),
-        fetch: (_url: string, _init: RequestInit, visitorKey: string | null) => {
-          sent.push(visitorKey);
+        fetch: (url: string) => {
+          // What the library's fetch() would send as a visitor's: the key held as the request leaves.
+          sent.push(url === '/report/12' ? localStorage.getItem(VISITOR_STORAGE_KEY) : null);
           return Promise.resolve(new Response(JSON.stringify(status === 401 ? { code: 'visitor_unknown' } : {}), { status }));
         },
       },

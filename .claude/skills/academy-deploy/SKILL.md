@@ -69,9 +69,13 @@ from this version.)
 
 The setup page imports nobody's data any more: each person brings their own,
 in the app (`GET` and `PUT /api/me/data`: their own file replaces their data there, after a copy; the page for it comes with the frontend's change). A file is limited to a 24th of PHP's `memory_limit` (16 MiB at most; 413 `too_large` with the limit). The owner's id at
-the IAM is 1, on their computer and at `iam.anotoki.eu` alike. The site has
-no restore; a backup restores on a computer (`php backend/manage.php
---restore=FILE`; version-1 files are no longer read).
+the IAM is 1, on their computer and at `iam.anotoki.eu` alike. The app's own
+JSON copies do not restore on the site; one restores on a computer (`php backend/manage.php
+--restore=FILE`; version-1 files are no longer read). The library's backups
+of the whole database (since anotoki-lib 0.4.0) restore on the site, on the
+admin panel's Backups page: the last 14 daily, 5 before an update, 5 before
+a restore, and the ones made with Back up now until the owner deletes them
+there - none for its age (their decision of 2026-10-11).
 
 ## 4. Updates
 
@@ -126,7 +130,8 @@ nobody watches it run. Every migration ends with `-- end of NNN`; until that
 line is there (a file still uploading), the site leaves it, and the ones after
 it, pending (a "draft" on the Migrations page). Never upload while the
 newest migration is a draft (008 and 009 are final since 2026-10-11 and go
-up together): the site would wait on it, and its study content with it —
+up together; **010 is a draft** until the owner writes its last line, and
+no upload is built before then): the site would wait on it, and its study content with it —
 `build-dist.php` refuses to build then, and names it. One that fails on Apply is rolled back
 whole and named ("Stopped at …", and why in PostgreSQL's own words under it;
 the host's error log has it too), the ones
@@ -155,7 +160,8 @@ library's 001 stops on any other), and upload `backend/vendor/` before the
 rest (the new code needs the library's classes). Tell the owner:
 
 - the admin panel is for the IAM roles `EDITOR` (rewords the strings) and
-  `ADMIN` (also keeps the languages, the people, and applies the database's
+  `ADMIN` (also keeps the languages, the people, reads the feedback and the
+  error and audit logs, keeps the backups, and applies the database's
   migrations on the Migrations page); everybody else studies;
 - the site keeps its own strings, apart from their computer's: a string
   reworded in one copy reaches the other only by the Translations page's
@@ -164,6 +170,23 @@ rest (the new code needs the library's classes). Tell the owner:
   upload that changes strings, export the site's languages all the same;
 - a new language added on the Languages page starts hidden until its box is
   ticked; English cannot be hidden or deleted, Slovak cannot be deleted.
+
+**The update that brings anotoki-lib 0.4.1** (the library's sign-in, People,
+the admin tools): one Apply runs the library's `anotoki_admin` 001-002,
+this app's 010, the library's `anotoki_translations` 003-004 and
+`anotoki_people` 001 (after the raw copy and the library's first backup);
+upload `backend/vendor/` first. Tell the owner: nobody is signed out by it;
+a failed sign-in shows a page that says why (Try again, Back); **Send
+feedback** at the foot of every page sends no mail - the Feedback link in
+the admin panel counts the new ones; the error log, the audit log and the
+backups are on the admin panel (ADMIN only); the backups rotate (14 daily,
+5 before an update, 5 before a restore) and the ones made by hand stay
+until they delete them, so watch the host's disk quota; a restore brings
+back data deleted on the People page since - delete it there again; a deleted anotoki account
+is blanked here within the hour of a page being opened, its study kept;
+`backend/src/anotoki_iam.php` left on the host is unused (delete it by FTP
+whenever they like); nothing already in `backend/storage/` was deleted
+(`docs/kb/hosting.md`).
 
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing

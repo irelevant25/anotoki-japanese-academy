@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { provideSiteStatus } from '../site-status.config';
 import { notSetUpInterceptor } from './not-set-up.interceptor';
+import { provideAuth } from '../auth/auth.config';
 
 /** The anotoki library's answer for a site without its settings (its SiteGate). */
 const NOT_SET_UP = { code: 'not_set_up', installed: false, message: 'This site is not set up yet. Its setup page connects it to its database.', setup: '/setup.php' };
@@ -21,6 +22,7 @@ describe('notSetUpInterceptor', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         // as app.config.ts has them
         provideHttpClient(withInterceptors([siteStatusInterceptor, notSetUpInterceptor])),
         provideHttpClientTesting(),

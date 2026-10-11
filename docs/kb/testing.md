@@ -18,8 +18,11 @@ later (and a site test's database user once it owns no database). No test can
 reach the owner's database or `backend/storage/backups/`, no test sends
 anything to Google, and no test asks
 a real IAM: sign-in is tested with tokens the tests sign themselves, and the
-browser suites sign in through the tests' own stand-in IAM
-([sign-in.md](sign-in.md)).
+browser suites sign in through the anotoki library's stand-in IAM
+([sign-in.md](sign-in.md), *Testing with tokens*). No test writes into the
+owner's `backend/storage/`: a test server's logs, cache and the library's
+key go into its own settings folder (`storage_dir()`), and its backups into
+its own backup folder.
 
 How the isolation works:
 
@@ -27,8 +30,12 @@ How the isolation works:
   (`backend/tests/tools/test-config.php`), named by `ACADEMY_CONFIG_DIR`: the
   throwaway database (with the developer's server, user and password, required
   from their `database.local.php`, never copied), the test IAM (its issuer and
-  keys file), the backup folder, and for the browser suites the real build of
-  the app. The app honours such a folder only
+  keys file, and the files standing in for the IAM's answers: whether sign-in
+  is required, the deleted accounts), the backup folder, and for the browser
+  suites the real build of the app. The folder is the test server's storage
+  too (the error log, the library's cache, stamps and key), and the scrub's
+  hourly stamp and the library's daily backup's stamp are written as done, so
+  a test server does neither by itself. The app honours such a folder only
   for an `academy_test_…` database, and stops if it names any other.
 - PHP: `backend/tests/lib.php` is the first thing every PHP test file loads. It
   writes the file's settings folder before the app loads, and refuses to go
@@ -51,7 +58,8 @@ How the isolation works:
 - `backend/tests/tools/testdb.php` (template, create, site, drop, sweep, sql,
   config, drafts) only touches databases named `academy_test_…`.
 
-Sign-in, in both: a test IAM — a key pair of the run's own, its public half in
+Sign-in, in both: a test IAM — the anotoki library's `TestIam`, a key pair
+of the run's own, its public half in
 a JWKS file that every test server reads instead of asking an IAM (in PHP the
 issuer `https://iam.test`, which exists nowhere; in the browser suites the
 address of the run's stand-in IAM on this computer, which signs a browser in
@@ -65,23 +73,28 @@ named after a stand-in asks the stand-in (`GET
 /api/public/applications/{client_id}`; its state's `login_required`,
 `application_missing`, `down`), keeping the answer in its settings folder's
 `cache/` (`auth.cache_dir`) for `application_ttl` (`start_app(['issuer' => …,
-'auth' => ['application_ttl' => 1]])`, `testdb.php config … ISSUER 1`).
+'auth' => ['application_ttl' => 1]])`, `testdb.php config … ISSUER 1`). The
+accounts the IAM deleted the same way: a server without a stand-in reads
+the file `test_anonymized([id => when] | null)` writes
+(`auth.anonymized_file`; none: the IAM out of reach), one named after a
+stand-in asks it (`GET /api/public/anonymized-accounts`, its state's
+`anonymized`).
 
 | PHP (`backend/tests/lib.php`) | Node (`frontend/e2e/helpers.js`, `browser.js`) |
 |---|---|
 | `start_app()`: every server signs people in through the test IAM | `startApp()`: every server signs people in through the run's stand-in IAM (`IAM.issuer` its address) |
-| `test_token($id, $roles, $claims, $typ)`: any token, signed with the SDK's test helpers; no role (or `MEMBER` alone, which every account holds) is a learner | `iamToken(sub, {roles, name, typ, …claims})`, signed by `backend/tests/tools/iam.php` with the stand-in's key; no role is a learner |
+| `test_token($id, $roles, $claims, $typ)`: any token, signed by the library's `TestIam`; no role (or `MEMBER` alone, which every account holds) is a learner | `iamToken(sub, {roles, name, typ, …claims})`, signed by `backend/tests/tools/iam.php` (the library's `TestIam`) with the stand-in's key; no role is a learner |
 | `call($base, $method, $url, $body)` goes as `TEST_USER` (1, no role); `test_bearer($token)` for somebody else, `no_token()` for nobody | `app.api(url, person, {method, body, zone})` goes with `person`'s token; `iamSession(sub)` / `plant(context, person, lang)` put a signed-in session in a browser context before its pages load |
-| `stand_in_iam($state)`: the stand-in IAM (`backend/tests/tools/stand-in-iam.php`) on a free port, signing in by redirect (authorize, token with PKCE, refresh, logout, `deny`; its default person holds `MEMBER`) and answering whether sign-in is required; `start_app(['issuer' => …])` takes its tokens and asks it | the same stand-in, started by `startApp()` (`startStandIn(dir)` for a suite's own, as `setup.js` does); `iamState({ user, deny })` says whom it signs in next or that it refuses, and returns what it was asked (`log`) |
+| `stand_in_iam($state)`: the anotoki library's stand-in IAM (`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, the family's one; this app's own went on 2026-10-11) on a free port, signing in by redirect (authorize, token with PKCE, refresh, logout, `deny`; here its default person is user 1, `owner`, with `MEMBER`) and answering whether sign-in is required and which accounts it deleted; `start_app(['issuer' => …])` takes its tokens and asks it | the same stand-in, started by `startApp()` with no sign-in hint (`startStandIn(dir)` for a suite's own, as `setup.js` does); `iamState({ user, deny })` says whom it signs in next or that it refuses, and returns what it was asked (`log`) |
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 237 tests (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 252 tests, on the newest PHP and on 8.2, the library's floor (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 476 tests in 42 files; `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the stand-in IAM: a deep link signed out, a refused sign-in (its Sign in, and the bar's, back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People, a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, the notice in Slovak on a phone): 184 checks | ~4 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 428 tests in 42 files (476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, the error log, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 203 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
-| `node frontend/e2e/screens.js [filter]` | 23 screens × light/dark/phone and Slovak phone light/dark (115 shots; a visitor's home and the library's update-waiting page among them), then the room: the top bar measured 82 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
+| `node frontend/e2e/screens.js [filter]` | 29 screens × light/dark/phone and Slovak phone light/dark (145 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form and the admin tools' pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
 The browser suites run against the production build: build it first with
 `node frontend/scripts/ensure-build.mjs` (it builds only when the sources
@@ -142,7 +155,8 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   writes strings for undeletable; every key the frontend uses in the
   database, and every database key used (the library's key scan, given this
   frontend by `backend/tools/translation_keys.php`: every `.ts` and `.html`
-  of `src/app` but the specs, `core/testing/` and the IAM's SDK); every
+  of `src/app` but the specs and `core/testing/` - and no `core/auth/sdk/`
+  any more, the IAM's SDK of before); every
   seeded string passing the checks a save makes (the library's, with this
   app's ways); the problem page's own English
   (`standin/problem/problem.component.ts`) and the bar's the seeded English
@@ -224,10 +238,10 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   visitors (its `users.visitor_key_hash`, migration 007's, dropped by the
   test): a person studies, nobody and a visitor's key get 401
   `sign_in_required` (never a 503) and nobody is made, the move says 503
-  `visitors_unavailable`; with it (added back), the IAM's answer relayed by `/api/auth/config` (`loginRequired`): off,
+  `visitors_unavailable`; with it (added back), the IAM's answer relayed by `/api/auth/config` (`login_required`, the library's boot configuration): off,
   on, a 404 as on, kept for `application_ttl` and asked once in it, the last
   value while the IAM is away, required when nothing was ever read and not
-  asked again while it backs off (a ttl of 3 s there: the SDK counts whole
+  asked again while it backs off (a ttl of 3 s there: the library counts whole
   seconds, so a ttl of 1 may end at the next tick); the
   test's own file the same way (off, on, missing, not JSON, another site's
   answer, a string for a boolean); the seams (`application_file`,
@@ -236,14 +250,17 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
 - `api/visitors.test.php` — visitors (`src/visitors.php`,
   `learner_middleware()`), with the IAM's answer "not required"
   (`test_access(false)`) and 007 from the template; visitor ids are never
-  assumed (found by their key's hash). The relay (`loginRequired` false,
-  `visitorKeepDays`); nobody reads as an empty learner (progress, summary,
+  assumed (found by their key's hash). The relay (`login_required` false,
+  `visitor_keep_days`); nobody reads as an empty learner (progress, summary,
   catalog, meta, attempts, a report 404, a paper) and nobody's resets write
   nothing; the first save makes a visitor - the key in `X-Visitor-Key` of a
   no-store answer and nowhere in the body, a negative id, the address as a
   keyed hash, the zone the browser named - whose data the key opens, and
   another key, no key or a person do not see; a refused first save (no such
-  item, kanji first, no seed) makes nobody and counts nothing; the limits
+  item, kanji first, no seed) makes nobody and counts nothing; a write that
+  is not JSON - plain text, a form, no type at all, what another site's page
+  may send unasked - 415 `unsupported_media_type` on every save address,
+  nobody made, no key; the limits
   (per address with a trusted proxy's `CF-Connecting-IP`, IPv4-mapped IPv6,
   an IPv6 /64 as one address, `X-Forwarded-For` alone and an untrusted
   proxy's header counting for nothing, per hour, at once - new visitors only,
@@ -259,8 +276,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   visitor's row stays held, and a wait while the person's is); the sweep
   after an answer (an old visitor with all of its rows, never a recent one or
   a person; a statement timed out is logged and costs no answer; at most once
-  an hour); no visitor on the People page or in a backup, none in the day's
-  copy, the admin panel's count, a restore of everybody removing them; in the
+  an hour); no visitor on the People page or in the app's own copies, none in
+  the day's copy, the People page's count of them, a restore of everybody
+  from a copy removing them; in the
   test process `users_hold()` for a visitor gone, no copy of a visitor, and
   `client_address()` (trusted proxies, a list read from the right, the
   buckets).
@@ -272,8 +290,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   visitor (id < 0, a key), visitor ids from -1 down; its form (whole, with
   its last line - while it was a draft, saying so at its top -, LF, no row of
   anybody's written, the check last).
-- `api/auth.test.php` — sign-in, the one way: how to sign in
-  (`/api/auth/config`: the IAM, and `loginRequired`); the pages, the clips, health
+- `api/auth.test.php` — sign-in, the one way (the anotoki library's auth
+  module, `src/auth.php`): how to sign in
+  (`/api/auth/config`: the IAM, `client_id`, `login_required`); the pages, the clips, health
   and the app's own words (`/api/translations/{code}`) without a token; every
   address with somebody's data (`/api/me/data` too), and every admin address
   (the people's too), 401 without a token
@@ -281,7 +300,7 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   one for another app or from another IAM, an ID token, a forged one, one
   without a user id, the Bearer scheme with no token after it (401
   `invalid_token`), a Basic header (no token: only Bearer claims to be
-  anybody, `auth_sent_token()`) - never a fallback to anybody; a token
+  anybody, the library's `Identify`) - never a fallback to anybody; a token
   with `MEMBER` alone (every account holds it) or no role a learner, kept out of the
   whole admin panel (403 `staff_only`); the roles read from the token (`auth_roles()`, which drops `MEMBER`);
   two people with their own progress, settings, notes, reviews and resets;
@@ -298,7 +317,8 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   `local_user_id`, `app.local.php` with a time zone) still set up, and one
   for the sign-in mode `none` not, with the reason; the tests' settings
   folder and keys file honoured for a throwaway database only (a keys file
-  named in `auth.local.php` too); the vendored SDK versions the notes name.
+  named in `auth.local.php` too); no copy of the IAM's SDKs left, on either
+  half (signing in is the library's).
 - `api/migration.test.php` — migration 002 on the owner's data in the shape of
   001: the check at its end fails it (and nothing changes) when a row changes
   on the way; every row comes through as it was and becomes user 1's; the new
@@ -322,15 +342,64 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   connection holding the row as an import does) and then working on the
   imported state, and an import waiting for an answer; the page's
   `IMPORT_CEILING` (`home/your-data/`) the same 16 MiB as `IMPORT_LIMIT_MAX`.
-- `api/people.test.php` — the People addresses: the list (the latest seen
-  first, names, zones, items learned, attempts) for `ADMIN` alone (an
+- `api/people.test.php` — the People addresses (the library's routes on this
+  site's people): the list (the latest seen
+  first, names, zones, items learned, attempts, in the library's snake_case)
+  for `ADMIN` alone (an
   `EDITOR` 403 `admin_only`, a learner and the person themselves 403
   `staff_only`, signed out 401); a delete (a copy of all of it first, which
   restores them alone; every row of theirs and their users row gone; a
-  string they reworded kept by nobody; nobody else's touched); 404 for any id
+  string they reworded kept by nobody; their feedback's words kept, its
+  address and browser gone; nobody else's touched); 404 for any id
   the site has nobody of; the person back again with nothing; a delete
   waiting for an answer being saved and deleting that too; an answer waiting
   for a delete and then starting their data afresh, never a 500.
+- `api/people-migration.test.php` — migration 010 (a draft, which the tests
+  apply by name) on a database shaped like an installed one (up to 009 and
+  the library's words of before, two people's data, the owner's rewording of
+  the words that move): its check failing it by name - and nothing of it
+  staying - when a row of somebody's data went, a reworded string did not come
+  over as it was, a string that stays changed on the way, a string under the
+  library's key came in a language the app's key had not, or `anonymized_at`
+  came filled;
+  the upload as it goes up (the library's `anotoki_admin`, 010, its
+  `anotoki_translations` 003 and 004, `anotoki_people`, in that order): every
+  row as it was, the reworded words under the library's keys with who and
+  when, the library's own for the rest, no stored refusal; the scrub of the
+  IAM's deleted accounts (a person who left: the name the IAM's placeholder,
+  their exam papers' name gone and their stored report "Unnamed
+  candidate", their feedback's address and browser and their audit names
+  gone; a person who stays and an id the site never knew untouched; a second
+  run changing nothing; the recorder never writing that row again; the IAM
+  out of reach said so); the People page's Check now (unreachable, then done:
+  handled and scrubbed counted, recorded as `people.synced`, the deleted
+  account listed under its placeholder) for `ADMIN` alone.
+- `api/admin-tools.test.php` — the library's admin tools on this site: every
+  address of the error log, the audit log, the feedback and the backups for
+  the site's `ADMIN` alone (nobody and a visitor's key alone 401
+  `sign_in_required`; a token that is no good, an ADMIN's run out an hour
+  ago, one for another app, an ID token, one naming a key the IAM has not,
+  one signed with another key of the IAM's key's name: 401 `invalid_token`;
+  a learner 403 `staff_only`, an `EDITOR` 403 `admin_only`, in this site's
+  words; the writes too); the error log (a 404 written down without its query string or
+  token, a refusal never written, cleared and recorded); the audit log (an
+  `EDITOR`'s saved words under their name, found by it; read-only); the
+  feedback (a learner's message keeping the address they sent, and none
+  when they cleared it - never their account's put back by the server -,
+  one sent without their name keeping neither their id nor an address,
+  even one typed, nobody refused while sign-in is required and taken while it is
+  not, the honeypot keeping nothing, an unknown section refused, the
+  sections `Kanji` and `Exam`, the badge counting the new ones down as they
+  are read); the backups (a stale sign-in asked to sign in again, one made,
+  its ticket good once, a restore round trip, every step recorded, this
+  site's own JSON copies untouched; with the IAM out of reach, the restore's
+  scrub said in `after_restore_error` and the hour's stamp gone after the
+  answer); a restore's own scrub blanking again an account the IAM deleted
+  since the backup, before it answers; the library's counts kept (14 daily,
+  5 before an update, 5 before a restore); the day's
+  backup once, after the day's first page load, beside the app's own copy;
+  while an update waits, the error log and the backups answering the `ADMIN`
+  and a restore, the audit log, the feedback and the People page not.
 - `api/time-zone.test.php` — each person's own time zone: in process with
   the clock given (the same moment counted on the 5th in Tokyo and the 4th in
   New York, *today* and the 7-day forecast following, a report's date the
@@ -466,7 +535,10 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   every database but the tests' (`db_migration_drafts_allowed()`: never
   `anotoki_japanese_academy` or any name that is not `academy_test_…`, never
   without its name in `ACADEMY_MIGRATION_DRAFTS`, and the tests name exactly
-  the drafts there are); the engine as this site has it (`db_migrator()`:
+  the drafts there are); while one of this site's own files is a draft, every
+  library file waits with it on a database of anybody's (`db_own_draft()`,
+  read with a name that is no test's, never connected to) and none on the
+  tests' databases; the engine as this site has it (`db_migrator()`:
   the `migrations` table as it is, one set, each file whole in one exec,
   under the upkeep's lock); the stamp stored with the content is the one from
   before the build, so a request after it looks again; one apply at a time:
@@ -492,63 +564,49 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   progress every time, due and learned, vocabulary waiting for its kanji, the
   next lessons in course order, the learner's synonyms; the progress loaded
   again after a move into the account that finished later.
-- `core/auth/auth.interceptor.spec.ts` — the token and `X-Time-Zone` (the
-  browser's IANA name, `Asia/Tokyo` when it says so; no header when it names
-  none) to this site's API and reports only, never to the IAM nor to where
-  the site stands (`/api/site-status`, nobody's); one retry with
-  a fresh token after a 401 — never as somebody else, and with the zone —,
-  the session over when there is none. A person's request with no token is
-  **never sent** (a 401 `sign_in_required` of its own; no visitor made, even
-  where visitors are welcome, even when the page turns into a visitor's
-  before the token comes); a key taken off a person's request, and one in
-  its answer not kept and the answer failed as a 502 `server_error` (after a
-  retry with a fresh token too; never for the move); the move's token and key together; nobody's (no sign-in
-  set up) with neither. A visitor's: the key held as it leaves, never a token;
-  the first save alone, the saves and reads issued meanwhile after it with its
-  key, one at a time again when it failed; the first key stays; 401
-  `visitor_unknown` forgets compare-and-delete and tries once more (once
-  only); 401 `sign_in_required` keeps the key; neither key nor token while
-  sign-in is required. `core/auth/visitor-key.spec.ts` — `remember()` never
+- The sign-in's own machinery - the client (the IAM's SDK of before, ported),
+  the interceptor (the token and `X-Time-Zone` to this site's API alone, a
+  person's request never sent without a token, one retry as the same person,
+  a visitor's key, the first save alone, `visitor_unknown` and
+  `sign_in_required`), the guards, the callback and the failure's screen - is
+  the anotoki library's since 2026-10-11, tested in its repository; the app's
+  own specs of them (`auth.interceptor.spec.ts`, `sign-in.guard.spec.ts`)
+  went with it. What is this app's is tested here, the library's real
+  `AnotokiAuth` behind it with a stand-in client (`core/testing/auth-states.ts`,
+  the library's `@anotoki/lib/auth/testing`; `provideAuth()` in a spec):
+  `core/auth/visitor-key.spec.ts` — `remember()` never
   overwrites, the `storage` event, `forget()` compare-and-delete with `lost`,
   the first-save gate, the move on sign-in (once; the key gone, `moves`,
   `moved`, the moved stamp), another tab's move silent and a swept key
   `lost`, retries on a 5xx, 422 forgets, 401 waits, `settle()` 5 s at most.
-- `core/auth/auth.service.spec.ts` — the settings without a mode (asked with
-  the zone), nobody signed in (no token, no card: the guard goes to the IAM),
-  the roles (EDITOR staff, ADMIN staff and admin, a stale MEMBER nothing), not
-  set up (at start or from a later answer: nothing of the app goes on,
-  `SiteStatus` told, the setup page offered only while never installed),
-  being updated said by a later answer (`SiteStatus` told, the sign-in going
-  on), a server that
-  does not answer or refuses; and with the real SDK, other tabs played by
-  `storage` events: somebody else signing in loads the page again, the same
-  person back or a refreshed token does not (a sign-out while open draws the
-  card), a page that loaded signed out just starts, not set up stays so, and
-  its own `fetch()` sends the zone and no token of somebody else; a sign-in
-  that came back without one keeps its code and nothing of the IAM's English
-  sentence; `login()` back to the address, and one that cannot start keeping
-  its code. Visitors: `loginRequired` true unless an explicit `false`, the
-  days; visiting (no card, nobody's roles); another tab's sign-in reloads a
-  visitor's page; a person's page whose session ends is never a visitor's;
-  `signInRequiredNow()`; a refused sign-in kept while visiting; `fetch()` for a
-  visitor (the key, never a token) and for a person (never a key, never
-  without a token). The account's preferences (SDK 1.2.0): `preferences`
-  none from a session an older SDK kept, read again at another tab's change,
-  none signed out; `savePreferences()` POSTs to the IAM with the page's own
-  token and the answer is the page's (and every tab's) at once, sends nothing
-  for a page that is nobody's or while another person's session is held,
-  rejects with the IAM's code, and with `network` when the IAM cannot be
-  reached — for a token that ran out too, without asking for the preferences;
-  one save at a time, whoever asks, the next sent once the one before has its
-  answer, a refused one included.
-- `core/auth/sign-in.guard.spec.ts` — signed in, every page; signed out, to
-  the IAM in the reader's language and back to the very address, nothing
-  navigated; after a failed sign-in, or one that cannot start, through to the
-  card with no second trip; nothing while the app cannot run; while the site
-  is being updated (or not ready at all) nobody sent to the IAM — the page let
-  through and the address kept for the library page's Sign in; the callback
-  left alone; visiting, every learner page, and `/admin` to the IAM
-  (`adminSignInGuard`) — or home after a refused sign-in.
+- `core/auth/auth.service.spec.ts` — the start, this app's read of how it
+  signs people in: `GET /api/auth/config` with the reader's time zone, the
+  IAM and the client handed to the library; `visitor_keep_days` (or the
+  camelCase of a server from before the library, else 30); nobody signed in
+  where sign-in is required (no token, no card: the guard goes to the IAM);
+  only `login_required: false` lets visitors in; signed in, the name, the
+  roles (EDITOR staff, ADMIN staff and admin) and the account's preferences;
+  not set up (nothing of the app goes on, `SiteStatus` told, the setup page
+  offered only while never installed), a server that does not answer or
+  refuses (a kind and a code, never a sentence), one that names no IAM (the
+  kind `signIn`), `cannotStart()` never over a copy not set up. The page and
+  its person: a session that ends while the page is open draws the Sign in
+  card; somebody else signing in in another tab loads the page again, the
+  same person goes on; a visitor's site that starts requiring sign-in, the
+  card from then on; a sign-in that came back without one keeps its code -
+  never the IAM's sentence - for the library's screen, not the card, and
+  trying again goes back where it started; the same while visiting, never
+  swallowed; `login()` with the IAM's pages in the language read here and
+  `signInAgain()` asking for the password again; one that cannot start keeps
+  its code; a visitor's sign-in waits for the saves on their way and asks
+  before one that failed is left behind (the library's `beforeSignIn`);
+  `logout()` after the saves, a learner who chooses to stay staying;
+  `savePreferences()` through the library, one at a time. `fetch()`: a
+  person's with the page's token and the zone, never a visitor's key, another
+  site getting neither; a visitor's with the key and the zone, never a token,
+  a 401 `sign_in_required` saying the switch turned on; a 503 telling
+  `SiteStatus` (being updated: the gate stands in, the sign-in goes on; or not
+  set up after all).
 - `core/auth/sign-out.service.spec.ts` — signing out waits for the saves on
   their way (the spinner meanwhile), sends a note still waiting at once, asks
   in the learner's language when one failed meanwhile (Cancel stays signed
@@ -562,21 +620,41 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   place (never the setup page for a site installed once); other failures —
   a site being updated too: the library's gate stands in and the sign-in goes
   on —, and other hosts' answers, change nothing of the app's.
-- `app.routes.spec.ts` — every learner page behind `signInGuard` (the
-  callback not), `/kanji` and `/exam` behind `whenReady`; the admin split:
-  ADMIN opens Translations, Languages and People, EDITOR Translations alone
-  (the others by address go home), a learner nothing; the old `/translations`
-  and `/languages` lead to `/admin/…`; signed out, a deep link to the IAM;
-  visiting, the learner's pages open and the admin panel goes to the IAM.
-- `standin/sign-in/sign-in.component.spec.ts` — a sign-in cancelled or
-  refused at the IAM worded from its code (`access_denied`: "Signing in was
-  not completed. Try again."), another failure "Signing in did not work. Try
-  again. ({code})" — `storage_unavailable` when it cannot start —, in the
-  page's language (through the SDK's own callback).
+- `app.routes.spec.ts` — every learner page asks the library's
+  `personOrVisitorGuard` again (the callback and the failure's screen not),
+  `/kanji` and `/exam` behind `whenReady`; the admin area behind `staffGuard`
+  and every page of it but Translations behind `adminGuard`: ADMIN opens every
+  admin page, EDITOR Translations alone (the others by address go home), a
+  learner nothing; the old `/translations` and `/languages` lead to
+  `/admin/…`; navigated with a stand-in IAM client: signed out, a deep link to
+  the IAM and back to that very address, nothing navigated meanwhile; a
+  sign-in that came back without one to the failure's screen, never round to
+  the IAM again; visiting, the learner's pages open as they are and the admin
+  panel goes to the IAM (or to the failure's screen after a refused
+  sign-in).
+- `app.component.spec.ts` — the bar above and the foot below in every state
+  (with no strings, the English the app keeps; the sections only while the
+  app can be used; a site not set up, or installed once and its settings
+  gone); while an update waits, the library's page for a visitor, a learner,
+  an editor and the `ADMIN`, no page made behind it; nobody signed in: on the
+  way to the IAM nothing of the app, a session that ended the Sign in card, a
+  sign-in that came back without one the library's screen; visiting, the app
+  itself, and after a refused sign-in the library's screen in the page's
+  place until its Back; signed in after all in another tab while the
+  failure is said: it is put away, and the app is theirs.
+- `standin/sign-in/sign-in.component.spec.ts` — the Sign in card: its own
+  English with no strings, word for word; a sign-in that came back without
+  one is no business of the card's (the library finishes the callback, the
+  SDK's storage of before read as it was, and its screen says it); its words
+  from the strings, following the language; **Sign in** to the IAM, back to
+  this page, its pages in the language read here, the button held while the
+  browser goes; a sign-in that cannot even start (the browser refuses the
+  storage): its code for the library's screen, and the button free again.
 - `core/auth/private-links.service.spec.ts` — `lockDown()` puts the no-script
   policy before anything of a report's; a download's file name; a visitor's
-  report with the key, an unknown key forgotten; while the site is being
-  updated (or not set up after all) the waiting tab closed and no dialog.
+  report fetched as the visitor's (the library's `fetch()` sends the key this
+  browser holds), an unknown key forgotten; while the site is being updated
+  (or not set up after all) the waiting tab closed and no dialog.
 - `home/your-data/your-data.component.spec.ts` — `readDataFile()` (one
   person, the caller's part of several, `several_people`, `not_a_data_file`);
   the zone line; Download through the sign-in's fetch under the server's
@@ -584,14 +662,30 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   holds, No sends nothing, Yes sends the file as it is and tells the page; a
   file too big for any server not read, a 413's limit checked from then on;
   every refusal worded from its code.
-- `admin/people/people.component.spec.ts` — the list in English, the one
-  looking marked; a delete only after a question that names what goes, and a
-  refusal in the server's words; a question still open when the page goes
-  answered no with it (`admin/page-question.ts`: the kit's question is drawn
-  in the app's root and would outlive the page); the visitors line (none
-  while 007 waits);
-  the moments in the date order and clock the administrator chose for their
-  account, the rest still English, following a change.
+- `admin/tools.spec.ts` — the admin panel's pages that are the anotoki
+  library's (People, Feedback, Errors, Audit log, Backups): each the library's
+  page in the panel's frame (its landmark, the panel's width, English),
+  asking its own addresses for the site's `ADMIN`; for anybody else each says
+  whose it is and asks the server nothing. `core/admin.config.spec.ts` — the
+  tools configured for this app: the site's `ADMIN` alone, from the token;
+  "Sign in again" the IAM's password once more; the Migrations page offered
+  while a table waits; the dates in the administrator's own order and clock;
+  People's Delete asking in this site's words (what goes, by the counts on
+  the row; that the server keeps a copy; "This is you." on the reader's own
+  row); the visitors' line (how many, the oldest seen, the limits). The
+  People page itself - the list, the search, the delete, Check now - is the
+  library's, tested there (the app's own People page, and its spec, went on
+  2026-10-11).
+- `core/feedback/feedback-button.component.spec.ts` — Send feedback, at the
+  foot of every page: offered to a person and to a visitor in the library's
+  words, in the language on the page; not while the app itself is not shown
+  (on the way to the IAM, the Sign in card, a copy not set up, the library's
+  page standing in); it opens the library's form in the kit's dialog (the
+  app's two sections as places, "Send it without my name" for a person, the
+  address written in; Cancel closes it), a visitor's without "without my
+  name"; no key pressed in it reaches the page (Enter in the message never
+  hands an exam paper in); it sends to `POST /api/feedback` what was written,
+  the place, and the page without its query.
 - `core/i18n/translations.config.spec.ts` — the anotoki library's
   translation service wired to this app (the library tests the service
   itself: which language, the cache, the account's language, the saves): a
@@ -630,8 +724,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   strategy — the app's name alone while the library's page stands in;
   `keptWord()`), `app.component.spec.ts` (the bar first and the
   foot last in every state, with and without strings; nothing drawn on the
-  way to the IAM, the card after a session ended or a failed sign-in; a
-  visitor's app, and a refused sign-in said above it until closed; the
+  way to the IAM, the card after a session ended, the library's screen after
+  a failed sign-in; a visitor's app, and after a refused sign-in the
+  library's screen in its place until its Back; the
   library's page: not set up with the way to the setup page, installed once
   "not available right now" without it; while an update waits, a visitor's
   "The site is being updated" with no error, no code, no setup or migrations
@@ -658,7 +753,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   (`<anotoki-top-bar>`) as this app words and wires it: one row in the
   family's order; Kanji (with the reviews due, three digits) and Exam, the
   section and the page marked, the brand on the home page; the admin panel's
-  links by role (Languages and People for ADMIN only), English there - the
+  links by role (the eight, all but Translations for ADMIN only; Feedback
+  with the count of new messages, the library's `FeedbackUnread`, asked for
+  only once the site's ADMIN is in the panel), English there - the
   kit's words too -, no language, "anotoki Japanese · admin panel"; the
   language button holding its code, the theme's "System" the app's word; the
   person's menu (name, address, role pill, Your anotoki
@@ -668,7 +765,8 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   menus: `defaultPrevented`, the menu closed, `document.activeElement` the
   menu button**; a click outside; a change of language followed; no strings
   (the English it keeps - never the kit's English for a word the app has -,
-  no warning); signed out (Sign in, in the reader's language), visiting (Kanji,
+  no warning); signed out (Sign in, in the reader's language - on the
+  library's failure screen too), visiting (Kanji,
   Exam and Sign in — which waits for the saves on their way, asks about an open
   paper, and is in the phone's menu, **which stays open while it waits (the
   item's spinner and "Saving…", the focus on the menu button, never on
@@ -679,8 +777,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   Space keep their own action**; on a phone the row, the reviews due on the
   menu button and in its name (one, few, other), the menu's contents, a link
   chosen, the Tab rule, signed out; the desktop bar from 761 px, the admin
-  panel's from 961 ("Japanese" and "admin panel" beside the menu button up
-  to 960); **a crossing of 760 px closes the open menu**; Sign out waiting
+  panel's from 1171 ("Japanese" and "admin panel" beside the menu button up
+  to 1170), its short brand up to 1350 and the person's name from 1530 (the
+  learner's from 961); **a crossing of 760 px closes the open menu**; Sign out waiting
   (spinner, "Saving…") and asking over an open paper; a theme the account
   refuses said under the switch in the app's words, and Escape on any of its
   controls puts it away; while the site is being updated no
@@ -719,9 +818,11 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   question before leaving); here, `admin/translations/translations.component.spec.ts`
   and `admin/languages/languages.component.spec.ts` (each in the panel's
   frame, English whatever the reader reads, and asking the page before it is
-  left), `app.routes.spec.ts` (the library's guard on those two alone), and
-  People's question - `ConfirmService` - answered through
-  `core/testing/kit-question.ts`.
+  left), `app.routes.spec.ts` (the library's guard on those two alone). People,
+  Feedback, Errors, Audit log and Backups are the library's pages too (since
+  2026-10-11), tested there; here `admin/tools.spec.ts` and
+  `core/admin.config.spec.ts` (above). The kit's question in a spec is
+  answered through `core/testing/kit-question.ts`.
 - Every screen's component in English and Slovak: home, exam, the kanji
   shell, dashboard, lessons, practice, session, summary, browse, item, the
   tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
@@ -754,13 +855,15 @@ says its own way). The kit's markup is read by the kit's own class names
 
 Browser (`frontend/e2e/`, Edge through `playwright-core`):
 
-- `run.js` — everybody signed in through the stand-in IAM, as on a website.
+- `run.js` — everybody signed in through the anotoki library's stand-in IAM, as on a website.
   First a deep link opened signed out (`/kanji/reviews`): straight to the
   IAM and back to that address, with nothing of the app drawn (a
   `MutationObserver` notes any `<main>` while no session is kept) and no API
   asked on the way but where the site stands, the config and the words; then a refused sign-in
-  (`iamState({ deny: true })`): the Sign in card with its sentence, and its
-  button signing in once the IAM lets them. Then the study flow as that
+  (`iamState({ deny: true })`): the anotoki library's screen saying so in its
+  words, never the IAM's (`sign-in-failed.png`), and its Try again signing in
+  once the IAM lets them, back on the page asked for (and refused on
+  `/kanji/item/…`, the bar's Sign in coming back there). Then the study flow as that
   learner: types answers like a person (romaji readings, one miss on
   purpose), makes reviews due, uses F for the item info, practises, uses "My
   answer was right", clicks the links that point at the current address
@@ -799,13 +902,24 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   again, as them. **The admin panel**: an ADMIN signs in on `/?lang=sk` (that
   tab Slovak, another English), the Slovak home page with no key-shaped text,
   Admin panel in her menu → `/admin/translations` in English (the page, `<html
-  lang>`, the bar: Translations, Languages, People, "Back to Japanese
-  Academy"); a bad Slovak string refused beside its key, leaving with it
+  lang>`, the bar: Translations, Languages, People, Feedback, Errors, Audit
+  log, Backups, Migrations, "Back to Japanese
+  Academy"; the window 1440 px wide); a bad Slovak string refused beside its key, leaving with it
   unsaved asking in a modal dialog (Escape stays, Leave leaves); a language
-  added unticked comes in hidden; People lists everybody, Delete data asks
-  with the counts, deletes (a `before-delete` copy; nobody else's rows
-  touched). An EDITOR: Translations only, `/admin/people` and
-  `/admin/languages` by address go home, the API answers 403 `admin_only`; a
+  added unticked comes in hidden; People (the library's page) lists
+  everybody, "you" on her own row, Delete their data asks its question with
+  the counts and deletes (a `before-delete` copy; nobody else's rows touched;
+  the row gone; `person.data_deleted` in the audit log); **Send feedback** at
+  the foot of a learner's page, in the library's words: the form sent, then
+  closed, no browser error; the panel's bar counting the new message beside
+  Feedback, the Feedback page (the library's) showing it under the sender's
+  name, opened and read; the error log's page (the library's) in its frame;
+  the audit log's (the data deleted and the language added, by her); the
+  backups' (**Back up now**, after its question, by an ADMIN who signed in at
+  the IAM minutes ago: one made and listed, beside the app's own JSON
+  copies). An EDITOR: Translations only, `/admin/people`, `/admin/languages`
+  and every page of the admin tools by address go home, the API answers 403
+  `admin_only`; a
   learner has no Admin item, `/admin` goes home, the API answers 403
   `staff_only`. **A migration waiting** (a file put whole into the run's
   copy): every address with data 503 `update_pending` with `Retry-After`,
@@ -842,7 +956,9 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   the IAM, the notice (30 days), no Your data, person's menu or admin link,
   nobody made by a page view; `/admin/migrations` goes to the IAM all the
   same, and refused there (`deny`, as when `MEMBER` is taken away) the
-  visitor is back home, told why (`#signInFailed`); a lesson batch makes one
+  library's screen says why, in its words, in the visitor's page's place
+  (`#signInFailure`), the bar's Sign in refused the same way, and its Back
+  gives the visitor the page again - never round to the IAM; a lesson batch makes one
   visitor (a negative id) and one key in `localStorage`, the first answer
   alone and the rest with the key, none with a token; a reload keeps it; an
   exam and its report (fetched with the key); a second batch with its saves
@@ -857,8 +973,9 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   menu, no key-shaped text). Fails on any page error, error or warning the
   app logged (a key with no string warns), or failed request.
 - `setup.js` — the setup page on a built upload with the real app (the draft
-  migration let in by `--allow-draft`, as the tests alone may) and a stand-in
-  IAM that signs people in: the anotoki library's "This site is not set up
+  migration let in by `--allow-draft`, as the tests alone may) and the
+  library's stand-in IAM that signs people in (its migrations listed in the
+  four sets): the anotoki library's "This site is not set up
   yet" page (with the way to the setup page: never installed) and both forms in light,
   dark and phone layouts (no overflow); from this computer no token, the
   database and the IAM and nothing else (`nonce`, `db_*`, `issuer`,
@@ -883,21 +1000,28 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   home page, every kanji screen (with a review answered wrongly and its item
   info open), the exam's three screens, the changelog, Your data's question,
   the bar's menu open (the person's on a desktop, the one menu on a phone), the
-  Sign in card (a refused sign-in), a visitor's home with its notice (sign-in
-  not required, nobody signed in), the admin panel's four pages, and the
+  feedback form open from the foot, the library's screen of a refused
+  sign-in, a visitor's home with its notice (sign-in
+  not required, nobody signed in), the admin panel's pages (Translations,
+  Languages, People, Feedback and a message open in it, Errors, Audit log,
+  Backups, Migrations - a feedback message, a hidden language and a backup
+  seeded for them), and the
   anotoki library's page while a database update waits, as a learner reads it
   and as the site's ADMIN does (a migration taken off the list for it, and put
-  back): 23
+  back): 29
   screens in light, dark and phone, each checked for key-shaped text,
-  overflow and what the reviews found by eye (`looks()`: People's zone on one
-  line and Delete data in view, the What's new dot beside its words, Your
+  overflow and what the reviews found by eye (`looks()`: People's Delete in
+  view, the What's new dot beside its words and clear of the '·' before
+  Send feedback, Your
   data's question focused on Keep mine, the mark's halo in dark), and **the
   Slovak pass** — every screen again at 390 px in a
   Slovak browser (`sk-phone`, `sk-phone-dark`), each checked for `<html
   lang="sk">` (the admin panel: `en`), no text that is a key, no English string
   of the bundle whose Slovak differs outside `[lang=en]` / `[lang=ja]`; the
   kanji tab strip is checked on every screen. Then **the room**: the bar
-  measured piece by piece at 360, 390, 760, 761, 960, 961 and 1280 px, in
+  measured piece by piece at 360, 390, 760, 761, 960, 961 and 1280 px (the
+  admin panel's at 360, 390, 1170, 1171, 1351 and 1530, a new feedback
+  message seeded so its count shows), in
   English and Slovak, light and dark (dark at the five widths that are shot),
   signed in with a 20-character name and 999 reviews due, signed out (the
   card), visiting (sign-in not required: the links and Sign in, no person's
@@ -905,9 +1029,11 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   panel — one row (at most 72 px high), in order,
   nothing overlapping or off the screen, no sideways scroll, the brand whole;
   up to 760 px the menu button with the due count on it and no links (the
-  admin panel's up to 960, "Japanese" with "admin panel" under it), from 761
-  the links (the admin panel's four from 961) and the person's button, the
-  name beside it from 961; `bar-<mode>-<lang>-<width>-<light|dark>.png`. Then the menus open
+  admin panel's up to 1170, "Japanese" with "admin panel" under it), from 761
+  the links (the admin panel's eight from 1171, its whole brand from 1351)
+  and the person's button, the
+  name beside it from 961 (the admin panel's from 1530; the widths read from
+  `top-bar.component.ts`); `bar-<mode>-<lang>-<width>-<light|dark>.png`. Then the menus open
   at 390 (Slovak, light and dark), 1280 (English, light and dark) and 360
   (dark), shot (`menu-*.png`), and a real Tab and Shift+Tab from an item: the
   menu closed, the focus on its button. `node frontend/e2e/screens.js room`

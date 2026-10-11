@@ -5,7 +5,9 @@ import { AuthService } from './auth.service';
 
 /**
  * Signing out, for whatever offers it (the person's menu of the top bar). It
- * does not let anything the learner did go unsaved without asking:
+ * does not let anything the learner did go unsaved without asking - ready(),
+ * before it hands over to the library (whose beforeSignOut,
+ * core/auth/auth.config.ts, then passes at once):
  *
  *   1. the saves on their way — a lesson's, a review's or practice's answers,
  *      a note being typed — are sent and waited for (`waiting`: the button
@@ -33,6 +35,8 @@ export class SignOutService {
   private readonly waitingSignal = signal(false);
   /** Waiting for the saves on their way: the button that signs out shows it. */
   readonly waiting = this.waitingSignal.asReadonly();
+  /** A sign-out of this service's is handing over to the library: it asked already. */
+  private asked = false;
 
   /** Answers false when the learner chose to stay (or a sign-out is already under way), true once the IAM has been asked. */
   async signOut(): Promise<boolean> {
@@ -41,18 +45,35 @@ export class SignOutService {
     }
     this.waitingSignal.set(true);
     try {
-      const failed = await this.saves.settle();
-      // Each question once: a session's failed answer can be both one that failed meanwhile and one it reports.
-      const lost = [...new Set([...(failed > 0 ? ['signOut.notSaved'] : []), ...this.saves.losses()])];
-      for (const key of lost) {
-        if (!confirm(this.i18n.t(key))) {
-          return false;
-        }
+      if (!(await this.ready())) {
+        return false;
       }
-      await this.auth.logout();
-      return true;
+      this.asked = true;
+      try {
+        return await this.auth.logout();
+      } finally {
+        this.asked = false;
+      }
     } finally {
       this.waitingSignal.set(false);
     }
+  }
+
+  /** The library's beforeSignOut: ready(), unless the sign-out is this service's, which asked already. */
+  beforeSignOut(): Promise<boolean> {
+    return this.asked ? Promise.resolve(true) : this.ready();
+  }
+
+  /** Whether the sign-out may go: once every save is in, or the learner chose to go all the same. */
+  async ready(): Promise<boolean> {
+    const failed = await this.saves.settle();
+    // Each question once: a session's failed answer can be both one that failed meanwhile and one it reports.
+    const lost = [...new Set([...(failed > 0 ? ['signOut.notSaved'] : []), ...this.saves.losses()])];
+    for (const key of lost) {
+      if (!confirm(this.i18n.t(key))) {
+        return false;
+      }
+    }
+    return true;
   }
 }

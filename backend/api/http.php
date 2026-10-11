@@ -37,14 +37,23 @@ function text_response(Response $response, int $status, string $body, string $ty
 }
 
 /**
- * The request's JSON body as an array; [] when there is none. As before the
- * move to Slim, only a JSON object or array is a body: anything else is a 400.
+ * The request's JSON body as an array; [] when it is empty. Every write that
+ * reads one (the study addresses' saves, a paper, a hand-in) takes JSON alone:
+ * any other type - a form, plain text, none at all - is 415
+ * unsupported_media_type before anything is read or written. Those are what
+ * another site's page may send here without asking first (a "simple"
+ * request): read as an empty body, one would save as nobody, and make a
+ * visitor. As before the move to Slim, only a JSON object or array is a body:
+ * anything else is a 400.
  */
 function request_body(Request $request): array
 {
-    $type = strtolower($request->getHeaderLine('Content-Type'));
+    $type = strtolower(trim($request->getHeaderLine('Content-Type')));
+    if (!preg_match('~^application/([a-z0-9.+-]*\+)?json\s*(;|$)~', $type)) {
+        throw new HttpError(415, 'This address takes JSON only.', [], 'unsupported_media_type');
+    }
     $raw = (string) $request->getBody();
-    if (!preg_match('~^application/([a-z0-9.+-]*\+)?json~', $type) || trim($raw) === '') {
+    if (trim($raw) === '') {
         return [];
     }
     try {

@@ -42,38 +42,49 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
 - The app talks to the backend only through `ApiService` (HttpClient) —
   except the bundle of words, `GET /api/translations/{code}`, which the
   translation service asks with a plain `fetch()` and no token. The
-  auth interceptor adds the sign-in's token and `X-Time-Zone` (the browser's
+  anotoki library's auth interceptor (`anotokiAuthInterceptor`, wired in
+  `core/auth/auth.config.ts`) adds the sign-in's token and `X-Time-Zone` (the browser's
   IANA zone, `core/time-zone.ts`) to this site's `/api` and `/report`
   addresses and to nothing else; a report the browser would open by itself
   goes through `PrivateLinksService` (it fetches with the token and opens from
   memory, with `lockDown()`'s no-script policy first), and Your data's file
   through `AuthService.fetch()`. The pages never count days themselves: what
   "today" is comes in the server's answers.
-- Sign-in is the IAM's alone (`docs/kb/sign-in.md`): every page is behind
-  `signInGuard` (`canActivateChild` on the learner's routes; `adminSignInGuard`
-  on `/admin`, which a visitor never passes), which sends a signed-out visitor to the IAM and back to the
-  address; the Sign in card only after a failed sign-in, or a session that
-  ended while the page was open. The admin panel (`/admin/…`, English) is
-  `staffOnly` (EDITOR, ADMIN), its Languages and People `adminOnly`: the
-  frontend hides, the server refuses. A save made in the background (a
+- Sign-in is the IAM's alone, through the anotoki library's
+  `@anotoki/lib/auth` (`docs/kb/sign-in.md`; `AuthService` is this app's view
+  of it): every page is behind
+  `personOrVisitorGuard` (`canActivateChild` on the learner's routes; `staffGuard`
+  on `/admin`, which a visitor never passes, and `adminGuard` on its ADMIN
+  pages), which sends a signed-out visitor to the IAM and back to the
+  address; a sign-in that came back without one is the library's screen
+  (`/sign-in-failed`, drawn by `AppComponent` in the page's place, Try again
+  and Back); the Sign in card only for a session that ended while the page
+  was open. No sign-in hint (`hint: false`: the owner's decision). The admin
+  panel (`/admin/…`, English) is EDITOR's and ADMIN's, every page of it but
+  Translations ADMIN's alone - Languages, People, Feedback, Errors, Audit
+  log, Backups and Migrations, each the library's page in the panel's frame
+  (`core/admin.config.ts`): the frontend hides, the server refuses. A save made in the background (a
   session's answers, a note, a paper handed in) goes through
   `SavesInFlight.track()` (a note waiting for its moment: `hold()`; something
   a sign-out would lose: `watch()`), so Sign out waits for it and asks.
 - Visitors (`docs/kb/sign-in.md`, *Visitors in the browser*): where the
-  relayed `loginRequired` is `false`, nobody signed in is the state
+  relayed `login_required` is `false`, nobody signed in is the state
   `visiting`. Whose a request is (a person's: the token or not sent at all; a
   visitor's: the key, never a token) is decided as it is **issued**
-  (`AuthService.caller()`, `ISSUED_AS`), never from whether a token is there
+  (the library's `issuedAs()`, or what the page is shown as), never from whether a token is there
   when it leaves; what only a person may do is issued `AS_PERSON` in
-  `ApiService`. The key lives in `VisitorKey` (`core/auth/visitor-key.ts`):
+  `ApiService`; which saves may make a visitor is `makesVisitor()` in
+  `core/auth/auth.config.ts`. The key lives in `VisitorKey` (`core/auth/visitor-key.ts`):
   read as a request leaves, the first key stays, forgotten compare-and-delete,
   kept while sign-in is required. `AuthService` never injects `VisitorKey`.
   A visitor's Sign in goes through `SignInService` (it waits for the saves).
-- `core/auth/sdk/anotoki-auth.mjs` + `.d.ts` are the anotoki IAM's browser SDK
-  v1.2.0, copied unchanged from `../anotoki-iam/sdk/js/`. Never edit them; to
-  update, copy the new files and change the version in `auth.service.ts`,
-  `docs/kb/sign-in.md` and the test that pins it
-  (`backend/tests/api/auth.test.php`). wanakana comes from npm.
+- The IAM's browser SDK is no longer copied here (it was `core/auth/sdk/`
+  until 2026-10-11; `backend/tests/api/auth.test.php` holds that it stays
+  gone): the library's `@anotoki/lib/auth` is the sign-in. Never edit the
+  library's code here: a change goes to the library and comes back as a
+  release. **Send feedback** at the foot is the library's form
+  (`core/feedback.config.ts`, `core/feedback/`: its places the app's two
+  sections; it keeps its keys from `document`). wanakana comes from npm.
 - The kanji section: lesson batches, sessions and summaries are drawn over the
   screen they started from (`KanjiScreenService`), and the address stays; the
   shell redraws the screen for a click on a link to the address already shown.
@@ -146,10 +157,13 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
     return the promise of `SignOutService` / `SignInService`, so the open
     menu waits for the saves (the item's spinner and "Saving…", the focus on
     the menu button).
-  - Up to `PHONE_BAR_MAX` = 760 px (`ADMIN_PHONE_BAR_MAX` = 960 in the admin
-    panel) the links and the person's menu fold into one menu button, which
+  - Up to `PHONE_BAR_MAX` = 760 px (`ADMIN_PHONE_BAR_MAX` = 1170 in the admin
+    panel, whose eight links need a wider row: `--anotoki-topbar-max-width`
+    1540 px there, the brand short up to `ADMIN_SHORT_BRAND_MAX` = 1350, the
+    name from `ADMIN_NAME_BAR_MIN` = 1530) the links and the person's menu fold into one menu button, which
     carries the reviews due and names them (`phoneMark`); above it only the
-    person's name gives way (`NAME_BAR_MIN` = 961). Measured with the real
+    person's name gives way (`NAME_BAR_MIN` = 961). The Feedback link carries
+    the count of new messages (the library's `FeedbackUnread`). Measured with the real
     labels in English and Slovak and 999 due: a change to the bar's words or
     pieces is measured again (the `academy-ui-check` skill).
   - Its words are keys with their English in a `const ENGLISH` map

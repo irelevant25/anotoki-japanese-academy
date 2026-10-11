@@ -15,20 +15,24 @@
  * them. Nothing can reach your database or backend/storage/backups/.
  *
  * Sign-in: there is one way, the IAM's. startApp() first starts the stand-in
- * IAM (backend/tests/tools/stand-in-iam.php) on a free port of this computer,
- * with a key pair of this run's own: its authorize signs the person of its
+ * IAM - the anotoki library's, every anotoki site's
+ * (backend/vendor/anotoki/lib/php/testing/stand-in-iam.php) - on a free port of
+ * this computer, with a key pair of this run's own (the library's TestIam:
+ * backend/tests/tools/iam.php): its authorize signs the person of its
  * state in at once (iamState({ user })) or refuses (iamState({ deny: true })),
  * its token endpoint takes the code with PKCE, its logout comes straight back.
  * The app trusts its keys (auth.jwks_file) and names it as the issuer, so a
  * browser signs in exactly as on a website: a page opened signed out goes to
  * the stand-in and comes back signed in. iamToken() signs a token of that IAM
  * for the API (a suite's own requests), iamSession() a whole session as the
- * IAM's browser SDK keeps it (planted in a browser before its pages load).
+ * anotoki library's client keeps it - the IAM's browser SDK's way, under the
+ * same key (planted in a browser before its pages load).
  * Everybody holds MEMBER there (an ordinary learner); ADMIN or EDITOR beside
  * it open the admin panel.
  *
  * Whether the IAM requires sign-in here: the stand-in's login_required (true,
- * as the site's own default), relayed by the server's /api/auth/config. A
+ * as the site's own default), relayed by the server's /api/auth/config
+ * (login_required). A
  * suite that switches it starts the app with applicationTtl (the seconds the
  * server keeps the IAM's answer; 60 otherwise) and calls app.signInRequired():
  * with false, nobody signed in studies as a visitor (docs/kb/sign-in.md).
@@ -51,7 +55,14 @@ const BUILD = path.join(FRONTEND, 'dist', 'japanese-academy', 'browser');
 const { findPhp } = require(path.join(BACKEND, 'tools', 'php.js'));
 const TESTDB = path.join(BACKEND, 'tests', 'tools', 'testdb.php');
 const IAMTOOL = path.join(BACKEND, 'tests', 'tools', 'iam.php');
-const STANDIN = path.join(BACKEND, 'tests', 'tools', 'stand-in-iam.php');
+const STANDIN = path.join(BACKEND, 'vendor', 'anotoki', 'lib', 'php', 'testing', 'stand-in-iam.php');
+
+/**
+ * Where the stand-in IAM starts: user 1, 'owner', MEMBER alone - a learner, as
+ * every account is - and no sign-in hint cookie (this app takes none:
+ * core/auth/auth.config.ts). The library's stand-in would start with an ADMIN.
+ */
+const STAND_IN_START = { user: { id: 1, username: 'owner', roles: ['MEMBER'] }, hint_cookie: null };
 
 /** The stand-in IAM of this run: its address once startApp() (or standInIam()) has started it. */
 const IAM = { issuer: null, clientId: 'japanese-academy' };
@@ -105,10 +116,11 @@ function iamKeys() {
 
 /**
  * A stand-in IAM on a free port, signing with the keys in `dir` (iam.php keys
- * DIR wrote them) and keeping its state there. setup.js starts its own; the
- * other suites get theirs from startApp().
+ * DIR wrote them) and keeping its state there, from STAND_IN_START. setup.js
+ * starts its own; the other suites get theirs from startApp().
  */
 async function startStandIn(dir) {
+  fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(STAND_IN_START));
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const env = { ...process.env, STAND_IN_ISSUER: base, STAND_IN_DIR: slashes(dir) };
@@ -170,9 +182,11 @@ async function iamState(changes = {}) {
 /**
  * A token of this run's stand-in IAM for user `sub`: an access token for this
  * app, or with typ 'JWT' an ID token. roles (MEMBER alone: a learner) and name
- * go into it; claims replace any.
+ * go into it; claims replace any - but the subject, which a person's object
+ * ({ sub, name, roles }) carries as a number: a token writes it as a string,
+ * and the anotoki library takes no other.
  */
-function iamToken(sub, { roles = ['MEMBER'], name = `user${sub}`, typ = 'at+jwt', ...claims } = {}) {
+function iamToken(sub, { roles = ['MEMBER'], name = `user${sub}`, typ = 'at+jwt', sub: _person, ...claims } = {}) {
   if (!IAM.issuer) throw new Error('iamToken() before the stand-in IAM started (startApp() starts it)');
   const now = Math.floor(Date.now() / 1000);
   const body = {
@@ -193,7 +207,7 @@ function iamToken(sub, { roles = ['MEMBER'], name = `user${sub}`, typ = 'at+jwt'
 }
 
 /**
- * A signed-in session of user `sub`, as the IAM's browser SDK keeps it:
+ * A signed-in session of user `sub`, as the anotoki library's client keeps it (the IAM's browser SDK's way):
  * { key, value } for localStorage. Put it in a browser context before its
  * pages load (plant()), and the pages are signed in, without a trip to the IAM.
  */
@@ -350,8 +364,8 @@ async function startApp({ frontend = BUILD, applicationTtl = null } = {}) {
     const until = Date.now() + ((applicationTtl || 60) + 5) * 1000;
     for (;;) {
       const relayed = await (await fetch(`${base}/api/auth/config`)).json().catch(() => ({}));
-      if (relayed.loginRequired === required) return;
-      if (Date.now() > until) throw new Error(`the server still says loginRequired ${relayed.loginRequired}`);
+      if (relayed.login_required === required) return;
+      if (Date.now() > until) throw new Error(`the server still says login_required ${relayed.login_required}`);
       await new Promise((r) => setTimeout(r, 250));
     }
   };

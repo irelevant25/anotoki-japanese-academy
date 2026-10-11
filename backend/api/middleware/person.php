@@ -1,40 +1,49 @@
 <?php
 /**
- * Who is asking, for every address with somebody's data.
+ * Who is asking, for every address with somebody's data - after the anotoki
+ * library's Identify (academy_identify(), src/auth.php) has decided it once,
+ * and its RequirePerson or RequireCaller has refused whom the address does not
+ * take (routes/site.php: data_route(), study_route()).
  *
- * person_middleware(): auth_user() (src/auth.php) — the person of a verified
- * access token of the IAM, and nobody else. Their IAM user id goes on the
- * request as 'uid', and every handler passes it down: the only place a user
- * id comes from. No token: 401; a token that does not verify: 401. A token
- * with no role here is a learner like any other. Every address that is a
- * signed-in person's alone uses it: the admin panel, the Migrations page, a
- * person's own data file (/api/me/data), the move at sign-in.
+ * person_middleware(): after RequirePerson - the person of a verified access
+ * token of the IAM, and nobody else. Their IAM user id goes on the request as
+ * 'uid', and every handler passes it down: the only place a user id comes
+ * from. No token: 401 sign_in_required; a token that does not verify: 401
+ * invalid_token (Identify). A token with no role here is a learner like any
+ * other. Every address that is a signed-in person's alone uses it: the admin
+ * panel, a person's own data file (/api/me/data), the move at sign-in. Their
+ * row is kept up to date here (people_seen(): the library's PeopleRecorder,
+ * src/people.php) - the name of their token, when they were last here, their
+ * time zone.
  *
- * learner_middleware(): the study addresses (the kanji SRS, the exam, the
- * reports: study_route() in routes/site.php), which a visitor may use too
- * when the IAM says this site does not require sign-in (src/access.php,
- * src/visitors.php). Who a request is, in this order:
+ * learner_middleware(): after RequireCaller - the study addresses (the kanji
+ * SRS, the exam, the reports: study_route() in routes/site.php), which a
+ * visitor may use too when the IAM says this site does not require sign-in
+ * (src/access.php, src/visitors.php). Who a request is, as Identify found it:
  *
- *   1. an Authorization header of the Bearer scheme (auth_sent_token()), with
- *      or without a token after it: that person (auth_user()), or 401 - a bad
- *      or expired token never falls back to the key, which is not even read;
- *   2. else, when sign-in is required here (access_login_required(), which
- *      also says so while migration 007 is not applied): 401
- *      sign_in_required, with a visitor key or without - the key is never
- *      looked up, counted or swept early, and the browser keeps it;
- *   3. else an X-Visitor-Key: that visitor (visitors_find(); malformed or
- *      nobody's: 401 visitor_unknown); 'uid' is their negative id;
+ *   1. a person (an Authorization header of the Bearer scheme with a token
+ *      that verifies): that person, as person_middleware() takes them - a bad
+ *      or expired token is a 401 before this (Identify), and the key is never
+ *      read;
+ *   2. while sign-in is required here (academy_sign_in_rule(), src/auth.php,
+ *      which also says so while migration 007 is not applied): nobody,
+ *      whatever key comes
+ *      with it - 401 sign_in_required (RequireCaller); the key is never looked
+ *      up, counted or swept early, and the browser keeps it;
+ *   3. a visitor (an X-Visitor-Key that is somebody's: visitors_of_key();
+ *      malformed or nobody's: 401 visitor_unknown, Identify): 'uid' is their
+ *      negative id;
  *   4. else nobody: 'uid' 0, which matches no row, so every read answers as
  *      for a learner with no data yet - and a save that may make a visitor
- *      ($mayMake: an answer, an item's notes, the settings, a submitted exam)
- *      makes one within the limits, in that save's own transaction: refused
- *      or failed, it makes nobody and counts nothing; done, its answer
- *      carries the new key in X-Visitor-Key (with Cache-Control: no-store,
- *      as every JSON answer here), and nowhere else.
+ *      (RequireCaller 'make': an answer, an item's notes, the settings, a
+ *      submitted exam) makes one within the limits, in that save's own
+ *      transaction: refused or failed, it makes nobody and counts nothing;
+ *      done, its answer carries the new key in X-Visitor-Key (with
+ *      Cache-Control: no-store, as every JSON answer here), and nowhere else.
  *
  * A visitor is never a person: no role, never the admin panel, the
  * Migrations page, a data file or anybody else's row (those addresses use
- * person_middleware(), which reads only a token). $cap names what a visitor's
+ * RequirePerson, which takes a token alone). $cap names what a visitor's
  * save would grow ('attempts', 'answers'): at its cap, 422 visitor_limit
  * before the handler runs (visitors_check_caps()). Every such request leaves
  * the sweep of long-unseen visitors for after its answer (at most once an
@@ -49,13 +58,17 @@
  *
  * daily_backup_middleware(): the first page load of a new day (a UTC day,
  * whoever's page it is) takes the day's backup, of everybody's data — on a
- * server left running overnight, and on a
- * hosted site, which has no start. A page load, never an answer; once a day it
- * costs a moment, and a failure must not cost the page.
+ * server left running overnight, and on a hosted site, which has no start. A
+ * page load, never an answer; once a day it costs a moment, and a failure
+ * must not cost the page. The anotoki library's whole-database backup of the
+ * day (academy_backups(), src/admin.php) is asked for at the same moment, and
+ * made after the answer.
  */
 
 declare(strict_types=1);
 
+use Anotoki\Lib\Auth\Http\Identify;
+use Anotoki\Lib\Auth\Http\RequireCaller;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
@@ -63,36 +76,44 @@ use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
 function person_middleware(): callable
 {
     return static function (Request $request, RequestHandler $handler): Response {
-        $user = auth_user();
-        date_default_timezone_set($user['timeZone']);
-        return $handler->handle($request->withAttribute('uid', $user['id'])->withAttribute('visitor', false));
+        return $handler->handle(person_request($request));
     };
 }
 
-function learner_middleware(bool $mayMake = false, ?string $cap = null): callable
+/**
+ * The request of the person Identify found (RequirePerson made sure there is
+ * one): their row kept up to date, their zone PHP's, their id on it as 'uid'.
+ */
+function person_request(Request $request): Request
 {
-    return static function (Request $request, RequestHandler $handler) use ($mayMake, $cap): Response {
+    $person = auth_person($request);
+    if ($person === null) {
+        throw new LogicException('person_request() needs a person: RequirePerson comes first.');
+    }
+    $zone = people_seen($person, auth_time_zone_header($request->getServerParams()));
+    date_default_timezone_set($zone ?? 'UTC');
+    return $request->withAttribute('uid', $person->sub)->withAttribute('visitor', false);
+}
+
+function learner_middleware(?string $cap = null): callable
+{
+    return static function (Request $request, RequestHandler $handler) use ($cap): Response {
         after_response_add('visitors_sweep_now_and_then', 'visitors_sweep');
-        if (auth_sent_token()) {
-            $user = auth_user();
-            date_default_timezone_set($user['timeZone']);
-            return $handler->handle($request->withAttribute('uid', $user['id'])->withAttribute('visitor', false));
+        $caller = Identify::caller($request);
+        if ($caller === 'person') {
+            return $handler->handle(person_request($request));
         }
-        if (access_login_required()) {
-            throw new HttpError(401, 'Sign in first.', ['WWW-Authenticate: Bearer'], 'sign_in_required');
-        }
-        $zone = auth_time_zone_header($request->getServerParams());
-        $key = visitors_key_of($request->getHeaderLine(VISITOR_HEADER));
-        if ($key !== null) {
-            $visitor = visitors_find($key, $zone);
+        if ($caller === 'visitor') {
+            $visitor = Identify::visitor($request);
             date_default_timezone_set($visitor['timeZone']);
             if ($cap !== null) {
                 visitors_check_caps($visitor['id'], $cap);
             }
             return $handler->handle($request->withAttribute('uid', $visitor['id'])->withAttribute('visitor', true));
         }
+        $zone = auth_time_zone_header($request->getServerParams());
         date_default_timezone_set($zone ?? 'UTC');
-        if (!$mayMake) {
+        if ($request->getAttribute(RequireCaller::MAKE_VISITOR) !== true) {
             return $handler->handle($request->withAttribute('uid', 0)->withAttribute('visitor', false));
         }
         return learner_first_save($request, $handler, $zone);
@@ -132,6 +153,11 @@ function daily_backup_middleware(): callable
             backup_daily();
         } catch (Throwable $e) {
             error_log('[backup] skipped: ' . $e->getMessage());
+        }
+        try {
+            academy_backups()->dailyIfDue();
+        } catch (Throwable $e) {
+            error_log('[backups] the day\'s backup was not asked for: ' . auth_log_text($e->getMessage()));
         }
         return $handler->handle($request);
     };

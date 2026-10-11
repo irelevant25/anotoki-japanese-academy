@@ -13,11 +13,14 @@
  * removed when the file's tests end; ACADEMY_KEEP_TEMP=1 keeps them for a look.
  *
  * Sign-in is the app's one way, the IAM, through the test IAM: a key pair made
- * for the file (test_iam()), whose public half the settings name as the IAM's
- * keys, so the file signs its own tokens (test_token()) and no IAM is ever
- * asked; whether the IAM requires sign-in here comes from a file of the
- * test's too (test_access()). call() sends a token of TEST_USER, a person with no role, unless a
- * test sends its own or none (no_token()).
+ * for the file (test_iam(): the anotoki library's TestIam), whose public half
+ * the settings name as the IAM's keys, so the file signs its own tokens
+ * (test_token()) and no IAM is ever asked; whether the IAM requires sign-in
+ * here comes from a file of the test's too (test_access()), and so do the
+ * accounts the IAM deleted (test_anonymized()). call() sends a token of
+ * TEST_USER, a person with no role, unless a test sends its own or none
+ * (no_token()). For a sign-in by redirect, the anotoki library's stand-in IAM
+ * (stand_in_iam()).
  *
  * tests/run.php runs every test file (php backend/tests/run.php [file…]).
  */
@@ -56,15 +59,19 @@ function test_db_name_ok(string $name): bool
         $backups = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-' . getmypid() . '-' . bin2hex(random_bytes(3));
     }
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-config-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    // the test IAM's keys: written by test_iam() once the IAM's SDK is loaded, before any token is checked
-    $jwks = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-jwks-' . getmypid() . '-' . bin2hex(random_bytes(3)) . '.json';
+    // the test IAM's folder: its key pair and the key set the settings name, written by test_iam() before any token is checked
+    $iam = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-iam-' . getmypid() . '-' . bin2hex(random_bytes(3));
+    $jwks = "$iam/jwks.json";
     // the IAM's answer whether sign-in is required: none until test_access() writes one (the IAM out of reach: required)
     $application = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-application-' . getmypid() . '-' . bin2hex(random_bytes(3)) . '.json';
-    test_config_write($dir, $name, $jwks, $backups, null, 'https://iam.test', ['application_file' => $application]);
+    // the IAM's deleted accounts: none until test_anonymized() writes them (the IAM out of reach for them)
+    $anonymized = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-anonymized-' . getmypid() . '-' . bin2hex(random_bytes(3)) . '.json';
+    test_config_write($dir, $name, $jwks, $backups, null, 'https://iam.test', ['application_file' => $application, 'anonymized_file' => $anonymized]);
     putenv("ACADEMY_CONFIG_DIR=$dir");
     putenv('ACADEMY_JWKS_FILE');
     putenv('ACADEMY_APPLICATION_FILE');
-    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups, 'jwks' => $jwks, 'application' => $application];
+    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups, 'iam' => $iam, 'jwks' => $jwks, 'application' => $application,
+        'anonymized' => $anonymized];
 })();
 
 require __DIR__ . '/../src/bootstrap.php';
@@ -254,18 +261,54 @@ function test_db_empty(): void
 }
 
 /**
- * The anotoki library's migration files of the words, in their order, as the
- * site names them (db_migration_label(): "anotoki_translations/001_….sql"):
- * they run after this site's own (db_migration_sets()).
+ * The anotoki library's migration files of one of its sets - the words'
+ * (anotoki_translations) unless another is named: anotoki_admin, which runs
+ * before this site's own, or anotoki_people, last (db_migration_sets()) - in
+ * their order, as the site names them (db_migration_label():
+ * "anotoki_translations/001_….sql").
  *
  * @return list<string>
  */
-function library_migrations(): array
+function library_migrations(string $set = Anotoki\Lib\Translations\Schema::SET): array
 {
-    $names = array_map('basename', glob(Anotoki\Lib\Translations\Schema::directory() . '/*.sql') ?: []);
-    sort($names);
-    return array_map(static fn (string $name): string => Anotoki\Lib\Translations\Schema::SET . '/' . $name, $names);
+    foreach (db_migration_sets() as $each) {
+        if ($each->name === $set) {
+            $names = array_map('basename', glob($each->directory . '/*.sql') ?: []);
+            sort($names);
+            return array_map(static fn (string $name): string => "$set/$name", $names);
+        }
+    }
+    throw new RuntimeException("No migration set $set here.");
 }
+
+/**
+ * Every migration file of every set, in the order they run (db_migration_sets():
+ * the anotoki library's anotoki_admin, this site's own, the library's
+ * anotoki_translations and anotoki_people), as {set, name}.
+ *
+ * @return list<array{set: string, name: string}>
+ */
+function all_migration_files(): array
+{
+    $files = [];
+    foreach (db_migration_sets() as $set) {
+        $names = array_map('basename', glob($set->directory . '/*.sql') ?: []);
+        sort($names);
+        foreach ($names as $name) {
+            $files[] = ['set' => $set->name, 'name' => $name];
+        }
+    }
+    return $files;
+}
+
+/** all_migration_files() as the site names them (db_migration_label()). @return list<string> */
+function all_migration_labels(): array
+{
+    return array_map('db_migration_label', all_migration_files());
+}
+
+/** The names of the sets, in the order they run: the library's admin tools first, this site's, the library's words and people. */
+const MIGRATION_SETS_IN_ORDER = ['anotoki_admin', 'academy', 'anotoki_translations', 'anotoki_people'];
 
 /** A language's own strings in this file's database, by key: [key => text], in the keys' order. */
 function translations_of(string $code): array
@@ -284,10 +327,9 @@ function test_cleanup(): void
         $stop();
     }
     $GLOBALS['TEST_SERVERS'] = [];
-    if (isset($GLOBALS['TEST_IAM'])) {
-        @unlink($GLOBALS['TEST_IAM']['jwks_file']);
-    }
+    test_remove_folder($GLOBALS['TEST_CONFIG']['iam'], '/academy-test-iam-');
     @unlink($GLOBALS['TEST_CONFIG']['application']);
+    @unlink($GLOBALS['TEST_CONFIG']['anonymized']);
     if (getenv('ACADEMY_KEEP_TEMP')) {
         return;
     }
@@ -315,6 +357,19 @@ function test_cleanup(): void
     }
 }
 
+/** Removes a temp folder of the tests and everything in it - only one whose path holds $mark (an academy-test- name). */
+function test_remove_folder(string $dir, string $mark): void
+{
+    if (!is_dir($dir) || !str_contains(str_replace('\\', '/', $dir), $mark)) {
+        return;
+    }
+    $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($items as $item) {
+        $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+    }
+    @rmdir($dir);
+}
+
 /** A free port on this computer. */
 function test_free_port(): int
 {
@@ -330,19 +385,20 @@ function test_free_port(): int
 const TEST_USER = 1;
 
 /**
- * The test IAM: a key pair made for this file, its public half as the JWKS
- * file the settings name (auth.jwks_file). The servers of this file check
- * tokens against that file instead of asking an IAM, so test_token() can sign
- * whatever a test needs.
+ * The test IAM: the anotoki library's TestIam - a key pair made for this file
+ * in a folder of its own, its public half the key set the settings name
+ * (auth.jwks_file). The servers of this file check tokens against that file
+ * instead of asking an IAM, so test_token() can sign whatever a test needs.
+ * Its issuer exists nowhere: a request that should not happen fails loudly.
+ *
+ * @return array{issuer: string, client_id: string, iam: Anotoki\Lib\Auth\Testing\TestIam, dir: string, jwks_file: string}
  */
 function test_iam(): array
 {
     if (!isset($GLOBALS['TEST_IAM'])) {
-        $pair = anotoki_iam_test_keypair('academy-test');
-        $file = $GLOBALS['TEST_CONFIG']['jwks'];
-        file_put_contents($file, json_encode($pair['jwks']));
-        // an issuer that exists nowhere: a request that should not happen fails loudly
-        $GLOBALS['TEST_IAM'] = ['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'pair' => $pair, 'jwks_file' => $file];
+        $dir = $GLOBALS['TEST_CONFIG']['iam'];
+        $iam = Anotoki\Lib\Auth\Testing\TestIam::create($dir, 'https://iam.test', 'japanese-academy', 'academy-test');
+        $GLOBALS['TEST_IAM'] = ['issuer' => $iam->issuer, 'client_id' => $iam->clientId, 'iam' => $iam, 'dir' => $dir, 'jwks_file' => $GLOBALS['TEST_CONFIG']['jwks']];
     }
     return $GLOBALS['TEST_IAM'];
 }
@@ -350,13 +406,33 @@ function test_iam(): array
 /**
  * An access token of the test IAM for user $id, with these roles in this app
  * (none: a learner; 'EDITOR', 'ADMIN'); $extra replaces claims (an expired
- * exp, another aud …). $typ 'JWT' makes it an ID token's type.
+ * exp, another aud …; null takes one out). $typ 'JWT' makes it an ID token's
+ * type.
  */
 function test_token(int $id, array $roles = [], array $extra = [], string $typ = 'at+jwt'): string
 {
-    $iam = test_iam();
-    $claims = anotoki_iam_test_claims(['issuer' => $iam['issuer'], 'client_id' => $iam['client_id']], $id, $roles, $extra);
-    return anotoki_iam_test_sign($claims, $iam['pair']['private_pem'], $iam['pair']['kid'], $typ);
+    $iam = test_iam()['iam'];
+    return $iam->sign($iam->claims($id, $roles, $extra), $typ);
+}
+
+/**
+ * What the test IAM says of the accounts it deleted, for every server of this
+ * file that has no stand-in IAM: [id => when (ISO 8601 UTC, whole seconds)],
+ * the file auth.anonymized_file names. null: no answer at all (the IAM out of
+ * reach), which is where every file starts.
+ */
+function test_anonymized(?array $accounts): void
+{
+    $file = $GLOBALS['TEST_CONFIG']['anonymized'];
+    if ($accounts === null) {
+        @unlink($file);
+        return;
+    }
+    $list = [];
+    foreach ($accounts as $sub => $at) {
+        $list[] = ['sub' => (string) $sub, 'anonymized_at' => $at];
+    }
+    file_put_contents($file, json_encode(['accounts' => $list, 'next' => null]));
 }
 
 /**
@@ -401,7 +477,7 @@ function test_server_config(?string $frontend = null, string $issuer = 'https://
 {
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-config-' . getmypid() . '-' . bin2hex(random_bytes(3));
     if ($issuer === 'https://iam.test') {
-        $auth += ['application_file' => $GLOBALS['TEST_CONFIG']['application']];
+        $auth += ['application_file' => $GLOBALS['TEST_CONFIG']['application'], 'anonymized_file' => $GLOBALS['TEST_CONFIG']['anonymized']];
     }
     test_config_write($dir, db_name(), test_iam()['jwks_file'], backup_dir(), $frontend, $issuer, $auth, $app);
     $GLOBALS['TEST_CONFIG_DIRS'][] = $dir;
@@ -409,10 +485,14 @@ function test_server_config(?string $frontend = null, string $issuer = 'https://
 }
 
 /**
- * The stand-in IAM (tests/tools/stand-in-iam.php) on a free port, signing with
- * the test IAM's key: authorize, token, logout as the browser SDK uses them.
- * $state is merged into its state.json first (who signs in, deny …). Stopped
- * and removed when the file's tests end.
+ * The anotoki library's stand-in IAM (backend/vendor/anotoki/lib/php/testing/
+ * stand-in-iam.php, the family's one) on a free port, signing with the test
+ * IAM's key: authorize, token, logout, the public answer about this site and
+ * the deleted accounts, as the browser's sign-in and the app use them. Whom it
+ * signs in is user 1, 'owner', MEMBER alone - a learner, as every account is -
+ * unless $state says otherwise; $state is merged into its state.json first
+ * (who signs in, deny, login_required …). Stopped and removed when the file's
+ * tests end.
  *
  * @return array{base: string, dir: string}
  */
@@ -421,16 +501,13 @@ function stand_in_iam(array $state = []): array
     $iam = test_iam();
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-iam-' . getmypid() . '-' . bin2hex(random_bytes(3));
     mkdir($dir, 0700, true);
-    file_put_contents("$dir/jwks.json", json_encode($iam['pair']['jwks']));
-    file_put_contents("$dir/key.json", json_encode(['kid' => $iam['pair']['kid'], 'private_pem' => $iam['pair']['private_pem']]));
-    if ($state) {
-        file_put_contents("$dir/state.json", json_encode($state));
-    }
+    copy($iam['dir'] . '/' . Anotoki\Lib\Auth\Testing\TestIam::KEY_FILE, "$dir/key.json");
+    file_put_contents("$dir/state.json", json_encode($state + ['user' => ['id' => 1, 'username' => 'owner', 'roles' => ['MEMBER']]]));
     $port = test_free_port();
     $base = "http://127.0.0.1:$port";
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
-    $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", BACKEND . '/tests/tools/stand-in-iam.php'],
-        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']], $pipes, BACKEND,
+    $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", Anotoki\Lib\Auth\Testing\StandInIam::script()],
+        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']], $pipes, $dir,
         ['STAND_IN_ISSUER' => $base, 'STAND_IN_DIR' => $dir] + getenv());
     $GLOBALS['TEST_SERVERS'][] = static function () use ($proc, $dir): void {
         proc_terminate($proc);

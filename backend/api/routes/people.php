@@ -1,42 +1,55 @@
 <?php
 /**
- * The People page of the admin area (src/people.php does the work), for the
- * administrators alone: academy_people_routes() is called inside the ADMIN
- * group of /api/admin (routes/translations.php), so set-up, upkeep, the
- * person, the editors' check and the administrators' check run first; anybody
- * else 403 staff_only or admin_only.
+ * The People page of the admin area: the anotoki library's routes
+ * (Anotoki\Lib\People\Http\PeopleRoutes, every anotoki site's), on this
+ * site's people (academy_people(), src/people.php), for the administrators
+ * alone: upkeep, who is asking, a signed-in person, the editors' check and
+ * the administrators' (this site's words: 403 staff_only, admin_only), then
+ * the library's own ADMIN check, which the group carries whatever is put
+ * around it. One wire format for every anotoki site: snake_case, times as ISO
+ * 8601 UTC, an IAM id as a string.
  *
- *   GET    /api/admin/people        {people: [{id, username, createdAt, lastSeenAt, timeZone, items, attempts}]},
- *                                   the latest seen first
- *   DELETE /api/admin/people/{id}   that person's data goes, after a copy of it -> {deleted: id, copy: its file's
- *                                   name}; 404 not_found for an id the site has nobody of
- *   GET    /api/admin/visitors      {ready, count, oldestSeenAt, keepDays, max}: how many visitors (somebody
- *                                   studying without signing in, src/visitors.php) the site keeps now, the
- *                                   longest unseen, and the limits; ready false while migration 007 waits
+ *   GET    /api/admin/people?q=&page=   {people: [{sub, name, first_seen_at, last_seen_at, anonymized_at, iam_url,
+ *                                       time_zone, learned, attempts}], columns, total, page, page_size: 50,
+ *                                       visitors: {count, oldest_seen_at, keep_days, max} | null, sync, ready,
+ *                                       problems}: the latest seen first; q finds a name or an IAM id; the visitors
+ *                                       (somebody studying without signing in) are a line of their own, null while
+ *                                       the database cannot keep them; sync where the scrub of the IAM's deleted
+ *                                       accounts stands
+ *   DELETE /api/admin/people/{sub}      that person's data goes, after a copy of it ->
+ *                                       {deleted: {"Kanji and words": n, "Answers": n, "Exam attempts": n}, note: the
+ *                                       copy's file}; 404 not_found for an id the site has nobody of; recorded in the
+ *                                       audit log (person.data_deleted)
+ *   POST   /api/admin/people/sync       the scrub, now -> {run, sync}; recorded (people.synced)
  */
 
 declare(strict_types=1);
 
+use Anotoki\Lib\People\Http\PeopleRoutes;
+use Anotoki\Lib\Support\Refusal;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Slim\Routing\RouteCollectorProxy;
 
-function academy_people_routes(RouteCollectorProxy $only): void
+function academy_people_routes(Slim\App $app): void
 {
-    $only->get('/people', static function (Request $request, Response $response): Response {
-        return json_response($response, ['people' => people_list()]);
-    });
-
-    $only->get('/visitors', static function (Request $request, Response $response): Response {
-        return json_response($response, visitors_count());
-    });
-
-    $only->delete('/people/{id}', static function (Request $request, Response $response, array $args): Response {
-        $id = (string) $args['id'];
-        $copy = preg_match('/^[1-9][0-9]{0,17}$/D', $id) ? people_delete((int) $id) : null;
-        if ($copy === null) {
-            throw new HttpError(404, 'There is nobody of that id here.', [], 'not_found');
-        }
-        return json_response($response, ['deleted' => (int) $id, 'copy' => $copy]);
-    });
+    $group = PeopleRoutes::admin(
+        $app,
+        '/api/admin/people',
+        academy_people(),
+        people_columns(),
+        static function (PDO $pdo): ?array {
+            return people_visitors();
+        },
+        static function (PDO $pdo, int $sub, Request $request): ?array {
+            return people_delete($sub);
+        },
+        static function (Response $response, Refusal $refusal): Response {
+            return academy_refusal($response, $refusal);
+        },
+        academy_audit(),
+        academy_admin_context()
+    );
+    $group->add(admin_middleware());
+    $group->add(staff_middleware());
+    data_route($group);
 }

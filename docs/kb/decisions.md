@@ -1671,3 +1671,176 @@ kept. What changed, and what stays this app's:
   (`.anotoki-top-bar__badge`, `.anotoki-top-bar__mark-badge`). The first
   load: 473.54 kB raw, 128.24 kB sent before; 472.06 kB raw, 128.98 kB sent
   after.
+
+**2026-10-11 — anotoki-lib 0.4.1: signing in, the people and the admin tools
+are the library's.** The owner's decisions for the family: one implementation
+of a site's half of signing in, of its record of the people, and of the
+admin tools, every anotoki site's (the library's README, "Upgrading from
+0.3.x", "Auth", "People", "Admin tools"). Japanese takes the sign-in, People
+with the scrub of the accounts the IAM deleted, and of the admin tools the
+error log, the audit log, the feedback with the visitors' form and the
+admin badge, and the backups - not the file explorer (genshin's alone). The
+composer package was already on 0.4.1; the move alone, before any of this,
+broke 11 of the 237 PHP tests (each pinned to 0.3's behaviour) and none of
+the 476 Angular ones. What changed, and what stays this app's:
+
+- **Signing in, the server's half**: the library's `Anotoki\Lib\Auth`
+  (`backend/src/auth.php`): `IamClient`, `AccessTokens` (the IAM's SDK's
+  rules, typed), `SignInRule` (whether sign-in is required, with this site's
+  own reason added: visitors need 007), `Identify` (who a request is,
+  decided once: a person, a visitor through this site's
+  `visitors_of_key()`, or nobody), `RequirePerson`, `RequireCaller`
+  (`empty`, `make` for a save that makes a visitor) and `RequireRole` on the
+  route groups. `backend/src/anotoki_iam.php` (the IAM's PHP SDK 1.1.0) is
+  gone; so is the tests' own stand-in IAM (`backend/tests/tools/stand-in-iam.php`):
+  the library's `TestIam` and stand-in are the family's. Kept as this app's:
+  its sentences for its own codes (`Sign in first.`, `Sign in again.`, the
+  visitor's), its error body, its cache folder, the tests' seams (a
+  throwaway database only), `auth_from_this_computer()`. Two small changes on
+  the wire: `/api/auth/config` answers the library's snake_case
+  (`client_id`, `login_required`, `sign_in_available`, `visitor_keep_days`;
+  the browser reads the camelCase of before too), and a 401's
+  `WWW-Authenticate` names a realm (`Bearer realm="japanese-academy"`).
+  Two `Identify`s: on the addresses that take a person alone (`data_route()`,
+  `admin_token_checks()`) one without the visitors (`academy_identify_person()`),
+  so a visitor's key is never read there - no table, no visitor's row written,
+  401 `sign_in_required` as the person middleware of before answered (the
+  review found that one `Identify` everywhere read it); on the study
+  addresses and the feedback form the one with them (`academy_identify()`).
+  The error log's lines carry no person's id: it writes outside the routes,
+  before `Identify` has found who is asking.
+- **Signing in, the browser's half**: the library's `@anotoki/lib/auth`
+  (`AnotokiAuth`, its guards `personOrVisitorGuard`, `staffGuard` and
+  `adminGuard`, `anotokiAuthInterceptor`, the callback page), wired in
+  `core/auth/auth.config.ts`, seen through this app's `AuthService` (its
+  states' names, the start's problems, the Sign in card). The IAM's browser
+  SDK copy (`core/auth/sdk/`), the app's guard, interceptor, `issued-as.ts`,
+  callback page and the visitor's failure note went with it. The library
+  keeps the SDK's storage keys, so nobody is signed out by the upload.
+  **A sign-in that came back without one is the library's screen**
+  (`/sign-in-failed`, drawn by `AppComponent` in the page's place: "Signing
+  in did not work", why from the code alone, Try again and Back), for a
+  person and a visitor alike - where the app said it on the Sign in card, or
+  above a visitor's page.
+- **No sign-in hint** (`hint: false`): the owner's decision - the automatic
+  sign-in by the IAM's hint is the genshin site's and the build analyzer's
+  alone. So a visitor here is never signed in by itself, and a session here
+  does not follow a sign-out made elsewhere at the next page load (the
+  library follows the IAM only through the hint): it lasts until it is
+  signed out here, or the IAM refuses its refresh.
+- **People**: the library's `Anotoki\Lib\People` on this app's `users`
+  (`backend/src/people.php`: the mapping, the time zone as this site's own
+  column, `people_seen()` for `users_seen()`), and its People page in place
+  of the app's own (`admin/people/` is now its frame). This site's columns:
+  the zone, the items learned, the exam attempts; its visitors' line (it
+  replaced `GET /api/admin/visitors`). **Delete asks only its question** -
+  what goes, "This is you." on one's own row -, no typed confirmation (the
+  owner's decision); then the app's copy and delete as before
+  (`people_delete()`), recorded in the audit log - and the person's feedback
+  loses its address and browser in the same transaction
+  (`Feedback::forgetPeople()`, as the scrub does; the review's finding).
+- **A write that is not JSON is refused** (`request_body()`: 415
+  `unsupported_media_type`, before anything is read or written; found by the
+  security review, from before this change): a form or plain text is what
+  another site's page may send here without asking first, and read as an
+  empty body it saved as nobody and made a visitor.
+- **The scrub of the IAM's deleted accounts** (the library's `Scrubber`,
+  after an answer at most hourly, and People's Check now): the row's name
+  the IAM's placeholder `deleted-<id>`, `anonymized_at` its time, and this
+  site's hook blanking the rest of who they were - the name typed on their
+  exam papers (the stored report says "Unnamed candidate"), their feedback's
+  address and browser, their names and addresses in the audit log. Only
+  UPDATEs: their study stays, nobody's now (the owner's rule for the family).
+- **Migration 010** (`010_people_and_signing_in.sql`) is a **draft** waiting
+  for the owner (CLAUDE.md's rule: its last line is the owner's to write once
+  they accept the change): `users.anonymized_at`, empty, and the three keys
+  of a failed sign-in deleted (`signIn.notCompleted`, `signIn.failed`,
+  `signIn.signingIn`), an owner's rewording of any of them copied first under
+  the library's `anotoki.signIn.*`, every language with who wrote it and
+  when. Its gate keeps the data and proves it: every table of people and
+  their data with its rows, every other string as it was, the moved ones as
+  they were, the library's keys with no language the app's had not, English
+  there, the three gone (`tests/api/people-migration.test.php` breaks it five
+  ways, and runs the upload in order on a database shaped like an installed
+  one).
+- **Four migration sets**, in the library's order: `anotoki_admin` (the
+  audit log's and the feedback's tables) FIRST, this app's,
+  `anotoki_translations` (its 003 the sign-in screens' words, 004 the
+  feedback form's), `anotoki_people` (after 010). **A draft of this app's
+  own holds back every library file** - the `anotoki_admin` ones that run
+  before it too - on every database but the tests' (`db_migration_ready()`,
+  `db_own_draft()`; the security review's finding): the library's files a
+  change brings belong to that change, so the owner's own server, serving a
+  working tree with 010 still a draft, neither stops its study pages for them
+  (503 `update_pending`) nor gets the library's tables on an Apply before
+  the owner accepts the change; `manage.php --check` names the draft.
+- **The admin tools are the site's `ADMIN`'s alone** (the owner's decision):
+  this site's checks on every group in its words (403 `staff_only`,
+  `admin_only`), the library's own `ADMIN` check inside as well. The error
+  log and the backups answer while an update waits (from the token alone,
+  `admin_token_checks()`; never a restore); the audit log and the feedback
+  need their tables. A backup's making, download, delete or restore wants a
+  sign-in of the last ten minutes (the token's `auth_time`; "Sign in again"
+  asks the IAM with `prompt=login`).
+- **Feedback sends no mail** (the owner's decision): the admin panel's
+  Feedback link counts the new ones (the library's `FeedbackUnread`). The
+  form is behind **Send feedback** at the foot of every page, for a person
+  and, while sign-in is not required, a visitor or anybody; its places are
+  the app's two sections (`Kanji`, `Exam`).
+- **The address for an answer is the sender's choice** (the owner's
+  decision of 2026-10-11, for every site: "it's their choice"): the form
+  writes a signed-in person's account address in for them, and the server
+  keeps the address that is sent - one they changed, theirs as written in,
+  **or none when they cleared the field**: it never puts their account's
+  back (the form's own words, "Only if you would like an answer", hold). And
+  **"Send it without my name"** keeps neither their id nor an address. (The
+  first version of this change filled the account's address in on the
+  server when none came: corrected after the security review.)
+- **Backups: "kept until I delete them" is no age limit, with the library's
+  rotation by number kept** (the owner's decision of 2026-10-11, as the IAM -
+  its `docs/decisions.md` - and every anotoki site read it): the last 14
+  daily ones, 5 made before an update, 5 before a restore; the `ADMIN`'s own
+  (**Back up now**) wait for the owner to delete them; none is deleted for
+  its age. (The first version of this change set the three counts past any
+  number - read as "keep all" -: corrected after the security review.) A
+  person whose account the IAM deleted stays in a backup made before, until
+  it rotates out or the owner deletes it. The app's own JSON copies stay as
+  they were, beside them (the last 14 days', each person's last 14 of each
+  kind): the library never touches them.
+- **A restore scrubs at once**: after a restore, the scrub of the IAM's
+  deleted accounts runs before the restore answers
+  (`academy_scrub_after_restore()`, the survey's `surveyScrubAfterRestore()`
+  pattern); one that does not finish - the IAM out of reach - is the
+  restore's `after_restore_error` on the Backups page, never a restore that
+  looks complete with a deleted person named again, and the hour's stamp
+  goes after the answer so the next request tries again. **What a restore
+  does not undo**: data an `ADMIN` deleted on the People page after the
+  backup was made comes back with it. The library replays those deletes from
+  its 0.4.2; until then they are deleted again by hand.
+- **Browser errors** will go to every site's error log with the library's
+  0.4.2 (its Angular reporter): the route for them,
+  `ErrorLogRoutes::client()`, is not mounted until then.
+- **Nothing that was on disk is deleted**: backups and logs already in
+  `backend/storage/` stay where they are, for the owner to remove. The raw
+  copy's note is `.before-migration-raw.json` now: `.before-migration.json`
+  is the library's note for its own backup before an update, in the same
+  folder; an old note of that name is written over at the first Apply (one
+  raw copy more, nothing lost).
+- **What a learner notices** (What's new, 0.4.0, the newest version not yet
+  released): Send feedback at the foot, and the page that says why signing
+  in did not work, with Try again and Back. Nothing else is listed: the rest
+  is the same app, or the admin panel's.
+- **The admin panel's bar** carries eight links now: it folds up to 1170 px
+  (960 before), its row is 1540 px wide (the learner's 1040), its brand the
+  short one up to 1350, the name beside the initial from 1530 - measured in
+  Edge with the real labels, a two-digit count, a 20-character name and a
+  scrollbar (`screens.js`'s room).
+- **The first load**: 472.06 kB raw, 128.98 kB sent before; 511.52 kB raw,
+  143.51 kB sent after (the library's sign-in, which replaced the SDK, its
+  failure screen, the feedback button; the form and the admin pages load when
+  they are opened) - over the 500 kB warning of `angular.json`'s budget,
+  which the owner decides on.
+- **Tests**: PHP 252 (on 8.2 and 8.5), Angular 428 in 42 files (the specs of
+  the app's own guard, interceptor and People page went with them), the
+  browser suites 203 checks, the setup page's 42, 145 screenshots - each
+  passing.

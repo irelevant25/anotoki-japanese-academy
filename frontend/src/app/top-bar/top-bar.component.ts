@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
+import { FeedbackUnread } from '@anotoki/lib/admin';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TopBarAction, TopBarBrand, TopBarComponent as AnotokiTopBarComponent, TopBarLink, TopBarMenuItem, TopBarPerson, TopBarPhoneMark } from '@anotoki/lib/shell';
 import { isAdminArea, TranslationService } from '@anotoki/lib/translations';
@@ -50,6 +51,8 @@ export interface BarLink {
   under: readonly string[];
   /** The reviews due stand beside it. */
   due?: boolean;
+  /** The feedback nobody opened yet stands beside it (the admin panel's Feedback). */
+  unread?: boolean;
   /** Only an administrator sees it (an editor's admin panel is Translations alone). */
   adminOnly?: boolean;
 }
@@ -59,11 +62,20 @@ export const APP_LINKS: readonly BarLink[] = [
   { id: 'kanji', word: 'Kanji', path: '/kanji', under: ['/kanji/'], due: true },
   { id: 'exam', key: 'topbar.exam', path: '/exam', under: [] },
 ];
-/** The admin panel's sections: English, as the whole panel. Languages, People and Migrations are an administrator's. */
+/**
+ * The admin panel's sections: English, as the whole panel. All but Translations
+ * are an administrator's: the languages, the people, the feedback (with the new
+ * messages beside it: no mail is sent for one), the error log, the audit log,
+ * the backups and the migrations.
+ */
 export const ADMIN_LINKS: readonly BarLink[] = [
   { id: 'translations', word: 'Translations', path: '/admin/translations', under: [] },
   { id: 'languages', word: 'Languages', path: '/admin/languages', under: [], adminOnly: true },
   { id: 'people', word: 'People', path: '/admin/people', under: [], adminOnly: true },
+  { id: 'feedback', word: 'Feedback', path: '/admin/feedback', under: [], adminOnly: true, unread: true },
+  { id: 'errors', word: 'Errors', path: '/admin/errors', under: [], adminOnly: true },
+  { id: 'audit', word: 'Audit log', path: '/admin/audit', under: [], adminOnly: true },
+  { id: 'backups', word: 'Backups', path: '/admin/backups', under: [], adminOnly: true },
   { id: 'migrations', word: 'Migrations', path: MIGRATIONS_ROUTE, under: [], adminOnly: true },
 ];
 
@@ -77,19 +89,32 @@ export const ADMIN_LINKS: readonly BarLink[] = [
 export const PHONE_BAR_MAX = 760;
 
 /**
- * The admin panel's bar folds into its menu button up to here: four links
- * (Translations, Languages, People, Migrations) and "anotoki Japanese · admin
- * panel" beside the mark need a wider window than the learner's two links,
- * measured the same way.
+ * The admin panel's bar folds into its menu button up to here: its eight
+ * links (Translations, Languages, People, Feedback with the new messages,
+ * Errors, Audit log, Backups, Migrations) need a wider window than the
+ * learner's two. Measured the same way, in a browser with the real labels, a
+ * two-digit feedback count and a scrollbar: from 1171 px they stand in one row
+ * beside the short brand ("Japanese" with "admin panel" under it) and the
+ * initial alone (1138 px of pieces, 1155 with the scrollbar).
  */
-export const ADMIN_PHONE_BAR_MAX = 960;
+export const ADMIN_PHONE_BAR_MAX = 1170;
 
 /**
- * From this width the person's name stands beside their initial, in both
- * areas; up to it the round button alone (the kit's own default would be
- * phoneMax + 201: 1161 px in the admin panel).
+ * The admin panel's brand is the short one up to here: "anotoki Japanese ·
+ * admin panel" in full beside the eight links and the initial needs 1333 px
+ * with the scrollbar.
+ */
+export const ADMIN_SHORT_BRAND_MAX = 1350;
+
+/**
+ * From this width the person's name stands beside their initial on the
+ * learner's pages; up to it the round button alone (the kit's own default
+ * would be phoneMax + 201).
  */
 export const NAME_BAR_MIN = 961;
+
+/** The same in the admin panel: its full row with the name, a 20-character one, needs 1516 px with the scrollbar. */
+export const ADMIN_NAME_BAR_MIN = 1530;
 
 /**
  * The bar across the top of every page — the anotoki family's one bar, the
@@ -109,8 +134,11 @@ export const NAME_BAR_MIN = 961;
  *
  * The admin panel (/admin…) has the same bar with its own sections as links,
  * "anotoki Japanese · admin panel" beside the mark ("Japanese" with "admin
- * panel" under it while folded), no language, and "Back to Japanese Academy"
- * in the person's menu; it folds up to ADMIN_PHONE_BAR_MAX. Its words read in
+ * panel" under it up to ADMIN_SHORT_BRAND_MAX, and while folded), no
+ * language, and "Back to Japanese Academy" in the person's menu; it folds up to
+ * ADMIN_PHONE_BAR_MAX, its row is as wide as its pieces need (1540 px, not the
+ * learner's 1040), and the name stands beside the initial from
+ * ADMIN_NAME_BAR_MIN. Its words read in
  * English, with no case here — the translation service answers in English
  * there (TranslationService.effectiveLanguage, the library's), and so do the
  * kit's (core/kit.config.ts).
@@ -140,6 +168,8 @@ export const NAME_BAR_MIN = 961;
   templateUrl: './top-bar.component.html',
   styleUrl: './top-bar.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // The admin panel's row is wider than the learner's (top-bar.component.scss).
+  host: { '[class.admin]': "area() === 'admin'" },
 })
 export class TopBarComponent {
   private readonly auth = inject(AuthService);
@@ -149,8 +179,8 @@ export class TopBarComponent {
   private readonly kanji = inject(KanjiStateService);
   private readonly router = inject(Router);
   private readonly site = inject(SiteStatus);
-
-  readonly nameMin = NAME_BAR_MIN;
+  /** The new feedback, for the admin panel's Feedback link (the anotoki library's: it asks only for the site's ADMIN). */
+  private readonly unread = inject(FeedbackUnread);
 
   /** The address of the page, without its query and fragment: which link is the page's. */
   private readonly path = toSignal(
@@ -162,8 +192,12 @@ export class TopBarComponent {
   );
   private readonly here = computed(() => this.path().split(/[?#]/)[0] || '/');
   readonly area = computed(() => (isAdminArea(this.here()) ? 'admin' : 'app'));
-  /** Up to this width the bar is a phone's: the admin panel's four links need more room than the learner's two. */
+  /** Up to this width the bar is a phone's: the admin panel's eight links need more room than the learner's two. */
   readonly phoneMax = computed(() => (this.area() === 'admin' ? ADMIN_PHONE_BAR_MAX : PHONE_BAR_MAX));
+  /** Up to this width the brand is the short one: the kit's own rule (its phoneMax) on the learner's pages. */
+  readonly shortBrandMax = computed(() => (this.area() === 'admin' ? ADMIN_SHORT_BRAND_MAX : null));
+  /** From this width the person's name stands beside their initial. */
+  readonly nameMin = computed(() => (this.area() === 'admin' ? ADMIN_NAME_BAR_MIN : NAME_BAR_MIN));
 
   /**
    * The app can be used: somebody is signed in, or a visitor, and the anotoki
@@ -173,8 +207,14 @@ export class TopBarComponent {
   private readonly ready = computed(() => this.auth.usable() && !pagesShut(this.site, () => this.auth.isAdmin(), this.here()));
   /** The way into the admin panel, for EDITOR and ADMIN: not while the site is not ready (the panel would be the library's page too). */
   private readonly adminOffered = computed(() => this.auth.isStaff() && !this.site.blocked());
-  /** Sign in is offered: signed out with the Sign in card on the page (any other time the browser is on its way to the IAM), or visiting. */
-  private readonly signedOut = computed(() => this.auth.showSignIn() || this.auth.visiting());
+  /**
+   * Sign in is offered: signed out with the Sign in card on the page, or the
+   * anotoki library's screen of a sign-in that came back without one (any
+   * other time the browser is on its way to the IAM), or visiting.
+   */
+  private readonly signedOut = computed(
+    () => this.auth.showSignIn() || this.auth.visiting() || (this.auth.state() === 'signed-out' && this.auth.signInError() !== null),
+  );
 
   private readonly shownLinks = computed(() => {
     if (!this.ready()) {
@@ -184,6 +224,18 @@ export class TopBarComponent {
     // While an update waits the Migrations page is the ADMIN's one page: the others would be the library's again.
     return this.site.blocked() ? links.filter((link) => link.path === MIGRATIONS_ROUTE) : links;
   });
+
+  constructor() {
+    // The new feedback asked for as the site's ADMIN enters the admin panel (the Feedback page keeps it in step
+    // there) - not while the site is not ready: an update waiting, the ADMIN on the Migrations page, the
+    // feedback's table may be the one it brings. Asked again once the site is back.
+    effect(() => {
+      if (this.area() === 'admin' && this.auth.isAdmin() && this.ready() && !this.site.blocked()) {
+        untracked(() => void this.unread.refresh());
+      }
+    });
+  }
+
   /** The reviews due on the phone's menu button: only where the Kanji link is in its menu. */
   private readonly phoneDue = computed(() => (this.shownLinks().some((link) => link.due) ? this.kanji.reviewsDue() : 0));
 
@@ -202,7 +254,7 @@ export class TopBarComponent {
       path: link.path,
       under: link.under,
       lang: link.key ? null : 'en',
-      badge: link.due ? this.kanji.reviewsDue() : null,
+      badge: link.due ? this.kanji.reviewsDue() : link.unread ? this.unread.count() || null : null,
     })),
   );
 

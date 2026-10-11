@@ -1,10 +1,11 @@
 /**
  * The app in a real browser, the way people use it - everybody signed in
- * through the IAM (the stand-in of backend/tests/tools/stand-in-iam.php,
- * started by helpers.js; the app trusts its keys and names it its issuer):
+ * through the IAM (the anotoki library's stand-in, started by helpers.js; the
+ * app trusts its keys and names it its issuer):
  *   sign-in   a deep link opened signed out goes straight to the IAM and back
  *             to it, with nothing of the app drawn or asked for on the way; a
- *             refused sign-in shows the Sign in card, and its button signs in
+ *             refused sign-in shows the anotoki library's screen (why, Try
+ *             again, Back), and Try again signs in
  *   kanji     lessons → quiz (romaji typed, one miss on purpose) → reviews
  *             (clock moved) → practice (+ "My answer was right") → item page →
  *             browse; on a review card the language chooser by keys, and Enter
@@ -26,8 +27,11 @@
  *   admin     ?lang=sk for its tab; the admin area English with Slovak chosen;
  *             Translations refuses a string beside its key and asks before
  *             unsaved strings are left; a language added comes in hidden;
- *             People: an ADMIN deletes a person's data (a copy first, nobody
- *             else's touched); an EDITOR has Translations only, the API says
+ *             People (the library's page): an ADMIN deletes a person's data (a
+ *             copy first, nobody else's touched); Send feedback from the foot
+ *             reaches the panel - the count on its Feedback link, the message on
+ *             the library's Feedback page -, the error log, the audit log and
+ *             the backups' pages; an EDITOR has Translations only, the API says
  *             403 to the rest; a learner has no admin area
  *   update    a database update waiting (the anotoki library's gate): a
  *             visitor, a learner and an editor read that the site is being
@@ -45,7 +49,8 @@
  *             in Slovak: no key-shaped text anywhere
  *   visitors  the IAM saying sign-in is not required: / opens with no trip to
  *             the IAM, the notice, no Your data or admin; /admin still goes to
- *             the IAM (refused there: told why, still a visitor); a lesson
+ *             the IAM (refused there: the library's screen says why, and Back
+ *             is the visitor's page again); a lesson
  *             batch makes one visitor and one key, kept over a reload; an exam
  *             and its report; Sign in straight after a batch's last answer
  *             waits for it, and everything moves into the account (the note);
@@ -78,6 +83,14 @@ const KIRI = { sub: 4301, name: 'kiri', roles: ['MEMBER'] };
 /** Two who study without signing in first (sign-in not required), then sign in. */
 const VERA = { sub: 4401, name: 'vera', roles: ['MEMBER'] };
 const WREN = { sub: 4402, name: 'wren', roles: ['MEMBER'] };
+/** The anotoki library's screen of a sign-in that came back without one (<anotoki-sign-in-failure>), in the app's frame. */
+const FAILURE = {
+  screen: '#signInFailure',
+  title: '#signInFailure .anotoki-sign-in-failure__title',
+  message: '#signInFailure .anotoki-sign-in-failure__message',
+  retry: '#signInFailure [data-retry]',
+  back: '#signInFailure [data-back]',
+};
 /** As the stand-in IAM's state names whom it signs in. */
 const asUser = (p) => ({ id: p.sub, username: p.name, roles: p.roles });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -154,16 +167,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const denied = await deniedContext.newPage();
   const deniedErrors = watch(denied);
   await denied.goto(app.base + '/exam');
-  await denied.waitForSelector('#signin-button', { timeout: 15000 });
-  const refusedWords = (await denied.textContent('#signin .err')).trim();
-  ck('refused at the IAM: the Sign in card says so', refusedWords === 'Signing in was not completed. Try again.', refusedWords);
+  await denied.waitForSelector(FAILURE.retry, { timeout: 15000 });
+  const refusedWords = (await denied.textContent(FAILURE.message)).trim();
+  ck('refused at the IAM: the anotoki library’s screen says so, in its words - never the IAM’s',
+    refusedWords === 'The sign-in was not completed.' && (await denied.textContent(FAILURE.title)).trim() === 'Signing in did not work', refusedWords);
+  ck('on its own address, which search engines are asked to leave alone',
+    new URL(denied.url()).pathname === '/sign-in-failed' && (await denied.getAttribute('meta[name="robots"]', 'content')) === 'noindex', denied.url());
   ck('with nothing of the app behind it, and Sign in in the bar',
     (await denied.$('#bookChips')) === null && (await denied.$(BAR.userButton)) === null && (await denied.isVisible(BAR.signInButton)));
-  await denied.screenshot({ path: path.join(SHOTS, 'signed-out.png') });
+  await denied.screenshot({ path: path.join(SHOTS, 'sign-in-failed.png') });
   await iamState({ deny: false });
-  await denied.click('#signin-button');
+  await denied.click(FAILURE.retry);
   await denied.waitForSelector(BAR.userButton, { timeout: 15000 });
-  ck('its button signs in once the IAM lets them: the app, signed in', (await denied.textContent(BAR.userName)).trim() === 'lea', denied.url());
+  ck('its Try again signs in once the IAM lets them: the app, signed in', (await denied.textContent(BAR.userName)).trim() === 'lea', denied.url());
   ck('and back on the page asked for before the refusal, not on /', new URL(denied.url()).pathname === '/exam', denied.url());
   ck('no browser errors on the way', deniedErrors.length === 0, deniedErrors.join(' | '));
   await deniedContext.close();
@@ -173,7 +189,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const again = await deniedAgain.newPage();
   const againErrors = watch(again);
   await again.goto(app.base + '/kanji/item/' + encodeURIComponent('k:大'));
-  await again.waitForSelector('#signin-button', { timeout: 15000 });
+  await again.waitForSelector(FAILURE.retry, { timeout: 15000 });
   await iamState({ deny: false });
   await again.click(BAR.signInButton);
   await again.waitForSelector(BAR.userButton, { timeout: 15000 });
@@ -663,18 +679,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await answer();
     await next();
   }
-  // after the sign-out the IAM refuses, so the page stays on the Sign in card rather than signing in again at once
+  // after the sign-out the IAM refuses, so the page stays on the library's screen of a refused sign-in rather than signing in again at once
   await iamState({ deny: true });
   await page.click(BAR.userButton);
   await page.click(BAR.signOut);
   const waited = await page.waitForSelector(`${BAR.signOut}[aria-busy="true"]`, { timeout: 1000 }).then(() => true, () => false);
   const waitWords = waited ? (await page.textContent(BAR.signOut)).trim() : '';
   ck('Sign out with an answer on its way: it waits, saying so', waited && waitWords === 'Saving…', waitWords);
-  await page.waitForSelector('#signin-button', { timeout: 15000 });
+  await page.waitForSelector(FAILURE.retry, { timeout: 15000 });
   const answersAfter = Number(app.sql("SELECT count(*) AS n FROM srs_log WHERE user_id = ? AND kind = 'practice'", LEA.sub)[0].n);
   ck('then signs out: the answer landed first', held === 1 && answersAfter === answersBefore + 1, `${answersBefore} → ${answersAfter} (${held} held back)`);
   log = await iamLog();
-  ck('through the IAM’s logout, back to the Sign in card', log.includes('GET /api/oidc/logout') && (await page.isVisible('main.signin')));
+  ck('through the IAM’s logout, back - and the sign-in the IAM refuses is said', log.includes('GET /api/oidc/logout') && (await page.isVisible(FAILURE.screen)));
   ck('and the tokens are gone from the browser', (await page.evaluate(() => localStorage.getItem('anotoki-auth:japanese-academy'))) === null);
   await page.unroute('**/api/kanji/practice');
 
@@ -684,7 +700,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // text (not a space) would land in the body, where it counts for nothing.
   console.log('reports, fetched with the token');
   await iamState({ deny: false, user: asUser(LEA) });
-  await page.click('#signin-button');
+  await page.click(FAILURE.retry);
   await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await open('/exam');
   await page.waitForSelector('#bookChips .chip');
@@ -745,7 +761,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await iamState({ deny: true });
   await page.click(BAR.userButton);
   await page.click(BAR.signOut);
-  await page.waitForSelector('#signin-button', { timeout: 15000 });
+  await page.waitForSelector(FAILURE.retry, { timeout: 15000 });
   const tab = await context.newPage();
   await tab.goto(app.base + '/favicon.svg');
   await tab.evaluate(({ key, value }) => localStorage.setItem(key, value), iamSession(4203, { name: 'bob' }));
@@ -771,7 +787,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const QUESTION = 'anotoki-translations-question';
   console.log('?lang= and the admin area (ADMIN)');
   await iamState({ user: asUser(ADA) });
-  const adminContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  // Wide enough for the panel's eight sections in one row (its bar folds up to ADMIN_PHONE_BAR_MAX).
+  const adminContext = await newContext(browser, { viewport: { width: 1440, height: 900 } });
   const admin = await adminContext.newPage();
   // a string is refused on purpose below (422)
   const adminErrors = watch(admin, { ignore: [/\/api\/admin\/translations$/] });
@@ -796,8 +813,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     (await admin.getAttribute('main', 'lang')) === 'en' && (await admin.textContent('h1')).trim() === 'Translations' && (await admin.getAttribute('html', 'lang')) === 'en'
       && (await admin.$(BAR.langButton)) === null);
   const adminLinks = await admin.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
-  ck('the bar holds the panel’s sections: Translations, Languages, People, Migrations; beside the mark its name',
-    adminLinks.join(',') === 'Translations,Languages,People,Migrations' && (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel', adminLinks.join(','));
+  ck('the bar holds the panel’s sections: Translations, Languages, People, Feedback, Errors, Audit log, Backups, Migrations; beside the mark its name',
+    adminLinks.join(',') === 'Translations,Languages,People,Feedback,Errors,Audit log,Backups,Migrations'
+      && (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel', adminLinks.join(','));
   await admin.click(BAR.userButton);
   ck('and her menu says it in English, with the way back', (await admin.textContent(BAR.accountLink)).trim() === 'Your anotoki account' && (await admin.textContent(BAR.backLink)).trim() === 'Back to Japanese Academy');
   await admin.keyboard.press('Escape');
@@ -839,31 +857,112 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       && li.querySelector('[data-offered] .anotoki-switch__words')?.textContent.trim() === 'Hidden' && !li.querySelector('[data-offered] input')?.checked))
       && !offered.includes('cs') && offered.includes('sk'), offered.join(','));
 
-  // People: an ADMIN deletes a person's data, after a copy of it
+  // People - the anotoki library's page: an ADMIN deletes a person's data, after a copy of it
+  const PEOPLE = 'anotoki-people-page';
   await admin.click(barLink('/admin/people'));
-  await admin.waitForSelector('#people');
-  const listed = await admin.$$eval('#people tbody tr', (rows) => rows.map((r) => r.getAttribute('data-id')));
-  ck('People: everybody who signed in, her too', [LEA, MAX, ADA].every((x) => listed.includes(String(x.sub))) && (await admin.textContent(`#people tr[data-id="${ADA.sub}"]`)).includes('you'), listed.join(','));
+  await admin.waitForSelector(`${PEOPLE} [data-people]`);
+  const listed = await admin.$$eval(`${PEOPLE} [data-person]`, (rows) => rows.map((r) => r.getAttribute('data-person')));
+  ck('People (the library’s page): everybody who signed in, her too - "you" on her own row',
+    [LEA, MAX, ADA].every((x) => listed.includes(String(x.sub))) && (await admin.$(`${PEOPLE} [data-person="${ADA.sub}"] [data-you]`)) !== null, listed.join(','));
+  const peopleColumns = await admin.$$eval(`${PEOPLE} [data-people] thead th`, (cells) => cells.map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
+  ck('with this site’s columns beside the library’s: time zone, learned, the exam',
+    ['Time zone', 'Learned', 'Exam'].every((column) => peopleColumns.includes(column)), peopleColumns.join(' | '));
   await admin.screenshot({ path: path.join(SHOTS, 'admin-people.png'), fullPage: true });
   const leaBefore = Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n);
-  await admin.click(`#people tr[data-id="${MAX.sub}"] button`);
-  await admin.waitForSelector('anotoki-confirm-host dialog[open]');
-  const deleteWords = (await admin.textContent('anotoki-confirm-host .anotoki-confirm-host__message')).replace(/\s+/g, ' ');
-  ck('Delete data asks first, saying what goes', /2 items learned/.test(deleteWords) && /copy/.test(deleteWords), deleteWords);
-  await admin.click('anotoki-confirm-host [data-answer="yes"]');
-  const deletedSaid = await admin.waitForFunction(() => /data is deleted/.test(document.querySelector('p.status')?.textContent || ''), null, { timeout: 10000 }).then(() => true, () => false);
-  ck('then deletes: said so, and the row gone', deletedSaid && (await admin.$(`#people tr[data-id="${MAX.sub}"]`)) === null, await admin.textContent('p.status'));
-  ck('his data is gone, a copy of it kept, nobody else’s touched',
+  await admin.click(`${PEOPLE} [data-person="${MAX.sub}"] [data-delete]`);
+  await admin.waitForSelector(`${PEOPLE} [data-confirm] dialog[open]`);
+  const deleteWords = (await admin.textContent(`${PEOPLE} [data-confirm] .anotoki-dialog__description`)).replace(/\s+/g, ' ');
+  ck('Delete their data asks first, in this site’s words: what goes, and that a copy is kept', /2 items learned/.test(deleteWords) && /copy/.test(deleteWords), deleteWords);
+  await admin.click(`${PEOPLE} [data-confirm-delete]`);
+  const deletedSaid = await admin
+    .waitForFunction((page) => /backups\//.test(document.querySelector(`${page} [data-outcome]`)?.textContent || ''), PEOPLE, { timeout: 10000 })
+    .then(() => true, () => false);
+  const rowGone = await admin.waitForSelector(`${PEOPLE} [data-person="${MAX.sub}"]`, { state: 'detached', timeout: 10000 }).then(() => true, () => false);
+  ck('then deletes: what went said, with the copy’s file, and the row gone (the list asked for again)',
+    deletedSaid && rowGone, deletedSaid ? '' : await admin.textContent(PEOPLE));
+  ck('his data is gone, a copy of it kept, nobody else’s touched - and the delete in the audit log',
     Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', MAX.sub)[0].n) === 0
       && app.sql('SELECT id FROM users WHERE id = ?', MAX.sub).length === 0
       && fs.readdirSync(app.backups).some((f) => /before-delete-user-4102-/.test(f))
-      && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) === leaBefore);
+      && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) === leaBefore
+      && Number(app.sql("SELECT count(*) AS n FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", String(MAX.sub))[0].n) === 1);
+
+  // Send feedback, from the foot of a learner's page: it reaches the panel - the count beside its Feedback
+  // link (no mail is sent), the message on the library's Feedback page.
+  console.log('feedback, and the admin tools');
+  const fbContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  await plant(fbContext, NOA);
+  const fb = await fbContext.newPage();
+  const fbErrors = watch(fb);
+  await fb.goto(app.base + '/kanji');
+  await fb.waitForSelector('#sendFeedback');
+  ck('Send feedback at the foot of the page, in the library’s words', (await fb.textContent('#sendFeedback')).trim() === 'Send feedback');
+  await fb.click('#sendFeedback');
+  await fb.waitForSelector('anotoki-feedback-form form');
+  ck('its form in a dialog: her account’s address written in to answer her, "without my name" offered',
+    (await fb.inputValue('anotoki-feedback-form [data-email] input')) === 'noa@example.test' && (await fb.$('anotoki-feedback-form [data-anonymous]')) !== null);
+  await fb.fill('anotoki-feedback-form [data-message] textarea', 'The stroke order of 学 would help me a lot.');
+  await fb.click('anotoki-feedback-form button[type="submit"]');
+  const thanked = await fb.waitForSelector('anotoki-feedback-form [data-thanks]', { timeout: 10000 }).then(() => true, () => false);
+  const sentRow = app.sql('SELECT user_id, contact_email, page, message FROM anotoki_feedback ORDER BY id DESC LIMIT 1')[0] || {};
+  ck('sent: the thanks; kept as hers, her account’s address to answer her, the page without its query',
+    thanked && Number(sentRow.user_id) === NOA.sub && sentRow.contact_email === 'noa@example.test' && sentRow.page === '/kanji', JSON.stringify(sentRow));
+  await fb.click('anotoki-feedback-form [data-close]');
+  ck('Close puts the form away', await fb.waitForSelector('anotoki-feedback-form', { state: 'detached', timeout: 3000 }).then(() => true, () => false));
+  ck('no browser errors around the form', fbErrors.length === 0, fbErrors.join(' | '));
+  await fbContext.close();
+
+  await admin.goto(app.base + '/admin/translations');
+  await admin.waitForSelector(GRID);
+  const badge = await admin
+    .waitForSelector(`${barLink('/admin/feedback')} .anotoki-top-bar__badge`, { timeout: 10000 })
+    .then((el) => el.textContent(), () => '');
+  ck('the panel’s bar: the new message counted beside Feedback', badge.trim() === '1', badge);
+  await admin.click(barLink('/admin/feedback'));
+  await admin.waitForSelector('anotoki-feedback-page [data-messages] [data-message]');
+  const listedMessage = (await admin.textContent('anotoki-feedback-page [data-messages]')).replace(/\s+/g, ' ');
+  ck('the Feedback page (the library’s): her message, under her name', /stroke order/.test(listedMessage) && /noa/.test(listedMessage), listedMessage.slice(0, 200));
+  await admin.click('anotoki-feedback-page [data-messages] [data-message]');
+  await admin.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
+  const read = await admin
+    .waitForFunction((link) => !document.querySelector(`${link} .anotoki-top-bar__badge`), barLink('/admin/feedback'), { timeout: 5000 })
+    .then(() => true, () => false);
+  ck('opened, it is read: the count goes', read);
+  // The shot once the viewer has settled: faded in, the message's new status back (no spinner left in it).
+  await admin
+    .waitForFunction(() => {
+      const dialog = document.querySelector('anotoki-feedback-page [data-viewer] dialog[open]');
+      return !!dialog && getComputedStyle(dialog).opacity === '1' && !dialog.querySelector('anotoki-spinner, [aria-busy="true"]');
+    }, null, { timeout: 5000 })
+    .catch(() => {});
+  await admin.screenshot({ path: path.join(SHOTS, 'admin-feedback-message.png') });
+  await admin.keyboard.press('Escape');
+
+  await admin.click(barLink('/admin/errors'));
+  await admin.waitForSelector('anotoki-error-log-page [data-counts]');
+  ck('the error log (the library’s page): what went wrong on the server, in its frame', (await admin.getAttribute('main.admin', 'lang')) === 'en');
+  await admin.click(barLink('/admin/audit'));
+  await admin.waitForSelector('anotoki-audit-log-page [data-entries]');
+  const audited = (await admin.textContent('anotoki-audit-log-page [data-entries]')).replace(/\s+/g, ' ');
+  ck('the audit log (the library’s page): the person’s data deleted and the language added, by her', /person\.data_deleted/.test(audited) && /language\.created/.test(audited) && /ada/.test(audited), audited.slice(0, 300));
+  await admin.click(barLink('/admin/backups'));
+  await admin.waitForSelector('anotoki-backups-page [data-create]');
+  await admin.click('anotoki-backups-page [data-create]');
+  await admin.waitForSelector('anotoki-backups-page [data-guarded] dialog[open]');
+  await admin.click('anotoki-backups-page [data-guarded-confirm]');
+  const backedUp = await admin
+    .waitForFunction(() => document.querySelectorAll('anotoki-backups-page [data-backup]').length > 0, null, { timeout: 30000 })
+    .then(() => true, () => false);
+  const backupFiles = fs.readdirSync(app.backups);
+  ck('the backups (the library’s page): Back up now, after its question, by an ADMIN who signed in at the IAM minutes ago - one made and listed, beside this site’s own copies',
+    backedUp && backupFiles.some((f) => /-manual-[0-9a-f]{32}\.anotoki-backup$/.test(f)) && backupFiles.some((f) => /^academy-.*\.json$/.test(f)), backupFiles.join(', '));
+  await admin.screenshot({ path: path.join(SHOTS, 'admin-backups.png'), fullPage: true });
   ck('no browser errors in the admin area', adminErrors.length === 0, adminErrors.join(' | '));
   await adminContext.close();
 
   // An EDITOR: Translations only; the API says 403 to the rest
   console.log('an EDITOR, and a learner');
-  const editorContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  const editorContext = await newContext(browser, { viewport: { width: 1440, height: 900 } });
   await plant(editorContext, EDDIE);
   const editor = await editorContext.newPage();
   const editorErrors = watch(editor);
@@ -874,7 +973,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await editor.waitForSelector(GRID);
   const editorLinks = await editor.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
   ck('an EDITOR: Admin opens Translations, the only section in the bar', new URL(editor.url()).pathname === '/admin/translations' && editorLinks.join(',') === 'Translations', editorLinks.join(','));
-  for (const url of ['/admin/people', '/admin/languages']) {
+  for (const url of ['/admin/people', '/admin/languages', '/admin/feedback', '/admin/errors', '/admin/audit', '/admin/backups']) {
     await editor.goto(app.base + url);
     await editor.waitForSelector('.homecards');
     ck(`an EDITOR opening ${url}: home instead`, new URL(editor.url()).pathname === '/', editor.url());
@@ -883,6 +982,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const delete403 = await app.api(`/api/admin/people/${LEA.sub}`, EDDIE, { method: 'DELETE' });
   ck('and the API: 403 admin_only to the people, a delete refused, nothing deleted',
     people403.code === 'admin_only' && delete403.status === 403 && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) > 0);
+  const tools403 = [];
+  for (const url of ['/api/admin/feedback', '/api/admin/errors', '/api/admin/audit', '/api/admin/backups']) tools403.push((await (await app.api(url, EDDIE)).json()).code);
+  ck('and 403 admin_only to every admin tool', tools403.every((code) => code === 'admin_only'), tools403.join(','));
   ck('no browser errors, as an EDITOR', editorErrors.length === 0, editorErrors.join(' | '));
   await editorContext.close();
 
@@ -1020,7 +1122,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // A signed-out administrator: the visitors' page, whose Sign in goes to the IAM and back to it - signed in, the
   // way to the Migrations page, where they apply it. (No session planted: the trip itself is what is tried.)
   await iamState({ user: asUser(ADA), deny: false });
-  const asAdmin = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  // Wide enough for the admin panel's bar unfolded (its eight sections), as the admin part's.
+  const asAdmin = await newContext(browser, { viewport: { width: 1440, height: 900 } });
   const migrations = await asAdmin.newPage();
   const migrationErrors = watch(migrations);
   await migrations.goto(app.base + '/');
@@ -1058,7 +1161,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await migrations.waitForFunction(() => !document.querySelector('[data-apply]').textContent.includes('Applying'));
   const stopped = (await migrations.textContent('[data-result]')).replace(/\s+/g, ' ').trim();
   ck('a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
-    (await migrations.textContent('[data-result] .anotoki-alert__heading')).trim() === `Stopped at academy/${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
+    (await migrations.textContent('[data-result] .anotoki-alert__heading')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
       && (await migrations.getAttribute('[data-result]', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
       && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('[data-apply]'))
       && (await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
@@ -1075,7 +1178,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await migrations.waitForFunction(() => document.querySelector('[data-result] .anotoki-alert__heading')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
   await migrations.waitForFunction(() => /Nothing pending/.test(document.querySelector('[data-pending]')?.textContent ?? ''));
   ck('then applies it: up to date, nothing pending, the file applied, Apply off',
-    /Applied: academy\/006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
+    /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
       && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1, await migrations.textContent('[data-result]'));
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations.png'), fullPage: true });
   // Back to the app without a page load (the menu's link): the gate is open again, and the app's words were asked
@@ -1200,17 +1303,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await vPage.screenshot({ path: path.join(SHOTS, 'home-visitor.png') });
 
   // The admin panel stays sign-in only: a visitor opening it goes to the IAM. Refused there (as when an
-  // administrator took their MEMBER away), they are back on a visitor's page, told why.
+  // administrator took their MEMBER away), the anotoki library's screen says why - never the panel.
   await iamState({ deny: true });
   let mark = vSent.length;
   await vOpen('/admin/migrations');
-  const failedShown = await vPage.waitForSelector('#signInFailed', { timeout: 15000 }).then(() => true, () => false);
-  const failedWords = failedShown ? (await vPage.textContent('#signInFailed p')).trim() : '';
+  const failedShown = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(() => true, () => false);
+  const failedWords = failedShown ? (await vPage.textContent(FAILURE.message)).trim() : '';
   ck('/admin/migrations as a visitor: to the IAM first, never the panel', toIam(mark) && (await vPage.$('main.admin')) === null, vPage.url());
-  ck('refused there: back home, still a visitor, told why in the sign-in’s words',
-    failedShown && failedWords === refusedWords && new URL(vPage.url()).pathname === '/' && (await vPage.isVisible('#visitorNotice')), `${vPage.url()} ${failedWords}`);
-  await vPage.click('#signInFailedClose');
-  ck('and the words close', await vPage.waitForSelector('#signInFailed', { state: 'detached', timeout: 3000 }).then(() => true, () => false));
+  ck('refused there: the library’s screen says why, in its words', failedShown && failedWords === refusedWords, `${vPage.url()} ${failedWords}`);
+  // Refused from the bar's Sign in on a visitor's page: the screen in the place of the page, and Back is the page again.
+  await vOpen('/');
+  await vPage.waitForSelector('#visitorNotice');
+  await vPage.click(BAR.signInButton);
+  const refusedHere = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(() => true, () => false);
+  ck('the bar’s Sign in refused at the IAM: the library’s screen, in the place of the visitor’s page',
+    refusedHere && (await vPage.$('#visitorNotice')) === null && (await vPage.isVisible(BAR.signInButton)), vPage.url());
+  await vPage.click(FAILURE.back);
+  const backHome = await vPage.waitForSelector('#visitorNotice', { timeout: 5000 }).then(() => true, () => false);
+  ck('and Back: the page again, still a visitor’s - never round to the IAM', backHome && new URL(vPage.url()).pathname === '/' && (await vPage.$(FAILURE.screen)) === null, vPage.url());
   await iamState({ deny: false });
 
   // A lesson batch: the first answer makes the visitor (its answer brings the key), the others go with it.

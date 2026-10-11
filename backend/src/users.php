@@ -3,63 +3,19 @@
  * The people whose data this database holds. The IAM owns identity: a users
  * row is only the id the study rows belong to, plus the name from the
  * person's latest token (so a backup says whose data is whose), filled in as
- * their requests arrive - and their time zone, which their browser names
- * (users_seen()). A row with a negative id is a visitor's, somebody studying
- * without signing in (src/visitors.php, migration 007): their study rows are
- * like anybody's, and only src/visitors.php makes, finds or deletes the row.
+ * their requests arrive - and their time zone, which their browser names.
+ * The anotoki library's people module writes the row from the token
+ * (people_seen(), src/people.php) and blanks it when the IAM deleted the
+ * account (users.anonymized_at, migration 010). A row with a negative id is a
+ * visitor's, somebody studying without signing in (src/visitors.php,
+ * migration 007): their study rows are like anybody's, and only
+ * src/visitors.php makes, finds or deletes the row.
  */
 
 declare(strict_types=1);
 
 /** The tables whose rows each belong to one person (their user_id). */
 const USER_TABLES = ['srs_settings', 'srs_progress', 'srs_daily', 'srs_log', 'exam_attempts', 'imports'];
-
-/**
- * A request from this person: their row, made the first time, with the name
- * from their token and when they were last here, and the time zone their
- * request names ($zone, already checked: time_zone_known()). Written at most
- * every five minutes, or when the name or the zone changed, so studying
- * doesn't write it on every answer.
- *
- * Returns the person's time zone for this request: $zone when the request
- * named one, else the one kept on their row, else null (they never sent one:
- * the caller then takes UTC). Until migration 005 is in there is no column
- * for it (users_time_zone_ready()): $zone still counts for the request, and
- * nothing is kept.
- */
-function users_seen(int $id, ?string $username, ?string $zone = null): ?string
-{
-    if (!users_time_zone_ready()) {
-        users_seen_row($id, $username);
-        return $zone;
-    }
-    db_exec(
-        "INSERT INTO users (id, preferred_username, time_zone) VALUES (?, ?, ?)
-         ON CONFLICT (id) DO UPDATE SET preferred_username = coalesce(EXCLUDED.preferred_username, users.preferred_username), last_seen_at = now(),
-            time_zone = coalesce(EXCLUDED.time_zone, users.time_zone)
-         WHERE users.last_seen_at < now() - interval '5 minutes'
-            OR users.preferred_username IS DISTINCT FROM coalesce(EXCLUDED.preferred_username, users.preferred_username)
-            OR users.time_zone IS DISTINCT FROM coalesce(EXCLUDED.time_zone, users.time_zone)",
-        [$id, $username, $zone]
-    );
-    if ($zone !== null) {
-        return $zone;
-    }
-    // A request that named no zone (a tool, a browser that would not say): the one they last brought.
-    return time_zone_known(db_value('SELECT time_zone FROM users WHERE id = ?', [$id]));
-}
-
-/** users_seen() of a database without the time zone column (before migration 005). */
-function users_seen_row(int $id, ?string $username): void
-{
-    db_exec(
-        "INSERT INTO users (id, preferred_username) VALUES (?, ?)
-         ON CONFLICT (id) DO UPDATE SET preferred_username = coalesce(EXCLUDED.preferred_username, users.preferred_username), last_seen_at = now()
-         WHERE users.last_seen_at < now() - interval '5 minutes'
-            OR users.preferred_username IS DISTINCT FROM coalesce(EXCLUDED.preferred_username, users.preferred_username)",
-        [$id, $username]
-    );
-}
 
 /**
  * Has users its time_zone column (migration 005)? An upload whose 005 is still

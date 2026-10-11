@@ -54,14 +54,15 @@ Clean review: +1 stage. With `w` wrong answers (meaning + reading):
 ## Each learner's own time zone (2026-10-04)
 
 Days and hours are the learner's own, not the server's
-(`backend/api/middleware/person.php`, `auth_user()` in `backend/src/auth.php`):
+(`backend/api/middleware/person.php`, after the library's `Identify` in `backend/src/auth.php`):
 
 - **Which zone.** The browser names its zone with every request to this
   site's `/api` and `/report` addresses: `X-Time-Zone: Europe/Bratislava`
   (an IANA name both PHP and ICU know: `time_zone_known()` in
   `backend/src/util.php`; anything else is ignored). It is that request's zone, and it is kept on the
   person's row (`users.time_zone`, migration 005) when it differs from the
-  kept one — at most one write, inside `users_seen()`. A request that names
+  kept one — at most one write, inside `people_seen()` (the library's
+  `PeopleRecorder`, which writes it with the row). A request that names
   none (a tool, a browser that will not say) uses the kept one; somebody who
   never named one is counted in UTC.
 - **What follows it.** PHP's zone is the person's for the rest of the
@@ -167,10 +168,13 @@ user id first.
   server does anything at start): all the study data, everybody's, in one
   file, `backend/storage/backups/academy-<date>.json` (the UTC day, whoever's
   page load it is; see
-  `backend/src/backup.php`); the last 14 are kept. No backup ever runs inside a lesson, review or
+  `backend/src/backup.php`); the last 14 are kept. The same page load asks
+  for the anotoki library's backup of the whole database for the day, made
+  after its answer (the library keeps the last 14 of them;
+  [architecture.md](architecture.md), *The admin tools*). No backup ever runs inside a lesson, review or
   practice request, and a failed one is only reported. An empty database has
-  nothing to back up, nor one where only visitors studied (their data is in
-  no backup).
+  nothing to back up in the app's copy, nor one where only visitors studied
+  (their data is in none of the app's copies; the library's holds every row).
 - **Full reset** (`POST /reset`): the person's data is backed up first, theirs
   alone (`academy-before-reset-user-<id>-<time>.json`, with the log; their
   last 14 are kept, and restoring one replaces only their data); the person's

@@ -8,8 +8,10 @@
 
 declare(strict_types=1);
 
+use Anotoki\Lib\Admin\Schema as AdminSchema;
 use Anotoki\Lib\Migrations\MigrationSet;
 use Anotoki\Lib\Migrations\Migrator;
+use Anotoki\Lib\People\Schema as PeopleSchema;
 use Anotoki\Lib\Translations\Schema;
 
 function db_dsn(?string $name = null): string
@@ -172,21 +174,31 @@ function db_create(?string $name = null, ?string $template = null): bool
 const MIGRATION_SET = 'academy';
 
 /**
- * The sets of migration files, in the order they run: this site's own
- * (backend/migrations/, MIGRATION_SET), then the anotoki library's set of the
- * app's words, anotoki_translations (Translations\Schema::migrationSet(), in
- * backend/vendor/anotoki/lib/php/migrations/translations/: the tables of the
- * languages and the strings, and the library's own words under anotoki.).
- * The library's set comes after this site's: this site's 004 made those
- * tables itself, with a plain CREATE TABLE, and the library's 001 finds them
- * there and only proves their shape - run first, it would make them, and 004
- * would fail on every new database.
+ * The sets of migration files, in the order they run - the anotoki library's
+ * order (its README, "Admin tools"):
+ *
+ *   anotoki_admin          the library's admin tools' tables, FIRST (Admin\Schema: the
+ *                          audit log, anotoki_audit_log; the feedback, anotoki_feedback) - a
+ *                          site's own files may move rows into them, and nothing else makes
+ *                          an anotoki_ table
+ *   academy                this site's own (backend/migrations/, MIGRATION_SET)
+ *   anotoki_translations   the library's set of the app's words (Translations\Schema: the
+ *                          tables of the languages and the strings, and the library's own
+ *                          words under anotoki.) - after this site's: this site's 004 made
+ *                          those tables itself, with a plain CREATE TABLE, and the library's
+ *                          001 finds them there and only proves their shape; run first, it
+ *                          would make them, and 004 would fail on every new database
+ *   anotoki_people         the library's people (People\Schema: the scrub's cursor and the
+ *                          list of the ids the IAM deleted) - last, after this site's 010
+ *                          gave users its anonymized_at
+ *
+ * The library's files live in backend/vendor/anotoki/lib/php/migrations/.
  *
  * @return list<MigrationSet>
  */
 function db_migration_sets(): array
 {
-    return [new MigrationSet(MIGRATION_SET, MIGRATIONS_DIR), Schema::migrationSet()];
+    return [AdminSchema::migrationSet(), new MigrationSet(MIGRATION_SET, MIGRATIONS_DIR), Schema::migrationSet(), PeopleSchema::migrationSet()];
 }
 
 /**
@@ -226,10 +238,11 @@ function db_migration_path(array $file): string
  * Migrator, the Composer package anotoki/lib - every anotoki site's), set up
  * for this site's own ways:
  *
- *   - two sets of files (db_migration_sets()): backend/migrations/, then the
- *     library's anotoki_translations, each in the order of its names; the
- *     library's are recorded as "anotoki_translations/<file>", this site's by
- *     their names as before;
+ *   - four sets of files (db_migration_sets()): the library's anotoki_admin,
+ *     backend/migrations/, then the library's anotoki_translations and
+ *     anotoki_people, each in the order of its names; the library's are
+ *     recorded as "<set>/<file>" ("anotoki_admin/001_audit_log.sql"), this
+ *     site's by their names as before;
  *   - the table `migrations (name, applied_at)` as this site has always had
  *     it: made in that shape on a new database (db_migrations_table(), its
  *     prepare hook), read and written as it is;
@@ -243,8 +256,9 @@ function db_migration_path(array $file): string
  *     content's rebuild takes too (upkeep_run()): the two never run at once,
  *     and a second apply is told it is busy;
  *   - $beforeApply, once before anything runs: the raw copy of every table
- *     (upkeep_before_apply()) for the Migrations page's Apply, the setup page
- *     and manage.php; none for the tests' builder (db_migrate()).
+ *     and the library's backup of the database (upkeep_before_apply()) for the
+ *     Migrations page's Apply, the setup page and manage.php; none for the
+ *     tests' builder (db_migrate()).
  *
  * $pdo: the connection it works on, db() when none. Whoever applies gives it
  * a connection of its own (db_connect()): the lock belongs to the connection,
@@ -283,10 +297,43 @@ function db_migrator(?PDO $pdo = null, ?Closure $beforeApply = null): Migrator
  * anybody's server applies it only once that line is there. The tests alone
  * may apply a draft they name (db_migration_drafts_allowed()), so they run on
  * the tables it makes.
+ *
+ * And while one of this site's own files is such a draft, the library's files
+ * wait with it on every database but the tests' (db_own_draft()) - all of
+ * them, the anotoki_admin set that runs before this site's own included: the
+ * library's files a change brings belong to that change, so the owner's own
+ * server, serving a working tree with a migration being written, neither
+ * stops its pages for them (503 update_pending) nor gets them on an Apply
+ * before the owner accepts the change.
  */
 function db_migration_ready(string $name, string $sql, bool $own = true): bool
 {
-    return ($own && $name === '001_init.sql') || db_migration_whole($name, $sql) || ($own && db_migration_drafts_allowed(db_name(), $name));
+    if (!$own) {
+        return db_migration_whole($name, $sql) && db_own_draft(db_name()) === null;
+    }
+    return $name === '001_init.sql' || db_migration_whole($name, $sql) || db_migration_drafts_allowed(db_name(), $name);
+}
+
+/**
+ * The first of this site's own migrations that is still a draft for $database
+ * - a file of backend/migrations/ without its last line, which $database may
+ * not apply - or null. The tests' databases (their template included) hold
+ * nothing back: they apply the drafts they name, and the library's files with
+ * them, as the upload will once the draft is final.
+ */
+function db_own_draft(string $database): ?string
+{
+    if (preg_match('/^academy_test_[a-z0-9_]+$/D', $database) === 1) {
+        return null;
+    }
+    $names = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
+    sort($names);
+    foreach ($names as $name) {
+        if ($name !== '001_init.sql' && !db_migration_whole($name, (string) @file_get_contents(MIGRATIONS_DIR . "/$name"))) {
+            return $name;
+        }
+    }
+    return null;
 }
 
 /** Does this migration's text end with its own last line, "-- end of NNN"? */
@@ -325,14 +372,36 @@ function db_pending_migrations(): array
 
 /**
  * The first migration not yet applied, drafts too ({set, name}), or null: for
- * saying which file waits (db_migration_path()).
+ * saying which file waits (db_migration_path()) - a draft of this site's own
+ * that holds the library's files back (db_own_draft()) before any of them.
  *
  * @return ?array{set: string, name: string}
  */
 function db_first_pending_migration(): ?array
 {
     $pending = db_migrator()->status()['pending'];
-    return $pending === [] ? null : ['set' => $pending[0]['set'], 'name' => $pending[0]['name']];
+    if ($pending === []) {
+        return null;
+    }
+    return db_waiting_draft($pending) ?? ['set' => $pending[0]['set'], 'name' => $pending[0]['name']];
+}
+
+/**
+ * Of these pending migrations ({set, name}), the draft of this site's own that
+ * holds the library's files back on this database (db_own_draft()), or null.
+ *
+ * @param list<array{set: string, name: string}> $pending
+ * @return ?array{set: string, name: string}
+ */
+function db_waiting_draft(array $pending): ?array
+{
+    $draft = db_own_draft(db_name());
+    foreach ($pending as $file) {
+        if ($draft !== null && $file['set'] === MIGRATION_SET && $file['name'] === $draft) {
+            return ['set' => MIGRATION_SET, 'name' => $draft];
+        }
+    }
+    return null;
 }
 
 /**

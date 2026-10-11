@@ -31,7 +31,8 @@ Reference: `docs/kb/kanji-srs.md`. Read it before changing the trainer.
   `srs_progress` and `srs_log` (backup first; the `academy-data` skill has the
   steps) and tell the owner.
 - Every row is one person's: each `store_…` and `kanji_…` function takes the
-  user id first (from `auth_user()`, never from a request's body), and every
+  user id first (from the token's `sub` through the library's `Identify`,
+  never from a request's body), and every
   query has `WHERE user_id = ?`. One person can never read or change another's
   items, day counts, log or settings.
 - `store.php` saves each answer in one transaction: the item, the day's count

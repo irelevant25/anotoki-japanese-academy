@@ -7,7 +7,9 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
 - `backend/` — PHP 8.2+ with **Slim 4** (routing and middleware) and, since
   2026-10-07, the **anotoki library** (`anotoki/lib`, every anotoki site's:
   the migrations' engine, where the site stands and the gate in front of
-  every route, and since 0.3.0 the app's words; Composer's packages
+  every route, since 0.3.0 the app's words, and since 0.4.0 the sign-in's
+  checks, the people and the admin tools - the error log, the audit log, the
+  feedback, the backups of the whole database; Composer's packages
   committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
@@ -41,11 +43,13 @@ the top (`backend/README.md`, `frontend/README.md`).
    a request ── backend/router.php (here) or public/index.php (Apache) ── backend/api/front.php
         ├─ /setup.php ───────────── backend/setup.php (while it is there)
         ├─ /api/… /audio/… /report/… ── backend/api/app.php: the Slim app
-        │      ├─ middleware: errors → JSON, security headers, a trailing slash dropped;
-        │      │   in front of every route the anotoki library's SiteGate (not set up?
-        │      │   an update waiting? 503, but on the addresses that stay open);
-        │      │   per address with data: upkeep (src/upkeep.php) → the person
-        │      │   (src/auth.php) → on a page load, the day's backup
+        │      ├─ middleware: the library's error log around everything, errors → JSON, security
+        │      │   headers, a trailing slash dropped; in front of every route the anotoki library's
+        │      │   SiteGate (not set up? an update waiting? 503, but on the addresses that stay open);
+        │      │   after the answer, at most hourly, the scrub of the IAM's deleted accounts
+        │      │   (the library's PeopleUpkeep, src/people.php); per address with data: upkeep
+        │      │   (src/upkeep.php) → who is asking (the library's Identify, src/auth.php) → the
+        │      │   person → on a page load, the day's backups
         │      ├─ /api/site-status   where the site stands (the library's; always answered, to anybody)
         │      ├─ routes/site.php    /api/auth/config  /api/health  /audio/:name
         │      ├─ routes/exam.php    /api/meta /api/exam /api/submit /api/attempts /report/:id ── src/exam.php
@@ -55,6 +59,10 @@ the top (`backend/README.md`, `frontend/README.md`).
         │      ├─ routes/translations.php   /api/translations/:code (everybody)  /api/admin/* (EDITOR, ADMIN):
         │      │      the anotoki library's TranslationsRoutes ── src/translations.php  academy_translations():
         │      │      the library's Translations on languages, translation_keys, translations
+        │      ├─ routes/people.php   /api/admin/people (ADMIN): the library's PeopleRoutes ── src/people.php
+        │      ├─ routes/admin.php    /api/admin/errors, /audit, /feedback, /backups (ADMIN), POST /api/feedback:
+        │      │      the library's admin tools ── src/admin.php  (storage/logs, anotoki_audit_log,
+        │      │      anotoki_feedback, storage/backups/*.anotoki-backup)
         │      └─ routes/migrations.php   /api/admin/migrations (the library's; ADMIN from the token; answers
         │                                 while a migration waits) ── db_migrator() (src/db.php), src/upkeep.php
         └─ anything else ─────────── a file of the built app, or its index.html (Angular's router draws the page)
@@ -109,17 +117,28 @@ to build it; the API works all the same.
 library's `GET /api/site-status`, the routes of
 `routes/site.php`, `routes/exam.php`, `routes/kanji.php`, `routes/me.php`,
 `routes/visitor.php`,
-`routes/translations.php` (which calls `routes/people.php` inside its
-administrators' group) and `routes/migrations.php`, then the routing
-middleware, the library's **SiteGate** (below), a trailing slash dropped before routing (`/api/meta/` is
+`routes/translations.php`, `routes/people.php` (the library's People routes),
+`routes/admin.php` (the library's admin tools) and `routes/migrations.php`,
+then the routing middleware, the library's `PeopleUpkeep` (after the answer,
+at most hourly and only while the site is ready, the scrub of the accounts
+the IAM deleted: [sign-in.md](sign-in.md), *Accounts the IAM deleted*), the
+library's **SiteGate** (below), a trailing slash dropped before routing (`/api/meta/` is
 `/api/meta`, as before Slim), the error middleware
 (`middleware/errors.php`: an `HttpError` becomes `{error, code?}` with its
 status, and what more a page needs to word it, such as a `too_large`'s
-`limit`; 404 and 405 are JSON too, a database error 503) and the security
+`limit`; 404 and 405 are JSON too, a database error 503; what it answers
+500 or 503 is written down in the error log), the security
 headers (`middleware/security.php`: `nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer`, a default-deny CSP for the JSON). `http.php`
+`Referrer-Policy: no-referrer`, a default-deny CSP for the JSON) and,
+outermost, the library's error log (`ErrorLogMiddleware::outer()`: an answer
+worth seeing - a 5xx, a 404, 405, 413, 415 or 429 - that no exception wrote
+down; PHP's own warnings and fatal errors go there too,
+`installPhpHandlers()`; *The admin tools*, below). `http.php`
 has the response helpers (`json_response()`, `request_body()` — JSON objects
-only —, `file_response()` with byte ranges).
+only, and of a write any type but JSON 415 `unsupported_media_type` before
+anything is read or written: a form or plain text is what another site's
+page may send here without asking first, and read as an empty body it would
+save as nobody and make a visitor —, `file_response()` with byte ranges).
 
 **Whether the site can answer at all** comes before any route, since
 2026-10-07 the anotoki library's way, the same on every anotoki site
@@ -135,9 +154,13 @@ engine, `db_migrator()`), decided afresh for every request, and the
   computer's never does);
 - **an update waiting** (a whole migration not applied): 503 `{"code":
   "update_pending", "message"}` with `Retry-After: 60`, except the addresses
-  that stay open (`academy_site_open_paths()` in `app.php`): `/api/auth/config`,
-  `/api/translations/{code}` (the library's `TranslationsRoutes::openPath()`), `/api/health`, `/audio/{name}` and the
-  Migrations page's three (`/api/admin/migrations`, `…/file`, `…/apply`) —
+  that stay open (`academy_site_open_paths()` in `app.php`): `/api/auth/config`
+  (the library's `AuthRoutes::openPath()`),
+  `/api/translations/{code}` (the library's `TranslationsRoutes::openPath()`), `/api/health`, `/audio/{name}`, the
+  Migrations page's three (`/api/admin/migrations`, `…/file`, `…/apply`), and
+  the error log's and the backups' (the library's `ErrorLogRoutes::openPaths()`
+  and `BackupsRoutes::openPaths()`: a backup just before an Apply is the
+  point - never a restore) —
   so the pages start with their words, an administrator signs in and applies
   the update, and the clips play on. Each is its route and nothing under it,
   never a prefix: the gate reads the path decoded once, and a prefix would
@@ -152,16 +175,20 @@ at, `{"state": "ready" | "not_set_up" | "update_pending" | "unavailable",
 "installed": bool}`. No sign-in gate of the site's stands in front of it.
 
 Every address with somebody's data is registered through `data_route()`
-(`routes/site.php`), which puts three middleware in front of it, in this
+(`routes/site.php`), which puts its middleware in front of it, in this
 order, behind the SiteGate:
 **upkeep** (the content's rebuild after an upload; nothing while a whole
-migration waits for an administrator's Apply), **the
-person** (`middleware/person.php`: `auth_user()`, put on the request as `uid`;
-401 without one; PHP's time zone becomes theirs for the rest of the request —
-[kanji-srs.md](kanji-srs.md), *Each learner's own time zone*), and on a page
-load **the day's backup**. The study addresses (the exam's and the kanji
+migration waits for an administrator's Apply), **who is asking** (the
+library's `Identify`, `academy_identify_person()` in `src/auth.php`: a token
+alone, a visitor's key never read), **a signed-in
+person** (the library's `RequirePerson`: 401 without one), **the person**
+(`middleware/person.php`: their row kept up to date, `people_seen()`, their
+id put on the request as `uid`; PHP's time zone becomes theirs for the rest
+of the request — [kanji-srs.md](kanji-srs.md), *Each learner's own time
+zone*), and on a page load **the day's backups** (the app's own copy, and the
+library's backup of the whole database, made after the answer). The study addresses (the exam's and the kanji
 SRS's, the reports) are registered through `study_route()` instead: the same
-chain with **the learner** (`learner_middleware()`) in the person's place -
+chain with the library's `RequireCaller` and **the learner** (`learner_middleware()`) in the person's place -
 a signed-in person as ever, or, where the IAM says this site does not
 require sign-in, a visitor (their key in `X-Visitor-Key`, a negative `uid`)
 or nobody yet (`uid` 0, an empty learner), whose save makes a visitor; a
@@ -173,7 +200,7 @@ unseen for 30 days, at most once an hour.
 | Route | What |
 |---|---|
 | `GET /api/site-status` | where the site stands: `{state, installed}` (the anotoki library's, above) — always answered, to anybody |
-| `GET /api/auth/config` | where to sign in: `{issuer, clientId, loginRequired, visitorKeepDays}` (the IAM, the one way there is, whether it requires sign-in here: `src/access.php`, true until visitors can be kept, and how many days a visitor's data is kept) — no sign-in needed; 503 when not set up; answered while an update waits |
+| `GET /api/auth/config` | where to sign in, the library's boot configuration (`AuthRoutes::config()`): `{issuer, client_id, login_required, sign_in_available, visitor_keep_days}` (the IAM, the one way there is, whether it requires sign-in here: `src/access.php`, true until visitors can be kept, and how many days a visitor's data is kept; snake_case since anotoki-lib 0.4.0) — no sign-in needed; 503 when not set up; answered while an update waits |
 | `POST /api/visitor/move` | at sign-in, with the person's token and the visitor's `X-Visitor-Key`: what the visitor studied into the person's account → `{found, items, kept, attempts, answers}`, whatever the switch says — see [sign-in.md](sign-in.md), *Visitors* |
 | `GET /api/meta` | exam: parts, sections, lessons, bank size, your attempt count |
 | `POST /api/exam` | exam: build a paper from `{size, books, lessons, sections, seed}` — questions without answers |
@@ -186,19 +213,22 @@ unseen for 30 days, at most once an hour.
 | `GET /api/health` | `{ok, contentCurrent}`, and under PHP's built-in server, to a request straight from this computer, also `database` and `backups` — the tests ask it |
 | `GET /api/translations/:code` | the app's own words (the anotoki library's route): `{language, languages: [{code, name, native_name}], values, english?}` — a language's strings with English merged underneath, and the languages on offer; no sign-in, no token looked at; `ETag` + `Cache-Control: no-cache` (304 for the tag the browser holds); 404 `not_found` for what is no code; 503 `translations_unavailable` (`Retry-After: 60`) while the database has no words yet (004 of an upload still arriving, or waiting for its Apply) or cannot be asked; answered while an update waits |
 | `/api/admin/languages`, `/api/admin/translations` | the admin panel, the anotoki library's routes (`TranslationsRoutes::strings()`, `::languages()`) in two of this app's route groups, in snake_case: the editors and the administrators (`EDITOR`, `ADMIN`) read the grid of every key in every language, save the changed cells, export and import a language as flat JSON; the administrators alone read, add, change and delete languages (a copy of its strings in the backups first) — see *The app's words* |
-| `GET /api/admin/people`, `DELETE /api/admin/people/:id` | the administrators alone (the inner group): everybody the site has data of, and deleting a person's data — see *People* below |
-| `GET /api/admin/visitors` | the administrators alone: `{ready, count, oldestSeenAt, keepDays, max}`, the visitors the site keeps now (none on the People page) |
-| `GET /api/admin/migrations`, `GET /api/admin/migrations/file`, `POST /api/admin/migrations/apply` | the administrators alone: the anotoki library's routes (`MigrationsRoutes::admin()`), with `ADMIN` read from the token alone (`migrations_admin_middleware()`: no table needed; it answers while a migration waits): `{sets, applied: [{set, name, applied_at}], pending: [{set, name, ready, blocked}], missing}`; a file's `{set, name, sql}`; Apply → `{applied, failed, error, note}`, 409 `busy` — see *The database*, *A whole migration waits for an administrator* |
+| `GET /api/admin/people`, `DELETE /api/admin/people/:sub`, `POST /api/admin/people/sync` | the administrators alone: the library's People routes - everybody the site has data of (and the visitors' line), deleting a person's data, the scrub of the IAM's deleted accounts now — see *People* below |
+| `/api/admin/errors…`, `/api/admin/audit…`, `/api/admin/feedback…`, `/api/admin/backups…` | the administrators alone: the library's admin tools — see *The admin tools* below |
+| `POST /api/feedback` | the visitors' feedback form (the library's): a person's, or while the IAM does not require sign-in here a visitor's or nobody's — see *The admin tools* below |
+| `GET /api/admin/migrations`, `GET /api/admin/migrations/file`, `POST /api/admin/migrations/apply` | the administrators alone: the anotoki library's routes (`MigrationsRoutes::admin()`), with `ADMIN` read from the token alone (`admin_token_checks()`: no table needed; it answers while a migration waits): `{sets, applied: [{set, name, applied_at}], pending: [{set, name, ready, blocked}], missing}`; a file's `{set, name, sql}`; Apply → `{applied, failed, error, note}`, 409 `busy` — see *The database*, *A whole migration waits for an administrator* |
 
 Every `/api` and `/report` address needs a signed-in person, except
-`/api/site-status`, `/api/auth/config`, `/api/health` and `/api/translations/{code}` (the app's
-own words, the same for everybody) - and the study addresses where the IAM
+`/api/site-status`, `/api/auth/config`, `/api/health`, `/api/translations/{code}` (the app's
+own words, the same for everybody) and a backup's download by its
+single-use ticket - and the study addresses and the feedback form where the IAM
 lets people study without signing in (visitors) - and answers with that
-person's (or visitor's) data only ([sign-in.md](sign-in.md)). The `/api/admin/…` group adds, after the person,
-`staff_middleware()` (`middleware/staff.php`: no `EDITOR` or `ADMIN` role 403
-`staff_only`, a body over 1 MiB 413 `too_large`), and its inner group
-`admin_middleware()` (no `ADMIN` 403 `admin_only`); the checks are on the
-groups, so a route added to one cannot forget them. A refusal is `{error, code?, detail?}`: the sentence
+person's (or visitor's) data only ([sign-in.md](sign-in.md)). Every `/api/admin/…` group adds, after the person,
+`staff_middleware()` (`middleware/staff.php`, the library's `RequireRole`: no `EDITOR` or `ADMIN` role 403
+`staff_only`; the words' and the languages' groups a body over 1 MiB 413 `too_large`,
+`body_limit_middleware()`), and the groups of what only an administrator may do
+`admin_middleware()` (no `ADMIN` 403 `admin_only`) - and the library's own groups their own `ADMIN` check
+inside; the checks are on the groups, so a route added to one cannot forget them. A refusal is `{error, code?, detail?}`: the sentence
 is for the command line, the logs and the tests; a page words the failure
 from its `code`; `detail`, the reason of a database error or a crash, goes
 out under PHP's built-in server only (the one
@@ -286,26 +316,146 @@ import/export the users data should be available for every user").
 
 ### People — `routes/people.php`, `src/people.php`
 
-The administrators (`ADMIN`) alone, inside the admin panel's inner group:
+The anotoki library's people module (since anotoki-lib 0.4.0; the library's
+README, "People"), on this app's `users` table - the administrators
+(`ADMIN`) alone, the library's own `ADMIN` check inside its group as well.
+One wire format for every anotoki site: snake_case, times in ISO 8601 UTC,
+an IAM id as a string.
 
-- **`GET /api/admin/people`**: `{people: [{id, username, createdAt,
-  lastSeenAt, timeZone, items, attempts}]}`, the latest seen first — the id
-  and name of their tokens, when they came first and last, their zone, items
-  learned (stage above 0), exam attempts.
-- **`DELETE /api/admin/people/:id`**: a copy of all of that person's data
+- **`GET /api/admin/people?q=&page=`**: `{people: [{sub, name,
+  first_seen_at, last_seen_at, anonymized_at, iam_url, time_zone, learned,
+  attempts}], columns, total, page, page_size: 50, visitors, sync, ready,
+  problems}` — the latest seen first; `q` finds a name or an IAM id; this
+  site's columns (`people_columns()`: the zone, the items learned - stage
+  above 0 -, the exam attempts); `visitors` the line about the visitors
+  (somebody studying without signing in, negative ids, never on the list:
+  `{count, oldest_seen_at, keep_days, max}`, null while migration 007 waits;
+  until 2026-10-11 `GET /api/admin/visitors`); `sync` where the scrub of the
+  IAM's deleted accounts stands ([sign-in.md](sign-in.md), *Accounts the IAM
+  deleted*).
+- **`DELETE /api/admin/people/:sub`**: a copy of all of that person's data
   first (`academy-before-delete-user-<id>-<time>.json`, their last 14 kept;
   `manage.php --restore` of it brings them back, nobody else), then their rows
   in every table of `USER_TABLES` and their `users` row go, in one
-  transaction holding that row `FOR UPDATE`. A request of theirs still on its
-  way waits for it, finds no row, and makes it again (`users_hold()`): their
-  data starts afresh rather than the request failing. Strings they reworded
-  stay, by nobody (`translations.updated_by` empties by its foreign key).
-  Answers `{deleted, copy}` (the copy's file name); 404 `not_found` for an id
-  the site has nobody of. Their account is the IAM's: they may still sign in.
-- **`GET /api/admin/visitors`**: `{ready, count, oldestSeenAt, keepDays,
-  max}` - the visitors (somebody studying without signing in, negative ids),
-  who are never on the list above: how many, the longest unseen, and the
-  limits; `ready` false while migration 007 waits.
+  transaction holding that row `FOR UPDATE` (`people_delete()`, the library's
+  delete hook). A request of theirs still on its way waits for it, finds no
+  row, and makes it again (`users_hold()`): their data starts afresh rather
+  than the request failing. Strings they reworded stay, by nobody
+  (`translations.updated_by` empties by its foreign key); their feedback keeps
+  its words but no longer the address to answer them at nor their browser
+  (`Feedback::forgetPeople()`, in the same transaction). Answers `{deleted:
+  {"Kanji and words": n, "Answers": n, "Exam attempts": n}, note}` (the
+  note names the copy's file); 404 `not_found` for an id the site has nobody
+  of; recorded in the audit log (`person.data_deleted`). Their account is the
+  IAM's: they may still sign in.
+- **`POST /api/admin/people/sync`**: the scrub, now → `{run, sync}`;
+  recorded (`people.synced`).
+
+### The admin tools — `routes/admin.php`, `src/admin.php`
+
+The anotoki library's admin tools (since anotoki-lib 0.4.0; its README,
+"Admin tools"), set up for this site in `src/admin.php` and mounted in
+`routes/admin.php`: the ones Japanese takes - the error log, the audit log,
+the feedback with the visitors' form, the backups of the whole database - and
+not the file explorer (the genshin site's alone). Every page of theirs is the
+`ADMIN`'s alone (the owner's decision; the library's own check inside each
+group too). What they need to know of this site is one `AdminContext`
+(`academy_admin_context()`): who acts (the token's `sub`), whether they are
+`ADMIN` (the token's roles), the proof a backup asks for (a sign-in of the
+last ten minutes: the token's `auth_time`), the address bucket the feedback's
+limits count (`client_address_counted()`) and this site's error body.
+
+- **The error log** (`academy_error_log()`, `GET /api/admin/errors?days=&level=&status=&search=`,
+  `GET …/{fingerprint}`, `DELETE …[?before=]`): what went wrong, one JSON line
+  each in `backend/storage/logs/errors-<UTC day>.jsonl` - a 5xx, a 404, 405,
+  413, 415 or 429 answered, a failure the error middleware answered 500 or
+  503, PHP's warnings and fatal errors - redacted: never a header, a body, a
+  query string or a token; a keyed hash of the address bucket instead of the
+  address (the key `backend/storage/anotoki-lib.key`, made once), and no
+  person's id: the log writes its lines outside the routes (the error
+  middleware, the library's outer middleware), before the library's `Identify`
+  has found who is asking, so `user_id` stays empty - the context's `actorId`
+  answers only on a request `Identify` went through. A 401, a 403 or a 422 is an answer, not a failure: never
+  written. The library keeps 30 days and 64 MB in all. Files, so it works while
+  the database does not; it answers while an update waits. Clearing it is
+  recorded (`errors.cleared`). The pages' own errors are not sent here yet:
+  the library's route for them (`ErrorLogRoutes::client()`) comes with its
+  Angular reporter in 0.4.2, and is not mounted until then.
+- **The audit log** (`academy_audit()`, `GET /api/admin/audit?actor=&action=&target_type=&from=&to=&page=`,
+  `GET …/facets`; read only): who did what in the admin panel, in the table
+  `anotoki_audit_log` (the library's set `anotoki_admin`): the languages and
+  the words (`translations.saved`, `language.created` …, from the library's
+  translations routes through `academy_audit_record()`), a person's data
+  deleted, the scrub run, the migrations applied (`migrations.applied`, after
+  the entries that waited for the table: `audit-pending.jsonl`, flushed after
+  an Apply), the backups, the feedback handled, the error log cleared. Kept;
+  no address but a person's own id. An actor is found by name through this
+  site's `users` (`actorIds`).
+- **Feedback** (`academy_feedback()`): the visitors' messages, in the table
+  `anotoki_feedback`. **`POST /api/feedback`** `{kind, section?, subject?,
+  message, email?, page?, language?, anonymous?, website}` → 201: a person's
+  (their id from the token), or while the IAM does not require sign-in here a
+  visitor's or nobody's (the library's `RequireCaller`, `empty`); `website` is
+  the honeypot; the places are the app's sections (`FEEDBACK_SECTIONS`:
+  `Kanji`, `Exam`); limits 5 an hour and 20 a day from one address bucket,
+  300 a day in all (a keyed hash of the bucket for a day, in
+  `backend/storage/cache/`). **The address for an answer is the one the
+  sender sends**: the form writes a signed-in person's account address in for
+  them, which they may change or clear - a cleared field keeps none, the
+  server never puts their account's back (the form's words: "Only if you
+  would like an answer") -, and "Send it without my name" (`anonymous`)
+  keeps neither their id nor an address - the owner's decision of 2026-10-11,
+  for every site: "it's their choice" ([decisions.md](decisions.md)). Nothing of where a message came
+  from is kept with it. **No mail is sent** (the owner's decision): the admin
+  panel's Feedback link counts the new ones (`GET …/unread`, the library's
+  `FeedbackUnread`). The page: `GET /api/admin/feedback?kind=&status=&section=&search=&page=`,
+  `…/facets`, `…/unread`, `…/{id}` (opened: read), `PUT …/{id}/status`,
+  `DELETE …/{id}` (recorded). Spam is kept 30 days and a resolved message a
+  year, then pruned once a day after an answer. The scrub of a deleted
+  account, and a delete on the People page, take the address and the browser
+  off their messages (`Feedback::forgetPeople()`).
+- **Backups** (`academy_backups()`): the whole database, by COPY through PDO
+  (a connection of its own, `Copy::connect()`), in
+  `backend/storage/backups/<id>.anotoki-backup` with its `.json` beside -
+  beside this app's own JSON copies in the same folder, which the library
+  never touches (*The study data outside the database*, below;
+  [hosting.md](hosting.md), *Backups*).
+  One a day after an answer (asked for by the day's first page load, beside
+  the app's own copy), one before every update (the Apply's, after the app's
+  raw copy of every table: `upkeep_before_apply()`, both named in the
+  Apply's note; one that cannot be made stops the Apply), one before a
+  restore, and the `ADMIN`'s own. **How many are kept is the library's
+  rotation by number**: the last 14 daily ones, 5 made before an update, 5
+  before a restore - the oldest of a kind goes as a new one comes -, and the
+  `ADMIN`'s own until the owner deletes them on the Backups page; none is
+  deleted for its age (the owner's decision of 2026-10-11, "kept until I
+  delete them", as the IAM and every anotoki site read it). So a person whose
+  account the IAM deleted stays in a backup made before, until it rotates out
+  or the owner deletes it. The page: `GET /api/admin/backups` (the list
+  and the status), `GET …/proof`, `POST` (one now), `GET|DELETE …/{id}`,
+  `POST …/{id}/ticket` (a single-use link, 60 s), `GET …/{id}/preview`, `POST
+  …/{id}/restore {confirm}` - each making, download, delete or restore behind
+  a sign-in of the last ten minutes (the page offers **Sign in again**) and
+  recorded in the audit log; `GET …/{id}/file?ticket=` is the download,
+  outside every check but its ticket (a browser's navigation sends no token).
+  A restore puts the backup's tables back in place where the schema is the
+  backup's (the audit log and the bookkeeping kept), then runs the scrub of
+  the IAM's deleted accounts at once (`academy_scrub_after_restore()`, the
+  survey's pattern: the restored database may name an account deleted since;
+  a scrub that does not finish - the IAM out of reach - is the restore's
+  `after_restore_error`, the Backups page's note, and the hour's stamp goes
+  after the answer, so the next request tries again). What a restore does
+  not undo: data an `ADMIN` deleted on the People page after the backup was
+  made comes back with it - the library replays those deletes from its
+  0.4.2; until then they are deleted again by hand. The lock is the upkeep's (`UPKEEP_LOCK`): one
+  backup, one Apply or one content rebuild at a time. The list, making one,
+  the download and a delete answer while an update waits - never a restore.
+
+Every folder they write under `backend/storage/` (`storage_dir()`; a test's
+own folder for a throwaway database) is guarded by a deny-all `.htaccess`
+(the library's `GuardedDirectory`). Nothing of them deletes a file it did not
+make: the backups and logs that were there before stay where they are, for
+the owner to remove.
 
 ### Settings — `backend/config/`
 
@@ -447,12 +597,13 @@ tests run in Vitest with jsdom (`ng test`).
   taken down (an open exam paper is kept for the tab as it goes:
   [exam.md](exam.md), *In the browser*). Behind the gate, the screen of the
   address, or what stands in for the app
-  (`standin/`: the Sign in card after a failed sign-in or a session that
-  ended, a problem page; on the way to the IAM, nothing; for a visitor the
-  screen, with a
-  sign-in that came back without one said above it, `standin/sign-in-failed/`), then the foot: the version and
+  (`standin/`: the Sign in card after a session that ended, a problem page;
+  the anotoki library's `<anotoki-sign-in-failure>` in `#signInFailure`
+  after a sign-in that came back without one, for a person or a visitor; on
+  the way to the IAM, nothing), then the foot: the version and
   **What's new** (`core/changelog/app-version.component`, which opens the
-  changelog dialog). The bar and the foot are drawn in every state; after
+  changelog dialog), and **Send feedback** (`core/feedback/`, *The foot*
+  below). The bar and the foot are drawn in every state; after
   the foot, the kit's question host (`<anotoki-confirm-host>`: the one
   question `ConfirmService` asks - the admin panel's "Delete …?").
 - `top-bar/` — the bar (*The top bar* below): the anotoki library's
@@ -475,25 +626,31 @@ tests run in Vitest with jsdom (`ng test`).
   (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
   `anotoki-text-field` …), its class names its own (`anotoki-<piece>__<part>`).
 - `app.routes.ts` — the learner's pages under one parent whose
-  `canActivateChild` is `signInGuard`: `/` home, `/kanji/…` (lazy:
+  `canActivateChild` is the library's `personOrVisitorGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
-  (`adminSignInGuard` — a visitor goes to the IAM too —, `whenReady`, `staffOnly`: EDITOR or ADMIN) with
-  `translations`, `languages`, `people` and `migrations` (lazy; the last three `adminOnly`;
-  Translations and Languages the library's pages in the panel's frame, with
-  the library's question before leaving unsaved changes); `/auth/callback`, unguarded.
+  (the library's `staffGuard`: EDITOR or ADMIN — a visitor goes to the IAM too —, and `whenReady`) with
+  `translations`, `languages`, `people`, `feedback`, `errors`, `audit`, `backups` and `migrations`
+  (lazy; all but Translations behind the library's `adminGuard`; every one the library's page in
+  the panel's frame, Translations and Languages with the library's question before leaving unsaved
+  changes); `/auth/callback` (the library's `AuthCallbackComponent`) and `/sign-in-failed` (its
+  `SignInFailureComponent`, which `AppComponent` draws in the page's place while a failure stands), unguarded.
   The old `/translations` and `/languages` lead to their new addresses.
   `/kanji`, `/exam` and the admin panel open only while the app can be used
   (`whenReady`: signed in or visiting), so Back or Forward on a stand-in page loads no data.
 - `core/` — `api/` (`ApiService` over HttpClient, the response types, and the
   interceptor that stops the app on any `not_set_up` answer: the settings
-  went while a page was open), `auth/` (`AuthService`, `signInGuard` and `adminSignInGuard`, the
-  interceptor that adds the token — or a visitor's key — and `X-Time-Zone`,
-  whose a request is decided as it is issued (`issued-as.ts`),
-  `visitor-key.ts` (`VisitorKey`: the key of somebody studying without signing
-  in, the first save that makes one, the move at sign-in), `PrivateLinksService`,
+  went while a page was open), `auth/` (the anotoki library's sign-in,
+  `@anotoki/lib/auth`, wired in `auth.config.ts` - the boot configuration,
+  the token or a visitor's key and `X-Time-Zone` for this site's API, which
+  saves may make a visitor, the words, the checks before a sign-in or a
+  sign-out, the callback and failure routes, no hint; `AuthService`, this
+  app's view of it; `visitor-key.ts` (`VisitorKey`: the key of somebody studying without signing
+  in, the move at sign-in), `PrivateLinksService`,
   `SignOutService`, `SignInService` (a visitor's Sign in waits for the saves
-  first), the
-  IAM's browser SDK in `sdk/`), `saves-in-flight.service.ts`
+  first); [sign-in.md](sign-in.md), *The browser*), `admin.config.ts` (the
+  library's admin tools and People page wired to this app: `provideAdminTools()`),
+  `feedback.config.ts` and `feedback/` (the library's feedback form behind
+  Send feedback at the foot: `provideFeedback()`), `saves-in-flight.service.ts`
   (the saves on their way, which a sign-out — and a visitor's sign-in — waits for), `storage.ts`
   (localStorage and sessionStorage that never throw), `time-zone.ts` (the
   browser's IANA zone), `i18n/` (the app's words, below),
@@ -507,14 +664,18 @@ tests run in Vitest with jsdom (`ng test`).
   the kit's question answered: `kit-question.ts`; a spec's translation
   service is the library's `provideTestTranslations()`).
 - `admin/` — the admin panel, in English: Translations (EDITOR, ADMIN),
-  Languages, People and Migrations (ADMIN: the anotoki library's
-  `<anotoki-migrations-page>` in the panel's frame); the bar's links lead between
-  them (below). Its titles are "<page> · Admin panel · Japanese Academy"
+  Languages, People, Feedback, Errors, Audit log, Backups and Migrations
+  (ADMIN): every one the anotoki library's page (`<anotoki-translations-page>`,
+  `<anotoki-people-page>`, `<anotoki-feedback-page>`, `<anotoki-error-log-page>`,
+  `<anotoki-audit-log-page>`, `<anotoki-backups-page>`,
+  `<anotoki-migrations-page>` …) in the panel's frame (`<main class="wrap
+  wide admin" lang="en">`); the bar's links lead between them (below). Its
+  titles are "<page> · Admin panel · Japanese Academy"
   (`core/i18n/title.strategy.ts`). Its questions ("Delete …?", "Import …?",
-  "Leave without saving?") are the kit's (`ConfirmService`), asked through
-  `admin/page-question.ts`: the kit draws its one question in the app's root,
-  so a question still open when its page goes (Back pressed) is answered no
-  with it, never left over the next page to act for a page that is gone.
+  "Leave without saving?") are the kit's (`ConfirmService`), the library's
+  pages' own; People's delete asks only its question, as the owner decided
+  (no typed confirmation). The page-question of before
+  (`admin/page-question.ts`) went with the app's own People page.
 - `home/` — the home page (kanji summary, exam history) and, at its foot,
   Your data (`your-data/`, above; a signed-in person's only); at its top (and
   the kanji dashboard's) the visitor notice (`visitor-notice/`: kept for this
@@ -547,9 +708,9 @@ tests run in Vitest with jsdom (`ng test`).
   reaches inside a kit button or the library's page), `_items.scss` (tiles
   and stage colours shared by the kanji screens).
 - `standin/` — the two pages of the app's own that stand in for it, the Sign
-  in card and the problem page (and `sign-in-failed/`, the Sign in card's
-  words above a visitor's page; a site not set up, being updated or out of
-  reach is the anotoki library's page since 2026-10-07, in its own words),
+  in card and the problem page (a failed sign-in is the anotoki library's
+  screen since 2026-10-11, and a site not set up, being updated or out of
+  reach the library's page since 2026-10-07, each in its own words),
   and `keptWord()`: what is drawn outside the router's screens (these pages,
   the top bar, the foot, the "What's new" frame) may be drawn with no strings
   at all, so it falls back to the seeded English written in the code (a
@@ -561,8 +722,9 @@ tests run in Vitest with jsdom (`ng test`).
   `data-storage-key="academy-theme"` in `index.html`) beside them.
 
 wanakana (romaji → kana as you type) comes from npm and is bundled, and so
-are the anotoki library's kit and Manrope; the IAM's browser SDK is a copy
-(`core/auth/sdk/`), so the built app needs nothing from the network.
+are the anotoki library's kit, its sign-in (the IAM's browser SDK was a copy
+in `core/auth/sdk/` until 2026-10-11) and Manrope, so the built app needs
+nothing from the network.
 
 ## The top bar
 
@@ -586,8 +748,10 @@ the library draws them, in Japanese Academy's palette (`_tokens.scss`).
   it, in the vermilion of kanji - the wrapper gives the library's badge
   `--kanji`) and **Exam** (`topbar.exam`), the section the page is in marked,
   the page's own link `aria-current`. In the admin panel the area's sections:
-  Translations, and for ADMIN Languages, People and Migrations — English
-  words, as the area is, not keys.
+  Translations, and for ADMIN Languages, People, Feedback (with the number of
+  new messages beside it: the library's `FeedbackUnread`, asked again as the
+  panel's pages change - no mail is sent for one), Errors, Audit log, Backups
+  and Migrations — English words, as the area is, not keys.
 - **the language** (the library's language switcher, given the translation
   service's `forShell()` in `core/kit.config.ts`): a round button with the code
   ("SK"), named "Language: Slovenčina (SK)" (`anotoki.language.button` holds
@@ -615,14 +779,15 @@ the library draws them, in Japanese Academy's palette (`_tokens.scss`).
   (`academy-theme`), and the library's `theme-boot.js` sets it before the
   first paint ([sign-in.md](sign-in.md), *The account's preferences*).
 - **the person's menu** (a round button with their initial, their name beside
-  it from 961 px): their name, address and role (Administrator / Editor);
+  it from 961 px, 1530 in the admin panel): their name, address and role (Administrator / Editor);
   **Your anotoki account** (the IAM's account page, a new tab); **Admin panel**
   (`topbar.admin`, "Administrátorský panel" in Slovak; reworded by 006) for
   EDITOR and ADMIN, or **Back to Japanese Academy** in the admin panel; **Sign
   out** (`SignOutService`: it waits for the answers and notes on their way —
   a spinner and "Saving…" — and asks first when something would be lost). —
-  Signed out with the Sign in card on the page, or visiting: **Sign in**
-  instead (a visitor's through `SignInService`, which waits for the saves too).
+  Signed out with the Sign in card or the failure's screen on the page, or
+  visiting: **Sign in** instead (a visitor's through `SignInService`, which
+  waits for the saves too).
 
 **While the site is not ready** (the anotoki library's page stands in front
 of the pages: `pagesShut()` in `core/site-status.ts`, the library gate's own
@@ -644,12 +809,17 @@ is the person's name: from 761 to 960 px the round button alone, from 961 px
 (`NAME_BAR_MIN`; the library's own default would be 201 px past the fold)
 the name beside it (ellipsis at 12rem); the brand, the links, the language
 and the theme never shrink. **The admin panel folds later**, up to
-`ADMIN_PHONE_BAR_MAX` = 960 px: its four links and "anotoki Japanese · admin
-panel" fill the row at 961 (brand 20-318, links 334-727, theme 743-845, the
-person 854-941, the name cut short); folded, "Japanese" and "admin panel"
-stand beside the menu button (the
-library shows a phone's bar with the short brand, so the whole brand of
-761-960 px before anotoki-lib 0.2.0 is gone).
+`ADMIN_PHONE_BAR_MAX` = 1170 px (2026-10-11: eight links since anotoki-lib
+0.4.0's tools, four before, when it folded up to 960): its row is wider
+(`--anotoki-topbar-max-width` 1540 px, the learner's 1040), its brand the
+short one ("Japanese" with "admin panel" small under it) up to
+`ADMIN_SHORT_BRAND_MAX` = 1350 px, and the person's name beside the initial
+from `ADMIN_NAME_BAR_MIN` = 1530 px; folded, "Japanese" and "admin panel"
+stand beside the menu button. Measured in Edge with the real labels, a
+two-digit feedback count, a 20-character name and a scrollbar: the short
+brand, the eight links, the theme and the initial take 1155 px, the whole
+brand 1333, with the name 1516 (`screens.js`'s room checks 1170, 1171, 1351
+and 1530).
 
 760 is the family's number, and Japanese keeps it: measured again in Edge on
 2026-10-10 in Manrope, the family's font, with the real labels, a three-digit
@@ -663,8 +833,10 @@ In pixels, left-right:
 | 390 (phone) | brand 12-132, language 183-223, theme 230-332, menu button 338-378 |
 | 761, signed in, 999 due | brand 20-207, Kanji and Exam 223-388 (Slovak "Skúška" 223-400), language 512-552, theme 561-663, the person 673-741 |
 | 761, signed out (the card) | brand 20-207, language 486-526 (Slovak 457-497), theme 536-638 (507-609), Sign in 648-741 (Slovak "Prihlásiť sa" 619-741) |
-| 761, the admin panel (ADMIN) | folded (above): brand 12-132 ("Japanese" / "admin panel"), theme 601-703, menu button 709-749 |
-| 961, the admin panel (ADMIN) | brand 20-318, links 334-727 (Translations, Languages, People, Migrations), theme 743-845, the person 854-941 |
+| 1170, the admin panel (ADMIN) | folded (above): brand 12-132 ("Japanese" / "admin panel"), theme 1010-1112, menu button 1118-1158 |
+| 1171, the admin panel (ADMIN) | brand 20-140 (the short one), links 156-917 (Translations, Languages, People, Feedback with its count, Errors, Audit log, Backups, Migrations), theme 971-1073, the person 1083-1151 (the initial) |
+| 1351, the admin panel (ADMIN) | brand 20-318 ("anotoki Japanese · admin panel"), links 334-1095, theme 1151-1253, the person 1263-1331 |
+| 1530, the admin panel (ADMIN) | brand 20-318, links 334-1095, theme 1148-1250, the person 1259-1510 with the name |
 | 961 | language 529-569, theme 579-681, the person 691-941 with the name |
 | 1280 | brand 140-327, links 343-508 (Slovak 343-520), language 728-768, theme 778-880, the person 890-1140 |
 
@@ -721,7 +893,24 @@ pages still open in it.
 **The foot** of every page: the version and **What's new**, which opens the
 changelog dialog, with a dot beside the words until this version's news has
 been opened (`whatsNew.title`, `whatsNew.unseen`; the dot sits on the words'
-span, not the button, which is 44 px high on a touch screen). The version is
+span, not the button, which is 44 px high on a touch screen; while it shows
+the button keeps 10 px of room after it, so the '·' before Send feedback
+never touches it). Beside them,
+while the app itself is shown (to a person or a visitor; not on the way to
+the IAM, on the Sign in card, or while the library's page stands in),
+**Send feedback** (`core/feedback/feedback-button.component`): the anotoki
+library's form (`@anotoki/lib/feedback/form`, loaded when it opens) in the
+kit's dialog - what kind ("Something does not work", "An idea", "Something else"), the place (the
+app's two sections, Kanji and Exam), a subject, the message, an address for
+an answer (a signed-in person's account address written in, which they may
+change or clear: the server keeps what is sent, never their account's in its
+place) and, for a person, "Send it without my name" - sent to
+`POST /api/feedback` with the page's address without its query. Its words
+are the library's `anotoki.feedback.*`, in the language on the page, from
+this app's database (the library's `anotoki_translations/004`). Like the
+bar, it keeps every key pressed in it from `document` (Enter in the message
+never hands a paper in). No mail is sent: the admin panel's Feedback link
+counts the new ones (*The admin tools*, above). The version is
 the newest entry's of `frontend/public/changelog.json`: three numbers,
 MAJOR.MINOR.PATCH (since 2026-10-07; `frontend/package.json`'s `version` the
 same). The version a browser last read is compared with it number by number,
@@ -770,9 +959,14 @@ recorded as `anotoki_translations/001_…`): its 001 finds this app's tables
 and only proves their shape; its 002 adds the library's own keys under
 `anotoki.` — the words of its kit (the top bar, the language and theme
 switches, the dialogs) and of its status page, in English and Slovak —,
-writing a string only where a key has none. `anotoki.` is the library's
+its 003 (anotoki-lib 0.4.0) the words of its sign-in screens
+(`anotoki.signIn.*`: "Signing in did not work", Try again, Back, the
+reason of each code) and its 004 those of the feedback form
+(`anotoki.feedback.*`), each writing a string only where a key has none.
+`anotoki.` is the library's
 namespace: no key of the app's own lives there, and the catalogue test leaves
-it out.
+it out. The admin tools' pages (People, Feedback, Errors, Audit log,
+Backups) have no keys: they are English, as the admin panel is.
 
 Migration `009_strings_through_the_library.sql` moved the app's words for
 the kit there first. Until 0.3.0 `core/kit.config.ts` looked each word of the
@@ -792,6 +986,18 @@ reads). Its check fails it unless every string came over as it was, the
 library's keys got no language the app's had not, and the sixteen are gone -
 so an owner's rewording, and a language left without a string, survive the
 move.
+
+Migration `010_people_and_signing_in.sql` (a draft waiting for the owner,
+*The database*) does the same for the three keys of a sign-in that came back
+without one, which the library's screen says now: `signIn.notCompleted` and
+`signIn.failed` (the Sign in card's line, and a visitor's note) and
+`signIn.signingIn` (the callback page) are deleted - where the owner
+reworded one of them in any language, every language of it copied first
+under the library's key (`anotoki.signIn.notCompleted`, `failed`,
+`signingIn`), with who wrote it and when, so the screen says the owner's
+words; the words 004 and 005 seeded are no rewording, and give way to the
+library's, which say the same on a screen made for them. The Sign in card
+keeps its own two (`signIn.intro`, `signIn.button`).
 
 `backend/src/translations.php` configures the library's `Translations` for
 this app (`academy_translations()`): the languages released with it
@@ -832,7 +1038,8 @@ with this app's checks, and every refusal in this app's error body
   change strings. A plural is a family, `name.one`, `name.few`, `name.other`,
   asked for by `name` with a number. `backend/tools/translation_keys.php`
   gives the library's key scan (`KeyScanner`) this frontend - every `.ts` and
-  `.html` of `src/app` but the specs, `core/testing/` and the IAM's SDK, and
+  `.html` of `src/app` but the specs and `core/testing/` (the IAM's SDK of
+  before is gone), and
   the run-time families of `core/i18n/dynamic-keys.ts`; the catalogue test
   and `php backend/translations.php --status` hold them to the database.
 - **Languages**: English cannot be hidden, deleted or left without a string;
@@ -982,7 +1189,22 @@ tests' databases too. 005 was the first written so, and is final since
 2026-10-04; 006 likewise; 008 (the words the library's status page took
 over) and 009 (`009_strings_through_the_library.sql`, *The app's words*)
 since 2026-10-11, reviewed, going up together - a draft would hold back
-every file after it, the library's set `anotoki_translations` included; 007 (`007_visitors.sql`, visitors) since
+every file after it, the library's sets `anotoki_translations` and
+`anotoki_people` included. **010** (`010_people_and_signing_in.sql`, 2026-10-11)
+is a **draft** waiting for the owner, its last line theirs to write once they
+accept the change: the library's people column `users.anonymized_at`
+(`timestamptz`, empty: the scrub fills it), and the three keys of a sign-in
+that came back without one (`signIn.notCompleted`, `signIn.failed`,
+`signIn.signingIn`) deleted, the library's screen saying it now - where the
+owner reworded one of them in any language, every language of it copied
+first under the library's `anotoki.signIn.*` with who wrote it and when (the
+words 004 and 005 seeded are no rewording). Its check fails it by name unless
+every table of people and their data has the rows it had, the column is
+there and empty, every other string is as it was (its text, who wrote it,
+when), every reworded string came under the library's key as it was, the
+library's key has no language the app's had not, every such key has English,
+and the three keys are gone (`tests/api/people-migration.test.php` breaks it
+five ways). 007 (`007_visitors.sql`, visitors) since
 2026-10-05, its last line written once the browser suites had passed: its
 schema (users' `CHECK (id > 0)` replaced by `users_person_or_visitor`,
 `visitor_key_hash`, `visitor_from`, the sequence `visitor_ids`, two
@@ -993,7 +1215,22 @@ each has both). While a migration waits (a draft,
 or a file still uploading), the app works without what it makes — before
 005, without its column (`users_time_zone_ready()`); before 007, without
 visitors (`visitors_ready()`: sign-in stays required); before 009, with
-the kit saying its own words where the app's had not moved yet — and the study
+the kit saying its own words where the app's had not moved yet; before 010
+(and the library's files after it, which a draft holds back with it),
+without the scrub of the IAM's deleted accounts (the library's people module
+waits for its column and its tables, records people as before, and the
+People page says what is missing), and with the library's sign-in screens
+and feedback form in their own built-in English and Slovak (its
+`anotoki_translations/003` and `004`, which put their words in the
+database, come after 010). And while one of this app's own files is a draft,
+the library's files wait with it on every database but the tests' - all of
+them, the `anotoki_admin` set that runs before this app's included
+(`db_migration_ready()`, `db_own_draft()`): the owner's own server, serving
+a working tree with a migration being written, neither stops its pages for
+them (503 `update_pending`) nor gets them on an Apply before the owner
+accepts the change; meanwhile nothing else applies either (the queue stops
+at the first file that waits), and `manage.php --check` names the draft —
+and the study
 content's rebuild after the files changed waits with it (upkeep does nothing
 past a waiting migration).
 `manage.php --backup` still takes its copy, with a note; `--check` says
@@ -1012,10 +1249,18 @@ owner's decision; until then the first request after an upload applied it),
 and since 2026-10-07 the anotoki library says what the site does meanwhile,
 as every anotoki site does ([decisions.md](decisions.md)). The engine is the
 library's `Migrator`, set up for this site by `db_migrator()`
-(`backend/src/db.php`): this app's folder `backend/migrations/` (the set
-`academy`) and after it the library's own set `anotoki_translations` (its
-words' tables proved, its words added: *The app's words*; recorded with
-its folder, `anotoki_translations/001_languages_and_strings.sql`), the table `migrations (name, applied_at)` as it has always been
+(`backend/src/db.php`), four sets in the library's order: its
+`anotoki_admin` first (the audit log's and the feedback's tables:
+`001_audit_log.sql`, `002_feedback.sql` - a site's own files may move rows
+into them, and nothing else makes an `anotoki_` table), this app's folder
+`backend/migrations/` (the set `academy`), then the library's
+`anotoki_translations` (its words' tables proved, its words added - 003
+the sign-in screens', 004 the feedback form's: *The app's words*) and
+`anotoki_people` (`001_people.sql`: the scrub's cursor
+`anotoki_people_sync` and the ids the IAM deleted, `anotoki_people_anonymized`
+- after this app's 010, which gave `users` its `anonymized_at`); the
+library's files are recorded with their set,
+`anotoki_translations/001_languages_and_strings.sql`; the table `migrations (name, applied_at)` as it has always been
 (made in that shape on a new database, its `prepare` hook), each file sent
 to PostgreSQL whole in one statement (`split` off) in a transaction of its
 own with its row, a file without its last line a draft (its `ready` hook,
@@ -1039,7 +1284,7 @@ since anotoki-lib 0.3.0), and an administrator who
 was signed out could not sign in at all. The **Migrations page**
 (`/admin/migrations`, `ADMIN`: the library's `<anotoki-migrations-page>`;
 the addresses `backend/api/routes/migrations.php`, the library's
-`MigrationsRoutes::admin()`, behind `migrations_admin_middleware()`, which
+`MigrationsRoutes::admin()`, behind `admin_token_checks()`, which
 reads `ADMIN` from the token alone — no table is needed, so it works on a
 database the migrations have yet to build) lists what is pending, in the
 order it will run (a draft: "a draft - it does not run until it is
@@ -1052,14 +1297,18 @@ the content's rebuild holds it), takes the raw copy of every table
 (`upkeep_before_apply()` → `upkeep_copy_before()`: one copy for one upload
 however often it is tried, a new one when the files or the pending list
 changed; the outcome's note names its file in `backups/`, and a copy that
-cannot be written stops the apply before anything runs), then applies each
+cannot be written stops the apply before anything runs) and then the
+library's backup of the whole database (its `beforeApplyHook()`: once for
+one pending list, none for a database with nothing applied yet; named in the
+note too; one that cannot be made stops the apply as well), then applies each
 file in its own transaction: the first that fails is rolled back whole and
 named ("Stopped at …"), the ones before it stay; why (`error`,
 PostgreSQL's own words) goes to the ADMIN on this computer and on a website
 alike, in a box under it, as the IAM's page shows it (the owner's decision
 of 2026-10-04); the site's error log has it too (`[upkeep] a migration
-failed: …`). The setup page and `manage.php` apply the same way, with the
-same copy, under the same lock (`upkeep_migrate()`, which throws naming the
+failed: …`), and the audit log an Apply's entry (`migrations.applied`, after
+the entries that waited for its table). The setup page and `manage.php` apply the same way, with the
+same copies, under the same lock (`upkeep_migrate()`, which throws naming the
 failed file, or saying another apply is running), so no two ever run at
 once. "Up to date" once something was applied and nothing failed. When an
 Apply leaves nothing to apply, the site runs again without a page load
@@ -1070,7 +1319,7 @@ stamp, as after any change of the files.
 
 | Table | Contents |
 |---|---|
-| `users` | one row per person: the IAM user id (`id`), their name from their latest token, when first and last seen, and their time zone (`time_zone`, migration 005: the IANA name their browser last named, null until it names one). Since migration 007 also one row per visitor: a negative `id` (`visitor_ids`), the SHA-256 of their key (`visitor_key_hash`) and a keyed hash of the address they came from (`visitor_from`); `users_person_or_visitor` keeps the two apart ([sign-in.md](sign-in.md), *Visitors*) |
+| `users` | one row per person: the IAM user id (`id`), their name from their latest token, when first and last seen, and their time zone (`time_zone`, migration 005: the IANA name their browser last named, null until it names one); when the IAM deleted the account (`anonymized_at`, migration 010: the library's scrub writes it, with the IAM's placeholder `deleted-<id>` as the name). Since migration 007 also one row per visitor: a negative `id` (`visitor_ids`), the SHA-256 of their key (`visitor_key_hash`) and a keyed hash of the address they came from (`visitor_from`); `users_person_or_visitor` keeps the two apart ([sign-in.md](sign-in.md), *Visitors*) |
 | `srs_progress` | one row per person and kanji-trainer item they touched: stage, review times, counters, notes, synonyms |
 | `srs_settings` | each person's trainer settings, and when their progress started / last changed |
 | `srs_daily` | lessons, reviews, practice per person and day — the day of the person's own zone when they answered (the dashboard) |
@@ -1081,13 +1330,15 @@ stamp, as after any change of the files.
 | `languages` | the languages the app can be read in (migration 004): `code`, `name` (English), `native_name` (what the chooser shows), `enabled` (offered), `sort_order` |
 | `translation_keys` | every key of the app's words, with a description for the translator; written only by migrations |
 | `translations` | one string: a key in a language; `updated_by` is who last reworded it in the browser (null: as a migration or the command line wrote it), following a moved user id and emptied when their row goes |
+| `anotoki_audit_log`, `anotoki_feedback` | the library's admin tools (its set `anotoki_admin`): who did what in the admin panel; the visitors' messages (*The admin tools*) |
+| `anotoki_people_sync`, `anotoki_people_anonymized` | the library's people module (its set `anotoki_people`): where the scrub of the IAM's deleted accounts stands, and every id the IAM listed ([sign-in.md](sign-in.md), *Accounts the IAM deleted*) |
 
 Every study table has `user_id` first in its primary key, pointing at `users`
 (migration 002: the owner's rows became user 1's; see
 [sign-in.md](sign-in.md)). The three translation tables are the site's, not a
 person's: everybody reads them, the owner writes them, they are not in
 `USER_TABLES`, and their queries have no `user_id` ([The app's
-words](#the-apps-words)). Only the owner's own server uses the owner's
+words](#the-apps-words)); nor are the library's `anotoki_` tables. Only the owner's own server uses the owner's
 database. The tests make their own throwaway databases (`academy_test_…`, see
 [testing.md](testing.md)).
 
@@ -1095,7 +1346,7 @@ database. The tests make their own throwaway databases (`academy_test_…`, see
 
 | Path | Contents |
 |---|---|
-| `backend/storage/backups/` (gitignored; `backups/` at the top until 2026-10-04) | `academy-<date>.json`: a copy of all the study data — per person their progress, answer log, exam attempts with their reports — taken at the first page load of each day (the UTC day; every date and time in a backup's name is UTC); the last 14 are kept. Also one before a restore; one of a person's data alone before their full reset, before they bring their data back from a file, and before an administrator deletes it (`academy-before-reset-user-<id>-<time>.json`, `…-before-import-…`, `…-before-delete-…`; their last 14 of each kind kept; a name already taken gets `-2`); and a raw copy of every table (`….raw.json`) before a migration (taken once per upload, however often a failing one is tried: `.before-migration.json` notes what it was taken with). `php backend/manage.php --restore=<file>` puts a `.json` back: format version 2 is everybody's data (or, with `"everybody": false`, the people it names, and only theirs); version 1 (from before user ids, the owner's alone) is no longer read: every backup there is is version 2 |
+| `backend/storage/backups/` (gitignored; `backups/` at the top until 2026-10-04) | `academy-<date>.json`: a copy of all the study data — per person their progress, answer log, exam attempts with their reports — taken at the first page load of each day (the UTC day; every date and time in a backup's name is UTC); the last 14 are kept. Also one before a restore; one of a person's data alone before their full reset, before they bring their data back from a file, and before an administrator deletes it (`academy-before-reset-user-<id>-<time>.json`, `…-before-import-…`, `…-before-delete-…`; their last 14 of each kind kept; a name already taken gets `-2`); and a raw copy of every table (`….raw.json`) before a migration (taken once per upload, however often a failing one is tried: `.before-migration-raw.json` notes what it was taken with - `.before-migration.json` until 2026-10-11, a name the library's note has now). And, since anotoki-lib 0.4.0, the library's **backups of the whole database** (`<id>.anotoki-backup` and its `.json`: daily, before an update, before a restore, and an `ADMIN`'s own - *The admin tools*, above): the last 14 daily, 5 before an update, 5 before a restore, the `ADMIN`'s own until the owner deletes them on the Backups page, none deleted for its age (the owner's decision of 2026-10-11). The library never touches the app's files, nor the app the library's. `php backend/manage.php --restore=<file>` puts a `.json` back: format version 2 is everybody's data (or, with `"everybody": false`, the people it names, and only theirs); version 1 (from before user ids, the owner's alone) is no longer read: every backup there is is version 2 |
 
 The files of the app before the database (`progress/`, `results/`,
 `reports/`) were deleted on 2026-10-04 by the owner's decision: they were
@@ -1118,7 +1369,7 @@ a rebuild needs the API key, from `GOOGLE_TTS_API_KEY` or the gitignored
 | Path | Contents |
 |---|---|
 | `backend/config/*.local.php` | this copy's settings (above), written by the setup page; on a website also its token file until the setup is done |
-| `backend/storage/` | what the backend writes for itself: `backups/` (copies of the study data, above, with the app's words in a copy of everybody; a deleted language's strings), the IAM's keys, cached, a website's setup lock (`installed.lock`: the setup page is never offered again) |
+| `backend/storage/` | what the backend writes for itself: `backups/` (copies of the study data, above, with the app's words in a copy of everybody; a deleted language's strings; the library's backups of the whole database), `logs/` (the library's error log, 30 days), `cache/` (the IAM's keys and its answer, cached; the visitors' secret; the library's stamps and limits), `anotoki-lib.key` (the library's key for the hashes it keeps), a website's setup lock (`installed.lock`: the setup page is never offered again). Never deleted by hand but by the owner |
 | `frontend/dist/`, `frontend/node_modules/` | the built app and its packages |
 | `backend/tools/pdf/node_modules/` | the PDF page tool's package (`sharp`) |
 | `dist/` | the upload for a hosted site (`backend/tools/build-dist.php`) |

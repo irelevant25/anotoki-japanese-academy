@@ -246,10 +246,11 @@ test('the two languages the app is released in, English first; and the keys, onc
 });
 
 test('the anotoki library\'s words: its set runs after this site\'s own, and its keys are in the database, described as it describes them', function (): void {
-    $sets = db_migration_sets();
-    assert_same([MIGRATION_SET, Schema::SET], array_map(static fn ($set): string => $set->name, $sets), 'this site\'s own first: its 004 made the tables');
-    assert_true($sets[1]->library && !$sets[0]->library);
-    assert_same(str_replace('\\', '/', Schema::directory()), str_replace('\\', '/', $sets[1]->directory));
+    $sets = array_column(array_map(static fn ($set): array => ['name' => $set->name, 'set' => $set], db_migration_sets()), 'set', 'name');
+    $names = array_keys($sets);
+    assert_true(array_search(MIGRATION_SET, $names, true) < array_search(Schema::SET, $names, true), 'this site\'s own before the words\': its 004 made the tables');
+    assert_true($sets[Schema::SET]->library && !$sets[MIGRATION_SET]->library);
+    assert_same(str_replace('\\', '/', Schema::directory()), str_replace('\\', '/', $sets[Schema::SET]->directory));
 
     test_db();
     $library = array_values(array_filter(database_keys(), static fn (string $key): bool => LibraryWords::isLibraryKey($key)));
@@ -727,16 +728,16 @@ test('migration 009 in a form of its own: a temporary copy of the strings it mov
 
 /* --------------------------------------------------------------- the scan */
 
-test('the scan of this frontend: every .ts and .html of src/app but the specs, core/testing/ and the IAM\'s SDK; comments are no keys', function (): void {
+test('the scan of this frontend: every .ts and .html of src/app but the specs and core/testing/; comments are no keys', function (): void {
     $scanner = translation_key_scanner();
     $root = translation_keys_frontend_root();
     $files = $scanner->sourceFiles();
     assert_same(str_replace('\\', '/', $root), $scanner->root());
     assert_true(in_array('app.routes.ts', $files, true) && in_array('app.component.html', $files, true), 'the sources are where the scan looks');
-    assert_true(is_file("$root/core/auth/sdk/anotoki-auth.d.ts"), 'the IAM\'s SDK is where the scan leaves it out');
+    assert_false(is_dir("$root/core/auth/sdk"), 'no copy of the IAM\'s SDK any more: signing in is the anotoki library\'s');
     foreach ($files as $file) {
         assert_match('/\.(ts|html)$/', $file);
-        assert_no_match('~\.spec\.ts$|^core/testing/|^core/auth/sdk/~', $file);
+        assert_no_match('~\.spec\.ts$|^core/testing/~', $file);
     }
     assert_same("a\n\n\nb 'c/*' \"d//\" `e\n//` f \ng", KeyScanner::sourceText("a\r\n/* x\r\n 'y' */\r\nb 'c/*' \"d//\" `e\n//` f // 'z'\r\ng", false), 'comments out, strings as they are, line for line');
     assert_same("a\n\nb", KeyScanner::sourceText("a<!-- 'x'\n -->\nb", true));

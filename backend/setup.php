@@ -262,6 +262,17 @@ function setup_issuer_ok(string $issuer): bool
         && (bool) preg_match('~^(https://[^/\s]+|http://(localhost|127\.0\.0\.1)(:\d+)?)(/[^\s]*)?$~', $issuer);
 }
 
+/**
+ * What the IAM answers at $url within $timeout seconds: the body of a 200, or
+ * null for anything else - the anotoki library's GET (http and https alone,
+ * no redirect followed), as its sign-in asks the IAM.
+ */
+function setup_iam_get(string $url, float $timeout): ?string
+{
+    $answer = \Anotoki\Lib\Support\HttpGet::fetch($url, $timeout);
+    return $answer['status'] === 200 && is_string($answer['body']) ? $answer['body'] : null;
+}
+
 /** "Test connection" for the IAM: its discovery document at this address, naming itself, and its keys. */
 function setup_try_iam(string $issuer): array
 {
@@ -269,7 +280,7 @@ function setup_try_iam(string $issuer): array
     if (!setup_issuer_ok($issuer)) {
         return [false, 'The IAM\'s address must be an https:// address, like https://iam.anotoki.eu (or http://localhost:4300 for the development IAM).'];
     }
-    $body = anotoki_iam_http_get("$issuer/.well-known/openid-configuration", 6);
+    $body = setup_iam_get("$issuer/.well-known/openid-configuration", 6);
     if ($body === null) {
         return [false, "No answer from $issuer/.well-known/openid-configuration. Is the address right, is the IAM running, and may this server make HTTPS requests?"];
     }
@@ -278,8 +289,8 @@ function setup_try_iam(string $issuer): array
         return [false, "Something answers at $issuer, but it is not the IAM at this address"
             . (is_array($doc) && is_string($doc['issuer'] ?? null) ? ': it calls itself ' . $doc['issuer'] . '.' : '.')];
     }
-    $jwks = anotoki_iam_http_get("$issuer/.well-known/jwks.json", 6);
-    $keys = $jwks === null ? [] : anotoki_iam_usable_keys((array) json_decode($jwks, true));
+    $jwks = setup_iam_get("$issuer/.well-known/jwks.json", 6);
+    $keys = $jwks === null ? [] : \Anotoki\Lib\Auth\Jwks::usable((array) json_decode($jwks, true));
     return $keys
         ? [true, "Reached the IAM at $issuer: it answers, and its signing keys are there (" . count($keys) . ').']
         : [false, "The IAM at $issuer answers, but this server could not read its signing keys ($issuer/.well-known/jwks.json)."];
@@ -529,7 +540,7 @@ function setup_run(array $in, array $db): array
     // Sign-in needs the IAM's keys: can this server fetch them?
     if (auth_jwks_file() !== null) {
         $log[] = 'The IAM\'s keys come from a file (auth.jwks_file, a test database\'s): nothing to fetch.';
-    } elseif (anotoki_iam_http_get($issuer . '/.well-known/jwks.json', 5) !== null) {
+    } elseif (setup_iam_get($issuer . '/.well-known/jwks.json', 5) !== null) {
         $log[] = 'Reached the IAM: its keys are there, so people can sign in.';
     } else {
         $log[] = 'Warning: this server could not reach ' . $issuer . ' just now, and signing in needs it. '

@@ -1,5 +1,7 @@
 // The bar's looks are its own (top-bar/); the page's pieces are global
-// (styles/_base.scss). The foot stays at the bottom of a short page.
+// (styles/_base.scss). The foot stays at the bottom of a short page: the
+// version, What's new and Send feedback in one line, which wraps on a narrow
+// screen.
 :host {
   display: flex;
   flex-direction: column;
@@ -10,7 +12,10 @@
   margin-top: auto;
   padding: 0 16px 24px;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  gap: 0 8px;
 }
 
 @media print {

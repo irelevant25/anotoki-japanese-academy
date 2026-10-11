@@ -9,6 +9,7 @@ import { CatalogItem, ItemState, Stage } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { ItemComponent } from './item.component';
+import { provideAuth } from '../../core/auth/auth.config';
 
 const ENGLISH: Record<string, string> = {
   'common.lesson': 'Lesson {n}',
@@ -114,6 +115,7 @@ describe('ItemComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         provideRouter([{ path: 'kanji/item/:id', component: ItemComponent }]),
         slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: api },

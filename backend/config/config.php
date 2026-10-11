@@ -25,8 +25,9 @@
  * from ACADEMY_JWKS_FILE (and the IAM's answer whether sign-in is required
  * from ACADEMY_APPLICATION_FILE). They are honoured only when the database they lead
  * to is an academy_test_ one, so a stray variable can never point a real
- * server at other settings. (Six optional keys are for them alone:
- * 'jwks_file', 'application_file', 'application_ttl' and 'cache_dir' in
+ * server at other settings. (Seven optional keys are for them alone:
+ * 'jwks_file', 'application_file', 'anonymized_file' (the IAM's deleted
+ * accounts, src/people.php), 'application_ttl' and 'cache_dir' in
  * auth.local.php, read by auth_jwks_file() and auth_iam_config(), and 'backups_dir'
  * and 'frontend_dir' in app.local.php, read by backup_dir() and
  * router_frontend_dir() in backend/router.php.)

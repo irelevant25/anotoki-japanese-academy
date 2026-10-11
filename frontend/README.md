@@ -11,22 +11,31 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ```
 src/app/            app.component (the bar, the page - the marked template of the anotoki library's
                     <anotoki-site-gate>, made only while the site is open; the gate shows its own page
-                    instead while the site is not ready -, the foot, the kit's question), app.routes.ts,
+                    instead while the site is not ready -, the library's screen of a sign-in that came
+                    back without one, the foot - the version, What's new, Send feedback -, the kit's
+                    question), app.routes.ts (the library's guards, its callback and failure routes),
                     app.config.ts
   top-bar/          the anotoki family's top bar, the library's <anotoki-top-bar> worded and wired: brand,
-                    Kanji (the reviews due) and Exam, language, theme, the person's menu; on a phone (up to
-                    760 px; 960 in the admin panel) one menu button; no key pressed in it reaches the page
+                    Kanji (the reviews due) and Exam, language, theme, the person's menu; in the admin
+                    panel its eight pages, Feedback with the count of new messages (the library's
+                    FeedbackUnread); one menu button up to 760 px (1170 in the admin panel, whose row is
+                    wider); no key pressed in it reaches the page
   home/             the home page; visitor-notice/ (studying without signing in: the notice, the notes
                     after a move)
   kanji/            the kanji SRS: dashboard, lessons, reviews, practice, browse, the item page;
                     answer.ts (answer checking)
   exam/             the exam
   home/your-data/   Your data: the learner's data as a file, down and back (GET / PUT /api/me/data)
-  core/             api/ (ApiService), auth/ (the sign-in: AuthService, signInGuard and adminSignInGuard,
-                    the interceptor with the token - or a visitor's key - and X-Time-Zone, decided as a
-                    request is issued (issued-as.ts), visitor-key.ts (the visitor key, the move at
-                    sign-in), SignOutService, SignInService; sdk/ the IAM's browser SDK, never
-                    edited), storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
+  core/             api/ (ApiService), auth/ (the sign-in, the anotoki library's @anotoki/lib/auth:
+                    auth.config.ts wires it - the boot configuration, the token or a visitor's key and
+                    X-Time-Zone to this site's API, who may make a visitor, the words, the checks before
+                    a sign-in or a sign-out, the callback and failure routes, no hint -; AuthService
+                    (this app's view of it: its states, the start's problems, the Sign in card),
+                    visitor-key.ts (the visitor key, the move at sign-in), SignOutService,
+                    SignInService, PrivateLinksService), admin.config.ts (the library's admin tools
+                    and People page wired to this app, @anotoki/lib/admin and /people), feedback.config.ts
+                    and feedback/ (the library's feedback form behind Send feedback at the foot),
+                    storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
                     translations.config.ts - the anotoki library's translations, @anotoki/lib/translations,
                     wired to this app: the names it keeps them under, the words' address, a refusal read
                     as what the app can show, the account's language, the admin pages' settings -,
@@ -42,12 +51,10 @@ src/app/            app.component (the bar, the page - the marked template of th
                     pages, the Migrations page), testing/ (the module, the kit's English and the kit's
                     question as a spec needs them)
   admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN) and Languages (ADMIN)
-                    - the library's pages, @anotoki/lib/translations/admin -, People and Migrations
-                    (ADMIN: the library's page), each library page in the panel's frame; the top bar's
-                    links lead between them; page-question.ts (the kit's question, answered no when the
-                    page that asked goes)
-  standin/          the Sign in card and the problem page; sign-in-failed/ (a refused sign-in said
-                    above a visitor's page)
+                    - the library's pages, @anotoki/lib/translations/admin -, People, Feedback, Errors,
+                    Audit log, Backups and Migrations (ADMIN: the library's pages), each library page in
+                    the panel's frame; the top bar's links lead between them
+  standin/          the Sign in card and the problem page
 src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope), then src/styles/
 src/styles/         _tokens.scss (Japanese's palette given to the library's tokens, anotoki.root(), and the
                     study colours, light and dark; dark also by <html data-theme>), _base.scss (the page,
@@ -72,7 +79,7 @@ npm start              # ng serve on http://localhost:4400, with the proxy (the 
 npm run build          # production build -> dist/japanese-academy/browser/
 npm test               # the unit tests (Vitest, jsdom), after the catalog fixture
 npm run e2e            # the browser suite, against the last build (build first), signed in through
-                       # the tests' stand-in IAM
+                       # the anotoki library's stand-in IAM
 npm run e2e:setup      # the setup page in the browser
 npm run screens        # screenshots -> e2e/shots/
 ```

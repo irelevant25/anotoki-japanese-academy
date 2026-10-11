@@ -1,9 +1,15 @@
 <?php
 // Sign-in end to end: a server that checks access tokens against the test
 // IAM's keys (tests/lib.php), people signed in with tokens this file signs
-// itself or gets from the stand-in IAM (tests/tools/stand-in-iam.php), and what
-// each of them may see and change: their own data only. No IAM is asked.
+// itself or gets from the anotoki library's stand-in IAM, and what each of them
+// may see and change: their own data only. Who is asking is the library's
+// auth module (src/auth.php), in this site's words. No IAM is asked.
 declare(strict_types=1);
+
+use Anotoki\Lib\Auth\Bearer;
+use Anotoki\Lib\Auth\Person;
+use Anotoki\Lib\Auth\Testing\TestIam;
+use Slim\Psr7\Factory\ServerRequestFactory;
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
 
@@ -30,8 +36,10 @@ function ids_of(array $items): array
 }
 
 test('the browser is told how to sign in; the pages, the clips, health and the app’s own words need no sign-in', function (): void {
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], as_user(null, 'GET', '/api/auth/config')['body'],
-        'the IAM, and whether sign-in is required here: it is, while the database cannot keep visitors (tests/api/access.test.php)');
+    $config = as_user(null, 'GET', '/api/auth/config');
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], $config['body'],
+        'the IAM, whether sign-in is required here (it is, while the IAM does not say otherwise: tests/api/access.test.php) and is offered at all, in the anotoki library\'s words');
+    assert_same('no-store', $config['headers']['cache-control'] ?? null, 'never kept by a browser or a proxy');
     assert_same(200, as_user(null, 'GET', '/api/health')['status']);
     // The third address without sign-in: the app's own words, the same for everybody, so the Sign in page reads in the reader's language.
     foreach (['en', 'sk', 'sk-sk', 'de'] as $code) {
@@ -57,7 +65,10 @@ test('without a token every address with somebody’s data answers 401, and asks
         // and people.test.php have who may, once signed in)
         'GET /api/admin/languages', 'POST /api/admin/languages', 'PUT /api/admin/languages/sk', 'DELETE /api/admin/languages/sk',
         'GET /api/admin/translations', 'PUT /api/admin/translations', 'GET /api/admin/translations/sk/export', 'PUT /api/admin/translations/sk/import',
-        'GET /api/admin/people', 'DELETE /api/admin/people/' . ADA];
+        'GET /api/admin/people', 'DELETE /api/admin/people/' . ADA, 'POST /api/admin/people/sync',
+        // the admin tools (tests/api/admin-tools.test.php)
+        'GET /api/admin/errors', 'DELETE /api/admin/errors', 'GET /api/admin/audit', 'GET /api/admin/feedback', 'GET /api/admin/feedback/unread',
+        'GET /api/admin/backups', 'POST /api/admin/backups', 'GET /api/admin/migrations'];
     $languages = db_all('SELECT * FROM languages ORDER BY code');
     foreach ($routes as $route) {
         [$method, $url] = explode(' ', $route);
@@ -68,7 +79,7 @@ test('without a token every address with somebody’s data answers 401, and asks
         // the test server is PHP's built-in one, asked straight from this computer: nobody is anybody without a token
         $r = as_user(null, $method, $url, $body);
         assert_same(401, $r['status'], $route);
-        assert_same('Bearer', $r['headers']['www-authenticate'] ?? null, "$route says how to sign in");
+        assert_same('Bearer realm="japanese-academy"', $r['headers']['www-authenticate'] ?? null, "$route says how to sign in, and where");
         assert_same('Sign in first.', $r['body']['error'] ?? null, $route);
         assert_same(['error' => 'Sign in first.', 'code' => 'sign_in_required'], $r['body'], "$route: the code a page words it from, beside the sentence, and no more");
     }
@@ -79,25 +90,27 @@ test('without a token every address with somebody’s data answers 401, and asks
 });
 
 test('a token that is not good is refused, never taken for anybody else', function (): void {
-    $iam = test_iam();
-    $forger = anotoki_iam_test_keypair('academy-test'); // the same kid, another key
-    $config = ['issuer' => $iam['issuer'], 'client_id' => $iam['client_id']];
+    // The same issuer, client and kid, another key: a forger's.
+    $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-iam-forger-' . getmypid();
+    $forger = TestIam::create($folder, 'https://iam.test', 'japanese-academy', 'academy-test');
     $bad = [
         'expired' => test_token(ADA, [], ['exp' => time() - 3600]),
         'for another app' => test_token(ADA, [], ['aud' => 'genshin']),
+        'issued to another app' => test_token(ADA, [], ['client_id' => 'genshin']),
         'from another IAM' => test_token(ADA, [], ['iss' => 'https://iam.anotoki.eu']),
         'an ID token' => test_token(ADA, [], [], 'JWT'),
-        'signed by another key' => anotoki_iam_test_sign(anotoki_iam_test_claims($config, ADA, ['ADMIN']), $forger['private_pem'], $forger['kid']),
+        'signed by another key' => $forger->token(ADA, ['ADMIN']),
         'no user id' => test_token(ADA, [], ['sub' => 'ada']),
         'not a token' => 'not.a.token',
     ];
+    test_remove_folder($folder, '/academy-test-iam-forger-');
     foreach ($bad as $what => $token) {
         $r = as_user($token, 'GET', '/api/kanji/progress');
         assert_same(401, $r['status'], $what);
-        assert_same('Bearer error="invalid_token"', $r['headers']['www-authenticate'] ?? null, $what);
+        assert_same('Bearer realm="japanese-academy", error="invalid_token"', $r['headers']['www-authenticate'] ?? null, $what);
         assert_same(['error' => 'Sign in again.', 'code' => 'invalid_token'], $r['body'], "$what: the same words and code whatever was wrong with it (the log has the reason)");
     }
-    // The Bearer scheme claims to be somebody, token or not (auth_sent_token()): that person or 401 invalid_token.
+    // The Bearer scheme claims to be somebody, token or not (the library's Bearer::sent()): that person or 401 invalid_token.
     foreach (['Bearer', 'Bearer   ', 'bearer'] as $header) {
         $r = call($GLOBALS['app']['base'], 'GET', '/api/kanji/progress', null, ["Authorization: $header"]);
         assert_refused(401, 'invalid_token', 'Sign in again.', $r, "\"$header\": a token that is not there does not verify");
@@ -130,30 +143,24 @@ test('every account studies here: MEMBER (every account holds it) is a learner, 
 });
 
 test('the roles that count: ADMIN and EDITOR of this application, upper-cased', function (): void {
-    assert_same([], auth_roles(['roles' => []]));
-    assert_same([], auth_roles([]), 'no roles claim at all');
-    assert_same([], auth_roles(['roles' => ['MEMBER', 'OWNER', '']]));
-    assert_same([], auth_roles(['roles' => ['MEMBER']]), 'MEMBER alone: an ordinary learner, no role that counts here');
-    assert_same(['EDITOR'], auth_roles(['roles' => ['MEMBER', 'EDITOR']]), 'MEMBER beside a role: the role');
-    assert_same(['ADMIN', 'EDITOR'], auth_roles(['roles' => ['admin', 'MEMBER', 'Editor', 'ADMIN']]));
+    $person = static fn (array $claims): Person => Person::fromClaims(['sub' => '501'] + $claims);
+    assert_same([], auth_roles($person(['roles' => []])));
+    assert_same([], auth_roles($person([])), 'no roles claim at all');
+    assert_same([], auth_roles($person(['roles' => ['MEMBER', 'OWNER', '']])));
+    assert_same([], auth_roles($person(['roles' => ['MEMBER']])), 'MEMBER alone: an ordinary learner, no role that counts here');
+    assert_same(['EDITOR'], auth_roles($person(['roles' => ['MEMBER', 'EDITOR']])), 'MEMBER beside a role: the role');
+    assert_same(['ADMIN', 'EDITOR'], auth_roles($person(['roles' => ['admin', 'MEMBER', 'Editor', 'ADMIN']])));
     assert_same(['ADMIN', 'EDITOR'], ROLES_STAFF);
 });
 
 test('only the Bearer scheme claims to be somebody, with or without a token after it', function (): void {
-    $kept = $_SERVER;
-    try {
-        foreach (['Bearer abc' => true, 'Bearer' => true, 'bearer abc' => true, '  BEARER   ' => true, "Bearer\tabc" => true,
-            'Basic YWRhOnNlY3JldA==' => false, 'Bearerabc' => false, 'Token abc' => false, '' => false] as $header => $claims) {
-            $_SERVER['HTTP_AUTHORIZATION'] = $header;
-            assert_same($claims, auth_sent_token(), "\"$header\"");
-        }
-        unset($_SERVER['HTTP_AUTHORIZATION']);
-        assert_false(auth_sent_token(), 'no header at all');
-        $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] = 'Bearer abc';
-        assert_true(auth_sent_token(), 'as Apache passes it on under CGI (public/.htaccess)');
-    } finally {
-        $_SERVER = $kept;
+    $request = static fn (array $server) => (new ServerRequestFactory())->createServerRequest('GET', '/api/kanji/summary', $server);
+    foreach (['Bearer abc' => true, 'Bearer' => true, 'bearer abc' => true, '  BEARER   ' => true, "Bearer\tabc" => true,
+        'Basic YWRhOnNlY3JldA==' => false, 'Bearerabc' => false, 'Token abc' => false, '' => false] as $header => $claims) {
+        assert_same($claims, Bearer::sent(Bearer::header($request(['HTTP_AUTHORIZATION' => $header]))), "\"$header\"");
     }
+    assert_false(Bearer::sent(Bearer::header($request([]))), 'no header at all');
+    assert_true(Bearer::sent(Bearer::header($request(['REDIRECT_HTTP_AUTHORIZATION' => 'Bearer abc']))), 'as Apache passes it on under CGI (public/.htaccess)');
 });
 
 test('two people, each with their own progress, settings and resets', function (): void {
@@ -264,7 +271,8 @@ test('this computer is told more, and nothing else: a request straight to its ow
 test('signing in through the stand-in IAM: a code with PKCE, tokens the app takes, a refresh, a refusal, a sign-out', function (): void {
     $iam = stand_in_iam(['user' => ['id' => 640, 'username' => 'cleo', 'roles' => ['MEMBER', 'EDITOR']]]);
     $app = start_app(['issuer' => $iam['base']]);
-    assert_same(['issuer' => $iam['base'], 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], call($app['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    assert_same(['issuer' => $iam['base'], 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
+        call($app['base'], 'GET', '/api/auth/config', null, no_token())['body']);
     $discovery = call($iam['base'], 'GET', '/.well-known/openid-configuration', null, no_token())['body'];
     assert_same([$iam['base'], $iam['base'] . '/api/oidc/token'], [$discovery['issuer'], $discovery['token_endpoint']]);
 
@@ -316,14 +324,15 @@ test('signing in through the stand-in IAM: a code with PKCE, tokens the app take
 });
 
 test('a refused token’s reason goes to the log on one line, clipped: the token chose some of its words', function (): void {
-    $iam = test_iam();
+    $iam = test_iam()['iam'];
     $kid = "no-such-key\r\n[auth] a token was accepted: forged\x07" . str_repeat('k', 5000);
-    $token = anotoki_iam_test_sign(anotoki_iam_test_claims(['issuer' => $iam['issuer'], 'client_id' => $iam['client_id']], ADA, []), $iam['pair']['private_pem'], $kid);
+    $token = $iam->sign($iam->claims(ADA, []), 'at+jwt', 'RS256', ['kid' => $kid]);
     assert_same(401, as_user($token, 'GET', '/api/kanji/summary')['status']);
     $lines = preg_split('/\R/', (string) file_get_contents($GLOBALS['app']['log']));
     $refused = array_values(array_filter($lines, static fn (string $l): bool => str_contains($l, 'no published key with kid no-such-key')));
     assert_same(1, count($refused), 'one line');
-    assert_match('/\[auth\] a token was refused: no published key with kid no-such-key \[auth\] a token was accepted: forged k+$/', $refused[0]);
+    // The library's words, with at most 64 of the token's own characters, each but [A-Za-z0-9._+-] a "?".
+    assert_match('/\[auth\] a token was refused: no published key with kid no-such-key\?\?\?auth\?\?a\?token\?was\?accepted\?\?forged\?k{15}\.\.\.$/', $refused[0]);
     assert_true(strlen($refused[0]) < 500, 'clipped: ' . strlen($refused[0]) . ' bytes');
     assert_same([], array_values(array_filter($lines, static fn (string $l): bool => str_starts_with($l, '[auth] a token was accepted'))), 'no line of its own');
     assert_same('no published key with kid x y', auth_log_text("no published key with kid x\u{2028}\ty"), 'Unicode line breaks too');
@@ -409,12 +418,10 @@ test('the tests’ settings folder and keys file count only for a throwaway data
     }
 });
 
-test('the vendored IAM SDKs are the versions the notes name', function (): void {
-    assert_same('1.1.0', ANOTOKI_IAM_SDK_VERSION, 'backend/src/anotoki_iam.php: change the note in src/auth.php and docs/kb/sign-in.md with it');
-    $sdk = ROOT . '/frontend/src/app/core/auth/sdk';
-    assert_match("/const SDK_VERSION = '1\\.2\\.0';/", (string) file_get_contents("$sdk/anotoki-auth.mjs"),
-        'frontend/src/app/core/auth/sdk/anotoki-auth.mjs: change the AuthService\'s note and docs/kb/sign-in.md with it');
-    // \r?: git checks the file out with CRLF line endings where core.autocrlf is on, and $ stops before \n only.
-    assert_match('/^\/\/ Types for anotoki-auth\.mjs \/ anotoki-auth\.js - v1\.2\.0\r?$/m', (string) file_get_contents("$sdk/anotoki-auth.d.ts"), 'and its types, the same version');
+test('no copy of the IAM\'s SDKs any more: signing in is the anotoki library\'s, on both halves', function (): void {
+    // The IAM keeps its sdk/ frozen for everybody outside the family; the anotoki sites sign in through the library.
+    assert_false(is_file(BACKEND . '/src/anotoki_iam.php'), 'backend/src/anotoki_iam.php: the library\'s Anotoki\Lib\Auth instead');
+    assert_false(is_dir(ROOT . '/frontend/src/app/core/auth/sdk'), 'frontend/src/app/core/auth/sdk/: the library\'s @anotoki/lib/auth instead');
+    assert_false(function_exists('anotoki_iam_verify_access_token'), 'and nothing loads one');
     assert_same([], server_problems($GLOBALS['app']), 'no PHP warnings or errors on the server');
 });

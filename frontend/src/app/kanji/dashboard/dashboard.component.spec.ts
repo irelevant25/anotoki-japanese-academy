@@ -6,7 +6,7 @@ import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CatalogItem, ItemState, StageGroup, Summary } from '../../core/api/api.types';
-import type { AnotokiPreferences } from '../../core/auth/sdk/anotoki-auth';
+import type { AnotokiPreferences } from '@anotoki/lib/auth';
 import { authStandIn, NO_CHOICE, person } from '../../core/testing/auth-states';
 import { KanjiStateService } from '../kanji-state.service';
 import { DashboardComponent } from './dashboard.component';

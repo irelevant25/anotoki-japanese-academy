@@ -43,15 +43,21 @@ const UPDATE_PENDING = ['code' => 'update_pending', 'message' => 'The site is be
 /** What the words' routes say while the database holds none (the anotoki library's 503 translations_unavailable), in this app's error body. */
 define('WORDS_UNAVAILABLE', Anotoki\Lib\Translations\Translations::unavailable()->message);
 
-/** Every migration file of this site's copy, in order (the drafts the tests apply among them), then the anotoki library's. */
+/**
+ * Every migration file of this site's copy, in order (db_migration_sets(), from the site's own copy of the
+ * anotoki library): the library's admin tools, this site's own (the drafts the tests apply among them), the
+ * library's words and people.
+ */
 function site_migrations(): array
 {
-    $files = array_map('basename', glob(site()['dir'] . '/backend/migrations/*.sql') ?: []);
-    sort($files);
-    // then the anotoki library's set of the words, from the site's own copy of the library (db_migration_sets())
-    $library = array_map('basename', glob(site()['dir'] . '/backend/vendor/anotoki/lib/php/migrations/translations/*.sql') ?: []);
-    sort($library);
-    return array_merge($files, array_map(static fn (string $name): string => "anotoki_translations/$name", $library));
+    $of = static function (string $folder, ?string $set): array {
+        $names = array_map('basename', glob(site()['dir'] . "/backend/$folder/*.sql") ?: []);
+        sort($names);
+        return array_map(static fn (string $name): string => $set === null ? $name : "$set/$name", $names);
+    };
+    $library = 'vendor/anotoki/lib/php/migrations';
+    return array_merge($of("$library/admin", 'anotoki_admin'), $of('migrations', null), $of("$library/translations", 'anotoki_translations'),
+        $of("$library/people", 'anotoki_people'));
 }
 
 /** A file of the site's migrations as the engine names it in the Migrations page's answers. */
@@ -124,7 +130,7 @@ after(function (): void {
 test('the build: what a site needs, and nothing else', function (): void {
     $dir = site()['dir'];
     $needed = ['public/index.html', 'public/main-TESTAPP1.js', 'public/changelog.json', 'public/index.php', 'public/.htaccess',
-        'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/anotoki_iam.php',
+        'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php',
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
         // the anotoki library: the migrations' engine, the SiteGate and the Migrations page's addresses
         'backend/vendor/anotoki/lib/php/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
@@ -132,6 +138,10 @@ test('the build: what a site needs, and nothing else', function (): void {
         'backend/vendor/anotoki/lib/php/src/Translations/Translations.php', 'backend/vendor/anotoki/lib/php/src/Translations/Http/TranslationsRoutes.php',
         'backend/vendor/anotoki/lib/php/migrations/translations/001_languages_and_strings.sql', 'backend/vendor/anotoki/lib/php/migrations/translations/002_library_words.sql',
         'backend/vendor/anotoki/lib/php/resources/library-words.json',
+        // its sign-in, people and admin tools: who is asking, the scrub, the logs, feedback and backups, and their sets
+        'backend/vendor/anotoki/lib/php/src/Auth/Http/Identify.php', 'backend/vendor/anotoki/lib/php/src/People/Scrubber.php',
+        'backend/vendor/anotoki/lib/php/src/ErrorLog/ErrorLog.php', 'backend/vendor/anotoki/lib/php/src/Backups/Backups.php',
+        'backend/vendor/anotoki/lib/php/migrations/admin/001_audit_log.sql', 'backend/vendor/anotoki/lib/php/migrations/people/001_people.sql',
         // the app's own words: the code that serves them, and the migration that holds them
         'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/staff.php', 'backend/migrations/004_languages_and_translations.sql',
         'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
@@ -306,8 +316,9 @@ test('the setup page sets the site up: the settings, the tables and the study co
         'backup' => new CURLFile(owner_backup(), 'application/json', 'academy-2026-09-26.json')]), WEBSITE);
     assert_same(200, $r['status']);
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_same(['001_init.sql', '002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
-        array_slice(site_migrations(), 0, 7), 'the first migrations of every file');
+    assert_same(['anotoki_admin/001_audit_log.sql', 'anotoki_admin/002_feedback.sql', '001_init.sql', '002_users.sql', '003_content_stamp.sql',
+        '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
+        array_slice(site_migrations(), 0, 9), 'the first migrations of every file: the library\'s admin tools, then this site\'s own');
     assert_match('/Applied the migrations: ' . preg_quote(implode(', ', site_migrations()), '/') . '\./', $r['raw'], 'every one, in order');
     assert_match('/Built the study content: 1,?373 kanji items/', $r['raw']);
     assert_no_match('/Imported/', $r['raw'], 'nobody\'s data: each person brings their own, in the app');
@@ -327,7 +338,11 @@ test('the setup page sets the site up: the settings, the tables and the study co
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'the setup page is gone');
     assert_false(is_file("$config/setup-token.local.php"), 'and its token');
 
-    assert_same(site_migrations(), array_column(db_all('SELECT name FROM migrations ORDER BY name'), 'name'));
+    $listed = array_column(db_all('SELECT name FROM migrations'), 'name');
+    $every = site_migrations();
+    sort($listed);
+    sort($every);
+    assert_same($every, $listed, 'every file listed, the library\'s by their set and name');
     assert_same([['name', 'text'], ['applied_at', 'timestamp with time zone']], array_map(static fn (array $c): array => [$c['column_name'], $c['data_type']],
         db_all("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migrations' ORDER BY ordinal_position")),
         'the table that lists them made in this site\'s shape, as every database of it has it');
@@ -344,7 +359,7 @@ test('the setup page sets the site up: the settings, the tables and the study co
 
 test('the installed site: sign-in first, and each person their own data', function (): void {
     assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body'], 'ready, and installed: its setup page finished here');
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], site_call('GET', '/api/auth/config')['body']);
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], site_call('GET', '/api/auth/config')['body']);
     assert_same(401, site_call('GET', '/api/kanji/progress', null, no_token())['status']);
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN'], ['preferred_username' => 'owner']));
     $p = site_call('GET', '/api/kanji/progress', null, $owner)['body'];
@@ -413,7 +428,7 @@ test('a later upload with a new migration: a draft while it is half there, and t
         }
     }
     // Open: what the pages need to start, to sign somebody in and to reach the Migrations page.
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30],
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
         site_call('GET', '/api/auth/config')['body'], 'how to sign in: an administrator signs in to apply it');
     $r = site_call('GET', '/api/translations/sk');
     assert_same([200, 'sk'], [$r['status'], $r['body']['language'] ?? null], 'the app’s words: no page of keys, no problem page');
@@ -434,9 +449,9 @@ test('a later upload with a new migration: a draft while it is half there, and t
     }
     assert_false(applied('901_test_upload.sql'));
     $list = site_call('GET', '/api/admin/migrations', null, $owner)['body'];
-    assert_same([[MIGRATION_SET, 'anotoki_translations'], [migration('901_test_upload.sql') + ['ready' => true, 'blocked' => false]], []], [$list['sets'], $list['pending'], $list['missing']]);
+    assert_same([MIGRATION_SETS_IN_ORDER, [migration('901_test_upload.sql') + ['ready' => true, 'blocked' => false]], []], [$list['sets'], $list['pending'], $list['missing']]);
     assert_same(array_values(array_diff(site_migrations(), ['901_test_upload.sql'])), array_map('db_migration_label', $list['applied']),
-        'the applied ones, in the order they ran: this site\'s own, then the library\'s');
+        'the applied ones, in the order they ran: the library\'s admin tools, this site\'s own, then the library\'s words and people');
     assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) ($list['applied'][0]['applied_at'] ?? ''), 'when, in UTC');
     $r = site_call('GET', '/api/admin/migrations/file?set=academy&name=901_test_upload.sql', null, $owner);
     assert_same([200, migration('901_test_upload.sql') + ['sql' => "CREATE TABLE academy_test_upload (id int);\n-- end of 901\n"]], [$r['status'], $r['body']], 'a file’s SQL');
@@ -456,11 +471,13 @@ test('a later upload with a new migration: a draft while it is half there, and t
     $r = site_call('POST', '/api/admin/migrations/apply', null, $owner);
     assert_same(200, $r['status']);
     assert_same(['applied' => [migration('901_test_upload.sql')], 'failed' => null, 'error' => null], array_diff_key($r['body'], ['note' => 1]));
-    assert_true(preg_match('/^A copy of every table from before is in backups\/(academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json)\.$/', (string) ($r['body']['note'] ?? ''), $copy) === 1,
-        'the copy it took first, named: ' . ($r['body']['note'] ?? 'no note'));
+    assert_true(preg_match('/^A copy of every table from before is in backups\/(academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json)\. '
+        . 'A backup of the database as it was is (\d{8}-\d{6}Z-before-migration-[0-9a-f]{32})\.$/', (string) ($r['body']['note'] ?? ''), $copy) === 1,
+        'the copies it took first, named: this site\'s raw copy of every table, then the anotoki library\'s backup - ' . ($r['body']['note'] ?? 'no note'));
     assert_true(applied('901_test_upload.sql'), 'applied');
     assert_true((bool) db_value("SELECT to_regclass('academy_test_upload') IS NOT NULL"));
     assert_same([$copy[1]], array_map('basename', raw_copies()), 'a copy of every table first, and only one');
+    assert_true(is_file(test_site_backups() . "/{$copy[2]}.anotoki-backup"), 'and the library\'s backup beside it, in the same folder');
     assert_same([], site_call('GET', '/api/admin/migrations', null, $owner)['body']['pending'] ?? null, 'nothing pending');
 
     assert_same(['state' => 'ready', 'installed' => true], site_call('GET', '/api/site-status', null, no_token())['body']);
@@ -493,8 +510,10 @@ test('a migration that fails on Apply: rolled back whole and named, the ones bef
     foreach ([2, 3] as $try) {
         $r = site_call('POST', '/api/admin/migrations/apply', null, $owner)['body'];
         assert_same([[], migration('903_test_broken.sql')], [$r['applied'], $r['failed']], "try $try");
-        // try 2: the tables changed since the first copy (902 is applied): a copy, named; try 3: the same files on the same tables, no other
-        assert_same($try === 2, $r['note'] !== null, "try $try: " . ($r['note'] ?? 'no copy'));
+        // try 2: the tables changed since the first copy (902 is applied): a copy, named; try 3: the same files on the same tables, no other.
+        // (The library's backup before the update is named every time: made for this list of pending files, or found again.)
+        assert_same($try === 2, str_contains((string) $r['note'], 'A copy of every table'), "try $try: " . ($r['note'] ?? 'no copy'));
+        assert_match('/A backup of the database as it was is \d{8}-\d{6}Z-before-migration-[0-9a-f]{32}\.$/', (string) $r['note'], "try $try");
         $r = site_call('GET', '/api/kanji/summary', null, $owner);
         assert_same([503, UPDATE_PENDING], [$r['status'], $r['body']], "try $try: the site waits");
     }
@@ -579,7 +598,7 @@ test('the update that brings the app’s own words, while migration 004 has not 
     assert_same($copies, count(raw_copies()), 'nor any copy taken for it yet');
 
     // Everything else answers as before: people study on while the upload goes on.
-    assert_same(['issuer' => 'https://iam.test', 'clientId' => 'japanese-academy', 'loginRequired' => true, 'visitorKeepDays' => 30], site_call('GET', '/api/auth/config')['body']);
+    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], site_call('GET', '/api/auth/config')['body']);
     assert_same(true, site_call('GET', '/api/health')['body']['ok'] ?? null);
     assert_same(4, site_call('GET', '/api/kanji/progress', null, $owner)['body']['items']['k:大']['stage'] ?? null, 'the owner’s data as it was');
     assert_same(200, site_call('GET', '/api/meta', null, $owner)['status']);

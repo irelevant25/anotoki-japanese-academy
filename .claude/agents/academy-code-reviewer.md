@@ -69,11 +69,14 @@ settings, Apache or the setup page; `architecture.md` for the map).
      only the tests apply a draft, by name); what applies it - the
      Migrations page's Apply (the anotoki library's `MigrationsRoutes::admin()`,
      `POST /api/admin/migrations/apply`, `ADMIN` from the token only:
-     `migrations_admin_middleware()`), the setup page and
+     `admin_token_checks()`), the setup page and
      `manage.php` (`upkeep_migrate()`) - all use the library's engine as
-     `db_migrator()` sets it up: a connection of its own (`db_connect()`),
+     `db_migrator()` sets it up (four sets: the library's `anotoki_admin`,
+     this app's, the library's `anotoki_translations` and `anotoki_people`):
+     a connection of its own (`db_connect()`),
      under `UPKEEP_LOCK` (taken at once or 409 `busy` / `UPKEEP_BUSY`), a raw
-     copy of every table first (`upkeep_before_apply()`), each file whole in a
+     copy of every table and the library's backup of the database first
+     (`upkeep_before_apply()`), each file whole in a
      transaction of its own; no request applies one, and `upkeep_run()` builds
      nothing while one waits. While one waits the library's `SiteGate`
      (`backend/api/app.php`) answers 503 `update_pending` to all but
@@ -85,8 +88,11 @@ settings, Apache or the setup page; `architecture.md` for the map).
      exception); nothing in the app moves a person's rows to another id.
 2. **Each person's data.** Every read and write of a study table
    (`srs_settings`, `srs_progress`, `srs_daily`, `srs_log`, `exam_attempts`,
-   `imports`) has `WHERE user_id = ?` with the user id from `auth_user()` (the
-   person middleware's `uid`), never from a request's body or address. Look for
+   `imports`) has `WHERE user_id = ?` with the user id from the token's `sub`
+   (the library's `Identify`: `academy_identify_person()` on the routes that
+   take a person alone, a visitor's key never read; `academy_identify()` where
+   a visitor may come too; the person middleware's
+   `uid`), never from a request's body or address. Look for
    a query without it, a new route not registered with `data_route()`, an id
    (item, attempt, report) looked up without the person, a backup or export
    that mixes people, a restore that writes into the wrong person. Two people
@@ -103,16 +109,23 @@ settings, Apache or the setup page; `architecture.md` for the map).
    is 401 `sign_in_required`; a visitor is made only by nobody's save, inside
    its transaction, after the limits; no key reaches `/api/me/data`, the
    admin panel or the Migrations page (`data_route()` reads a token only);
-   no visitor in a backup, on the People page or in a copy before a reset;
+   no visitor in the app's own copies, on the People page or in a copy before a reset;
    every delete of a visitor (sweep, move, restore) goes through every table
    of `USER_TABLES` first; the move keeps the person's rows where both have
    the same thing. In the browser (*Visitors in the browser*): whose a
-   request is, is decided as it is issued (`AuthService.caller()`,
-   `ISSUED_AS`) - a person's request with no token is never sent, never a
+   request is, is decided as it is issued (the library's interceptor,
+   `issuedAs()` or what the page is shown as) - a person's request with no token is never sent, never a
    visitor's; a key only on a visitor's request and only while sign-in is not
    required, never forgotten on 401 `sign_in_required`, forgotten
-   compare-and-delete on `visitor_unknown`; `/admin` behind
-   `adminSignInGuard`; Your data a signed-in person's only.
+   compare-and-delete on `visitor_unknown`; `/admin` behind the library's
+   `staffGuard` (its ADMIN pages `adminGuard`); Your data a signed-in person's only.
+   **Accounts the IAM deleted** (`backend/src/people.php`, the library's
+   scrub): only UPDATEs - the row's name the placeholder, `anonymized_at`, and
+   `people_scrub_copies()` blanking the exam papers' name, the feedback's
+   address and browser, the audit log's names and addresses; never a
+   visitor's row, never a study row deleted; a new copy of who somebody is
+   (a column, a table, a file that keeps a name or an address) needs its
+   blanking added to that hook.
 3. **Settings and sign-in.** The settings are required (`backend/config/`,
    written by the setup page only; no defaults, no fallback from a template;
    `503 not_set_up` without them, from the library's `SiteGate`, with
@@ -121,34 +134,50 @@ settings, Apache or the setup page; `architecture.md` for the map).
    time zone - ignored, `mode` `none` "not set up"). The IAM is the one way to
    sign in: no fallback to anybody, no way back to a mode without it.
    `auth_from_this_computer()` decides only what this computer is told, never
-   who anybody is. Tokens: verified by `backend/src/anotoki_iam.php` (unchanged
-   copy), key cache in `backend/storage/`; 401 without or with a bad token; a
-   token with no role, or `MEMBER` alone, is a learner; only the Bearer scheme claims to be somebody (`auth_sent_token()`); whether sign-in is required only from `access_login_required()` (the IAM's SDK 1.1.0, fail closed, never a fetch of the app's own); roles only from the token (`auth_roles()`:
-   `ADMIN`, `EDITOR`). `/api/site-status`, `/api/auth/config`, `/api/health`,
+   who anybody is. Tokens: verified by the anotoki library's `AccessTokens`
+   (`backend/src/auth.php`; the vendored library is never edited), key cache in
+   `backend/storage/cache/`; 401 without or with a bad token; a
+   token with no role, or `MEMBER` alone, is a learner; only the Bearer scheme claims to be somebody (the library's `Identify`); whether sign-in is required only from `academy_sign_in_rule()` (the library's `SignInRule`, fail closed, never a fetch of the app's own); roles only from the token (the library's `Person` and
+   `RequireRole`: `ADMIN`, `EDITOR`). `/api/site-status`, `/api/auth/config`, `/api/health`,
    `/api/translations/{code}` (the app's own words, the same for everybody) and
-   the clips are the only open addresses; `/api/admin/…` is two route groups
-   with the checks on the groups (`staff_middleware()`: `EDITOR` or `ADMIN`,
-   403 `staff_only`; `admin_middleware()`: `ADMIN`, 403 `admin_only`) - a new
+   the clips are the only open addresses (and the backups' download, whose
+   single-use ticket is its check; the feedback form and the study addresses
+   take a visitor or nobody while sign-in is not required); `/api/admin/…` is
+   route groups with the checks on the groups (`staff_middleware()`: `EDITOR` or `ADMIN`,
+   403 `staff_only`; `admin_middleware()`: `ADMIN`, 403 `admin_only` - the
+   library's `RequireRole`) - a new
    admin route in the right group, never a check of its own (the People
-   routes, `backend/api/routes/people.php`, sit in the `ADMIN` group; the
-   Migrations page's routes are a group of their own, the library's, behind
-   `migrations_admin_middleware()`). The setup page
+   routes and the admin tools' - `backend/api/routes/people.php`,
+   `admin.php` - are the library's groups, `ADMIN` alone, with its own check
+   inside too; the Migrations page's, the error log's and the backups' answer
+   while an update waits, behind `admin_token_checks()`, the token alone; a
+   backup's making, download, delete or restore wants a sign-in of the last
+   ten minutes). The admin tools write only under `storage_dir()`; nothing
+   deletes a backup or a log that was there before, and the library's backups
+   rotate by number (14 daily, 5 before an update, 5 before a restore; the
+   ADMIN's own until the owner deletes them; none for its age); a restore
+   scrubs at once (`academy_scrub_after_restore()`), and a write that is not
+   JSON is 415 before anything is read (`request_body()`). The setup page
    asks for the database and the IAM only and stays parseable by PHP 7.4. The translation
    tables are the site's: no `user_id` in their queries, never in
    `USER_TABLES`. In the browser: every API call through `ApiService` and the
    interceptor (the bundle of words alone by plain `fetch()`, without a
    token), which sends the token and `X-Time-Zone` to this site's `/api` and
    `/report` only (never `/api/site-status`, which is nobody's); links to somebody's data through `PrivateLinksService`;
-   every page behind `signInGuard` (the Sign in card only after a failed
-   sign-in or a session that ended; nobody sent to the IAM while the
+   every page behind the library's `personOrVisitorGuard` (the library's
+   failure screen after a failed sign-in, the Sign in card after a session
+   that ended; nobody sent to the IAM while the
    library's `SiteStatus` says the site is not ready - the gate's page has its
    own Sign in, the way a signed-out administrator gets in to apply an
-   update), the admin panel behind `staffOnly` /
-   `adminOnly` (hiding only what the server refuses); a background save told
+   update), the admin panel behind `staffGuard` /
+   `adminGuard` (hiding only what the server refuses); a background save told
    to `SavesInFlight`, so a sign-out waits for it; no day counted in the
    browser that the server counts. A report opened from memory keeps its no-script policy
-   (`lockDown()`). The IAM's browser SDK (`frontend/src/app/core/auth/sdk/`) is
-   an unchanged copy.
+   (`lockDown()`). The sign-in, the People page, the admin tools' pages and
+   the feedback form are the anotoki library's (`@anotoki/lib/auth`, `/people`,
+   `/admin`, `/feedback`), wired in `core/auth/auth.config.ts`,
+   `core/admin.config.ts`, `core/feedback.config.ts`: no hint (the owner's
+   decision), and never an edit of the library's code here.
 4. **The setup page and hosting.** `backend/setup.php`: from this computer the
    nonce cookie (`HttpOnly`, `SameSite=Strict`), the form's nonce and the
    `Origin` (its `Referrer-Policy` stays `same-origin`); anywhere else the

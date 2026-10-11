@@ -1,130 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { ButtonComponent } from '@anotoki/lib/ui/button';
-import { ApiService, toApiError } from '../../core/api/api.service';
-import { Person, VisitorsCount } from '../../core/api/api.types';
-import { AuthService } from '../../core/auth/auth.service';
-import { fmtAdminMoment } from '../../core/format';
-import { TimeWording } from '../../core/i18n/time-wording';
-import { pageQuestion } from '../page-question';
-import { reason } from '../reason';
-
-/** "1 item", "12 items": the admin area's English. */
-function count(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { PeoplePageComponent } from '@anotoki/lib/people/page';
 
 /**
- * Everybody the site has — whoever signed in once has a row — with how far
- * each has come, for the administrators (ADMIN alone: the route and the
- * server both say so). Deleting a person's data takes all of it — progress,
- * answers, exam attempts and their reports, their row — after a copy of it on
- * the server (backend/storage/backups/academy-before-delete-user-…); the
- * question (the kit's, ConfirmService) names what goes. Their IAM account is the IAM's, and stays: when
- * they sign in again, they start afresh. An admin page, in English, with the
- * server's own sentence when it refuses.
- *
- * Visitors — people studying without signing in, where the IAM does not
- * require it — are not in the list (they are nobody's account): one line
- * says how many the site keeps now and the oldest seen, once the database can
- * keep them (GET /api/admin/visitors; nothing when that cannot be had).
+ * /admin/people — everybody the site has, for the administrators (ADMIN alone:
+ * the route and the server both say so): the anotoki library's page
+ * (<anotoki-people-page>, from @anotoki/lib/people/page - an entry point of
+ * its own, so the page stays out of the first load; the same on every anotoki
+ * site), in the admin panel's frame. The latest seen first, with this site's
+ * columns (time zone, items learned, exam attempts), the accounts the IAM
+ * deleted under its placeholder name, where the scrub of them stands, the
+ * visitors' line, and Delete their data - after a copy of it on the server.
+ * This site's words for it: core/admin.config.ts; its addresses:
+ * backend/api/routes/people.php. An admin page, in English.
  */
 @Component({
   selector: 'app-people',
-  imports: [ButtonComponent],
+  imports: [PeoplePageComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './people.component.html',
   styleUrl: './people.component.scss',
 })
-export class PeopleComponent implements OnInit {
-  private readonly api = inject(ApiService);
-  private readonly auth = inject(AuthService);
-  private readonly wording = inject(TimeWording);
-  /** The kit's question, answered no if the page goes while it is open. */
-  private readonly ask = pageQuestion();
-
-  protected readonly people = signal<Person[] | null>(null);
-  protected readonly loadError = signal<string | null>(null);
-  /** What the last delete did, or why it did not: the page's status line. */
-  protected readonly done = signal<string | null>(null);
-  protected readonly failed = signal<string | null>(null);
-  /** The person whose data is being deleted. */
-  protected readonly deleting = signal<number | null>(null);
-  protected readonly visitors = signal<VisitorsCount | null>(null);
-
-  /** "Visitors (not signed in): 12, the oldest seen 3 Oct 2026, 14:05. …": once the database can keep them. */
-  protected readonly visitorsLine = computed(() => {
-    const v = this.visitors();
-    if (!v || !v.ready) {
-      return '';
-    }
-    const oldest = v.oldestSeenAt === null ? '' : `, the oldest seen ${this.when(v.oldestSeenAt)}`;
-    return (
-      `Visitors (not signed in): ${v.count}${oldest}. ` +
-      `Each is deleted ${count(v.keepDays, 'day', 'days')} after their last visit; at most ${v.max} are kept at a time.`
-    );
-  });
-
-  async ngOnInit(): Promise<void> {
-    const visitors = this.api.visitors().then(
-      (v) => this.visitors.set(v),
-      () => undefined, // only a line: the page is the people's
-    );
-    try {
-      this.people.set(await this.api.people());
-    } catch (error) {
-      this.loadError.set(reason(toApiError(error)));
-    }
-    await visitors;
-  }
-
-  /** Their name in the IAM, as it was last seen here; their number when the site never learned one. */
-  protected name(person: Person): string {
-    return person.username || `user ${person.id}`;
-  }
-
-  /** Whether this row is the administrator looking at the page. */
-  protected isYou(person: Person): boolean {
-    return String(person.id) === this.auth.subject();
-  }
-
-  /** A moment in the admin panel's English, or in the date order and clock the administrator chose for their account. */
-  protected when(ms: number | null): string {
-    return ms === null ? '—' : fmtAdminMoment(this.wording, ms);
-  }
-
-  protected items(person: Person): string {
-    return count(person.items, 'item', 'items');
-  }
-
-  protected attempts(person: Person): string {
-    return count(person.attempts, 'attempt', 'attempts');
-  }
-
-  protected async remove(person: Person): Promise<void> {
-    const sure = await this.ask({
-      title: `Delete ${this.name(person)}'s data?`,
-      message:
-        `Their progress (${this.items(person)} learned), every answer and their ${this.attempts(person)} at the exam, with the reports, go. ` +
-        'The server keeps a copy of it first. Their account stays: signing in again, they start afresh.' +
-        (this.isYou(person) ? ' This is you.' : ''),
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      tone: 'danger',
-    });
-    if (!sure) {
-      return;
-    }
-    this.deleting.set(person.id);
-    this.done.set(null);
-    this.failed.set(null);
-    try {
-      const { copy } = await this.api.deletePerson(person.id);
-      this.people.update((people) => (people ?? []).filter((other) => other.id !== person.id));
-      this.done.set(`${this.name(person)}'s data is deleted. A copy of it is in backups/${copy}.`);
-    } catch (error) {
-      this.failed.set(reason(toApiError(error)));
-    } finally {
-      this.deleting.set(null);
-    }
-  }
-}
+export class PeopleComponent {}

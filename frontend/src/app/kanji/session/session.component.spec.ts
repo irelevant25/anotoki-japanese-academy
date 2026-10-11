@@ -16,6 +16,7 @@ import { SessionResult } from './session-engine';
 import { TopBarComponent } from '../../top-bar/top-bar.component';
 import { SessionComponent } from './session.component';
 import { derivedFromState } from '../../core/testing/auth-states';
+import { provideAuth } from '../../core/auth/auth.config';
 
 const ENGLISH: Record<string, string> = {
   'session.mode.lesson': 'Lesson quiz',
@@ -151,6 +152,7 @@ describe('SessionComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        provideAuth(),
         options.slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
         { provide: ApiService, useValue: api },
         { provide: AudioService, useValue: { play: vi.fn() } },
@@ -345,7 +347,7 @@ describe('SessionComponent', () => {
   });
 
   it('an answer whose save failed before Sign out, shown nowhere yet: signing out asks first; once the summary has it, not', async () => {
-    const logout = vi.fn(() => Promise.resolve());
+    const logout = vi.fn(() => Promise.resolve(true));
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });
@@ -383,7 +385,7 @@ describe('SessionComponent', () => {
   });
 
   it('a failed answer that fails while Sign out waits, and that the session reports too: asked once', async () => {
-    const logout = vi.fn(() => Promise.resolve());
+    const logout = vi.fn(() => Promise.resolve(true));
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });

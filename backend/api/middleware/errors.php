@@ -9,6 +9,13 @@
  * the sentence says no more than that, and there is no "detail": the details
  * go to the error log. Under PHP's built-in server (this computer) "detail"
  * is the reason, for the page to show after its own words.
+ *
+ * A failure it answers 503 or 500 - the database out of reach, anything
+ * unexpected - is written down in the site's error log too (the anotoki
+ * library's, src/admin.php: redacted, with the status answered), which the
+ * site's ADMIN reads on the admin panel's Errors page; an HttpError is an
+ * answer, not a failure, and an answer worth seeing (a 404, a 5xx of its
+ * own) is written down by the log's own middleware around the app (api/app.php).
  */
 
 declare(strict_types=1);
@@ -37,10 +44,12 @@ function errors_middleware(string $sapi = PHP_SAPI): callable
                 ['Allow: ' . implode(', ', $e->getAllowedMethods())]);
         } catch (PDOException $e) {
             error_log('[db] ' . $e->getMessage());
+            academy_error_log()->record($e, $request, 503, 'database_unavailable');
             $body = ['error' => 'The database is not reachable' . error_detail($e, $sapi), 'code' => 'database_unavailable'];
             return json_response(new Slim\Psr7\Response(), $body + error_detail_field($e, $sapi), 503);
         } catch (Throwable $e) {
             error_log('[server] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            academy_error_log()->record($e, $request, 500, 'server_error');
             $body = ['error' => error_reason($e, $sapi) ?? 'Something went wrong on the server.', 'code' => 'server_error'];
             return json_response(new Slim\Psr7\Response(), $body + error_detail_field($e, $sapi), 500);
         }

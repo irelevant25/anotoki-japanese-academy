@@ -18,16 +18,17 @@ and Exam, the language, a theme switch, the person's menu; one menu button up
 to 760 px), buttons, dialogs and fields of the library's kit, a foot with the
 version and "What's new", and the setup page (`/setup.php`, plain PHP).
 Everybody signs in through the anotoki IAM, on a computer as on the website;
-a signed-out page goes straight to the IAM, and the Sign in card
-(`standin/`) shows only after a failed sign-in.
+a signed-out page goes straight to the IAM; a sign-in that came back without
+one shows the anotoki library's screen (Try again, Back), and the Sign in
+card (`standin/`) only a session that ended while the page was open.
 
 You are read-only. Run the test scripts and inspect their output, but never
 edit project files. Never use port 8200, which is the owner's server, and
 never touch the owner's database or `backend/storage/backups/`. The scripts
 start their own servers, on throwaway databases with
-settings of their own, and their own stand-in IAM
-(`backend/tests/tools/stand-in-iam.php`, on a free port of this computer):
-never start the real IAM or ask one.
+settings of their own, and the anotoki library's stand-in IAM
+(`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, on a free port of
+this computer): never start the real IAM or ask one.
 
 The caller tells you what changed. Then:
 
@@ -68,7 +69,9 @@ The caller tells you what changed. Then:
    screen the change touches (`room` for the top bar alone). Note any
    overflow, key-shaped text or errors it reports, the Slovak pass's (English
    left on a Slovak page) and the room's (the bar measured at 360, 390, 760,
-   761, 960, 961 and 1280 px, light and dark, English and Slovak, signed in
+   761, 960, 961 and 1280 px - the admin panel's at 360, 390, 1170, 1171, 1351
+   and 1530, with its eight links and the Feedback count -, light and dark,
+   English and Slovak, signed in
    with 999 reviews due and a 20-character name, signed out, the admin panel;
    a real Tab and Shift+Tab from an item of each open menu leaving the focus
    on its button).

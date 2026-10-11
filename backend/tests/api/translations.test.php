@@ -341,7 +341,7 @@ test('the bundle: a language\'s strings with English underneath, the same for ev
 test('a code that is not one is 404, and the database never hears of it', function (): void {
     foreach (['EN', 'Sk', 'e', 'eng', 'en-', 'en-GB', 'en_gb', 'en-gbr', 'sk%0A', '%20sk', 'sk%27', '%FF', '%C3%28', 'en.json'] as $code) {
         $answer = anonymous('GET', "/api/translations/$code");
-        assert_refused(404, 'not_found', 'There is no such language', $answer, $code);
+        assert_refused(404, 'not_found', 'There is no such language.', $answer, $code);
     }
     assert_same(404, anonymous('GET', '/api/translations/en/more')['status']);
     assert_same(404, anonymous('GET', '/api/translations')['status'], 'there is no list of its own: the bundle carries it');
@@ -350,7 +350,7 @@ test('a code that is not one is 404, and the database never hears of it', functi
 
     // The owner's routes: a code that is not one is no language.
     foreach (['%FF', 'SK', 'eng'] as $code) {
-        assert_refused(404, 'not_found', 'There is no such language', as_user(OWNER, 'PUT', "/api/admin/languages/$code", ['name' => 'X']), $code);
+        assert_refused(404, 'not_found', 'There is no such language.', as_user(OWNER, 'PUT', "/api/admin/languages/$code", ['name' => 'X']), $code);
         assert_same(404, as_user(OWNER, 'DELETE', "/api/admin/languages/$code")['status'], $code);
         assert_same(404, as_user(OWNER, 'GET', "/api/admin/translations/$code/export")['status'], $code);
         assert_same(404, as_user(OWNER, 'PUT', "/api/admin/translations/$code/import", ['test.bye' => 'x'])['status'], $code);
@@ -524,7 +524,7 @@ test('languages: added after the others, offered at once or hidden as the body s
     assert_same([201, true], [$shown['status'], $shown['body']['language']['enabled'] ?? null], 'and true is what it is without saying');
     db_exec("DELETE FROM languages WHERE code IN ('fr', 'it')");
 
-    assert_refused(409, 'language_exists', 'There is a language "de" already', as_user(OWNER, 'POST', '/api/admin/languages', ['code' => 'de', 'name' => 'Deutsch', 'native_name' => 'Deutsch']));
+    assert_refused(409, 'language_exists', 'There is a language "de" already.', as_user(OWNER, 'POST', '/api/admin/languages', ['code' => 'de', 'name' => 'Deutsch', 'native_name' => 'Deutsch']));
     $invalid = [
         'enabled as text' => ['code' => 'fr', 'name' => 'French', 'native_name' => 'Français', 'enabled' => 'false'],
         'enabled as a number' => ['code' => 'fr', 'name' => 'French', 'native_name' => 'Français', 'enabled' => 0],
@@ -595,7 +595,7 @@ test('languages: added after the others, offered at once or hidden as the body s
     assert_same('Dobrý deň, {name}!', as_user(OWNER, 'GET', '/api/admin/translations/sk/export')['body']['test.hello'] ?? null, 'with its strings');
     assert_same(true, as_user(OWNER, 'PUT', '/api/admin/languages/sk', ['enabled' => true])['body']['language']['enabled']);
 
-    assert_refused(409, 'fallback_language', 'English cannot be switched off: every other language falls back to it', as_user(OWNER, 'PUT', '/api/admin/languages/en', ['enabled' => false, 'name' => 'Changed']));
+    assert_refused(409, 'fallback_language', 'English cannot be switched off: every other language falls back to it.', as_user(OWNER, 'PUT', '/api/admin/languages/en', ['enabled' => false, 'name' => 'Changed']));
     assert_same(ENGLISH + ['enabled' => true, 'sort_order' => 5, 'seeded' => true, 'strings' => 3], as_user(OWNER, 'PUT', '/api/admin/languages/en', ['enabled' => true, 'sort_order' => 5])['body']['language'], 'on is what it is; its place is anybody\'s to choose');
     as_user(OWNER, 'PUT', '/api/admin/languages/en', ['sort_order' => 1]);
 
@@ -816,8 +816,9 @@ test('a language out as a file and back in: its own strings only; unknown keys r
         $refused = as_user(ADA, 'PUT', "/api/admin/translations/$language/import", $body);
         assert_same([422, $code], [$refused['status'], $refused['body']['code'] ?? null], test_show($refused['body']));
     }
+    // A list's items come as keys that are numbers: keys the app does not have (anotoki-lib 0.4.0), named.
     $list = as_user(ADA, 'PUT', '/api/admin/translations/de/import', ['Hallo', 'Tschüss']);
-    assert_same([422, 'invalid_value'], [$list['status'], $list['body']['code'] ?? null], 'a list');
+    assert_same([422, 'unknown_key', ['0', '1']], [$list['status'], $list['body']['code'] ?? null, $list['body']['keys'] ?? null], 'a list');
     $text = raw_call($GLOBALS['app']['base'], 'PUT', '/api/admin/translations/de/import', '"Hallo"', array_merge(['Content-Type: application/json'], token_of(ADA)));
     assert_same([422, 'invalid_value'], [$text['status'], $text['body']['code'] ?? null], 'a text: JSON, and no object of strings');
     assert_same(404, as_user(ADA, 'PUT', '/api/admin/translations/fr/import', ['test.bye' => 'Au revoir'])['status'], 'a language there is not');
@@ -982,7 +983,7 @@ test('the command line: --status reads the frontend against the database, and it
 /* ------------------------------------------------------- deleting a language */
 
 test('deleting a language: never English, never one the app is released in; a copy of its strings first, and they go with it', function (): void {
-    assert_refused(409, 'fallback_language', 'English cannot be deleted: every other language falls back to it', as_user(OWNER, 'DELETE', '/api/admin/languages/en'));
+    assert_refused(409, 'fallback_language', 'English cannot be deleted: every other language falls back to it.', as_user(OWNER, 'DELETE', '/api/admin/languages/en'));
     $slovak = as_user(OWNER, 'DELETE', '/api/admin/languages/sk');
     assert_same([409, 'seeded_language'], [$slovak['status'], $slovak['body']['code']], 'the next migration with strings would fail without it');
     assert_same(404, as_user(OWNER, 'DELETE', '/api/admin/languages/fr')['status']);
@@ -1115,7 +1116,7 @@ test('who reworded a string follows a user id that moves, and goes with a person
 });
 
 test('an editor whose data an administrator deleted while they saved: the save holds their row as an answer does, and is kept', function (): void {
-    // Between the save's sign-in (users_seen()) and its writing, the People page deleted the editor's row. The
+    // Between the save's sign-in (people_seen()) and its writing, the People page deleted the editor's row. The
     // library's save holds it first (academy_translations_config()'s beforeWrite: users_hold()).
     foreach (['save' => static fn () => academy_translations()->save(['test.bye' => ['sk' => 'Ahoj zas']], EDDIE),
               'import' => static fn () => academy_translations()->import('sk', ['test.bye' => 'Ahoj znova'], EDDIE)] as $how => $write) {
