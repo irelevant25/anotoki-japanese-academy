@@ -482,8 +482,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
   first under the library's `anotoki.signIn.*`, every language with who
   wrote it and when; its check proves every table of people and their data
   has its rows, every other string is as it was and the moved ones came as
-  they were) is a **draft** waiting for the owner: its last line is theirs to
-  write once they accept the change. The library's own sets run around this
+  they were) was written as a draft too, and is final since 2026-10-11 (the
+  owner's go, "finalize and apply": its last line written last; it goes up
+  with the library's files below). The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
   `anotoki_translations/001_…` to `004_…` (its words, written only where a

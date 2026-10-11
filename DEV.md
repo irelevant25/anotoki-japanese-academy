@@ -172,9 +172,9 @@ insert leaves it alone. To add one:
    bar - and is final since 2026-10-04; 006, "Admin panel" and the words of
    an update that waits, likewise; 008, the words the library's status page
    took over, and 009, the kit's words moved under the library's keys, since
-   2026-10-11. 010, the people's `anonymized_at` and the words of a failed
-   sign-in moved under the library's keys, is a draft until the owner
-   accepts it.)
+   2026-10-11; 010, the people's `anonymized_at` and the words of a failed
+   sign-in moved under the library's keys, likewise, on the owner's go the
+   same day.)
    `backend/tools/build-dist.php` refuses to build the upload while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in

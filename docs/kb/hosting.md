@@ -249,8 +249,8 @@ bar says what it said. Before the upload:
 
 **The update that brings the library's sign-in, people and admin tools**
 (anotoki-lib 0.4.1) brings the library's `anotoki_admin` 001 and 002, this
-app's 010 (a draft until the owner accepts it: no upload is built before
-then), the library's `anotoki_translations` 003 and 004 and its
+app's 010 (final since 2026-10-11, on the owner's go), the library's
+`anotoki_translations` 003 and 004 and its
 `anotoki_people` 001 - one **Apply pending**, in that order, after the raw
 copy and the library's first backup of the whole database. Before the
 upload:
@@ -520,14 +520,15 @@ order, the library's `anotoki_admin/001_audit_log.sql` and
 `002_feedback.sql`, this app's `010_people_and_signing_in.sql`, the
 library's `anotoki_translations/003_sign_in_words.sql` and
 `004_feedback_words.sql`, and `anotoki_people/001_people.sql` - with the raw
-copy and the library's backup before it. While 010 is a draft (it is, until
-the owner writes its last line), `build-dist.php` refuses to build the
-upload, and on the owner's own computer, serving this working tree, every
-one of them waits with it - the library's files too, the `anotoki_admin`
-ones that run before 010 included (`db_migration_ready()`: while one of this
-site's own files is a draft, the library's files wait on every database but
-the tests'). So their study pages keep working, and nothing of the change -
-not even the library's tables - is applied before the owner accepts it.
+copy and the library's backup before it - on the owner's own computer as on
+the site, once 010 is final (since 2026-10-11, the owner's go). While a
+migration of this site's own is a draft, `build-dist.php` refuses to build
+the upload, and a server of anybody's waits with it for every one of the
+library's files too, the `anotoki_admin` ones that run before it included
+(`db_migration_ready()`: while one of this site's own files is a draft, the
+library's files wait on every database but the tests'): so nothing of a
+change - not even the library's tables - is applied before the owner
+accepts it, and the study pages keep working meanwhile.
 
 ## If something is wrong
 
@@ -544,7 +545,7 @@ not even the library's tables - is applied before the owner accepts it.
 | after an Apply the list still shows a "draft" | the files before it are applied; that one has no last line yet (still uploading): upload it whole, then Apply again |
 | a new migration is listed as a "draft" ("it does not run until it is finished"), and Apply stays off | its last line, `-- end of NNN`, is missing: it is taken to be still uploading |
 | the Backups page offers **Sign in again** instead of making, downloading, deleting or restoring | each of those wants a sign-in of the last ten minutes (the token's `auth_time`): sign in again there, and the IAM asks for the password |
-| the People page says not everything it needs is in the database yet | migration 010 or the library's `anotoki_people/001` has not been applied: **Apply pending** on the Migrations page (010 waits as a draft until the owner writes its last line) |
+| the People page says not everything it needs is in the database yet | migration 010 or the library's `anotoki_people/001` has not been applied: **Apply pending** on the Migrations page (while a migration of this site's own is a draft, they wait with it) |
 | the People page says the last check of the IAM's deleted accounts stopped | the server could not ask the IAM (outbound HTTPS blocked, the IAM away): it asks again within the hour; **Check now** tries at once |
 | the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
 | the page says "This site is not set up yet" on a copy that was set up long ago | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone (`php backend/manage.php --check` says "sign-in without the IAM is gone"): run the setup page and save |

@@ -354,8 +354,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   the site has nobody of; the person back again with nothing; a delete
   waiting for an answer being saved and deleting that too; an answer waiting
   for a delete and then starting their data afresh, never a 500.
-- `api/people-migration.test.php` — migration 010 (a draft, which the tests
-  apply by name) on a database shaped like an installed one (up to 009 and
+- `api/people-migration.test.php` — migration 010 (final since 2026-10-11;
+  while it was a draft, the tests applied it by name) on a database shaped
+  like an installed one (up to 009 and
   the library's words of before, two people's data, the owner's rewording of
   the words that move): its check failing it by name - and nothing of it
   staying - when a row of somebody's data went, a reworded string did not come

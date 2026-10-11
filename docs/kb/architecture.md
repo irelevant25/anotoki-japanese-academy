@@ -987,8 +987,8 @@ library's keys got no language the app's had not, and the sixteen are gone -
 so an owner's rewording, and a language left without a string, survive the
 move.
 
-Migration `010_people_and_signing_in.sql` (a draft waiting for the owner,
-*The database*) does the same for the three keys of a sign-in that came back
+Migration `010_people_and_signing_in.sql` (final since 2026-10-11, *The
+database*) does the same for the three keys of a sign-in that came back
 without one, which the library's screen says now: `signIn.notCompleted` and
 `signIn.failed` (the Sign in card's line, and a visitor's note) and
 `signIn.signingIn` (the callback page) are deleted - where the owner
@@ -1190,9 +1190,10 @@ tests' databases too. 005 was the first written so, and is final since
 over) and 009 (`009_strings_through_the_library.sql`, *The app's words*)
 since 2026-10-11, reviewed, going up together - a draft would hold back
 every file after it, the library's sets `anotoki_translations` and
-`anotoki_people` included. **010** (`010_people_and_signing_in.sql`, 2026-10-11)
-is a **draft** waiting for the owner, its last line theirs to write once they
-accept the change: the library's people column `users.anonymized_at`
+`anotoki_people` included. **010** (`010_people_and_signing_in.sql`) was
+written as a draft too, and is final since 2026-10-11 (the owner's go,
+"finalize and apply": its last line written last; it goes up with the
+library's files of anotoki-lib 0.4): the library's people column `users.anonymized_at`
 (`timestamptz`, empty: the scrub fills it), and the three keys of a sign-in
 that came back without one (`signIn.notCompleted`, `signIn.failed`,
 `signIn.signingIn`) deleted, the library's screen saying it now - where the
@@ -1216,8 +1217,7 @@ or a file still uploading), the app works without what it makes — before
 005, without its column (`users_time_zone_ready()`); before 007, without
 visitors (`visitors_ready()`: sign-in stays required); before 009, with
 the kit saying its own words where the app's had not moved yet; before 010
-(and the library's files after it, which a draft holds back with it),
-without the scrub of the IAM's deleted accounts (the library's people module
+(and the library's files after it), without the scrub of the IAM's deleted accounts (the library's people module
 waits for its column and its tables, records people as before, and the
 People page says what is missing), and with the library's sign-in screens
 and feedback form in their own built-in English and Slovak (its

@@ -1751,9 +1751,10 @@ the 476 Angular ones. What changed, and what stays this app's:
   exam papers (the stored report says "Unnamed candidate"), their feedback's
   address and browser, their names and addresses in the audit log. Only
   UPDATEs: their study stays, nobody's now (the owner's rule for the family).
-- **Migration 010** (`010_people_and_signing_in.sql`) is a **draft** waiting
-  for the owner (CLAUDE.md's rule: its last line is the owner's to write once
-  they accept the change): `users.anonymized_at`, empty, and the three keys
+- **Migration 010** (`010_people_and_signing_in.sql`) was written as a
+  draft (CLAUDE.md's rule) and is final since 2026-10-11, the owner's go
+  ("finalize and apply"): its last line written last, it goes up with the
+  library's files of anotoki-lib 0.4. `users.anonymized_at`, empty, and the three keys
   of a failed sign-in deleted (`signIn.notCompleted`, `signIn.failed`,
   `signIn.signingIn`), an owner's rewording of any of them copied first under
   the library's `anotoki.signIn.*`, every language with who wrote it and
@@ -1771,9 +1772,10 @@ the 476 Angular ones. What changed, and what stays this app's:
   before it too - on every database but the tests' (`db_migration_ready()`,
   `db_own_draft()`; the security review's finding): the library's files a
   change brings belong to that change, so the owner's own server, serving a
-  working tree with 010 still a draft, neither stops its study pages for them
-  (503 `update_pending`) nor gets the library's tables on an Apply before
-  the owner accepts the change; `manage.php --check` names the draft.
+  working tree with a migration still a draft (010 was, until the owner's
+  go), neither stops its study pages for them (503 `update_pending`) nor gets
+  the library's tables on an Apply before the owner accepts the change;
+  `manage.php --check` names the draft.
 - **The admin tools are the site's `ADMIN`'s alone** (the owner's decision):
   this site's checks on every group in its words (403 `staff_only`,
   `admin_only`), the library's own `ADMIN` check inside as well. The error

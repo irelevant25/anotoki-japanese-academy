@@ -1,14 +1,16 @@
 -- 010 — people, and signing in through the anotoki library (2026-10-11)
 --
--- THIS FILE IS A DRAFT until its last line is "-- end of 010": the app waits
--- for that line before it applies a migration - and, after it, the anotoki
--- library's own files (db_migration_ready() in backend/src/db.php) -, so the
--- owner's own server never applies it half written. The tests alone apply the
--- draft, by name, on their throwaway databases. Its last line is the owner's
--- to write once they accept the change; applied once, it is never edited
--- again - a change is the next migration. An administrator applies it on the
--- admin panel's Migrations page (or backend/manage.php, or the setup page),
--- never a request.
+-- It was written as a draft, without its last line ("-- end of 010"), which
+-- the app waits for before it applies a migration - and, while one of this
+-- site's own files is a draft, every one of the anotoki library's files with
+-- it (db_migration_ready() in backend/src/db.php); the tests alone applied the
+-- draft, on their throwaway databases. It is final now (2026-10-11, the
+-- owner's go: "finalize and apply"), reviewed, with that line written last,
+-- and goes up with the library's files of anotoki-lib 0.4 (anotoki_admin 001
+-- and 002 before it, anotoki_translations 003 and 004 and anotoki_people 001
+-- after it): applied once, it is never edited again - a change is the next
+-- migration. An administrator applies it on the admin panel's Migrations page
+-- (or backend/manage.php, or the setup page), never a request.
 --
 -- Since anotoki-lib 0.4.0 the anotoki library (the Composer package
 -- anotoki/lib and @anotoki/lib, every anotoki site's) keeps every site's half
@@ -187,3 +189,5 @@ BEGIN
         RAISE EXCEPTION '010_people_and_signing_in: keys that should be gone and are not: %', missing;
     END IF;
 END $$;
+
+-- end of 010
