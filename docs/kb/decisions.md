@@ -1818,10 +1818,13 @@ the 476 Angular ones. What changed, and what stays this app's:
   goes after the answer so the next request tries again. **What a restore
   does not undo**: data an `ADMIN` deleted on the People page after the
   backup was made comes back with it. The library replays those deletes from
-  its 0.4.2; until then they are deleted again by hand.
+  its 0.4.2; until then they are deleted again by hand. (Since 2026-10-12 a
+  restore does them again by itself, and the library's own hooks replaced
+  `academy_scrub_after_restore()`: *anotoki-lib 0.5.0*, below.)
 - **Browser errors** will go to every site's error log with the library's
   0.4.2 (its Angular reporter): the route for them,
-  `ErrorLogRoutes::client()`, is not mounted until then.
+  `ErrorLogRoutes::client()`, is not mounted until then. (It came as 0.5.0:
+  mounted since 2026-10-12, below.)
 - **Nothing that was on disk is deleted**: backups and logs already in
   `backend/storage/` stay where they are, for the owner to remove. The raw
   copy's note is `.before-migration-raw.json` now: `.before-migration.json`
@@ -1940,3 +1943,143 @@ gives are not kept twice. What that was here, and why:
   suite's 203 checks, the setup
   page's 42, PHP 252 (on 8.2 and 8.5: the key test reads the pages), the 174
   screenshots - each passing.
+
+**2026-10-12 — anotoki-lib 0.5 (PHP 0.5.1, Angular 0.5.0): a restore that
+does the deletes again, sealed backups, the pages' own errors, and real
+addresses.** The PHP half on 0.5.1 (`anotoki/lib ^0.5.0`, composer.lock
+v0.5.1: 0.5.0 and its one fix, below), the Angular half on the v0.5.0
+tarball (0.5.1 changed only PHP); the library's CHANGELOG and README,
+"Upgrading from 0.4.x (0.5.0)", are the authority. No migration - neither
+this app's nor the library's: nothing waits for an Apply. The move alone
+broke none of the 252 PHP tests and, once the frame used the library's new
+route of the failure's screen, none of the 432 Angular ones. What changed,
+and what stays this app's:
+
+- **0.5.1: a restore of a database that ever had a visitor.** `visitor_ids`
+  counts down (-1, -2 …; `MAXVALUE -1`), and 0.5.0's restore set every
+  sequence one step *up* past the later value: with one visitor ever made,
+  to 0 - past its last value, so the restore failed whole -, with more, to an
+  id a visitor had already had. 0.5.1 steps each sequence its own way. A test
+  restores a backup that holds a visitor, with another made since: the
+  restore goes through, the backup's visitor is back, and the next visitor's
+  id is one never given. So the PHP half never goes up as 0.5.0 alone.
+
+- **A restore does again what was deleted since its backup** (the library's
+  `People::restoreHooks()`, in `academy_backups()`): inside its transaction,
+  before anybody sees the restored rows, every `person.data_deleted` the
+  audit log - never restored - holds from the backup's time on is done again
+  with the People page's own delete, and every `feedback.deleted` by its id
+  and the time it was sent; whatever fails rolls the restore back whole. Then,
+  committed, the scrub of the IAM's deleted accounts (`People::afterRestore()`)
+  - it replaced this app's `academy_scrub_after_restore()`, the same
+  behaviour (the IAM out of reach: `after_restore_error`, and the hour's
+  stamp goes after the answer, on this app's runner). A restore is refused
+  while a check of the IAM's list runs ("restore again in a minute").
+- **The delete hook does ALL its work on the connection it is given**
+  (`people_delete(PDO $pdo, int $id, ?Request $request)`, `people_delete_hook()`):
+  the library holds the transaction (`People::delete()`, which forgets the
+  person's feedback in it - the hand-wired `Feedback::forgetPeople()` went -
+  and writes the `person.data_deleted` entry inside it: no delete without its
+  entry, 503 `feature_unavailable` while the audit log's table waits); the
+  hook begins none of its own and refuses to run outside one. In a restore
+  the connection is the restore's, which holds every table it loaded: the
+  old hook's `db_tx()`/`db_exec()` on `db()` would have waited on those locks
+  while the restore waited on it, until PostgreSQL ended the restore a minute
+  later (a test with a restore's locks held on another connection proves it
+  - a mutation of the hook's row lock onto `db()` failed it, and the HTTP
+  restore test with it). **No copy for a replay**: the JSON copy before a
+  delete is made only with the page's request (it reads through `db()`, the
+  page's own connection - with a request on another one the hook refuses);
+  what a restore deletes again is the backup's data, which the backup keeps.
+  **A replay of somebody the restored backup has no row of** (deleted before
+  it was made, and again since) answers "nothing deleted" rather than
+  "nobody": feedback needs no row - a page left open after the first delete
+  can send some -, and the library forgets a person's feedback only when the
+  hook names somebody (the review's finding; the page itself still answers
+  404 for nobody). The scrub's hook blanks a person's feedback and audit
+  entries on the scrub's own connection too (`Feedback::forgetPeopleOn()`,
+  `academy_audit_on()`), since the library's scrub after a restore runs on
+  the restore's.
+- **Only a backup made here is restored here**: a plain backup carries this
+  installation's seal (an HMAC of its id and SHA-256 under a key from
+  `storage/anotoki-lib.key`); one without it - every plain backup made before
+  0.5.0 - is listed `sealed: false`, refused (`archive_invalid`), downloaded
+  as before and restored offline alone ([hosting.md](hosting.md) says how: a
+  restore by hand does none of the deletes again, and the archive's audit
+  log would put back the older record they are done again by). Nothing is
+  public yet, so nothing is lost: make a backup right after the update. The
+  library's backup files are the site's own user's alone (`0600`). The
+  context names people (`academy_people_names()`): the Backups page's "By"
+  column, the audit log's and the feedback's people - the routes' own
+  `$names` went. (A list while the database is out of reach waits for its
+  connection to fail before it answers without the names - acceptable for a
+  page that is read rarely.)
+- **The pages' own errors in the error log** (the owner's decision of
+  2026-10-11, every site's): the library's reporter is the app's
+  `ErrorHandler` (`core/error-report.config.ts`), through the app's
+  HttpClient, so the library's auth interceptor adds what it adds to any
+  request - a person's token, or a visitor's key (which the route never
+  reads), and `X-Time-Zone`; `POST /api/client-errors` (the
+  library's `ErrorLogRoutes::client()`) is anybody's, behind the gate (closed
+  while an update waits, as every address with no reason to stay open) and
+  the person's `Identify` (a bad token 401, as on every route; a visitor's key
+  never read), so the library counts a person by their account and anybody
+  else by their address bucket (20 an hour from one sender, 500 a day from the
+  visitors and as many from the people signed in). This app's own
+  interceptor passes a report's answer by (`ANOTOKI_ERROR_REPORT`): a report
+  is no request to stop the app for. One limit, the library's: where sign-in
+  is required, a page drawn for nobody (the failure's screen, the Sign in
+  card) sends no report - the library's interceptor never sends a person's
+  request without a token.
+- **Where a request comes from is one rule** (the owner's of 2026-10-11:
+  `CF-Connecting-IP` alone, from Cloudflare's ranges alone): the library's
+  `Support\ClientAddress` - `REMOTE_ADDR`, or Cloudflare's `CF-Connecting-IP`
+  (one address) on a connection from one of the trusted proxies. **The header
+  is pinned in the code** (`ClientAddress::CLOUDFLARE_HEADER`): the old
+  `client_ip_header` setting is gone and is read no more - pointed at
+  `X-Real-IP` or `True-Client-IP`, which Cloudflare passes on as the visitor
+  wrote them, it would have let anybody pick their own address; neither they
+  nor `X-Forwarded-For` are ever read (tests send each from a Cloudflare
+  address). The trusted proxies have a committed default now, Cloudflare's
+  published ranges (`CLIENT_ADDRESS_DEFAULTS` in `config.php`, the literal
+  list of 2026-10-11, which a test holds equal to the library's
+  `ClientAddress::CLOUDFLARE`); `app.local.php` replaces it (`[]`: nobody, for
+  a host not behind Cloudflare), and **a range there wider than any proxy's -
+  an IPv4 prefix shorter than /8, an IPv6 one shorter than /16 (`0.0.0.0/0`,
+  `::/0`) - or no range at all is refused**, never believed, and said in PHP's
+  error log on every request that reads it (the other sites' reviews' finding). Every per-address
+  limit counts the address's bucket (`ClientAddress::bucket()`: an IPv6
+  address by its /64 - per /128 a network of one's own would be endless fresh
+  sources). The visitors' limits and the library's admin tools (the
+  feedback's limits, the error log's client hash: `AdminContext`'s
+  `trustedProxies`, no `clientKey` of the app's any more) read the address
+  alike, and keep a keyed HMAC of the bucket, never the address - a stable
+  pseudonym for as long as its key lasts, which whoever holds the key can
+  test an address against. What went: this app's own reading - a header
+  read as a list from the right, its CIDR and bucket code; a header naming
+  two addresses now names none (the proxy's own address counts then).
+- **Every scrub and delete hook writes only on the `$pdo` it is given**:
+  the delete (above), and the scrub's hook - its feedback part
+  (`Feedback::forgetPeopleOn()`) and its audit part (`academy_audit_on()`,
+  an `AuditLog` bound to that very connection, never the site's
+  `academy_audit()` on `db()`); a test holds the tables locked on another
+  connection, as a restore does, and the hook goes through.
+- **Feedback**: the library keeps only the reply address the form sends; the
+  form still writes a signed-in person's address in for them to keep or
+  clear. The server's sender gives their id alone (its `'email' => null`,
+  0.4.1's way of keeping the server from filling one in, went).
+- **The error log's `expected` codes**: a 503 that says a state
+  (`update_pending`, `feature_unavailable`, `not_set_up`) is not written, a
+  503 that is a failure (`database_unavailable`) is. This app had no rule of
+  its own to remove; `errors.test.php` pins both.
+- **The failure's screen** is the library's route wrapper now
+  (`<anotoki-sign-in-failure-route>`, which loads the screen as it is shown):
+  `AppComponent` draws it in its frame as before. The first load: 520.37 kB
+  raw, 147.02 kB sent before; 519.12 kB raw, 149.66 kB sent after (the
+  screens and the token's requests out of it, the reporter in it, the chunks
+  smaller and more of them).
+- **What a learner notices**: nothing - no What's new line (the changes are
+  the administrators' or unseen).
+- **Tests**: PHP 260 (on 8.5; the owner's instruction of 2026-10-12 dropped
+  the 8.2 runs of this change), Angular 436 in 43 files, the browser suite's
+  207 checks - each passing.

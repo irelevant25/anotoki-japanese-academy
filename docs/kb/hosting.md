@@ -266,6 +266,34 @@ upload:
   under Apache*, above); every backup and log already there stays where it
   is.
 
+**The update that brings anotoki-lib 0.5** (PHP 0.5.1, Angular 0.5.0)
+brings no migration of this app's and none of the library's: on a site that
+has the update of 0.4.1 above applied, nothing waits for an Apply (one that
+has not gets that update's Apply with it). Its PHP half is 0.5.1, never 0.5.0
+alone: 0.5.0's restore of a database that ever had a visitor failed whole
+(`visitor_ids` counts down, and 0.5.0 set it past its last value). Before and
+after the upload:
+
+- the host's PHP needs `mbstring` (the library requires it now) and `zlib`
+  (the backups), as every anotoki site's;
+- upload `backend/vendor/` first, as before;
+- **make a backup on the Backups page right after it** (**Back up now**):
+  a backup is restored on the site only when it carries this installation's
+  seal, and the plain ones made before 0.5.0 have none - they stay listed
+  ("not made here") and download as before, and are restored offline alone
+  (*Backups*, below). Nothing is public yet, so nothing is lost by it;
+- where a request comes from changes: the site trusts Cloudflare's
+  published ranges by default now (*Visitors on the site*, below) - a host
+  that is not behind Cloudflare says so in `app.local.php`
+  (`'client_address' => ['trusted_proxies' => []]`). An `app.local.php` that
+  already lists Cloudflare's ranges by hand (as this page advised before)
+  takes the committed list's place whole: take its `client_address` out, or
+  a range left out there is an edge whose visitors all count as one. A
+  `client_ip_header` there is read no more (the code pins Cloudflare's
+  header), and a range wider than any proxy's is refused;
+- the pages report their own errors to the error log from then on
+  (`POST /api/client-errors`).
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
@@ -367,15 +395,40 @@ return [
         'max_attempts' => 10,              // exam attempts one visitor keeps
         'max_answers' => 20000,            // lines of one visitor's answer log
     ],
-    // Behind Cloudflare's proxy every request comes from Cloudflare: list its
-    // ranges (https://www.cloudflare.com/ips/) so the visitor's own address
-    // (CF-Connecting-IP) is counted, not Cloudflare's. Nothing else trusts a header.
+    // Only on a host that is NOT behind Cloudflare (or behind another proxy):
+    // the proxies whose CF-Connecting-IP names the visitor's address, in the
+    // place of Cloudflare's ranges - [] believes nobody (REMOTE_ADDR alone);
+    // a range wider than /8 (IPv4) or /16 (IPv6) is refused. The header is no
+    // setting: the code pins Cloudflare's.
     'client_address' => [
-        'trusted_proxies' => ['173.245.48.0/20', '…'],
-        // 'client_ip_header' => 'CF-Connecting-IP',
+        'trusted_proxies' => [],
     ],
 ];
 ```
+
+**Where a request comes from** (the owner's rule of 2026-10-11, every anotoki
+site's; anotoki-lib 0.5's `Support\ClientAddress`): the site is behind
+Cloudflare, so every request reaches PHP from one of Cloudflare's addresses.
+The committed default (`CLIENT_ADDRESS_DEFAULTS` in
+`backend/config/config.php`) trusts Cloudflare's published ranges
+(https://www.cloudflare.com/ips-v4 and /ips-v6, as of 2026-10-11 - the
+library's `ClientAddress::CLOUDFLARE`, which a test holds the list equal to),
+and believes Cloudflare's `CF-Connecting-IP` - one address - on a connection
+from one of them alone; from anywhere else the connection's own address
+counts. The header is pinned in the code: `X-Real-IP`, `True-Client-IP` and
+`X-Forwarded-For` - which Cloudflare passes on as the visitor wrote them -
+are never read, and no setting can point at one. A range in `app.local.php`
+wider than any proxy's (an IPv4 prefix shorter than /8, an IPv6 one shorter
+than /16: `0.0.0.0/0`, `::/0`) is refused, never believed - said in PHP's
+error log on every request that reads it, loud until the setting is fixed. The visitors' limits, the feedback's limits and the error
+log's client hash all count the visitor's address bucket so (an IPv6 address
+by its /64), and keep a keyed HMAC of it, never the address: a stable
+pseudonym for as long as its key lasts - whoever holds the key can test an
+address against it, so the key stays as private as the storage folder.
+Cloudflare's ranges change rarely: when Cloudflare announces a change,
+refresh the list in `config.php` (and the library's, in a release).
+`app.local.php` names others only for a host that is not behind Cloudflare
+(above).
 
 `backend/storage/cache/` holds the visitors' address secret
 (`visitor-address.key`, made the first time; losing it only restarts the
@@ -465,15 +518,20 @@ tools, the same on every anotoki site and the site's `ADMIN`'s alone
 ([architecture.md](architecture.md), *The admin tools*):
 
 - **The error log**: `backend/storage/logs/errors-<UTC day>.jsonl`, one line
-  for each thing that went wrong (a 5xx, a 404, 405, 413, 415 or 429
-  answered, PHP's warnings and fatal errors), redacted - never a header, a
-  body, a query string or a token; a keyed hash of the address bucket, never
-  the address, and no person's id (a line is written outside the routes,
-  before who is asking is known). Files, so it is written while the
-  database is down too. Read and cleared on the admin panel's **Errors**
-  page. The library keeps 30 days of it, 64 MB at most. (The pages' own
-  errors in the browser come with the library's 0.4.2.) PHP's own error log,
-  the host's, goes on beside it.
+  for each thing that went wrong (a 5xx - but a 503 that only says a state:
+  being updated, not set up -, a 404, 405, 413, 415 or 429 answered, PHP's
+  warnings and fatal errors), redacted - never a header, a body, a query
+  string or a token; a keyed hash of the address bucket, never the address,
+  and the person's id on the admin tools' own routes and on a page's report
+  (elsewhere none: those lines are written before who is asking is known).
+  Since anotoki-lib
+  0.5.0 also **the pages' own errors** (`source: client`): the browser
+  reports each error a page meets, scrubbed, to `POST /api/client-errors` -
+  20 an hour from one sender, 500 a day from the visitors and as many from
+  the people signed in. Files, so it is written while the database is down
+  too. Read and cleared on the admin panel's **Errors** page. The library
+  keeps 30 days of it, 64 MB at most. PHP's own error log, the host's, goes
+  on beside it.
 - **The audit log** (the table `anotoki_audit_log`): who did what in the
   admin panel; read on **Audit log**; kept.
 - **Feedback** (the table `anotoki_feedback`): the messages sent with **Send
@@ -496,11 +554,37 @@ tools, the same on every anotoki site and the site's `ADMIN`'s alone
   Each is about the size of the database: watch the host's disk quota, and
   delete the `ADMIN`'s own old ones there. A person whose anotoki account the
   IAM deleted stays in a backup made before, until it rotates out or the
-  owner deletes it. A restore runs the scrub of the IAM's deleted accounts
-  at once (when the IAM cannot be reached, the page says so, and the next
-  request tries again); it brings back the data of somebody an `ADMIN`
-  deleted on the People page after the backup was made - delete it there
-  again (the library does it by itself from its 0.4.2).
+  owner deletes it. A restore does again, before anybody sees its data, what
+  an `ADMIN` deleted after the backup was made - a person's data on the
+  People page, a feedback message - (anotoki-lib 0.5.0), and then runs the
+  scrub of the IAM's deleted accounts at once (when the IAM cannot be
+  reached, the page says so, and the next request tries again).
+  **Only a backup made by this site is restored on its page** (anotoki-lib
+  0.5.0): each carries the installation's seal - an HMAC of its id and its
+  SHA-256 under a key derived from `backend/storage/anotoki-lib.key` - and a
+  restore reads the very bytes it checks. One without the seal - **every
+  plain backup made before 0.5.0**, a file copied in from elsewhere or
+  changed since - is listed "not made here" and refused (`archive_invalid`);
+  it is still downloaded as before, and restored **offline**: on a computer,
+  `tail -n +3 <id>.anotoki-backup | tar -xz` unpacks its `manifest.json`,
+  the schema's files and each table's rows (`data/NNN-<table>.copy`, COPY's
+  text format), which `psql`'s `\copy` loads into a database of the same
+  schema (the library's README, "Backups"). **A restore by hand does nothing
+  again**: what was deleted on the People page or in the feedback since the
+  backup comes back with it, no scrub of the IAM's deleted accounts runs, and
+  the archive's own `anotoki_audit_log` - which a restore on the page leaves
+  alone - would put back the older log, the very record those deletes are
+  done again by. So load it into another database and move over only what is
+  needed; or, putting it in place, keep the live `anotoki_audit_log` (skip its
+  file), do again by hand every `person.data_deleted` and `feedback.deleted`
+  the log holds from the backup's time on, and press **Check now** on the
+  People page. Make a backup right after the update to 0.5.0, so a sealed one
+  is there. The seal keeps out a file put
+  into the folder by somebody who cannot reach that key - not somebody who
+  can write the whole storage folder. Every file of the backups is the site's
+  own user's alone (`0600`) from the moment it is made, every folder `0700`:
+  where PHP runs as the web server's user and not the FTP account's, the FTP
+  account cannot read them - download them from the Backups page.
 
 Nothing of this deletes a file that was there before it: the app's own JSON
 copies keep their own rule (the last 14 days', each person's last 14 of each

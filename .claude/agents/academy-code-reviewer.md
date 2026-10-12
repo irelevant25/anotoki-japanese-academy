@@ -156,8 +156,22 @@ settings, Apache or the setup page; `architecture.md` for the map).
    deletes a backup or a log that was there before, and the library's backups
    rotate by number (14 daily, 5 before an update, 5 before a restore; the
    ADMIN's own until the owner deletes them; none for its age); a restore
-   scrubs at once (`academy_scrub_after_restore()`), and a write that is not
-   JSON is 415 before anything is read (`request_body()`). The setup page
+   takes the library's people hooks (`People::restoreHooks()`,
+   `academy_backups()`): the deletes done since its backup done again inside
+   it with `people_delete_hook()`, then the scrub at once; the delete hook
+   does ALL its work on the `$pdo` it is given and begins no transaction (on
+   `db()` it would wait on a restore's locks); only a sealed backup restores;
+   where a request comes from is the library's `ClientAddress` over
+   Cloudflare's ranges (`CLIENT_ADDRESS_DEFAULTS`; a range wider than /8 or
+   /16 refused) with `CF-Connecting-IP` pinned in the code (no setting may
+   name `X-Real-IP` or `True-Client-IP`), the same for the visitors' limits
+   and the admin tools' (`AdminContext`'s `trustedProxies`), every
+   per-address limit by the bucket (an IPv6 address by its /64), only a keyed
+   HMAC of the bucket kept - never documented as unreadable: it is a stable
+   pseudonym while its key lasts; every scrub or delete hook writes only on
+   the `$pdo` it is given; `POST /api/client-errors` (the pages' own
+   errors) sits behind the gate and the person's `Identify`; and a write that
+   is not JSON is 415 before anything is read (`request_body()`). The setup page
    asks for the database and the IAM only and stays parseable by PHP 7.4. The translation
    tables are the site's: no `user_id` in their queries, never in
    `USER_TABLES`. In the browser: every API call through `ApiService` and the

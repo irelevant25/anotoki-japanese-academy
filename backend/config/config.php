@@ -37,6 +37,15 @@
  * src/visitors.php) and the proxies trusted to name a visitor's address
  * ('client_address', src/client_address.php); every one has a default
  * (docs/kb/hosting.md, *Visitors on the site*). Its old 'timezone' is ignored.
+ *
+ * Where a request comes from has a committed default (CLIENT_ADDRESS_DEFAULTS
+ * below): the site is behind Cloudflare (the owner's rule of 2026-10-11), so
+ * its published ranges are the trusted proxies, and CF-Connecting-IP - pinned
+ * in the code, never a setting - is believed only on a connection from one of
+ * them; from anywhere else the connection's own address counts. A copy that
+ * is not behind Cloudflare says so in app.local.php ('client_address' =>
+ * ['trusted_proxies' => []]); a range there wider than any proxy's (an IPv4
+ * prefix shorter than /8, an IPv6 one shorter than /16) is refused.
  */
 
 declare(strict_types=1);
@@ -50,6 +59,47 @@ const CONFIG_FILES = [
 
 /** What a copy needs before it is set up (the setup page writes them). */
 const CONFIG_REQUIRED = ['database', 'auth'];
+
+/**
+ * The proxies whose CF-Connecting-IP names a request's address, unless
+ * app.local.php's 'client_address' => ['trusted_proxies' => […]] says
+ * otherwise (src/client_address.php reads them; the anotoki library's admin
+ * tools read the address by the same rule - their AdminContext gets the same
+ * list, src/admin.php): Cloudflare's published ranges,
+ * https://www.cloudflare.com/ips-v4 and https://www.cloudflare.com/ips-v6 as
+ * of 2026-10-11 (15 IPv4, 7 IPv6 - the library's ClientAddress::CLOUDFLARE,
+ * which backend/tests/api/visitors.test.php holds them equal to). They change
+ * rarely: refresh them from those two addresses when Cloudflare announces a
+ * change. (The header is no setting: the code pins Cloudflare's own.)
+ */
+const CLIENT_ADDRESS_DEFAULTS = [
+    'trusted_proxies' => [
+        // IPv4 (https://www.cloudflare.com/ips-v4, 2026-10-11)
+        '173.245.48.0/20',
+        '103.21.244.0/22',
+        '103.22.200.0/22',
+        '103.31.4.0/22',
+        '141.101.64.0/18',
+        '108.162.192.0/18',
+        '190.93.240.0/20',
+        '188.114.96.0/20',
+        '197.234.240.0/22',
+        '198.41.128.0/17',
+        '162.158.0.0/15',
+        '104.16.0.0/13',
+        '104.24.0.0/14',
+        '172.64.0.0/13',
+        '131.0.72.0/22',
+        // IPv6 (https://www.cloudflare.com/ips-v6, 2026-10-11)
+        '2400:cb00::/32',
+        '2606:4700::/32',
+        '2803:f800::/32',
+        '2405:b500::/32',
+        '2405:8100::/32',
+        '2a06:98c0::/29',
+        '2c0f:f248::/32',
+    ],
+];
 
 /**
  * The setup page's lock: written once its setup finished on a website

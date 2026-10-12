@@ -30,9 +30,11 @@
  *             People (the library's page): an ADMIN deletes a person's data (a
  *             copy first, nobody else's touched); Send feedback from the foot
  *             reaches the panel - the count on its Feedback link, the message on
- *             the library's Feedback page -, the error log, the audit log and
- *             the backups' pages; an EDITOR has Translations only, the API says
- *             403 to the rest; a learner has no admin area
+ *             the library's Feedback page -; an error thrown in a learner's page
+ *             is reported (her token on it, the address scrubbed out) and the
+ *             error log's page lists it; the audit log and the backups' pages;
+ *             an EDITOR has Translations only, the API says 403 to the rest; a
+ *             learner has no admin area
  *   update    a database update waiting (the anotoki library's gate): a
  *             visitor, a learner and an editor read that the site is being
  *             updated - no error, no button but a visitor's quiet Sign in,
@@ -552,8 +554,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck("it opens what's new", news.includes(`v${latest.version}`) && !!firstLine && news.includes(firstLine), firstLine);
   await shot('changelog');
   await page.keyboard.press('Escape');
-  ck('Escape closes it, and the dot is gone',
-    (await page.$('app-changelog-dialog dialog')) === null && (await page.$('#whatsNew .dot')) === null);
+  // What Angular draws after the key, waited for (a busy computer may take a frame or two): the dialog and the dot gone.
+  const newsClosed = await page
+    .waitForFunction(() => !document.querySelector('app-changelog-dialog dialog') && !document.querySelector('#whatsNew .dot'), null, { timeout: 5000 })
+    .then(() => true, () => false);
+  ck('Escape closes it, and the dot is gone', newsClosed);
 
   /* ------------------------------------------- the bar's menus by keys */
   console.log('the bar: its menus by keys');
@@ -912,6 +917,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('no browser errors around the form', fbErrors.length === 0, fbErrors.join(' | '));
   await fbContext.close();
 
+  // A page's own error (anotoki-lib 0.5.0's reporter, core/error-report.config.ts): thrown in a learner's page, it goes
+  // to the console as ever and is reported - once, through the app's own HttpClient: her token and her time zone on
+  // it, as on every request of hers -, the address in it scrubbed out in the page, and the server's error log has it.
+  const oopsContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  await plant(oopsContext, NOA);
+  const oops = await oopsContext.newPage();
+  const oopsErrors = watch(oops);
+  await oops.goto(app.base + '/kanji');
+  await oops.waitForSelector('#sendFeedback');
+  const reportSent = oops.waitForRequest((r) => r.url() === app.base + '/api/client-errors' && r.method() === 'POST', { timeout: 10000 }).catch(() => null);
+  await oops.evaluate(() => {
+    setTimeout(() => {
+      throw new Error('e2e: a page error for noa@example.test');
+    }, 0);
+  });
+  const reportRequest = await reportSent;
+  const reportAnswer = reportRequest ? await reportRequest.response() : null;
+  const reportBody = reportRequest ? reportRequest.postData() || '' : '';
+  const reportHeaders = reportRequest ? reportRequest.headers() : {};
+  ck("a page's own error is reported: through the app's HttpClient, her token and time zone on it, the address scrubbed out in the page",
+    !!reportAnswer && reportAnswer.status() === 204 && /^Bearer /.test(reportHeaders.authorization || '') && !!reportHeaders['x-time-zone']
+      && /e2e: a page error/.test(reportBody) && !/noa@example\.test/.test(reportBody), `${reportAnswer && reportAnswer.status()} ${reportBody}`);
+  const loggedReport = await (await app.api('/api/admin/errors?days=1&search=' + encodeURIComponent('e2e: a page error'), ADA)).json();
+  const loggedText = JSON.stringify(loggedReport);
+  ck("and the error log has it, as the page's (source client), scrubbed again - no address",
+    /e2e: a page error/.test(loggedText) && /"source":"client"/.test(loggedText) && !/noa@example\.test/.test(loggedText), loggedText.slice(0, 300));
+  ck('the console heard of it, and of nothing else', oopsErrors.length > 0 && oopsErrors.every((e) => /e2e: a page error/.test(e)), oopsErrors.join(' | '));
+  await oopsContext.close();
+
   await admin.goto(app.base + '/admin/translations');
   await admin.waitForSelector(GRID);
   const badge = await admin
@@ -941,6 +975,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await admin.click(barLink('/admin/errors'));
   await admin.waitForSelector('anotoki-error-log-page [data-counts]');
   ck('the error log (the library’s page): what went wrong on the server, in its frame', (await admin.getAttribute('main.admin', 'lang')) === 'en');
+  const pageErrorListed = await admin
+    .waitForFunction(() => /e2e: a page error/.test(document.querySelector('anotoki-error-log-page')?.textContent || ''), null, { timeout: 10000 })
+    .then(() => true, () => false);
+  ck("and what went wrong in a page: the learner's page error, listed there", pageErrorListed);
   await admin.click(barLink('/admin/audit'));
   await admin.waitForSelector('anotoki-audit-log-page [data-entries]');
   const audited = (await admin.textContent('anotoki-audit-log-page [data-entries]')).replace(/\s+/g, ' ');

@@ -252,6 +252,35 @@ test('the scrub of the accounts the IAM deleted: the name the IAM\'s placeholder
     assert_same($scrubbedRows, scrub_rows());
 });
 
+test('the scrub\'s hook writes only on the connection it is given: with every table it touches locked there - as a restore\'s connection holds them -, it goes through, never on the site\'s own', function (): void {
+    db_migrate();
+    $who = 9004;
+    users_ensure($who);
+    named_attempt($who, 'h-1', 'Hana Named');
+    db_exec("INSERT INTO anotoki_feedback (kind, message, contact_email, user_id, user_agent) VALUES ('idea', 'Locked out.', 'hana@example.test', ?, 'Safari')", [$who]);
+    db_exec("INSERT INTO anotoki_audit_log (actor_id, action, target_type, target_id, details, ip) VALUES (?, 'translations.saved', NULL, NULL, '{\"keys\": 3}', '198.51.100.44')", [$who]);
+
+    // Another connection, holding the tables as a restore does until it commits; the site's own (db()) gives up after 3 s.
+    $other = db_connect();
+    $other->beginTransaction();
+    $other->exec('LOCK TABLE users, exam_attempts, anotoki_feedback, anotoki_audit_log IN ACCESS EXCLUSIVE MODE');
+    db()->exec("SET lock_timeout = '3s'");
+    try {
+        people_scrub_copies($other, $who);
+        $other->commit();
+    } finally {
+        if ($other->inTransaction()) {
+            $other->rollBack();
+        }
+        db()->exec('RESET lock_timeout');
+    }
+    assert_same(['', report_header('', 'seed-h-1')], array_values(db_one('SELECT candidate, report FROM exam_attempts WHERE user_id = ? AND id = ?', [$who, 'h-1'])),
+        'the name gone from the paper and its report');
+    assert_same([null, null, 'Locked out.'], array_values(db_one('SELECT contact_email, user_agent, message FROM anotoki_feedback WHERE user_id = ?', [$who])),
+        'their feedback\'s address and browser gone, on that connection');
+    assert_same(null, db_value("SELECT ip FROM anotoki_audit_log WHERE actor_id = ? AND action = 'translations.saved'", [$who]), 'and their address in the audit log');
+});
+
 test('the People page: Check now runs the scrub - an IAM out of reach said so -, recorded in the audit log; the accounts the IAM deleted listed under its placeholder; an ADMIN\'s alone', function (): void {
     // (The tests of a file share its database: LEAVER was scrubbed by the test before. Another account goes now.)
     $nora = 9003;

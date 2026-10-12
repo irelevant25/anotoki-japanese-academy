@@ -200,14 +200,20 @@ function simple_write(string $base, string $url, ?string $type, string $raw): ar
 test('a write of any type but JSON is refused before anything happens: 415, nobody made - what another site\'s page could send here unasked', function (): void {
     $base = $GLOBALS['app']['base'];
     $before = visitors_here();
+    $messages = (int) db_value('SELECT count(*) FROM anotoki_feedback');
+    // The study's saves, and the two writes anybody may send: the feedback form and a page's error (the library's routes).
     $writes = ['/api/kanji/settings' => '{"batch":3}', '/api/kanji/learn' => '{"id":"k:大"}', '/api/kanji/item' => '{"id":"k:大","meaningNote":"x"}',
-        '/api/exam' => '{"size":5}', '/api/submit' => '{}'];
+        '/api/exam' => '{"size":5}', '/api/submit' => '{}', '/api/feedback' => '{"kind":"idea","message":"unasked"}',
+        '/api/client-errors' => '{"message":"unasked"}'];
     foreach ($writes as $url => $json) {
         foreach (['text/plain', 'text/plain;charset=UTF-8', 'application/x-www-form-urlencoded', null, 'application/jsonp'] as $type) {
             assert_same([415, 'unsupported_media_type', false], simple_write($base, $url, $type, $json), "$url as " . ($type ?? 'no type'));
         }
     }
     assert_same($before, visitors_here(), 'nobody made, no row written');
+    assert_same($messages, (int) db_value('SELECT count(*) FROM anotoki_feedback'), 'no message kept');
+    assert_false(str_contains(implode("\n", array_map('file_get_contents', glob($GLOBALS['app']['config'] . '/logs/errors-*.jsonl') ?: [])), '"source":"client"'),
+        'no page error written');
     // JSON itself, as ever - with its charset too (which no page can send to another site without asking first).
     assert_same([200, null, false], simple_write($base, '/api/exam', 'application/json; charset=utf-8', '{"size":5,"seed":"json"}'));
     assert_same($before, visitors_here(), 'a paper saves nothing');
@@ -565,28 +571,94 @@ test('no visitor on the People page, in a backup or in the day\'s copy; the admi
         call($base, 'GET', '/api/kanji/progress', null, as_visitor($key)));
 });
 
-test('in this process: a row that went is never made again for a visitor; the address counted, behind a trusted proxy or not', function (): void {
+/** A request from $remote (REMOTE_ADDR; '' for none) with these headers, as the app's code is handed one. */
+function from_address(string $remote, array $headers = []): Psr\Http\Message\ServerRequestInterface
+{
+    $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/api/kanji/learn', $remote === '' ? [] : ['REMOTE_ADDR' => $remote]);
+    foreach ($headers as $name => $value) {
+        $request = $request->withHeader($name, $value);
+    }
+    return $request;
+}
+
+test('in this process: a row that went is never made again for a visitor; the address counted - Cloudflare\'s header (pinned) from Cloudflare alone, a catch-all range refused, by the library\'s rule, the admin tools\' too', function (): void {
     assert_throws(static fn () => db_tx(static fn () => users_hold(-424242)), '/study without signing in has ended/');
     assert_throws(static fn () => users_ensure(-1), '/Not a user id/');
     assert_throws(static fn () => backup_person_copy('before-move', -1), '/no person/');
+
+    // The committed default (config/config.php): Cloudflare's published ranges - the library's own list.
+    assert_same(['trusted_proxies'], array_keys(CLIENT_ADDRESS_DEFAULTS), 'the ranges alone: the header is no setting');
+    assert_same(Anotoki\Lib\Support\ClientAddress::CLOUDFLARE, CLIENT_ADDRESS_DEFAULTS['trusted_proxies'], 'the committed list is the library\'s (refresh both when Cloudflare\'s change)');
+    assert_same(Anotoki\Lib\Support\ClientAddress::CLOUDFLARE, client_address_trusted_proxies(), 'with no app.local.php, Cloudflare\'s ranges');
+    $edge = '173.245.48.1';     // an address of Cloudflare's (173.245.48.0/20)
+    $edge6 = '2400:cb00::1';    // and one of its IPv6 ones (2400:cb00::/32)
+    assert_same('198.51.100.7', client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), 'Cloudflare\'s header, from Cloudflare');
+    assert_same('2001:db8:1:2::/64', client_address_counted(from_address($edge6, ['CF-Connecting-IP' => '2001:db8:1:2::5'])), 'from Cloudflare\'s IPv6 edge too, counted by its /64');
+    assert_same('198.51.100.7', client_address_counted(from_address($edge, ['CF-Connecting-IP' => '::ffff:198.51.100.7'])), 'an IPv4 address written as IPv6 is that IPv4 address');
+    assert_same('192.0.2.1', client_address(from_address('192.0.2.1', ['CF-Connecting-IP' => '198.51.100.7'])), 'anybody else\'s header counts for nothing');
+    // The headers Cloudflare passes on as the visitor wrote them are never believed, even from Cloudflare.
+    foreach (['X-Forwarded-For', 'X-Real-IP', 'True-Client-IP', 'Forwarded'] as $header) {
+        assert_same($edge, client_address(from_address($edge, [$header => '198.51.100.7'])), "$header from Cloudflare is never read");
+    }
+    assert_same('198.51.100.7', client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7', 'X-Real-IP' => '203.0.113.9', 'True-Client-IP' => '203.0.113.8'])),
+        'beside them, Cloudflare\'s own');
+    assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7, 203.0.113.1'])), 'a header that names two addresses names none');
+    assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => 'not an address'])), 'nor what is no address');
+    assert_same('?', client_address(from_address('')));
+    assert_same('?', client_address_counted(from_address('')));
+
+    // The admin tools read the address by the same rule - the feedback's limits, the error log's client hash.
+    $context = academy_admin_context();
+    assert_same([client_address_trusted_proxies(), 'CF-Connecting-IP'], [$context->trustedProxies(), $context->clientHeader()]);
+    foreach ([from_address($edge, ['CF-Connecting-IP' => '198.51.100.7']), from_address($edge6, ['CF-Connecting-IP' => '2001:db8:1:2::5']),
+        from_address('192.0.2.1', ['CF-Connecting-IP' => '198.51.100.7'])] as $request) {
+        assert_same(client_address_counted($request), $context->clientKey($request), 'one rule: ' . client_address_counted($request));
+    }
+
     try {
-        config_overrides(['app' => ['client_address' => ['trusted_proxies' => ['10.0.0.0/8', '2001:db8::/32']]]]);
-        assert_same('198.51.100.7', client_address(['REMOTE_ADDR' => '10.1.2.3', 'HTTP_CF_CONNECTING_IP' => '198.51.100.7']), 'a trusted proxy\'s header');
-        assert_same('192.0.2.1', client_address(['REMOTE_ADDR' => '192.0.2.1', 'HTTP_CF_CONNECTING_IP' => '198.51.100.7']), 'anybody else\'s header counts for nothing');
-        assert_same('10.1.2.3', client_address(['REMOTE_ADDR' => '10.1.2.3', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7']), 'X-Forwarded-For is not the header');
-        assert_same('10.1.2.3', client_address(['REMOTE_ADDR' => '10.1.2.3', 'HTTP_CF_CONNECTING_IP' => 'not an address']), 'nor what is no address');
-        assert_same('?', client_address([]));
-        config_overrides(['app' => ['client_address' => ['trusted_proxies' => ['10.0.0.0/8'], 'client_ip_header' => 'X-Forwarded-For']]]);
-        assert_same('198.51.100.9', client_address(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '6.6.6.6, 198.51.100.9, 10.0.0.2']), 'a list from the right, past the proxies');
+        // A copy that is not behind Cloudflare: app.local.php's [] believes nobody.
+        config_overrides(['app' => ['client_address' => ['trusted_proxies' => []]]]);
+        assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), '[]: nobody\'s header');
+        // Or proxies of its own - and still Cloudflare's header alone: a header named in the settings is no setting.
+        config_overrides(['app' => ['client_address' => ['trusted_proxies' => ['10.0.0.0/8', '2001:db8::/32'], 'client_ip_header' => 'X-Real-IP']]]);
+        assert_same('198.51.100.9', client_address(from_address('10.1.2.3', ['CF-Connecting-IP' => '198.51.100.9'])), 'a proxy of its own, by Cloudflare\'s header');
+        assert_same('10.1.2.3', client_address(from_address('10.1.2.3', ['X-Real-IP' => '198.51.100.9'])), 'never the header the settings name');
+        assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.9'])), 'and Cloudflare is no longer one of them');
+        // A range wider than any proxy's - a catch-all - is refused, never believed; the proxies' own beside it stay.
+        $wide = ['0.0.0.0/0', '::/0', '10.0.0.0/7', '2001:db8::/15', '0.0.0.0/1', '10.0.0.0/33', 'not a range', '10.0.0.0/', '', 42, null, ['10.0.0.0/8']];
+        config_overrides(['app' => ['client_address' => ['trusted_proxies' => array_merge($wide, ['10.0.0.0/8', '2001:db8::/16', '192.0.2.10'])]]]);
+        $phpLog = (string) tempnam(sys_get_temp_dir(), 'academy-proxies-');
+        $logBefore = ini_set('error_log', $phpLog);
+        try {
+            assert_same(['10.0.0.0/8', '2001:db8::/16', '192.0.2.10'], client_address_trusted_proxies(), 'only the proxies\' own ranges, /8 and /16 the widest');
+            client_address_trusted_proxies();
+            $said = (string) file_get_contents($phpLog);
+        } finally {
+            ini_set('error_log', (string) $logBefore);
+            @unlink($phpLog);
+        }
+        assert_same(1, substr_count($said, 'refused, never believed (no range, or wider than /8 for IPv4, /16 for IPv6): ::/0'), 'each refused range said once in PHP\'s log: ' . $said);
+        assert_same(1, substr_count($said, '): 0.0.0.0/0'));
+        assert_same('203.0.113.50', client_address(from_address('203.0.113.50', ['CF-Connecting-IP' => '198.51.100.9'])), '0.0.0.0/0 believes nobody\'s header');
+        assert_same('2a00:1450::1', client_address(from_address('2a00:1450::1', ['CF-Connecting-IP' => '198.51.100.9'])), 'nor ::/0 (2001::/16, the widest kept, is not that address\'s)');
+        assert_same('198.51.100.9', client_address(from_address('192.0.2.10', ['CF-Connecting-IP' => '198.51.100.9'])), 'one address of a proxy\'s, believed');
+        config_overrides(['app' => ['client_address' => ['trusted_proxies' => ['0.0.0.0/0', '::/0']]]]);
+        assert_same([], client_address_trusted_proxies(), 'catch-alls alone: nobody trusted');
+        assert_same('203.0.113.50', client_address(from_address('203.0.113.50', ['CF-Connecting-IP' => '198.51.100.9'])), 'and nobody\'s header believed');
     } finally {
         config_overrides([]);
     }
-    assert_same('198.51.100.7', client_address_bucket('::ffff:198.51.100.7'));
-    assert_same('2001:db8:1:2::/64', client_address_bucket('2001:db8:1:2:aaaa:bbbb:cccc:dddd'));
-    assert_same('192.0.2.1', client_address_bucket('192.0.2.1'));
-    assert_true(client_address_in_ranges('172.16.5.4', ['172.16.0.0/12']));
-    assert_false(client_address_in_ranges('172.32.0.1', ['172.16.0.0/12']));
-    assert_false(client_address_in_ranges('::1', ['127.0.0.1']), 'an IPv6 address is in no IPv4 range');
-    assert_same(visitors_address_hash(['REMOTE_ADDR' => '2001:db8:1:2::1']), visitors_address_hash(['REMOTE_ADDR' => '2001:db8:1:2::2']), 'one /64, one hash');
-    assert_false(visitors_address_hash(['REMOTE_ADDR' => '192.0.2.1']) === visitors_address_hash(['REMOTE_ADDR' => '192.0.2.2']));
+    foreach (['10.0.0.0/8' => true, '2001:db8::/16' => true, '192.0.2.1' => true, '::1' => true, '2001:db8::/128' => true, '10.0.0.0/7' => false,
+        '2001:db8::/15' => false, '0.0.0.0/0' => false, '::/0' => false, '10.0.0.0/33' => false, '2001:db8::/129' => false, '300.1.1.1' => false,
+        '10.0.0.0/x' => false] as $range => $ok) {
+        assert_same($ok, client_address_range_ok((string) $range), (string) $range);
+    }
+
+    // What a visitor's row keeps: a keyed HMAC of what the limits count, never the address.
+    assert_same(visitors_address_hash(from_address('2001:db8:1:2::1')), visitors_address_hash(from_address('2001:db8:1:2::2')), 'one /64, one hash');
+    assert_false(visitors_address_hash(from_address('192.0.2.1')) === visitors_address_hash(from_address('192.0.2.2')));
+    assert_same(visitors_address_hash(from_address('198.51.100.7')), visitors_address_hash(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])),
+        'a visitor behind Cloudflare is counted as the visitor, never as Cloudflare');
+    assert_match('/^[0-9a-f]{64}$/', visitors_address_hash(from_address('192.0.2.1')));
+    assert_false(visitors_address_hash(from_address('192.0.2.1')) === hash('sha256', '192.0.2.1'), 'keyed: not the address\'s plain hash');
 });

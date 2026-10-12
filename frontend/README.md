@@ -26,7 +26,7 @@ src/app/            app.component (the bar, the page - the marked template of th
                     answer.ts (answer checking)
   exam/             the exam
   home/your-data/   Your data: the learner's data as a file, down and back (GET / PUT /api/me/data)
-  core/             api/ (ApiService), auth/ (the sign-in, the anotoki library's @anotoki/lib/auth:
+  core/             api/ (ApiService; not-set-up.interceptor.ts, which leaves a report's answer alone), auth/ (the sign-in, the anotoki library's @anotoki/lib/auth:
                     auth.config.ts wires it - the boot configuration, the token or a visitor's key and
                     X-Time-Zone to this site's API, who may make a visitor, the words, the checks before
                     a sign-in or a sign-out, the callback and failure routes, no hint -; AuthService
@@ -35,6 +35,9 @@ src/app/            app.component (the bar, the page - the marked template of th
                     SignInService, PrivateLinksService), admin.config.ts (the library's admin tools
                     and People page wired to this app, @anotoki/lib/admin and /people), feedback.config.ts
                     and feedback/ (the library's feedback form behind Send feedback at the foot),
+                    error-report.config.ts (the library's reporter, @anotoki/lib/error-report: the
+                    app's ErrorHandler, every error to the console and, scrubbed, to POST
+                    /api/client-errors through the app's HttpClient and its interceptors),
                     storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
                     translations.config.ts - the anotoki library's translations, @anotoki/lib/translations,
                     wired to this app: the names it keeps them under, the words' address, a refusal read

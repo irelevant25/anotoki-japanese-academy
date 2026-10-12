@@ -1,7 +1,8 @@
-import { HttpClient, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ANOTOKI_ERROR_REPORT } from '@anotoki/lib/error-report';
 import { SiteStatus, siteStatusInterceptor } from '@anotoki/lib/migrations';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
@@ -65,6 +66,13 @@ describe('notSetUpInterceptor', () => {
     }
     expect(auth.state()).toBe('starting');
     expect(site.state()).toBe('update-pending');
+  });
+
+  it('the answer to a page’s error report (the library’s reporter) is left out of this app’s own reaction: AuthService goes on as it was', async () => {
+    const answer = firstValueFrom(http.post('/api/client-errors', { message: 'x' }, { context: new HttpContext().set(ANOTOKI_ERROR_REPORT, true) }));
+    backend.expectOne('/api/client-errors').flush(NOT_SET_UP, { status: 503, statusText: 'Service Unavailable' });
+    await expect(answer).rejects.toBeInstanceOf(HttpErrorResponse);
+    expect(auth.state()).toBe('starting');
   });
 
   it('another host’s answer says nothing about this copy', async () => {

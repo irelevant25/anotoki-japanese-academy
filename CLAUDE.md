@@ -16,11 +16,13 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.4.1), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.5: PHP 0.5.1, Angular 0.5.0), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
-(the error log, the audit log, the feedback with the visitors' form, the
-backups of the whole database; no file explorer). It runs two ways:
+(the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
+feedback with the visitors' form, the backups of the whole database; no file
+explorer), and since 0.5.0 where a request comes from (`Support\ClientAddress`:
+Cloudflare's header believed from Cloudflare alone). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -98,14 +100,16 @@ count wrong, fix it in the same piece of work.
   tools set up for this site), `users.php`,
   `visitors.php` (studying without signing in: made, found, capped, swept,
   moved into an account), `client_address.php` (the address the visitors'
-  limits count), `after.php` (work after the answer: the sweep),
+  limits count: the library's `ClientAddress` rule over this site's trusted
+  proxies, Cloudflare's ranges by default), `after.php` (work after the answer: the sweep),
   `upkeep.php`, the SRS in `src/srs/`,
   the exam, content, backups, `me.php` — a person's own data file —,
   `people.php` (the library's people module set up for this site: the row
   from the token, what its scrub blanks here, the People page's columns and
-  delete), `translations.php` — the library's `Translations` for this
+  delete - the one a restore does again), `translations.php` — the library's `Translations` for this
   app: its released languages, the copy of a language's strings before it
-  goes, a save holding its person's row as an answer does, `users_hold()`), `config/` (`config.php`; this copy's settings in `*.local.php`),
+  goes, a save holding its person's row as an answer does, `users_hold()`), `config/` (`config.php`, with the
+  committed default of the trusted proxies, `CLIENT_ADDRESS_DEFAULTS`; this copy's settings in `*.local.php`),
   `migrations/`, `vendor/` (Composer's packages - Slim, the anotoki library -
   committed: a website has no shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
   `tests/`, `tools/` (data and audio builders, `build-dist.php` for the
@@ -123,7 +127,8 @@ count wrong, fix it in the same piece of work.
   `auth.config.ts`, seen through this app's `AuthService`), the admin tools
   and the People page (`admin.config.ts`, the library's), the feedback form
   (`feedback.config.ts`, `feedback/`: the library's form behind Send
-  feedback at the foot), the changelog (the foot), `i18n/` (the app's words:
+  feedback at the foot), the pages' own errors (`error-report.config.ts`: the
+  library's reporter, every error to the error log, scrubbed), the changelog (the foot), `i18n/` (the app's words:
   `translations.config.ts` - the anotoki library's translation service,
   pipes and admin pages wired to this app -, `time-wording.ts`, failures
   worded from their codes, the title strategy),
@@ -186,16 +191,17 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (252): after every change - on PHP 8.2
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (260): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
-cd frontend && npm test                      the Angular unit tests (432 in 42 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (436 in 43 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (203 checks), signed in through the library's stand-in
+                                             Edge end to end (207 checks), signed in through the library's stand-in
                                              IAM: a deep link signed out, a refused sign-in's screen, lessons →
                                              reviews → practice → exam, the bar's keys and menus, Your data,
                                              sign-out, the admin panel by role, People, feedback from the foot to the
-                                             Feedback page and its badge, the error and audit logs, a backup made,
+                                             Feedback page and its badge, a page's own error reported to the error
+                                             log and listed there, the audit log, a backup made,
                                              a migration waiting (the library's page for a visitor, a learner and an
                                              editor, no page made behind it; an open exam paper kept and back after
                                              the library's reload; a signed-out ADMIN signs in from it), failing and applied, two time
@@ -251,7 +257,11 @@ node backend/tools/pdf/pages.js <book> <pages>   page images of the scanned PDFs
   restore -, keeps the ADMIN's own until the owner deletes them on the admin
   panel's Backups page, and deletes none for its age (the owner's decision of
   2026-10-11, "kept until I delete them", as the IAM and every anotoki site
-  read it; `docs/kb/decisions.md`). Never delete them, nor the error log's files in
+  read it; `docs/kb/decisions.md`). Since anotoki-lib 0.5.0 each carries this
+  installation's seal and only a sealed one is restored on the site: a plain
+  one made before 0.5.0 has none and is restored offline alone
+  (`docs/kb/hosting.md`); its files are the site's own user's alone (0600).
+  Never delete them, nor the error log's files in
   `backend/storage/logs/`: the owner does; when they have to move, copy
   them, compare each file's hash,
   and only then remove the originals. `progress/`, `results/` and `reports/`,
@@ -318,11 +328,18 @@ Tests enforce most of these. Never weaken a test to make it pass.
   names and addresses in the audit log. Only UPDATEs: their study rows stay,
   nobody's now, and a row is never written again for that account. A backup
   made before keeps them until it rotates out or the owner deletes it; a
-  restore runs the scrub at once (`academy_scrub_after_restore()`, its
-  failure the restore's `after_restore_error`). A restore brings back what an
-  `ADMIN` deleted on the People page after the backup was made: the library
-  replays those deletes from its 0.4.2 - until then they are deleted again
-  by hand.
+  restore runs the scrub at once once it committed (the library's
+  `People::afterRestore()`, its failure the restore's `after_restore_error`,
+  the next request scrubbing again). Nor does a restore bring back what an
+  `ADMIN` deleted on the People page, or a feedback message deleted, after
+  the backup was made (anotoki-lib 0.5.0, `People::replay()`): inside its
+  transaction, before anybody sees the rows, every such delete the audit log
+  holds is done again - the People page's delete (`people_delete()`, the
+  hook both use), its request null, so no copy is kept for it. That hook does
+  ALL its work on the connection the library hands it, inside the library's
+  transaction, and begins none of its own: on the restore's connection,
+  which holds every table it loaded, a statement on `db()` would wait on
+  those locks until PostgreSQL ended the restore.
 - **Each person takes their data away and brings it back** (`GET` / `PUT
   /api/me/data`, `backend/src/me.php`): the backups' format, version 2, one
   person. Bringing a file back replaces all of theirs, never merges, after a
@@ -360,7 +377,12 @@ Tests enforce most of these. Never weaken a test to make it pass.
 - Every `/api` and `/report` address needs a signed-in person except
   `/api/site-status` (where the site stands, the anotoki library's),
   `/api/auth/config` (the library's boot configuration), `/api/health`,
-  `/api/translations/{code}` (the app's own words, the same for everybody)
+  `/api/translations/{code}` (the app's own words, the same for everybody),
+  `POST /api/client-errors` (an error a page met, into the error log: the
+  library's `ErrorLogRoutes::client()` - anybody's, behind the gate and the
+  person's `Identify`, so a person is counted by their account and anybody
+  else by their address; 20 an hour from one sender, 500 a day from the
+  visitors and as many from the people signed in)
   and the backups' download (`GET /api/admin/backups/{id}/file?ticket=`: a
   browser's navigation sends no token, so its single-use ticket is its check)
   - and, unless the IAM says sign-in is
@@ -393,6 +415,24 @@ Tests enforce most of these. Never weaken a test to make it pass.
   stopped: PostgreSQL's own words, to its ADMIN, as the IAM's page shows
   them (the library's Apply route, `backend/api/routes/migrations.php`; the
   owner's decision of 2026-10-04).
+- **Where a request comes from is one rule** (the owner's of 2026-10-11;
+  anotoki-lib 0.5's `Support\ClientAddress`): `REMOTE_ADDR`, unless the
+  connection is from one of the trusted proxies - Cloudflare's published
+  ranges, committed in `backend/config/config.php` (`CLIENT_ADDRESS_DEFAULTS`,
+  held equal to the library's list by a test), which `app.local.php`'s
+  `client_address.trusted_proxies` may replace (`[]`: nobody; a range wider
+  than any proxy's - an IPv4 prefix shorter than /8, an IPv6 one shorter
+  than /16, `0.0.0.0/0`, `::/0` - refused, never believed) - and then
+  Cloudflare's `CF-Connecting-IP`, one address. The header is pinned in the
+  code, never a setting: `X-Real-IP`, `True-Client-IP`, `X-Forwarded-For`,
+  which Cloudflare passes on as the visitor wrote them, are never read. Every
+  per-address limit counts the address's bucket (`ClientAddress::bucket()`:
+  an IPv6 address by its /64). The visitors' limits (`src/client_address.php`)
+  and the library's admin tools (the feedback's limits, the error log's
+  client hash: `AdminContext`'s `trustedProxies`, `src/admin.php`) read it
+  alike; what is kept is a keyed HMAC of the bucket, never the address - a
+  stable pseudonym for as long as its key lasts (whoever holds the key can
+  test an address against it).
 - The setup page asks for the database and the IAM, nothing else (defaults
   `anotoki_japanese`, port 5432; **Test connection** in the anotoki family's
   words; the button **Save**). From this computer (PHP's built-in server, a
@@ -528,7 +568,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   issued; a person's request with no token is never sent) and the browser's
   time zone (`X-Time-Zone`) to this site's `/api` and `/report` addresses and
   nowhere else (never with `/api/site-status`: nobody's); links the browser follows by itself that need a sign-in go
-  through `PrivateLinksService`. The pages never count days themselves: a
+  through `PrivateLinksService`. The library's error reporter (the app's
+  `ErrorHandler`, `core/error-report.config.ts`) posts a page's errors through
+  the same HttpClient, so the same interceptors add the same headers; this
+  app's own interceptor leaves its answers alone (`ANOTOKI_ERROR_REPORT`). The pages never count days themselves: a
   learner's days come in the server's answers. Every page is behind the
   library's `personOrVisitorGuard` (the admin panel `staffGuard`, its
   ADMIN pages `adminGuard`, which a visitor does not

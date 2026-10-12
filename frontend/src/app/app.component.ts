@@ -16,7 +16,9 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * the app cannot be used, the page that says why (a server that does not
  * answer as it should), the anotoki library's screen of a sign-in that came
  * back without one, or could not start (<anotoki-sign-in-failure>: why, Try
- * again and Back - to a visitor too, in the place of their page), or the Sign
+ * again and Back - to a visitor too, in the place of their page; drawn by the
+ * library's <anotoki-sign-in-failure-route>, which loads the screen's code as
+ * it is shown, never in the first load - anotoki-lib 0.5.0), or the Sign
  * in card (a session that ended while the page was open). Nobody signed in
  * otherwise, the library's guard has sent the browser to the IAM, and nothing
  * is drawn under the bar — unless the IAM does not require sign-in here: then

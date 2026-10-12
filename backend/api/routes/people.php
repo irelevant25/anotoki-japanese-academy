@@ -19,8 +19,14 @@
  *   DELETE /api/admin/people/{sub}      that person's data goes, after a copy of it ->
  *                                       {deleted: {"Kanji and words": n, "Answers": n, "Exam attempts": n}, note: the
  *                                       copy's file}; 404 not_found for an id the site has nobody of; recorded in the
- *                                       audit log (person.data_deleted)
+ *                                       audit log (person.data_deleted) inside the delete's own transaction - no
+ *                                       delete without its entry, which a restore does the delete again by: 503
+ *                                       feature_unavailable while the audit log's table waits for its update
  *   POST   /api/admin/people/sync       the scrub, now -> {run, sync}; recorded (people.synced)
+ *
+ * The delete is people_delete_hook() (src/people.php), the one a restore does
+ * again with (academy_backups(), src/admin.php): the library holds its
+ * transaction (People::delete()) and forgets the person's feedback in it.
  */
 
 declare(strict_types=1);
@@ -28,7 +34,6 @@ declare(strict_types=1);
 use Anotoki\Lib\People\Http\PeopleRoutes;
 use Anotoki\Lib\Support\Refusal;
 use Psr\Http\Message\ResponseInterface as Response;
-use Psr\Http\Message\ServerRequestInterface as Request;
 
 function academy_people_routes(Slim\App $app): void
 {
@@ -40,9 +45,7 @@ function academy_people_routes(Slim\App $app): void
         static function (PDO $pdo): ?array {
             return people_visitors();
         },
-        static function (PDO $pdo, int $sub, Request $request): ?array {
-            return people_delete($sub);
-        },
+        people_delete_hook(),
         static function (Response $response, Refusal $refusal): Response {
             return academy_refusal($response, $refusal);
         },

@@ -33,6 +33,24 @@ function answer_to(Throwable $e, ?string $sapi = null, string $method = 'GET', s
     return ['status' => $response->getStatusCode(), 'body' => json_decode((string) $response->getBody(), true), 'headers' => $response->getHeaders()];
 }
 
+/**
+ * The site's own error log (the anotoki library's, src/admin.php: one JSON line per event under
+ * <storage>/logs/errors-<day>.jsonl) of a storage folder - this process's (storage_dir()), or a server's - as lines.
+ */
+function library_log_lines(?string $storage = null): array
+{
+    $lines = [];
+    foreach (glob(($storage ?? storage_dir()) . '/logs/errors-*.jsonl') ?: [] as $file) {
+        foreach (preg_split('/\R/', (string) file_get_contents($file)) ?: [] as $line) {
+            $entry = json_decode($line, true);
+            if (is_array($entry)) {
+                $lines[] = $entry;
+            }
+        }
+    }
+    return $lines;
+}
+
 // The middleware writes what it keeps from the browser to the error log: a file of this test's, not its output.
 $GLOBALS['log'] = str_replace('\\', '/', (string) tempnam(sys_get_temp_dir(), 'academy-errors-'));
 $GLOBALS['log_before'] = ini_get('error_log');
@@ -144,6 +162,11 @@ test('a migration waiting for an administrator: the anotoki library’s 503 upda
     assert_same(['60', 'no-store', 'nosniff', "default-src 'none'; frame-ancestors 'none'"], [$response->getHeaderLine('Retry-After'), $response->getHeaderLine('Cache-Control'),
         $response->getHeaderLine('X-Content-Type-Options'), $response->getHeaderLine('Content-Security-Policy')], 'asked again in a minute, never kept; the security headers as on every answer');
     assert_false(str_contains((string) file_get_contents($GLOBALS['log']), $name), 'and the log says nothing of it');
+    // Nor does the site's own error log: a state, not a failure - the library's `expected` codes (update_pending,
+    // feature_unavailable, not_set_up; anotoki-lib 0.5.0), never a blanket rule for every 503 (the last test: a real one
+    // is written).
+    assert_same([], array_values(array_filter(library_log_lines(), static fn (array $l): bool => ($l['code'] ?? null) === 'update_pending'
+        || ($l['path'] ?? null) === '/api/kanji/summary')), 'no line of the gate\'s 503');
 });
 
 test('an unknown address and a wrong method keep their codes', function (): void {
@@ -167,6 +190,11 @@ test('for real, on this computer: a server whose database is not there says why,
     assert_same('The database is not reachable: ' . $r['body']['detail'], $r['body']['error'] ?? null, 'and the sentence, as it always was');
     assert_same(['error', 'code', 'detail'], array_keys($r['body']));
     assert_true(count(server_problems($app)) > 0, 'its log has it too');
+    // A 503 that is a failure is in the site's own error log (its storage: these settings' folder), with the status and
+    // the code it was answered with - the library leaves out only the states it expects, never every 503.
+    $failures = array_values(array_filter(library_log_lines($dir), static fn (array $l): bool => ($l['code'] ?? null) === 'database_unavailable'));
+    assert_true($failures !== [], 'the database out of reach is written down: ' . json_encode(library_log_lines($dir)));
+    assert_same([503, 'server'], [(int) ($failures[0]['status'] ?? 0), $failures[0]['source'] ?? null]);
     // Where the site stands: unavailable (the settings are there; the database does not answer) - which the pages say
     // in the anotoki library's words, asking again by themselves. Never the setup page.
     assert_same([200, ['state' => 'unavailable', 'installed' => false]], array_values(array_slice(call($app['base'], 'GET', '/api/site-status', null, no_token()), 0, 2)));

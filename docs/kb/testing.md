@@ -89,10 +89,10 @@ stand-in asks it (`GET /api/public/anonymized-accounts`, its state's
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 252 tests, on the newest PHP and on 8.2, the library's floor (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 260 tests (252 before anotoki-lib 0.5), on the newest PHP and on 8.2, the library's floor (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 432 tests in 42 files (476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, the error log, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 203 checks | ~4 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 436 tests in 43 files (432 in 42 before anotoki-lib 0.5.0: the reporter of the pages' own errors and the interceptor leaving its answers alone; 476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, an error thrown in a learner's page reported (her token and zone on it, the address scrubbed out in the page) and listed on the error log's page, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 207 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
 | `node frontend/e2e/screens.js [filter]` | 29 screens × light/dark at 1280 px, light/dark at 390 px and Slovak at 390 px light/dark (174 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form and the admin tools' pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
@@ -211,10 +211,13 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   its reason (`detail`) only under PHP's built-in server — a database that
   cannot be reached (`database_unavailable`), anything else (`server_error`),
   a migration waiting for an administrator (the anotoki library's 503
-  `update_pending`, the same everywhere: no file named, nothing logged, with
-  the app's own headers), 404 and 405 keeping their codes; and
-  once for real, a server whose database is not there (and
-  `/api/site-status` saying `unavailable`, never the setup page).
+  `update_pending`, the same everywhere: no file named, nothing logged -
+  neither in PHP's log nor in the site's own error log: a state, the
+  library's `expected` codes -, with the app's own headers), 404 and 405
+  keeping their codes; and once for real, a server whose database is not
+  there (its 503 `database_unavailable` a failure the site's error log
+  writes, with its status and code; `/api/site-status` saying
+  `unavailable`, never the setup page).
 - `api/kanji-api.test.php` — learn / review / practice / notes / settings /
   reset through HTTP, moving the clock by editing the test database;
   every answer in `srs_log`, every row the signed-in person's; the day's
@@ -259,11 +262,13 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   another key, no key or a person do not see; a refused first save (no such
   item, kanji first, no seed) makes nobody and counts nothing; a write that
   is not JSON - plain text, a form, no type at all, what another site's page
-  may send unasked - 415 `unsupported_media_type` on every save address,
-  nobody made, no key; the limits
+  may send unasked - 415 `unsupported_media_type` on every save address and
+  on the two writes anybody may send (the feedback form, a page's error
+  report), nobody made, no key, no message kept, no error written; the limits
   (per address with a trusted proxy's `CF-Connecting-IP`, IPv4-mapped IPv6,
   an IPv6 /64 as one address, `X-Forwarded-For` alone and an untrusted
-  proxy's header counting for nothing, per hour, at once - new visitors only,
+  proxy's header - a server with no `app.local.php` trusts Cloudflare's
+  ranges alone - counting for nothing, per hour, at once - new visitors only,
   never one already here nor a person); the caps (answers, exam attempts: no
   paper at the cap; a person has none); a token always wins over a key (an
   expired, a foreign, a garbage token, Bearer alone: 401 `invalid_token`, the
@@ -280,8 +285,18 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   the day's copy, the People page's count of them, a restore of everybody
   from a copy removing them; in the
   test process `users_hold()` for a visitor gone, no copy of a visitor, and
-  `client_address()` (trusted proxies, a list read from the right, the
-  buckets).
+  where a request comes from (the library's `ClientAddress` rule,
+  anotoki-lib 0.5): the committed default the library's
+  `ClientAddress::CLOUDFLARE` (and no header in it), `CF-Connecting-IP`
+  believed from Cloudflare's IPv4 and IPv6 edges alone, an IPv4 address
+  written as IPv6, never `X-Forwarded-For`, `X-Real-IP`, `True-Client-IP` or
+  `Forwarded` - not even from Cloudflare -, a header naming two addresses
+  naming none, `app.local.php` replacing the list (`[]` believing nobody,
+  proxies of its own - and a `client_ip_header` there never read), a range
+  wider than /8 or /16 (`0.0.0.0/0`, `::/0`, `10.0.0.0/7` …) or no range at all
+  refused and said once in PHP's log, the proxies' own beside it kept; the
+  admin tools' `AdminContext` counting by the same rule; a visitor's row
+  keeping a keyed hash of the bucket, the visitor's and never Cloudflare's.
 - `api/visitors-migration.test.php` — migration 007 on a database at 006 with
   two people's data: a database it does not expect (an id below 1 written by
   hand) fails it, its own check at the end fails it by name when a row came
@@ -352,8 +367,17 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   string they reworded kept by nobody; their feedback's words kept, its
   address and browser gone; nobody else's touched); 404 for any id
   the site has nobody of; the person back again with nothing; a delete
-  waiting for an answer being saved and deleting that too; an answer waiting
-  for a delete and then starting their data afresh, never a 500.
+  waiting for an answer being saved and deleting that too; a restore's
+  delete (anotoki-lib 0.5.0) on a connection of its own holding every table
+  as a restore does, the site's own connection set to give up after 3 s:
+  it goes through on the connection it was given, keeps no copy and writes
+  no entry, forgets the person's feedback, and it refuses to run outside the
+  library's transaction or with a page's request on another connection; a
+  restore's delete of somebody with no row here (their feedback sent from a
+  page left open, which needs none) answering nothing deleted, so their
+  message's address and browser are forgotten - the page itself 404 for
+  them, forgetting nothing; an answer waiting for a delete and then starting
+  their data afresh, never a 500.
 - `api/people-migration.test.php` — migration 010 (final since 2026-10-11;
   while it was a draft, the tests applied it by name) on a database shaped
   like an installed one (up to 009 and
@@ -372,9 +396,13 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   candidate", their feedback's address and browser and their audit names
   gone; a person who stays and an id the site never knew untouched; a second
   run changing nothing; the recorder never writing that row again; the IAM
-  out of reach said so); the People page's Check now (unreachable, then done:
-  handled and scrubbed counted, recorded as `people.synced`, the deleted
-  account listed under its placeholder) for `ADMIN` alone.
+  out of reach said so); the scrub's hook writing only on the connection it
+  is given (another connection holding the tables a restore holds, the
+  site's own set to give up after 3 s: the paper's name, the feedback's
+  address and browser, the audit address gone all the same); the People
+  page's Check now (unreachable, then done: handled and scrubbed counted,
+  recorded as `people.synced`, the deleted account listed under its
+  placeholder) for `ADMIN` alone.
 - `api/admin-tools.test.php` — the library's admin tools on this site: every
   address of the error log, the audit log, the feedback and the backups for
   the site's `ADMIN` alone (nobody and a visitor's key alone 401
@@ -392,15 +420,37 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   not, the honeypot keeping nothing, an unknown section refused, the
   sections `Kanji` and `Exam`, the badge counting the new ones down as they
   are read); the backups (a stale sign-in asked to sign in again, one made,
-  its ticket good once, a restore round trip, every step recorded, this
-  site's own JSON copies untouched; with the IAM out of reach, the restore's
-  scrub said in `after_restore_error` and the hour's stamp gone after the
-  answer); a restore's own scrub blanking again an account the IAM deleted
-  since the backup, before it answers; the library's counts kept (14 daily,
+  listed sealed with its maker's name, its ticket good once, a restore round
+  trip, every step recorded, this site's own JSON copies untouched; with the
+  IAM out of reach, the restore's scrub said in `after_restore_error` - the
+  library's sentence - and the hour's stamp gone after the answer); a
+  restore's own scrub blanking again an account the IAM deleted since the
+  backup, before it answers; a restore doing again what was deleted since
+  its backup (anotoki-lib 0.5.0: a person's data deleted on the People page
+  and a feedback message - gone again, everybody else's as the backup had
+  it, the person's message forgotten again, no copy kept for it, no entry of
+  its own, and done at once: a delete hook on the site's own connection would
+  hold the restore a minute and end it); a backup without this
+  installation's seal (as every plain one made before 0.5.0) listed so,
+  refused (`archive_invalid`), downloaded and deleted all the same; a restore
+  of a database that ever had a visitor (anotoki-lib 0.5.1: `visitor_ids`
+  counts down) going through, the backup's visitor back, the one made since
+  gone and its id never given again; the
+  pages' own errors (`POST /api/client-errors`: a thrown error written as
+  the learner's, `source: client`, with no address, token, password, query
+  or fragment; 422 without a message, 413 past 8 KB, 401 for a bad token;
+  20 an hour from nobody, then 429 with its wait, the people signed in
+  counted apart); behind the proxies a server trusts, the error log's client
+  hash and the feedback's limits following `CF-Connecting-IP` - one visitor
+  one hash, another another, A's hour up and never B's, while `X-Real-IP`,
+  `True-Client-IP` and `X-Forwarded-For` from that proxy count as the proxy
+  itself - and a server trusting Cloudflare alone counting this computer's
+  requests as one, the header for nothing; the library's counts kept (14 daily,
   5 before an update, 5 before a restore); the day's
   backup once, after the day's first page load, beside the app's own copy;
   while an update waits, the error log and the backups answering the `ADMIN`
-  and a restore, the audit log, the feedback and the People page not.
+  and a restore, the audit log, the feedback, the pages' own errors and the
+  People page not.
 - `api/time-zone.test.php` — each person's own time zone: in process with
   the clock given (the same moment counted on the 5th in Tokyo and the 4th in
   New York, *today* and the 7-day forecast following, a report's date the
@@ -620,7 +670,14 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   from this site stops the app, and the anotoki library's page takes its
   place (never the setup page for a site installed once); other failures —
   a site being updated too: the library's gate stands in and the sign-in goes
-  on —, and other hosts' answers, change nothing of the app's.
+  on —, other hosts' answers, and the answer to a page's error report (the
+  library's `ANOTOKI_ERROR_REPORT`), change nothing of the app's.
+- `core/error-report.config.spec.ts` — the pages' own errors (anotoki-lib
+  0.5.0): the app's `ErrorHandler` is the library's reporter; a person's
+  error goes once (the same error again: not again) to `/api/client-errors`
+  through the app's interceptors - their token and `X-Time-Zone` on it,
+  marked as a report, the address in the message scrubbed out, the console
+  told as before; a visitor's without a token; a failed request never.
 - `app.routes.spec.ts` — every learner page asks the library's
   `personOrVisitorGuard` again (the callback and the failure's screen not),
   `/kanji` and `/exam` behind `whenReady`; the admin area behind `staffGuard`
@@ -639,7 +696,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   gone); while an update waits, the library's page for a visitor, a learner,
   an editor and the `ADMIN`, no page made behind it; nobody signed in: on the
   way to the IAM nothing of the app, a session that ended the Sign in card, a
-  sign-in that came back without one the library's screen; visiting, the app
+  sign-in that came back without one the library's screen (loaded into its
+  `<anotoki-sign-in-failure-route>` a turn later: anotoki-lib 0.5.0 keeps it
+  out of the first load); visiting, the app
   itself, and after a refused sign-in the library's screen in the page's
   place until its Back; signed in after all in another tab while the
   failure is said: it is put away, and the app is theirs.

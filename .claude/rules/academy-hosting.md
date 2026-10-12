@@ -79,7 +79,9 @@ For building and uploading, use the `academy-deploy` skill.
   `/api/health`, `/api/translations/{code}` (the app's own words, the same for
   everybody: upkeep, no person, no token looked at) and the clips
   need no sign-in (and a backup's download, whose single-use ticket is its
-  check). The `/api/admin/…` addresses are Slim route groups
+  check; and `POST /api/client-errors`, the pages' own errors - the
+  library's `ErrorLogRoutes::client()`, anybody's, behind the gate and the
+  person's `Identify` alone, its limits the library's). The `/api/admin/…` addresses are Slim route groups
   (`backend/api/routes/translations.php`, `people.php`, `admin.php`,
   `migrations.php`) with the checks on the groups: `staff_middleware()`
   (`EDITOR` or `ADMIN`, else 403 `staff_only`; the words' and languages'
@@ -93,7 +95,18 @@ For building and uploading, use the `academy-deploy` skill.
   before an update, 5 before a restore, the ADMIN's own until the owner
   deletes them, none for its age (`academy_backups()`: the owner's decision
   of 2026-10-11) -, and nothing deletes a backup or a log that was there
-  before. A write that is not JSON is 415 `unsupported_media_type`
+  before. A restore's hooks are the library's people module's
+  (`People::restoreHooks()` with `people_delete_hook()`): a delete hook
+  does ALL its work on the `$pdo` it is given, inside the library's
+  transaction, never on `db()` (in a restore that waits on the restore's
+  locks). Where a request comes from is the library's `ClientAddress` over
+  the trusted proxies (Cloudflare's ranges by default,
+  `CLIENT_ADDRESS_DEFAULTS`; a range wider than /8 for IPv4 or /16 for IPv6
+  refused) with Cloudflare's `CF-Connecting-IP` pinned in the code - never a
+  setting, never `X-Real-IP`, `True-Client-IP` or `X-Forwarded-For` -, for the
+  visitors and the admin tools alike; every per-address limit counts the
+  bucket (`ClientAddress::bucket()`, an IPv6 address by its /64); only a
+  keyed HMAC of the bucket is kept (a stable pseudonym while its key lasts). A write that is not JSON is 415 `unsupported_media_type`
   (`request_body()`): never read a form or text as a body.
 - Every query of a study table has `WHERE user_id = ?`, and a new study table
   gets `user_id` first in its primary key, referencing `users (id)` with

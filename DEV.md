@@ -212,9 +212,13 @@ The database migrations, the app's words, the sign-in, the people and the
 admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
-release may change one half alone, and then only that half moves: both are
-0.4.1 (0.3.0 the translations and the kit a piece at a time; 0.4.0 the
-sign-in, the people and the admin tools; 0.4.1 a fix):
+release may change one half alone, and then only that half moves: the PHP
+half is 0.5.1, the Angular half 0.5.0 (0.3.0 the translations and the kit a
+piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
+fix; 0.5.0 a restore that does again what was deleted since its backup,
+sealed backups, the pages' own errors in the error log, and one rule for
+where a request comes from; 0.5.1 a fix of the PHP half alone - a restore of
+a database that ever had visitors, whose ids count down):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -235,11 +239,12 @@ sign-in, the people and the admin tools; 0.4.1 a fix):
   request is, the boot configuration - `backend/src/auth.php`; it replaced
   the IAM's PHP SDK, `src/anotoki_iam.php`), the people
   (`Anotoki\Lib\People`: each person's row kept from their token, the scrub
-  of the accounts the IAM deleted, the People page's addresses -
-  `backend/src/people.php`) and the admin tools (`Anotoki\Lib\ErrorLog`,
+  of the accounts the IAM deleted, the People page's addresses, a restore's
+  hooks - `backend/src/people.php`), the admin tools (`Anotoki\Lib\ErrorLog`,
   `Audit`, `Feedback`, `Backups` - `backend/src/admin.php`,
-  `backend/api/routes/admin.php`); its stand-in IAM and test IAM for the
-  tests (`php/testing/`);
+  `backend/api/routes/admin.php`) and where a request comes from
+  (`Support\ClientAddress` - `backend/src/client_address.php`); its stand-in
+  IAM and test IAM for the tests (`php/testing/`);
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
   shows, and the Migrations page (`@anotoki/lib/migrations/page`) - wired to
@@ -249,8 +254,10 @@ sign-in, the people and the admin tools; 0.4.1 a fix):
   `core/auth/sdk/`) - wired in `core/auth/auth.config.ts`, behind this app's
   `AuthService`. The People page (`@anotoki/lib/people/page`), the admin
   tools' pages and the panel's badge (`@anotoki/lib/admin`) - wired in
-  `core/admin.config.ts` - and the visitors' feedback form
-  (`@anotoki/lib/feedback/form`) - wired in `core/feedback.config.ts`. The pages are
+  `core/admin.config.ts` -, the visitors' feedback form
+  (`@anotoki/lib/feedback/form`) - wired in `core/feedback.config.ts` - and
+  the reporter of the pages' own errors (`@anotoki/lib/error-report`) - wired
+  in `core/error-report.config.ts`. The pages are
   the gate's marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
   in `app.component.html`): made only while the site is open, so none runs
@@ -275,7 +282,7 @@ To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.4.1"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.5.0"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);

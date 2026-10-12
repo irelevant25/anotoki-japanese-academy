@@ -75,7 +75,10 @@ JSON copies do not restore on the site; one restores on a computer (`php backend
 of the whole database (since anotoki-lib 0.4.0) restore on the site, on the
 admin panel's Backups page: the last 14 daily, 5 before an update, 5 before
 a restore, and the ones made with Back up now until the owner deletes them
-there - none for its age (their decision of 2026-10-11).
+there - none for its age (their decision of 2026-10-11). Since anotoki-lib
+0.5.0 only a backup this installation sealed restores there; a plain one
+made before 0.5.0 restores offline alone (`docs/kb/hosting.md`, *Logs and
+backups on the site*).
 
 ## 4. Updates
 
@@ -119,8 +122,9 @@ the visitors' columns and their words and changes no row of anybody's. The
 site still requires sign-in afterwards: only when IAM migration 010 is live
 there **and** the owner unticks "Sign-in required" for Japanese Academy in the
 IAM may people study without signing in (`docs/kb/hosting.md`, *Visitors on
-the site*: the optional `app.local.php` with the limits, Cloudflare's ranges
-in `trusted_proxies` when the site is behind its proxy, the one check of
+the site*: the optional `app.local.php` with the limits - Cloudflare's ranges
+are the trusted proxies by default since anotoki-lib 0.5.0, `[]` there for a
+host that is not behind Cloudflare -, the one check of
 `X-Visitor-Key` on the host, and the one check that a signed-in save with
 the switch off reaches the account - a host that drops `Authorization` makes
 it a visitor's). The order against IAM 010 does not matter.
@@ -182,11 +186,31 @@ the admin panel counts the new ones; the error log, the audit log and the
 backups are on the admin panel (ADMIN only); the backups rotate (14 daily,
 5 before an update, 5 before a restore) and the ones made by hand stay
 until they delete them, so watch the host's disk quota; a restore brings
-back data deleted on the People page since - delete it there again; a deleted anotoki account
+back data deleted on the People page since - delete it there again (until
+0.5.0, below, which does it by itself); a deleted anotoki account
 is blanked here within the hour of a page being opened, its study kept;
 `backend/src/anotoki_iam.php` left on the host is unused (delete it by FTP
 whenever they like); nothing already in `backend/storage/` was deleted
 (`docs/kb/hosting.md`).
+
+**The update that brings anotoki-lib 0.5** (PHP 0.5.1, Angular 0.5.0 - never
+0.5.0's PHP alone: its restore of a database that ever had a visitor fails):
+no migration of its own (on a site with the 0.4.1 update applied, nothing to
+Apply); upload `backend/vendor/` first; the host's PHP needs `mbstring` and
+`zlib`. Tell
+the owner: **make a backup on the Backups page right after it** - only a
+backup the site sealed restores there now, and the plain ones made before
+have no seal (listed "not made here", downloaded as before, restored
+offline, which does none of the deletes again: `docs/kb/hosting.md`); a
+restore on the page now does again what was deleted on the People page (and
+feedback deleted) since its backup, by itself; the pages' own errors land on
+the Errors page; behind Cloudflare the visitors' real addresses are counted
+(Cloudflare's ranges are trusted by default - a host not behind it puts
+`'client_address' => ['trusted_proxies' => []]` in `app.local.php`, and an
+`app.local.php` that lists Cloudflare's ranges by hand, as the old advice
+had it, should lose its `client_address`: its list replaces the committed
+one whole; a `client_ip_header` there is read no more - the code pins
+Cloudflare's header - and a range wider than /8 or /16 is refused).
 
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing

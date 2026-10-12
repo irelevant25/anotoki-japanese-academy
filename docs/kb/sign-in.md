@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.4.1) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on PHP 0.5.1, Angular 0.5.0) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -295,12 +295,15 @@ anotoki library's people module (`academy_people()` in
   update waits), on PHP-FPM and LiteSpeed after the connection closed
   (`after_response_add()`), eight seconds at most; or at once from the People
   page's **Check now** (`POST /api/admin/people/sync`, recorded in the audit
-  log, `people.synced`). After a restore, at once, before it answers
-  (`academy_scrub_after_restore()`, the survey's pattern): the restored
-  database may name an account deleted since the backup; a scrub that does
-  not finish (the IAM out of reach) is the restore's `after_restore_error`,
-  the Backups page's note, and the hour's stamp goes after the answer, so the
-  next request tries again.
+  log, `people.synced`). After a restore, at once, once it committed and
+  before it answers (the library's `People::afterRestore()`, since
+  anotoki-lib 0.5.0 - it replaced this site's `academy_scrub_after_restore()`):
+  the restored database may name an account deleted since the backup; a
+  scrub that does not finish (the IAM out of reach) is the restore's
+  `after_restore_error`, the Backups page's note, and the hour's stamp goes
+  after the answer (this site's runner), so the next request tries again. No
+  check may run across a restore: one running refuses it ("restore again in
+  a minute").
 - **What**: for each id, in a transaction of its own, its row held `FOR
   UPDATE`: `users.preferred_username` becomes the IAM's placeholder
   `deleted-<id>` and `users.anonymized_at` the IAM's time (migration 010's
@@ -313,7 +316,8 @@ anotoki library's people module (`academy_people()` in
   details of the entries about them. Only UPDATEs: their kanji progress,
   answers and exam attempts stay, nobody's now. Done again for an id that
   comes again: nothing left to change, nothing changes. A visitor's row is
-  never the library's to touch.
+  never the library's to touch. All of it on the scrub's own connection - a
+  restore's, right after it committed - never on `db()` beside it.
 - **Where it stands**: the library's tables `anotoki_people_sync` (the
   cursor, when it last asked and went through, the error, how many it
   scrubbed) and `anotoki_people_anonymized` (every id the IAM listed,
@@ -345,16 +349,19 @@ unseen, the limits: `people_visitors()`, the `visitors` of the page's answer
 "This is you." for one's own row - the owner's decision: no typed
 confirmation), then deletes everything of theirs after a copy of it
 (`people_delete()`: `academy-before-delete-user-<id>-…`, their last 14
-kept), in one transaction holding their row `FOR UPDATE`, so an answer of
-theirs on its way waits and then starts their data afresh
-(`users_hold()`); the strings they reworded stay, with nobody as who saved
-them, and their feedback keeps its words but no longer the address to
-answer them at nor their browser (`Feedback::forgetPeople()`, in the same
-transaction). Their account is the IAM's: they may sign in again and start
-with nothing. Every delete is in the audit log (`person.data_deleted`). A
-restore of a backup made before the delete brings their data back: the
-library replays the People page's deletes after a restore from its 0.4.2;
-until then, delete them again here.
+kept), in the library's transaction (`People::delete()`) holding their row
+`FOR UPDATE`, so an answer of theirs on its way waits and then starts their
+data afresh (`users_hold()`); the strings they reworded stay, with nobody as
+who saved them, and their feedback keeps its words but no longer the
+address to answer them at nor their browser (the library's
+`Feedback::forgetPeopleOn()`, in the same transaction). Their account is the
+IAM's: they may sign in again and start with nothing. Every delete is in the
+audit log (`person.data_deleted`), written inside the delete's own
+transaction - no delete without it. A restore of a backup made before the
+delete does not bring their data back (anotoki-lib 0.5.0,
+`People::replay()`): inside the restore's transaction, before anybody sees
+its rows, it does the delete again with the same `people_delete()` - on the
+restore's own connection, its request null, so no copy is kept for it.
 
 ## Visitors — `backend/src/visitors.php`
 
@@ -417,7 +424,9 @@ database hold every row, a visitor's too, as they hold every table.
 **The limits** (`VISITORS_DEFAULTS`; each may be set in
 `backend/config/app.local.php`, [hosting.md](hosting.md), *Visitors*): 300
 visitors at once, 10 new ones an hour from one address (an IPv6 address by
-its /64; a proxy's header only from a trusted proxy), 60 an hour in all -
+its /64; Cloudflare's `CF-Connecting-IP` only from Cloudflare's published
+ranges, the trusted proxies by default - the library's `ClientAddress`
+rule, `src/client_address.php`), 60 an hour in all -
 over them 429 `too_many_visitors` for a NEW visitor only, never for one
 already here; and per visitor 10 exam attempts and 20,000 lines of the
 answer log - at a cap 422 `visitor_limit` with `{limit, max}` (`attempts`,
@@ -563,7 +572,9 @@ is signed out here, or until the IAM refuses its refresh.
   where it started, never the IAM's sentence) `AppComponent` draws the
   library's screen in the page's place, in the app's frame under its bar
   (`<anotoki-sign-in-failure>` in `#signInFailure`, for a visitor's page the
-  same): "Signing in did not work", why - worded from the code alone - and
+  same; drawn by the library's `<anotoki-sign-in-failure-route>`, which loads
+  the screen's code as it is shown - since anotoki-lib 0.5.0 neither screen
+  nor the callback's page is in the first load): "Signing in did not work", why - worded from the code alone - and
   **Try again** (the sign-in once more, back to where it started) and **Back**
   (to that page without signing in: a visitor's page goes on as theirs; where
   sign-in is required the guard then sends the browser to the IAM again; no

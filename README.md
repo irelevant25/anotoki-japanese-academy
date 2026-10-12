@@ -244,12 +244,16 @@ the last 5 before a restore; the ones made with **Back up now** stay until you
 delete them there; none is deleted for its age (your decision of 2026-10-11).
 So a person whose anotoki account was deleted stays in the backups made
 before, until they rotate out or you delete them; a restore checks the
-accounts the anotoki IAM deleted again at once. A restore also brings back
-the data of somebody you deleted on the **People** page after that backup was
-made: delete it there again (a later version of the anotoki library will do
-it by itself). (The app's own copies above are kept as before - the last 14
-days', and each person's last 14 of each kind - and the library never touches
-them.)
+accounts the anotoki IAM deleted again at once. A restore on the **Backups**
+page never brings back the data of somebody you deleted on the **People**
+page, nor a feedback message you deleted, after that backup was made: it
+deletes them again before anybody sees the restored data. Only a backup made
+by this copy is restored on its page (each carries the copy's seal); one made
+before anotoki-lib 0.5.0 has none, and is restored by hand alone - which does
+none of that again (`docs/kb/hosting.md` says how to do it safely) - so make
+a backup right after an update. (The app's own copies above are kept as before - the
+last 14 days', and each person's last 14 of each kind - and the library never
+touches them.)
 
 In the database, your data belongs to your user id at the anotoki IAM: 1.
 
@@ -333,7 +337,10 @@ papers, the address of their feedback - the next time it asks the anotoki
 IAM (at most once an hour, as pages are opened; **Check now** on the page
 asks at once), and keeps their study, nobody's now. **Feedback** (`ADMIN` only) has the messages sent from
 the foot of the pages; the panel's link counts the new ones. **Errors**
-(`ADMIN` only) is what went wrong on the server; **Audit log** (`ADMIN` only)
+(`ADMIN` only) is what went wrong on the server, and in the pages people had
+open (the errors a page meets - a few a page load, each once - are sent
+there with their addresses, tokens and anything the browser stores taken
+out; a signed-in person's under their account); **Audit log** (`ADMIN` only)
 who did what in the admin panel; **Backups** (`ADMIN` only) the backups of the
 whole database (*Your progress* above). These pages are the anotoki
 library's (since anotoki-lib 0.4.0), the same on every anotoki site.
@@ -466,8 +473,10 @@ own pieces - tiles, the sessions, the exam's paper - are the app's), its
 styles and font (Manrope) and the top bar, in this app's own colours, the
 sign-in (the site's half of it), the
 people (the People page, and blanking who somebody was once the IAM deleted
-their account) and the admin tools (the error log, the audit log, the
-feedback and its form, the backups) are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
+their account) and the admin tools (the error log - with the pages' own
+errors -, the audit log, the feedback and its form, the backups), and how
+the site tells where a request comes from (behind Cloudflare: the visitor's
+address, never Cloudflare's), are the **anotoki library**'s (`anotoki-lib`, shared by every anotoki
 site; its repository is `../anotoki-lib`, published as
 https://github.com/irelevant25/anotoki-lib): the Composer package
 `anotoki/lib` in `backend/vendor/` and the npm package `@anotoki/lib` in

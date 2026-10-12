@@ -9,6 +9,7 @@ import { provideAdminTools } from './core/admin.config';
 import { notSetUpInterceptor } from './core/api/not-set-up.interceptor';
 import { provideAuth } from './core/auth/auth.config';
 import { boot } from './core/boot';
+import { provideErrorReport } from './core/error-report.config';
 import { provideFeedback } from './core/feedback.config';
 import { AcademyTitleStrategy } from './core/i18n/title.strategy';
 import { provideTranslations } from './core/i18n/translations.config';
@@ -17,7 +18,12 @@ import { provideSiteStatus } from './core/site-status.config';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // Every error - Angular's own, a window's, a promise nobody caught - to the
+    // console and, scrubbed, to this site's error log (core/error-report.config.ts:
+    // the anotoki library's reporter, through the HttpClient below, so its
+    // interceptors add what every request of the page carries).
     provideBrowserGlobalErrorListeners(),
+    provideErrorReport(),
     provideZonelessChangeDetection(),
     // Before anything else (boot()): where the site stands (the anotoki
     // library's SiteStatus), how this copy signs people in, and a sign-in

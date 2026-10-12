@@ -107,6 +107,19 @@ function words(el: Element | null | undefined): string {
 
 const settle = () => TestBed.inject(ApplicationRef).whenStable();
 
+/**
+ * The frame's landmark of a sign-in that came back without one, once the library's route in it has loaded the
+ * screen (anotoki-lib 0.5.0: <anotoki-sign-in-failure-route> loads <anotoki-sign-in-failure> as it is shown, a
+ * turn or two later - never in the first load).
+ */
+async function failureShown(el: HTMLElement): Promise<Element | null> {
+  for (let turn = 0; turn < 20 && !el.querySelector('#signInFailure anotoki-sign-in-failure'); turn++) {
+    await new Promise((done) => setTimeout(done, 5));
+    await settle();
+  }
+  return el.querySelector('#signInFailure');
+}
+
 /** A page load that came back from the IAM without a sign-in ($code: the IAM's), as the library's client reports it. */
 function refusedSignIn(code: string): Provider {
   return {
@@ -316,8 +329,9 @@ describe('AppComponent: nobody signed in', () => {
   it('a sign-in that came back without one: the anotoki library’s screen says why, so the browser does not go round to the IAM and back for ever', async () => {
     const el = await draw([refusedSignIn('access_denied')], 0, false);
     expect(TestBed.inject(AuthService).state()).toBe('signed-out');
-    const failure = el.querySelector('#signInFailure');
+    const failure = await failureShown(el);
     expect(failure?.tagName.toLowerCase(), 'in the page’s landmark').toBe('main');
+    expect(failure?.querySelector('anotoki-sign-in-failure-route anotoki-sign-in-failure'), 'the screen, loaded into the library’s route').not.toBeNull();
     expect(words(failure?.querySelector('.anotoki-sign-in-failure__title'))).toBe('Signing in did not work');
     expect(failure?.querySelector('.anotoki-sign-in-failure__message')?.getAttribute('role')).toBe('alert');
     expect(failure?.querySelector('[data-retry]')).not.toBeNull();
@@ -337,7 +351,7 @@ describe('AppComponent: nobody signed in', () => {
   it('visiting after a sign-in that came back without one (access_denied: the IAM turned the account away): the library’s screen in the place of the page, until Back — never swallowed', async () => {
     const el = await draw([refusedSignIn('access_denied')], 0, false, { loginRequired: false });
     expect(TestBed.inject(AuthService).state()).toBe('visiting');
-    const failure = el.querySelector('#signInFailure');
+    const failure = await failureShown(el);
     expect(words(failure?.querySelector('.anotoki-sign-in-failure__message'))).toBe('The sign-in was not completed.');
     expect(el.querySelector('router-outlet'), 'the screen in the place of the page').toBeNull();
     el.querySelector<HTMLButtonElement>('[data-back]')!.click();

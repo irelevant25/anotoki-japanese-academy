@@ -31,6 +31,8 @@
  *   *    /api/admin/migrations   the Migrations page: what is applied and what waits, a file's SQL,
  *                             and Apply (routes/migrations.php; ADMIN, judged from the token alone)
  *   POST /api/feedback        the visitors' feedback form (routes/admin.php)
+ *   POST /api/client-errors   an error a page met in the browser, into the error log (the anotoki
+ *                             library's ErrorLogRoutes::client(): routes/admin.php)
  *
  * In front of every route, whether the site can answer at all: the anotoki
  * library's SiteGate (anotoki/lib, the same on every anotoki site), from where
@@ -50,8 +52,9 @@
  * Every /api and /report address needs a signed-in person (who is asking: the
  * anotoki library's Identify, src/auth.php; middleware/person.php) and answers
  * with that person's data only, except /api/site-status, /api/auth/config,
- * /api/health and /api/translations/{code} (the app's own words, the same for
- * everybody) - and the study addresses (the kanji SRS, the exam, the reports)
+ * /api/health, /api/translations/{code} (the app's own words, the same for
+ * everybody) and /api/client-errors (a page's error: anybody's, counted by
+ * account or address) - and the study addresses (the kanji SRS, the exam, the reports)
  * and the feedback form, where the IAM says this site does not require
  * sign-in: then a request without a token is a visitor (their key in
  * X-Visitor-Key) or nobody yet, whose first save makes a visitor

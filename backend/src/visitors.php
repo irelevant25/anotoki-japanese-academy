@@ -44,6 +44,8 @@
 
 declare(strict_types=1);
 
+use Psr\Http\Message\ServerRequestInterface as Request;
+
 /** The request and answer header that carries a visitor's key. */
 const VISITOR_HEADER = 'X-Visitor-Key';
 
@@ -194,16 +196,17 @@ function visitors_of_key(string $key): ?array
  * Called inside that save's transaction (learner_first_save()), which it
  * holds VISITORS_LOCK for, so the limits count exactly; a save that is
  * refused or fails rolls the visitor back with it. Over a limit: 429
- * too_many_visitors, and nothing is made.
+ * too_many_visitors, and nothing is made. $request: the save's, whose
+ * address the limits count (client_address_counted()).
  */
-function visitors_make(array $server, ?string $zone): array
+function visitors_make(Request $request, ?string $zone): array
 {
     if (!db()->inTransaction()) {
         throw new LogicException('A visitor is made inside the transaction of the save that makes it.');
     }
     visitors_must_be_ready();
     db_value('SELECT pg_advisory_xact_lock(?::bigint)', [VISITORS_LOCK]);
-    $from = visitors_address_hash($server);
+    $from = visitors_address_hash($request);
     $counts = db_one(
         "SELECT count(*) AS everybody,
                 count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS this_hour,
@@ -449,14 +452,16 @@ function visitors_count(): array
 }
 
 /**
- * The address a request counts as (client_address_counted()), as kept on a
- * visitor's row: HMAC-SHA-256 under the site's own secret, so the database -
- * and every copy of it - holds no address, and a hash cannot be matched
- * against the few billion IPv4 addresses without the secret.
+ * The address bucket a request counts as (client_address_counted(): an IPv6
+ * address by its /64), as kept on a visitor's row: HMAC-SHA-256 under the
+ * site's own secret, so the database - and every copy of it - holds no
+ * address. It is a stable pseudonym of that bucket for as long as the secret
+ * lasts: whoever holds the secret can test an address against it (the few
+ * billion IPv4 addresses are quickly tried), nobody without it.
  */
-function visitors_address_hash(array $server): string
+function visitors_address_hash(Request $request): string
 {
-    return hash_hmac('sha256', client_address_counted($server), visitors_address_secret());
+    return hash_hmac('sha256', client_address_counted($request), visitors_address_secret());
 }
 
 /**

@@ -130,7 +130,7 @@ function learner_first_save(Request $request, RequestHandler $handler, ?string $
     $pdo = db();
     $pdo->beginTransaction();
     try {
-        [$id, $key] = visitors_make($request->getServerParams(), $zone);
+        [$id, $key] = visitors_make($request, $zone);
         $response = $handler->handle($request->withAttribute('uid', $id)->withAttribute('visitor', true));
         if ($response->getStatusCode() >= 300) {
             $pdo->rollBack();

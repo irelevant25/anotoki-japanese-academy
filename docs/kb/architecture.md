@@ -7,10 +7,12 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
 - `backend/` — PHP 8.2+ with **Slim 4** (routing and middleware) and, since
   2026-10-07, the **anotoki library** (`anotoki/lib`, every anotoki site's:
   the migrations' engine, where the site stands and the gate in front of
-  every route, since 0.3.0 the app's words, and since 0.4.0 the sign-in's
+  every route, since 0.3.0 the app's words, since 0.4.0 the sign-in's
   checks, the people and the admin tools - the error log, the audit log, the
-  feedback, the backups of the whole database; Composer's packages
-  committed in `backend/vendor/`),
+  feedback, the backups of the whole database -, and since 0.5.0 (the app is
+  on PHP 0.5.1 - a fix of a restore with visitors -, Angular 0.5.0) a
+  restore's hooks, the pages' own errors and where a request comes from;
+  Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
 - `frontend/` — an **Angular 21** app (standalone components, zoneless change
@@ -336,18 +338,27 @@ an IAM id as a string.
 - **`DELETE /api/admin/people/:sub`**: a copy of all of that person's data
   first (`academy-before-delete-user-<id>-<time>.json`, their last 14 kept;
   `manage.php --restore` of it brings them back, nobody else), then their rows
-  in every table of `USER_TABLES` and their `users` row go, in one
-  transaction holding that row `FOR UPDATE` (`people_delete()`, the library's
-  delete hook). A request of theirs still on its way waits for it, finds no
-  row, and makes it again (`users_hold()`): their data starts afresh rather
-  than the request failing. Strings they reworded stay, by nobody
-  (`translations.updated_by` empties by its foreign key); their feedback keeps
-  its words but no longer the address to answer them at nor their browser
-  (`Feedback::forgetPeople()`, in the same transaction). Answers `{deleted:
-  {"Kanji and words": n, "Answers": n, "Exam attempts": n}, note}` (the
-  note names the copy's file); 404 `not_found` for an id the site has nobody
-  of; recorded in the audit log (`person.data_deleted`). Their account is the
-  IAM's: they may still sign in.
+  in every table of `USER_TABLES` and their `users` row go, in the library's
+  transaction (`People::delete()`), holding that row `FOR UPDATE`
+  (`people_delete()`, the library's delete hook: `people_delete_hook()`). A
+  request of theirs still on its way waits for it, finds no row, and makes it
+  again (`users_hold()`): their data starts afresh rather than the request
+  failing. Strings they reworded stay, by nobody (`translations.updated_by`
+  empties by its foreign key); their feedback keeps its words but no longer
+  the address to answer them at nor their browser (the library does that
+  part, `Feedback::forgetPeopleOn()`, in the same transaction). Answers
+  `{deleted: {"Kanji and words": n, "Answers": n, "Exam attempts": n},
+  note}` (the note names the copy's file); 404 `not_found` for an id the site
+  has nobody of; recorded in the audit log (`person.data_deleted`) inside the
+  delete's own transaction - no delete without its entry, which a restore
+  does it again by (*Backups*, below): 503 `feature_unavailable` while the
+  audit log's table waits for its update. Their account is the IAM's: they
+  may still sign in. The hook does ALL its work on the connection the library
+  hands it, and begins no transaction of its own (anotoki-lib 0.5.0): on the
+  page that is the site's own (`db()`, which the copy reads through); in a
+  restore, the restore's, which holds every table it loaded - a statement on
+  `db()` there would wait on those locks until PostgreSQL ended the restore.
+  A restore's delete (its request null) keeps no copy.
 - **`POST /api/admin/people/sync`**: the scrub, now → `{run, sync}`;
   recorded (`people.synced`).
 
@@ -362,8 +373,18 @@ not the file explorer (the genshin site's alone). Every page of theirs is the
 group too). What they need to know of this site is one `AdminContext`
 (`academy_admin_context()`): who acts (the token's `sub`), whether they are
 `ADMIN` (the token's roles), the proof a backup asks for (a sign-in of the
-last ten minutes: the token's `auth_time`), the address bucket the feedback's
-limits count (`client_address_counted()`) and this site's error body.
+last ten minutes: the token's `auth_time`), this site's error body, people's
+names by id (`academy_people_names()`: a backup's maker, the audit log's and
+the feedback's people), and where a request comes from - the library's own
+rule (`Support\ClientAddress`, anotoki-lib 0.5) over this site's trusted
+proxies (`client_address_trusted_proxies()`: Cloudflare's ranges unless
+`app.local.php` names others, a catch-all range - an IPv4 prefix shorter
+than /8, an IPv6 one shorter than /16 - refused) and Cloudflare's
+`CF-Connecting-IP`, pinned in the code (`X-Real-IP`, `True-Client-IP` and
+`X-Forwarded-For`, which Cloudflare passes on as the visitor wrote them, are
+never read), the one the visitors' limits count by: the feedback's limits and
+the error log's client hash see the visitor's address bucket (an IPv6
+address by its /64), never Cloudflare's.
 
 - **The error log** (`academy_error_log()`, `GET /api/admin/errors?days=&level=&status=&search=`,
   `GET …/{fingerprint}`, `DELETE …[?before=]`): what went wrong, one JSON line
@@ -371,16 +392,27 @@ limits count (`client_address_counted()`) and this site's error body.
   413, 415 or 429 answered, a failure the error middleware answered 500 or
   503, PHP's warnings and fatal errors - redacted: never a header, a body, a
   query string or a token; a keyed hash of the address bucket instead of the
-  address (the key `backend/storage/anotoki-lib.key`, made once), and no
-  person's id: the log writes its lines outside the routes (the error
-  middleware, the library's outer middleware), before the library's `Identify`
-  has found who is asking, so `user_id` stays empty - the context's `actorId`
-  answers only on a request `Identify` went through. A 401, a 403 or a 422 is an answer, not a failure: never
-  written. The library keeps 30 days and 64 MB in all. Files, so it works while
-  the database does not; it answers while an update waits. Clearing it is
-  recorded (`errors.cleared`). The pages' own errors are not sent here yet:
-  the library's route for them (`ErrorLogRoutes::client()`) comes with its
-  Angular reporter in 0.4.2, and is not mounted until then.
+  address (the key `backend/storage/anotoki-lib.key`, made once), and the
+  person's id on the admin tools' own routes (their guard tells the log who
+  asked) and on a page's report - elsewhere none: the error middleware and
+  the library's outer middleware write outside the routes, before the
+  library's `Identify` has found who is asking. A 401, a 403 or a 422 is an answer, not a failure:
+  never written; nor is a 503 that says a state (`update_pending`,
+  `feature_unavailable`, `not_set_up`: the library's `expected` codes, 0.5.0),
+  while a 503 that is a failure (`database_unavailable`) is. The library keeps
+  30 days and 64 MB in all. Files, so it works while the database does not; it
+  answers while an update waits. Clearing it is recorded (`errors.cleared`).
+  **The pages' own errors** come here too (anotoki-lib 0.5.0, the owner's
+  decision of 2026-10-11): the browser's reporter (`core/error-report.config.ts`)
+  sends each error a page meets, scrubbed, to **`POST /api/client-errors`**
+  `{type?, message, page?, stack?, status?}` → 204 (the library's
+  `ErrorLogRoutes::client()`): anybody's, behind the gate (503 `update_pending`
+  while an update waits) and the person's `Identify` (a bad token 401
+  `invalid_token`, a visitor's key never read); JSON only (415), 8 KB at most
+  (413), a message (422); 20 an hour from one sender - a person by their
+  account, anybody else by their address bucket - and 500 a day from the
+  visitors, as many from the people signed in (429 `too_many`); written as
+  `source: client`, redacted again.
 - **The audit log** (`academy_audit()`, `GET /api/admin/audit?actor=&action=&target_type=&from=&to=&page=`,
   `GET …/facets`; read only): who did what in the admin panel, in the table
   `anotoki_audit_log` (the library's set `anotoki_admin`): the languages and
@@ -397,9 +429,10 @@ limits count (`client_address_counted()`) and this site's error body.
   (their id from the token), or while the IAM does not require sign-in here a
   visitor's or nobody's (the library's `RequireCaller`, `empty`); `website` is
   the honeypot; the places are the app's sections (`FEEDBACK_SECTIONS`:
-  `Kanji`, `Exam`); limits 5 an hour and 20 a day from one address bucket,
-  300 a day in all (a keyed hash of the bucket for a day, in
-  `backend/storage/cache/`). **The address for an answer is the one the
+  `Kanji`, `Exam`); limits 5 an hour and 20 a day from one sender - a person
+  by their account, anybody else by their address bucket - and 300 a day from
+  the visitors, as many from the people signed in (a keyed hash of each
+  sender for a day, in `backend/storage/cache/`). **The address for an answer is the one the
   sender sends**: the form writes a signed-in person's account address in for
   them, which they may change or clear - a cleared field keeps none, the
   server never puts their account's back (the form's words: "Only if you
@@ -413,7 +446,9 @@ limits count (`client_address_counted()`) and this site's error body.
   `DELETE …/{id}` (recorded). Spam is kept 30 days and a resolved message a
   year, then pruned once a day after an answer. The scrub of a deleted
   account, and a delete on the People page, take the address and the browser
-  off their messages (`Feedback::forgetPeople()`).
+  off their messages (`Feedback::forgetPeopleOn()`, on the scrub's or the
+  delete's own connection). A message deleted is recorded with the time it
+  was sent, inside the delete's own transaction: a restore deletes it again.
 - **Backups** (`academy_backups()`): the whole database, by COPY through PDO
   (a connection of its own, `Copy::connect()`), in
   `backend/storage/backups/<id>.anotoki-backup` with its `.json` beside -
@@ -439,15 +474,27 @@ limits count (`client_address_counted()`) and this site's error body.
   recorded in the audit log; `GET …/{id}/file?ticket=` is the download,
   outside every check but its ticket (a browser's navigation sends no token).
   A restore puts the backup's tables back in place where the schema is the
-  backup's (the audit log and the bookkeeping kept), then runs the scrub of
-  the IAM's deleted accounts at once (`academy_scrub_after_restore()`, the
-  survey's pattern: the restored database may name an account deleted since;
-  a scrub that does not finish - the IAM out of reach - is the restore's
-  `after_restore_error`, the Backups page's note, and the hour's stamp goes
-  after the answer, so the next request tries again). What a restore does
-  not undo: data an `ADMIN` deleted on the People page after the backup was
-  made comes back with it - the library replays those deletes from its
-  0.4.2; until then they are deleted again by hand. The lock is the upkeep's (`UPKEEP_LOCK`): one
+  backup's (the audit log and the bookkeeping kept) - only a backup made
+  here: since anotoki-lib 0.5.0 each carries this installation's seal (an
+  HMAC of its id and SHA-256 under a key derived from
+  `backend/storage/anotoki-lib.key`; the list says `sealed`), and one without
+  it - every plain one made before 0.5.0, a file put into the folder - is
+  refused (422 `archive_invalid`) and restored offline alone
+  ([hosting.md](hosting.md), *Backups*). Both of a restore's hooks are the
+  library's people module's (`People::restoreHooks()`): inside its
+  transaction, before anybody sees the restored rows, every delete the audit
+  log - never restored - holds from the backup's time on is done again
+  (`People::replay()`: a person's data, with this site's own delete,
+  `people_delete()`, its request null - no copy -; a feedback message, by its
+  id and the time it was sent), and whatever fails rolls the restore back
+  whole; once it committed, the scrub of the IAM's deleted accounts at once
+  (`People::afterRestore()`: the restored database may name an account
+  deleted since; a scrub that does not finish - the IAM out of reach - is the
+  restore's `after_restore_error`, the Backups page's note, and the hour's
+  stamp goes after the answer, on this site's runner, so the next request
+  tries again). A restore is refused while a check of the IAM's deleted
+  accounts runs ("restore again in a minute"). Every file of the backups is
+  the site's own user's alone (`0600`), every folder `0700`. The lock is the upkeep's (`UPKEEP_LOCK`): one
   backup, one Apply or one content rebuild at a time. The list, making one,
   the download and a delete answer while an update waits - never a restore.
 
@@ -476,8 +523,9 @@ its `timezone` (each person's own zone counts now, and the site's own is UTC:
 without sign-in (`mode` `none`) is not set up any more, and says so.
 `app.local.php` may hold, optionally and written by hand (never by the setup
 page), the visitors' numbers (`visitors`) and the proxies whose header names
-a visitor's address (`client_address`): [hosting.md](hosting.md), *Visitors
-on the site*.
+a visitor's address (`client_address`, in the place of the committed
+default, Cloudflare's published ranges: `CLIENT_ADDRESS_DEFAULTS` in
+`config.php`): [hosting.md](hosting.md), *Visitors on the site*.
 
 `config('db.host')` and the like read them; `config_problem()` says what is
 missing or wrong, and until nothing is, the API answers `not_set_up` (the
@@ -599,7 +647,9 @@ tests run in Vitest with jsdom (`ng test`).
   address, or what stands in for the app
   (`standin/`: the Sign in card after a session that ended, a problem page;
   the anotoki library's `<anotoki-sign-in-failure>` in `#signInFailure`
-  after a sign-in that came back without one, for a person or a visitor; on
+  after a sign-in that came back without one, for a person or a visitor -
+  drawn by its `<anotoki-sign-in-failure-route>`, which loads the screen's
+  code as it is shown, never in the first load (anotoki-lib 0.5.0); on
   the way to the IAM, nothing), then the foot: the version and
   **What's new** (`core/changelog/app-version.component`, which opens the
   changelog dialog), and **Send feedback** (`core/feedback/`, *The foot*
@@ -654,7 +704,16 @@ tests run in Vitest with jsdom (`ng test`).
   (`whenReady`: signed in or visiting), so Back or Forward on a stand-in page loads no data.
 - `core/` — `api/` (`ApiService` over HttpClient, the response types, and the
   interceptor that stops the app on any `not_set_up` answer: the settings
-  went while a page was open), `auth/` (the anotoki library's sign-in,
+  went while a page was open - never on the answer to a page's error report,
+  `ANOTOKI_ERROR_REPORT`), `error-report.config.ts` (the anotoki library's
+  reporter, `@anotoki/lib/error-report`, since anotoki-lib 0.5.0: the app's
+  `ErrorHandler`, every error to the console as before and - scrubbed in the
+  page, at most five a page load, each once, never a failed request - to
+  `POST /api/client-errors` through the app's HttpClient, so its interceptors
+  add what they add to any request - a person's token, or a visitor's key
+  (which the route never reads), and `X-Time-Zone`; with
+  `provideBrowserGlobalErrorListeners()` a window's errors and a promise
+  nobody caught too), `auth/` (the anotoki library's sign-in,
   `@anotoki/lib/auth`, wired in `auth.config.ts` - the boot configuration,
   the token or a visitor's key and `X-Time-Zone` for this site's API, which
   saves may make a visitor, the words, the checks before a sign-in or a

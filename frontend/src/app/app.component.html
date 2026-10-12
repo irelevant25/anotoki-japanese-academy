@@ -14,7 +14,7 @@
       @case ('visiting') {
         <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page). -->
         @if (auth.signInError()) {
-          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure /></main>
+          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
         } @else {
           <router-outlet />
         }
@@ -22,7 +22,7 @@
       @case ('signed-out') {
         <!-- A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
         @if (auth.signInError()) {
-          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure /></main>
+          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
         } @else if (auth.showSignIn()) {
           <app-sign-in />
         }

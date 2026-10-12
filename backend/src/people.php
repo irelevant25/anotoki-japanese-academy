@@ -35,22 +35,30 @@
  *
  * Deleting takes a copy of all of that person's data first
  * (academy-before-delete-user-<id>-…, their last 14 kept), then deletes their
- * rows in every table of USER_TABLES and their users row, in one transaction
- * that holds that row FOR UPDATE: a request of theirs still on its way waits,
- * then finds no row and starts their data afresh (users_hold()), instead of
- * failing. The strings they reworded stay, with nobody as who saved them
- * (translations.updated_by empties by its foreign key). Their account is the
- * IAM's: they may still sign in, and start again with nothing. The library
- * records every delete in the audit log (person.data_deleted).
+ * rows in every table of USER_TABLES and their users row, in the library's
+ * transaction (People::delete()), holding that row FOR UPDATE: a request of
+ * theirs still on its way waits, then finds no row and starts their data
+ * afresh (users_hold()), instead of failing. The strings they reworded stay,
+ * with nobody as who saved them (translations.updated_by empties by its
+ * foreign key). Their feedback keeps its words, but no longer the address to
+ * answer them at nor their browser (the library does that part, in the same
+ * transaction). Their account is the IAM's: they may still sign in, and start
+ * again with nothing. The library records every delete in the audit log
+ * (person.data_deleted), inside the delete's own transaction: no delete
+ * without its entry - and a restore does the delete again by it (anotoki-lib
+ * 0.5.0, People::replay(): academy_backups(), src/admin.php), so a backup
+ * made before never brings that data back.
  */
 
 declare(strict_types=1);
 
 use Anotoki\Lib\Admin\Schema as AdminSchema;
 use Anotoki\Lib\Auth\Person;
+use Anotoki\Lib\Feedback\Feedback;
 use Anotoki\Lib\People\People;
 use Anotoki\Lib\People\PeopleColumn;
 use Anotoki\Lib\People\PeopleTable;
+use Psr\Http\Message\ServerRequestInterface as Request;
 
 /** What a stored exam report says for a candidate who gave no name, or whose account the IAM deleted (src/report.php). */
 const PEOPLE_UNNAMED_CANDIDATE = 'Unnamed candidate';
@@ -167,34 +175,74 @@ function people_visitors(): ?array
 }
 
 /**
- * Deletes all of this person's data, after a copy of it: the People page's
- * Delete (the library's delete hook). Returns what went, by the page's labels,
- * with the copy's file named in a note - or null when the site has nobody of
- * that id. Their feedback keeps its words, but no longer the address to answer
- * them at nor their browser (the library's Feedback::forgetPeople(), as the
- * scrub of a deleted account does), in the same transaction.
+ * Deletes all of this person's data: the People page's Delete, and a
+ * restore's doing it again (people_delete_hook(), the library's delete hook).
+ * Returns what went, by the page's labels - with the copy's file named in a
+ * note, on the page -, or null when the site has nobody of that id.
+ *
+ * Inside a transaction of the library's on $pdo (People::delete(), which
+ * forgets the person's feedback and writes the audit entry in it too), and
+ * ALL of it on $pdo: none of its own begun, committed or rolled back. In a
+ * restore $pdo is the restore's own connection, which holds every table it
+ * loaded until it commits: a statement on the site's connection (db()) would
+ * wait on those locks while the restore waits on this, until PostgreSQL ended
+ * the restore a minute later.
+ *
+ * With the page's $request, a copy of all of their data first
+ * (backup_person_copy()). It reads through the site's connection - the very
+ * $pdo the People page hands over (academy_people()'s, db()), inside this
+ * transaction. A restore's replay ($request null) makes none: what it deletes
+ * again is a backup's rows, which that backup keeps.
  */
-function people_delete(int $id): ?array
+function people_delete(PDO $pdo, int $id, ?Request $request): ?array
 {
-    return db_tx(static function () use ($id): ?array {
-        if (!users_lock($id)) {
-            return null;
-        }
-        $copy = backup_person_copy('before-delete', $id);
-        $gone = [];
-        foreach (USER_TABLES as $table) {
-            $gone[$table] = db_exec("DELETE FROM $table WHERE user_id = ?", [$id]);
-        }
-        db_exec('DELETE FROM users WHERE id = ?', [$id]);
-        // The library's Feedback works on db() too: the same transaction.
-        if (AdminSchema::has(db(), AdminSchema::FEEDBACK_TABLE)) {
-            academy_feedback()->forgetPeople([$id]);
-        }
-        return [
-            'deleted' => ['Kanji and words' => $gone['srs_progress'], 'Answers' => $gone['srs_log'], 'Exam attempts' => $gone['exam_attempts']],
-            'note' => 'A copy of their data is in backups/' . basename($copy) . '.',
-        ];
-    });
+    if (!$pdo->inTransaction()) {
+        throw new LogicException('people_delete() runs inside the library\'s transaction (People::delete()).');
+    }
+    if ($request !== null && $pdo !== db()) {
+        throw new LogicException('The copy before a delete reads through the site\'s connection: people_delete() with a request takes db().');
+    }
+    // A visitor's id (negative) is nobody's here: the routes take an IAM id only, and this says so again.
+    if ($id < 1) {
+        return null;
+    }
+    $row = $pdo->prepare('SELECT 1 FROM users WHERE id = ? FOR UPDATE');
+    $row->execute([$id]);
+    if ($row->fetchColumn() === false) {
+        // Nobody of that id here. On the page: nobody to delete (404). In a restore's replay the restored backup
+        // may hold no row of theirs (deleted before it was made, and again since) and still their feedback - sent
+        // from a page left open after the first delete, which needs no row: an answer of nothing deleted lets the
+        // library forget its address and browser as the delete since did (People::delete() forgets a person's
+        // feedback only when the hook names somebody). No study row can be left without the row it refers to.
+        return $request === null ? ['deleted' => ['Kanji and words' => 0, 'Answers' => 0, 'Exam attempts' => 0]] : null;
+    }
+    $copy = $request === null ? null : backup_person_copy('before-delete', $id);
+    $gone = [];
+    foreach (USER_TABLES as $table) {
+        $delete = $pdo->prepare("DELETE FROM $table WHERE user_id = ?");
+        $delete->execute([$id]);
+        $gone[$table] = $delete->rowCount();
+    }
+    $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+    $answer = ['deleted' => ['Kanji and words' => $gone['srs_progress'], 'Answers' => $gone['srs_log'], 'Exam attempts' => $gone['exam_attempts']]];
+    if ($copy !== null) {
+        $answer['note'] = 'A copy of their data is in backups/' . basename($copy) . '.';
+    }
+    return $answer;
+}
+
+/**
+ * The delete as the library calls it, Closure(PDO, int, ?Request): ?array -
+ * the People page's DELETE (api/routes/people.php: its request the page's)
+ * and a restore's replay of the deletes done since its backup
+ * (academy_backups(), src/admin.php: its request null). The same
+ * people_delete() either way.
+ */
+function people_delete_hook(): Closure
+{
+    return static function (PDO $pdo, int $sub, ?Request $request): ?array {
+        return people_delete($pdo, $sub, $request);
+    };
 }
 
 /**
@@ -209,9 +257,14 @@ function people_delete(int $id): ?array
  *     gone, and its stored report says "Unnamed candidate" where it said the
  *     name - as a report of a paper without a name always did;
  *   - their feedback: the address they gave for an answer and their browser
- *     (the library's Feedback::forgetPeople(); the message stays);
+ *     (the library's Feedback::forgetPeopleOn(); the message stays);
  *   - the audit log: no address on their entries, and their names gone from
- *     the details of the entries about them (AuditLog::scrubPeople()).
+ *     the details of the entries about them (AuditLog::scrubPeople(), on
+ *     this connection: academy_audit_on()).
+ *
+ * All of it on $pdo, the scrub's: the hourly one's is the site's own (db()),
+ * a restore's - right after it committed (People::afterRestore()) - the
+ * restore's.
  */
 function people_scrub_copies(PDO $pdo, int $sub): void
 {
@@ -232,10 +285,10 @@ function people_scrub_copies(PDO $pdo, int $sub): void
     }
 
     if (AdminSchema::has($pdo, AdminSchema::FEEDBACK_TABLE)) {
-        academy_feedback()->forgetPeople([$sub]);
+        Feedback::forgetPeopleOn($pdo, [$sub]);
     }
     if (AdminSchema::has($pdo, AdminSchema::AUDIT_TABLE)) {
-        academy_audit()->scrubPeople([$sub]);
+        academy_audit_on($pdo)->scrubPeople([$sub]);
     }
 }
 

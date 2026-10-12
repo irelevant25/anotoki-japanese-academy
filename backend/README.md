@@ -6,10 +6,10 @@ PostgreSQL, signing people in through the anotoki IAM (client
 address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
-library (`anotoki/lib` 0.4.1: the migrations' engine, the site's state and
+library (`anotoki/lib` 0.5.1; the frontend's `@anotoki/lib` 0.5.0: the migrations' engine, the site's state and
 the gate in front of every route, the app's words - their address, the admin
 panel's, the command line's work -, the sign-in's checks, the people and
-the admin tools; `../DEV.md`, *The anotoki library*).
+the admin tools, where a request comes from; `../DEV.md`, *The anotoki library*).
 
 ## Layout
 
@@ -28,7 +28,8 @@ api/                 app.php (the Slim app; around everything the library's erro
                      configuration, /api/auth/config -, kanji, exam, me - your data as a file, visitor -
                      the move at sign-in, translations - the library's routes behind this app's checks,
                      people - the library's People routes, admin - the library's error log, audit log,
-                     feedback and backups, and the visitors' feedback form, migrations - the Migrations
+                     feedback and backups, the visitors' feedback form and the pages' own errors
+                     (POST /api/client-errors), migrations - the Migrations
                      page's, the library's routes), middleware/ (security, upkeep - the content's
                      rebuild, person - who asks (the library's Identify: a person, or on the study
                      addresses a visitor or nobody) and their time zone, staff - the admin panel's roles,
@@ -42,18 +43,21 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      access.php (whether the IAM requires sign-in here, relayed by /api/auth/config),
                      visitors.php (studying without signing in: made, found, capped, swept, moved into
                      an account at sign-in), client_address.php (the address the visitors' limits
-                     count), after.php (work after the answer: the visitors' sweep),
+                     count: the library's ClientAddress over the trusted proxies, Cloudflare's by
+                     default), after.php (work after the answer: the visitors' sweep),
                      users.php (and their time zones), upkeep.php (the start-time work, on requests,
                      and the copy of every table before an apply - a request never applies a migration),
                      srs/ (the kanji SRS), exam.php, generate.php, conjugate.php, score.php, report.php,
                      content.php, speech.php, backup.php, me.php (a person's own data file),
                      people.php (the library's people module for this site: each person's row, the
                      scrub of the accounts the IAM deleted and what it blanks here, the People page's
-                     columns and delete), admin.php (the library's admin tools for this site: the error
-                     log, the audit log, the feedback, the backups of the whole database),
+                     columns and delete - the one a restore does again), admin.php (the library's
+                     admin tools for this site: the error log, the audit log, the feedback, the
+                     backups of the whole database and a restore's hooks),
                      translations.php (the library's Translations for this
                      app: its released languages, the copy before a language goes), util.php, errors.php
-config/              config.php; this copy's settings in *.local.php (gitignored, written by setup.php)
+config/              config.php (and the committed default of the trusted proxies: Cloudflare's ranges);
+                     this copy's settings in *.local.php (gitignored, written by setup.php)
 migrations/          the schema and the app's words, NNN_name.sql (a committed one is never edited; one
                      still being written is a draft without its "-- end of NNN" line, which only the
                      tests' databases get)
