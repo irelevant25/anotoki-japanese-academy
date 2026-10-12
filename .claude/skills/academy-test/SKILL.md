@@ -60,11 +60,10 @@ Always finish with the full PHP tests, and the full frontend tests when
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
   `Tests` lines. Report the real numbers of both (at the last count, on
-  2026-10-12, anotoki-lib 0.5 (PHP 0.5.1, Angular 0.5.0): 260 backend tests, on the newest PHP; 436
+  2026-10-12, anotoki-lib 0.5 (PHP 0.5.1, Angular 0.5.0): 260 backend tests, on PHP 8.5; 436
   frontend tests in 43 files; 207 browser checks in `run.js`, 42 in
-  `setup.js`, 174 shots in `screens.js` — `docs/kb/testing.md`). The PHP tests on 8.2:
-  `ACADEMY_PHP` names its `php.exe` and `PHPRC` a folder whose `php.ini`
-  loads its extensions (`node backend/tools/php.js backend/tests/run.php`).
+  `setup.js`, 174 shots in `screens.js` — `docs/kb/testing.md`). The PHP tests must pass on
+  PHP 8.5 (the owner's rule of 2026-10-12); the host runs 8.2, so the code uses nothing 8.2 lacks.
 - `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.
 - `node frontend/e2e/run.js` prints each step, then `BROWSER SUITE PASSED` or
