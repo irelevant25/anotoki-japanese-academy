@@ -294,6 +294,12 @@ after the upload:
 - the pages report their own errors to the error log from then on
   (`POST /api/client-errors`).
 
+**The update that brings anotoki-lib PHP 0.5.2** (Angular still 0.5.0; the
+owner's decision of 2026-10-13) brings no migration: the origin secret
+(*Visitors on the site*, *The origin secret*, below). First the Cloudflare
+zone's Transform Rule, then `backend/config/cloudflare.local.php` on the
+site by FTP; without the file the site works as before.
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
@@ -429,6 +435,40 @@ Cloudflare's ranges change rarely: when Cloudflare announces a change,
 refresh the list in `config.php` (and the library's, in a release).
 `app.local.php` names others only for a host that is not behind Cloudflare
 (above).
+
+**The origin secret** (anotoki-lib PHP 0.5.2, the owner's decision of
+2026-10-13): Cloudflare's ranges are every Cloudflare customer's, not the
+owner's zone alone - anybody's Worker can open a connection to the site from
+them and write the `CF-Connecting-IP` it likes, a new address every time,
+past every limit here. So the owner's zone adds a secret header to every
+request through it, and the site believes `CF-Connecting-IP` only on a
+request that carries it; any other request from Cloudflare counts as the
+edge it came from (coarser - a Worker's made-up visitors share one bucket -
+never looser). The same value in two places, a long random value of 32
+characters or more:
+
+- **Cloudflare**: Rules → Transform Rules → Modify Request Header → "Set
+  static" `X-Anotoki-Origin` to the secret, for every request of the zone
+  (one rule serves every anotoki site).
+- **The site**: `backend/config/cloudflare.local.php`, put there by FTP
+  (optional, gitignored, never asked for, written or shown by the setup page, never in
+  the build) - the same file in every anotoki site:
+
+  ```php
+  <?php
+  return ['origin_secret' => '<the same long random value>'];
+  ```
+
+Set the rule first - a site without the file pays the header no heed - then
+the file: the other way round, every visitor counts as their edge until the
+rule is there; changing the secret, likewise. Without the file, or with a
+value that is not a string with something in it, the site believes
+`CF-Connecting-IP` from the trusted proxies alone, as before. A file PHP
+cannot run is said in PHP's error log (`[config]
+backend/config/cloudflare.local.php cannot be read (...)`: its error's kind
+and line, never its contents) and passed over - never a reason for "not set
+up". The secret is never shown or logged; keep a copy off the server, with
+the other settings.
 
 `backend/storage/cache/` holds the visitors' address secret
 (`visitor-address.key`, made the first time; losing it only restarts the

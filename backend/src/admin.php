@@ -114,11 +114,14 @@ function storage_dir(): string
  * and where a request comes from: the library's own rule (ClientAddress) over
  * this site's trusted proxies (client_address_trusted_proxies(): Cloudflare's
  * ranges unless app.local.php names others, a catch-all refused) and
- * Cloudflare's header, pinned - the one the visitors' limits count by
+ * Cloudflare's header, pinned - believed, with the origin secret
+ * (config_origin_secret(), cloudflare.local.php), only on a request that
+ * carries it - the one the visitors' limits count by
  * (src/client_address.php), so the feedback form's limits and the error log's
  * client hash see the visitor's address bucket, never Cloudflare's.
  * (Positional: this file stays parseable by PHP 7.4, which has no named
- * arguments; the fourth, clientKey, is null - the library's rule.)
+ * arguments; the fourth, clientKey, is null - the library's rule; the tenth
+ * and last, originSecret, came with anotoki-lib 0.5.2.)
  */
 function academy_admin_context(): AdminContext
 {
@@ -146,7 +149,8 @@ function academy_admin_context(): AdminContext
                 return academy_people_names($ids);
             },
             client_address_trusted_proxies(),
-            ClientAddress::CLOUDFLARE_HEADER
+            ClientAddress::CLOUDFLARE_HEADER,
+            config_origin_secret()
         );
     }
     return $context;

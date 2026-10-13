@@ -24,6 +24,16 @@
  * shorter than /8, an IPv6 one shorter than /16 - 0.0.0.0/0, ::/0: everybody),
  * or one that is no range at all, is refused, never believed.
  *
+ * Nor, with the origin secret (cloudflare.local.php, config_origin_secret();
+ * anotoki-lib 0.5.2, the owner's decision of 2026-10-13), is the header
+ * believed from a Cloudflare address on a request that does not carry the
+ * secret in X-Anotoki-Origin: Cloudflare's ranges are every Cloudflare
+ * customer's, and anybody's Worker can open a connection from them and write
+ * the CF-Connecting-IP it likes. The owner's zone adds the secret to every
+ * request through it (a Transform Rule); a request without it counts as the
+ * edge it came from - coarser, never looser. Without the file the trusted
+ * proxies alone decide, as before.
+ *
  * One address, for counting: an IPv4 address as it is, an IPv6 address by
  * its /64 - one household or one server is handed a whole /64 and picks from
  * it at will, so counting single IPv6 addresses would count nothing. An IPv4
@@ -125,10 +135,13 @@ function client_address_setting(string $name)
     }
 }
 
-/** The address of this request (the library's rule over this site's proxies, Cloudflare's header pinned); '?' when there is none. */
+/**
+ * The address of this request (the library's rule over this site's proxies, Cloudflare's header pinned - with the
+ * origin secret, believed only on a request that carries it); '?' when there is none.
+ */
 function client_address(Request $request): string
 {
-    return ClientAddress::of($request, client_address_trusted_proxies(), ClientAddress::CLOUDFLARE_HEADER) ?? '?';
+    return ClientAddress::of($request, client_address_trusted_proxies(), ClientAddress::CLOUDFLARE_HEADER, config_origin_secret()) ?? '?';
 }
 
 /** What the limits count: the address's bucket - the address, or for IPv6 its /64 ("2001:db8:1:2::/64") - in memory, never kept. */

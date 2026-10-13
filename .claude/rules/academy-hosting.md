@@ -103,8 +103,12 @@ For building and uploading, use the `academy-deploy` skill.
   the trusted proxies (Cloudflare's ranges by default,
   `CLIENT_ADDRESS_DEFAULTS`; a range wider than /8 for IPv4 or /16 for IPv6
   refused) with Cloudflare's `CF-Connecting-IP` pinned in the code - never a
-  setting, never `X-Real-IP`, `True-Client-IP` or `X-Forwarded-For` -, for the
-  visitors and the admin tools alike; every per-address limit counts the
+  setting, never `X-Real-IP`, `True-Client-IP` or `X-Forwarded-For` - and,
+  with the origin secret (`backend/config/cloudflare.local.php`,
+  `config_origin_secret()`: never shown or logged), believed only on a
+  request carrying it in `X-Anotoki-Origin`, for the
+  visitors and the admin tools alike (`AdminContext`'s tenth, last
+  argument); every per-address limit counts the
   bucket (`ClientAddress::bucket()`, an IPv6 address by its /64); only a
   keyed HMAC of the bucket is kept (a stable pseudonym while its key lasts). A write that is not JSON is 415 `unsupported_media_type`
   (`request_body()`): never read a form or text as a body.

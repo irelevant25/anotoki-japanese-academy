@@ -10,7 +10,8 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   every route, since 0.3.0 the app's words, since 0.4.0 the sign-in's
   checks, the people and the admin tools - the error log, the audit log, the
   feedback, the backups of the whole database -, and since 0.5.0 (the app is
-  on PHP 0.5.1 - a fix of a restore with visitors -, Angular 0.5.0) a
+  on PHP 0.5.2 - 0.5.1 a fix of a restore with visitors, 0.5.2 the origin
+  secret -, Angular 0.5.0) a
   restore's hooks, the pages' own errors and where a request comes from;
   Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
@@ -382,7 +383,13 @@ proxies (`client_address_trusted_proxies()`: Cloudflare's ranges unless
 than /8, an IPv6 one shorter than /16 - refused) and Cloudflare's
 `CF-Connecting-IP`, pinned in the code (`X-Real-IP`, `True-Client-IP` and
 `X-Forwarded-For`, which Cloudflare passes on as the visitor wrote them, are
-never read), the one the visitors' limits count by: the feedback's limits and
+never read) - with the origin secret (`config_origin_secret()`,
+`backend/config/cloudflare.local.php`; anotoki-lib 0.5.2, the owner's
+decision of 2026-10-13) believed only on a request that carries it in
+`X-Anotoki-Origin`, which a Transform Rule of the owner's zone adds to every
+request: anybody's Cloudflare Worker can connect from Cloudflare's ranges,
+and any other request from them counts as its edge (the context's tenth,
+last argument) -, the one the visitors' limits count by: the feedback's limits and
 the error log's client hash see the visitor's address bucket (an IPv6
 address by its /64), never Cloudflare's.
 

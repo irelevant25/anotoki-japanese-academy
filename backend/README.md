@@ -6,7 +6,7 @@ PostgreSQL, signing people in through the anotoki IAM (client
 address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
-library (`anotoki/lib` 0.5.1; the frontend's `@anotoki/lib` 0.5.0: the migrations' engine, the site's state and
+library (`anotoki/lib` 0.5.2; the frontend's `@anotoki/lib` 0.5.0: the migrations' engine, the site's state and
 the gate in front of every route, the app's words - their address, the admin
 panel's, the command line's work -, the sign-in's checks, the people and
 the admin tools, where a request comes from; `../DEV.md`, *The anotoki library*).

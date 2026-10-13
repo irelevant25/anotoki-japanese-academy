@@ -16,13 +16,14 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.5: PHP 0.5.1, Angular 0.5.0), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.5: PHP 0.5.2, Angular 0.5.0), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
 feedback with the visitors' form, the backups of the whole database; no file
 explorer), and since 0.5.0 where a request comes from (`Support\ClientAddress`:
-Cloudflare's header believed from Cloudflare alone). It runs two ways:
+Cloudflare's header believed from Cloudflare alone - since PHP 0.5.2, given
+the owner's zone's origin secret, only on a request that carries it). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -191,7 +192,7 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (260): after every change - on PHP 8.2
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (263): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
 cd frontend && npm test                      the Angular unit tests (436 in 43 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
@@ -425,11 +426,23 @@ Tests enforce most of these. Never weaken a test to make it pass.
   than /16, `0.0.0.0/0`, `::/0` - refused, never believed) - and then
   Cloudflare's `CF-Connecting-IP`, one address. The header is pinned in the
   code, never a setting: `X-Real-IP`, `True-Client-IP`, `X-Forwarded-For`,
-  which Cloudflare passes on as the visitor wrote them, are never read. Every
+  which Cloudflare passes on as the visitor wrote them, are never read. **With
+  the origin secret, only through the owner's zone** (anotoki-lib PHP 0.5.2,
+  the owner's decision of 2026-10-13): Cloudflare's ranges are every
+  Cloudflare customer's - anybody's Worker can connect from them and write
+  the `CF-Connecting-IP` it likes - so a Transform Rule of the owner's zone
+  adds `X-Anotoki-Origin` with a secret to every request; the site keeps the
+  same value in the optional `backend/config/cloudflare.local.php`
+  (`['origin_secret' => …]`, put there by FTP, never asked for, written or shown by the
+  setup page, never shown or logged: `config_origin_secret()`) and believes
+  `CF-Connecting-IP` only on a request that carries it - any other from
+  Cloudflare counts as its edge, coarser, never looser; without the file, as
+  before. Every
   per-address limit counts the address's bucket (`ClientAddress::bucket()`:
   an IPv6 address by its /64). The visitors' limits (`src/client_address.php`)
   and the library's admin tools (the feedback's limits, the error log's
-  client hash: `AdminContext`'s `trustedProxies`, `src/admin.php`) read it
+  client hash: `AdminContext`'s `trustedProxies` and `originSecret` - its
+  tenth, last positional argument -, `src/admin.php`) read it
   alike; what is kept is a keyed HMAC of the bucket, never the address - a
   stable pseudonym for as long as its key lasts (whoever holds the key can
   test an address against it).

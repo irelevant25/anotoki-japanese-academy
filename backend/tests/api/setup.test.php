@@ -240,10 +240,15 @@ test('an earlier version’s settings: the sign-in mode, the owner id and the ti
     $old = "<?php\n// Written by the setup page.\n\nreturn " . var_export(['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1], true) . ";\n";
     file_put_contents("$config/auth.local.php", $old);
     file_put_contents("$config/app.local.php", "<?php\n// Written by the setup page.\n\nreturn ['timezone' => 'Europe/Bratislava'];\n");
+    // The origin secret, which the owner puts on the site by FTP: the setup page never asks for, writes or shows it.
+    $originSecret = 'origin-' . bin2hex(random_bytes(20));
+    $cloudflare = "<?php\nreturn ['origin_secret' => '$originSecret'];\n";
+    file_put_contents("$config/cloudflare.local.php", $cloudflare);
     assert_same(4, call(site()['base'], 'GET', '/api/kanji/progress', null, test_bearer(test_token(1)))['body']['items']['k:大']['stage'] ?? null,
         'such a copy keeps working as it is');
 
     $page = test_page(site()['base'], '/setup.php', [], jar());
+    assert_false(str_contains($page['raw'], $originSecret), 'the origin secret is never shown');
     assert_match('/This copy is set up already/', $page['raw']);
     assert_match('/name="issuer" type="text" value="https:\/\/iam\.test"/', $page['raw'], 'what is saved, on this computer');
     assert_match('/name="db_name" type="text" value="' . db_name() . '"/', $page['raw']);
@@ -254,6 +259,9 @@ test('an earlier version’s settings: the sign-in mode, the owner id and the ti
     assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], require "$config/auth.local.php", 'the old keys are gone from it');
     assert_same(site()['password'], (require "$config/database.local.php")['password'], 'the password stays as it was');
     assert_same(['timezone' => 'Europe/Bratislava'], require "$config/app.local.php", 'and app.local.php is left alone: the setup page never writes it (the owner\'s optional file), and its old timezone is ignored');
+    assert_same($cloudflare, file_get_contents("$config/cloudflare.local.php"), 'cloudflare.local.php too: the origin secret as the owner put it');
+    assert_false(str_contains($r['raw'], $originSecret), 'and never shown');
+    unlink("$config/cloudflare.local.php");
 
     // A copy set up without sign-in is not set up (config_problem() says why, to manage.php --check): the way to the
     // setup page, never installed on this computer - and saving here sets it up again.

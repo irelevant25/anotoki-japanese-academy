@@ -213,12 +213,15 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: the PHP
-half is 0.5.1, the Angular half 0.5.0 (0.3.0 the translations and the kit a
+half is 0.5.2, the Angular half 0.5.0 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
 where a request comes from; 0.5.1 a fix of the PHP half alone - a restore of
-a database that ever had visitors, whose ids count down):
+a database that ever had visitors, whose ids count down; 0.5.2 the PHP half
+alone too - the origin secret, `backend/config/cloudflare.local.php`:
+`CF-Connecting-IP` believed only on a request carrying the secret the
+owner's Cloudflare zone adds, `docs/kb/hosting.md`):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up

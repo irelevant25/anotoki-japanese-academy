@@ -6,8 +6,9 @@
 // within the limits, in that save's own transaction; a key opens that
 // visitor's data and nothing else; a token always wins over a key; the caps;
 // the move at sign-in and its rules; the sweep after the answer; no visitor in
-// a backup or on the People page. Visitor ids are never assumed: they are
-// found by the hash of their key.
+// a backup or on the People page; with the origin secret (cloudflare.local.php),
+// CF-Connecting-IP believed only on a request that carries it. Visitor ids are
+// never assumed: they are found by the hash of their key.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -269,6 +270,37 @@ test('limits: per address (IPv6 by its /64, a trusted proxy\'s header, never X-F
     foreach ([$app, $untrusted, $hour, $full] as $server) {
         assert_same([], server_problems($server));
     }
+});
+
+test('with the origin secret (cloudflare.local.php), a Worker writing a new CF-Connecting-IP every time is one sender - the proxy it came through - for the visitors\' limit and the pages\' reports alike; through the zone, each visitor their own', function (): void {
+    db_exec("UPDATE users SET created_at = now() - interval '2 hours' WHERE id < 0"); // what earlier tests made counts no more this hour
+    // This computer standing in for Cloudflare's edge, which carries anybody's requests - the owner's zone's alone with the secret.
+    $secret = 'origin-' . bin2hex(random_bytes(20));
+    $app = start_app([
+        'app' => ['client_address' => ['trusted_proxies' => ['127.0.0.1', '::1']], 'visitors' => ['new_per_hour_per_address' => 2, 'new_per_hour' => 100, 'max' => 100]],
+        'cloudflare' => ['origin_secret' => $secret],
+    ]);
+    $base = $app['base'];
+    new_visitor($base, 'k:大', ['CF-Connecting-IP: 198.51.100.41']);
+    new_visitor($base, 'k:大', ['CF-Connecting-IP: 198.51.100.42']);
+    $r = call($base, 'POST', '/api/kanji/learn', ['id' => 'k:大'], nobody(['CF-Connecting-IP: 198.51.100.43']));
+    assert_same([429, 'too_many_visitors'], [$r['status'], $r['body']['code'] ?? null], 'the third, from an address never seen: the proxy\'s limit is spent');
+    $r = call($base, 'POST', '/api/kanji/learn', ['id' => 'k:大'], nobody(['CF-Connecting-IP: 198.51.100.44', 'X-Anotoki-Origin: not the secret']));
+    assert_same([429, 'too_many_visitors'], [$r['status'], $r['body']['code'] ?? null], 'a wrong secret: the proxy too');
+    new_visitor($base, 'k:大', ['CF-Connecting-IP: 198.51.100.45', "X-Anotoki-Origin: $secret"]); // through the zone: a visitor of their own
+
+    // The pages' own errors: the library's limit (20 an hour from one sender), by academy_admin_context()'s reading.
+    $report = static function (string $address, array $headers = []) use ($base): array {
+        return call($base, 'POST', '/api/client-errors', ['message' => "a page's error from $address"], nobody(array_merge(["CF-Connecting-IP: $address"], $headers)));
+    };
+    for ($i = 1; $i <= 20; $i++) {
+        $r = $report("203.0.113.$i");
+        assert_same(204, $r['status'], "report $i, from a made-up visitor: {$r['raw']}");
+    }
+    $over = $report('203.0.113.21');
+    assert_same([429, 'too_many'], [$over['status'], $over['body']['code'] ?? null], 'the 21st, from an address never seen: the proxy\'s budget is spent');
+    assert_same(204, $report('203.0.113.22', ["X-Anotoki-Origin: $secret"])['status'], 'through the zone: a visitor with a budget of their own');
+    assert_same([], server_problems($app));
 });
 
 test('a visitor\'s caps: answers kept, exam attempts - told before a paper starts; a person has none', function (): void {
@@ -661,4 +693,109 @@ test('in this process: a row that went is never made again for a visitor; the ad
         'a visitor behind Cloudflare is counted as the visitor, never as Cloudflare');
     assert_match('/^[0-9a-f]{64}$/', visitors_address_hash(from_address('192.0.2.1')));
     assert_false(visitors_address_hash(from_address('192.0.2.1')) === hash('sha256', '192.0.2.1'), 'keyed: not the address\'s plain hash');
+});
+
+/** The secret the owner's zone would add - made up for this run, never a real one. */
+define('ORIGIN_SECRET', 'origin-' . bin2hex(random_bytes(20)));
+
+test('in this process, the origin secret: from a Cloudflare address, CF-Connecting-IP only on a request carrying it in X-Anotoki-Origin - without it, or with a wrong one, the edge; from anywhere else, the connection; with none, as before', function (): void {
+    $edge = '173.245.48.1';     // an address of Cloudflare's (173.245.48.0/20)
+    $edge6 = '2400:cb00::1';    // and one of its IPv6 ones (2400:cb00::/32)
+    $visitor = ['CF-Connecting-IP' => '198.51.100.7'];
+
+    // (a) No secret (this file's settings have no cloudflare.local.php): the visitor, as before.
+    assert_same(null, config_origin_secret());
+    assert_same('198.51.100.7', client_address(from_address($edge, $visitor)), 'no secret: the visitor Cloudflare names');
+    assert_same('198.51.100.7', client_address(from_address($edge, $visitor + ['X-Anotoki-Origin' => 'anything'])), 'and the header changes nothing then');
+
+    try {
+        config_overrides(['cloudflare' => ['origin_secret' => ORIGIN_SECRET]]);
+        assert_same(ORIGIN_SECRET, config_origin_secret());
+        // (b) A secret, no X-Anotoki-Origin: a Worker of anybody's, writing the CF-Connecting-IP it likes - the edge.
+        assert_same($edge, client_address(from_address($edge, $visitor)), 'no X-Anotoki-Origin: the edge it came from');
+        assert_same($edge6, client_address(from_address($edge6, ['CF-Connecting-IP' => '2001:db8:1:2::5'])), 'an IPv6 edge too');
+        // (c) A wrong one: the edge.
+        foreach ([
+            'another value' => 'not the secret',
+            'one character short' => substr(ORIGIN_SECRET, 0, -1),
+            'one too many' => ORIGIN_SECRET . 'x',
+            'in capitals' => strtoupper(ORIGIN_SECRET),
+            'empty' => '',
+        ] as $case => $sent) {
+            assert_same($edge, client_address(from_address($edge, $visitor + ['X-Anotoki-Origin' => $sent])), "a wrong secret ($case): the edge");
+        }
+        // (d) The right one: the visitor.
+        assert_same('198.51.100.7', client_address(from_address($edge, $visitor + ['X-Anotoki-Origin' => ORIGIN_SECRET])), 'the zone\'s secret: the visitor Cloudflare names');
+        assert_same('2001:db8:1:2::/64', client_address_counted(from_address($edge6, ['CF-Connecting-IP' => '2001:db8:1:2::5', 'X-Anotoki-Origin' => ORIGIN_SECRET])),
+            'over IPv6 too, counted by its /64');
+        // (e) The right one from outside Cloudflare's ranges: that connection's - the secret alone opens nothing.
+        assert_same('192.0.2.1', client_address(from_address('192.0.2.1', $visitor + ['X-Anotoki-Origin' => ORIGIN_SECRET])), 'the secret from outside the ranges: the connection');
+
+        // What the limits count without the secret: the edge, however many visitors a Worker makes up.
+        $hashes = array_unique(array_map(static function (int $i) use ($edge): string {
+            return visitors_address_hash(from_address($edge, ['CF-Connecting-IP' => "198.51.100.$i"]));
+        }, range(1, 20)));
+        assert_same([visitors_address_hash(from_address($edge))], array_values($hashes), 'twenty made-up visitors from one edge: one hash, the edge\'s');
+
+        // Only a string with something in it is a secret; spaces around it are no part of it (a header's value never has them).
+        config_overrides(['cloudflare' => ['origin_secret' => " \t" . ORIGIN_SECRET . "\n"]]);
+        assert_same(ORIGIN_SECRET, config_origin_secret());
+        foreach (['an empty value' => '', 'only spaces' => '   ', 'a number' => 123456789012345678, 'a list' => ['a', 'b'], 'nothing' => null] as $case => $value) {
+            config_overrides(['cloudflare' => ['origin_secret' => $value]]);
+            assert_same(null, config_origin_secret(), "$case: no secret");
+            assert_same('198.51.100.7', client_address(from_address($edge, $visitor)), "$case: CF-Connecting-IP from the trusted proxies alone, as before");
+        }
+    } finally {
+        config_overrides([]);
+    }
+    assert_same('198.51.100.7', client_address(from_address($edge, $visitor)), 'the secret gone: as before');
+});
+
+test('in this process, cloudflare.local.php as written: a file PHP cannot run, or one without a usable secret, is none - said in PHP\'s log, never "not set up", never the secret itself', function (): void {
+    $file = $GLOBALS['TEST_CONFIG']['dir'] . '/cloudflare.local.php';
+    // A secret written bare is a constant PHP does not know, whose error quotes it; two strings side by side are a
+    // parse error quoting the second.
+    $bare = 'secret_' . bin2hex(random_bytes(16));
+    $log = (string) tempnam(sys_get_temp_dir(), 'academy-cloudflare-');
+    $logBefore = ini_set('error_log', $log);
+    try {
+        file_put_contents($file, "<?php\nreturn " . var_export(['origin_secret' => ORIGIN_SECRET], true) . ";\n");
+        config_all(true);
+        assert_same(ORIGIN_SECRET, config_origin_secret(), 'the file\'s secret');
+        assert_same('173.245.48.1', client_address(from_address('173.245.48.1', ['CF-Connecting-IP' => '198.51.100.7'])), 'and with it, no X-Anotoki-Origin: the edge');
+        foreach ([
+            'an empty value' => ["<?php return ['origin_secret' => ''];\n", 'holds no origin_secret'],
+            'a number' => ["<?php return ['origin_secret' => 123456789012345678];\n", 'holds no origin_secret'],
+            'another key' => ["<?php return ['secret' => '" . ORIGIN_SECRET . "'];\n", 'holds no origin_secret'],
+            'no array returned' => ["<?php return '" . ORIGIN_SECRET . "';\n", 'holds no origin_secret'],
+            'nothing returned' => ["<?php ['origin_secret' => '" . ORIGIN_SECRET . "'];\n", 'holds no origin_secret'],
+            'a parse error' => ["<?php return ['origin_secret' => 'x' '" . ORIGIN_SECRET . "'];\n", 'cannot be read (ParseError on line 1)'],
+            'a bare word' => ["<?php return ['origin_secret' => $bare];\n", 'cannot be read (Error on line 1)'],
+            // Written by hand without its first line, or saved with a BOM: PHP would print the file before every answer.
+            'no <?php line' => ["return ['origin_secret' => '" . ORIGIN_SECRET . "'];\n", 'prints '],
+            'a BOM' => ["\xEF\xBB\xBF<?php return ['origin_secret' => '" . ORIGIN_SECRET . "'];\n", 'prints 3 bytes of its own'],
+        ] as $case => [$contents, $said]) {
+            file_put_contents($log, '');
+            file_put_contents($file, $contents);
+            ob_start();
+            try {
+                config_all(true);
+                assert_same(null, config_origin_secret(), "$case: no secret");
+                assert_same(null, config_problem(), "$case: the copy is set up all the same");
+                assert_same('198.51.100.7', client_address(from_address('173.245.48.1', ['CF-Connecting-IP' => '198.51.100.7'])), "$case: CF-Connecting-IP from the trusted proxies alone, as before");
+            } finally {
+                $printed = (string) ob_get_clean();
+            }
+            assert_same('', $printed, "$case: nothing of the file printed");
+            $text = (string) file_get_contents($log);
+            assert_true(str_contains($text, '[config] backend/config/cloudflare.local.php ' . $said), "$case: said - $text");
+            assert_false(str_contains($text, ORIGIN_SECRET) || str_contains($text, $bare), "$case: the log never holds the value");
+        }
+    } finally {
+        @unlink($file);
+        config_all(true);
+        ini_set('error_log', (string) $logBefore);
+        @unlink($log);
+    }
+    assert_same(null, config_origin_secret(), 'the file gone: none');
 });

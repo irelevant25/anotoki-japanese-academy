@@ -46,15 +46,32 @@
  * is not behind Cloudflare says so in app.local.php ('client_address' =>
  * ['trusted_proxies' => []]); a range there wider than any proxy's (an IPv4
  * prefix shorter than /8, an IPv6 one shorter than /16) is refused.
+ *
+ * cloudflare.local.php is optional too, the same file in every anotoki site,
+ * and the setup page never asks for, writes or shows it: the owner puts it on the
+ * site by FTP. It holds the secret the owner's Cloudflare zone adds to every
+ * request through it, in X-Anotoki-Origin (a Transform Rule - the owner's
+ * decision of 2026-10-13):
+ *
+ *   cloudflare.local.php ['origin_secret' => '<a long random value, 32 characters or more>']
+ *
+ * With it, CF-Connecting-IP is believed only on a request that carries that
+ * secret (config_origin_secret(), src/client_address.php); without it - or
+ * with a value that is not a string with something in it - from the trusted
+ * proxies alone, as before. The secret is never shown or logged.
  */
 
 declare(strict_types=1);
 
-/** The settings files: the required ones (CONFIG_REQUIRED), and the optional app.local.php (the owner's, by FTP, or a test's). */
+/**
+ * The settings files: the required ones (CONFIG_REQUIRED), the optional app.local.php (the owner's, by FTP, or a
+ * test's) and the optional cloudflare.local.php (the origin secret, the owner's, by FTP).
+ */
 const CONFIG_FILES = [
     'database' => 'database.local.php',
     'auth' => 'auth.local.php',
     'app' => 'app.local.php',
+    'cloudflare' => 'cloudflare.local.php',
 ];
 
 /** What a copy needs before it is set up (the setup page writes them). */
@@ -139,10 +156,47 @@ function config_read_file(string $which): ?array
 }
 
 /**
+ * cloudflare.local.php as written, or null. The owner writes it by hand and it
+ * holds a secret, so a file PHP cannot run - a parse error, a word without its
+ * quotes - is no settings file, never a reason to stop the site, and is said
+ * in PHP's error log by the kind of error and its line alone: what PHP says
+ * can quote the file. A file whose origin_secret is no use is said there too
+ * (config_origin_secret() takes it for none).
+ */
+function config_read_cloudflare(): ?array
+{
+    $file = config_dir() . '/' . CONFIG_FILES['cloudflare'];
+    if (!is_file($file)) {
+        return null;
+    }
+    // A file written by hand without its <?php line, with text after its closing tag, or with a BOM would print what it
+    // holds - the secret - before the answer: what it prints is caught, and the file is no use.
+    ob_start();
+    try {
+        $values = require $file;
+    } catch (Throwable $e) {
+        error_log('[config] backend/config/cloudflare.local.php cannot be read (' . get_class($e) . ' on line ' . $e->getLine() . '): no origin secret.');
+        return null;
+    } finally {
+        $printed = (string) ob_get_clean();
+    }
+    if ($printed !== '') {
+        error_log('[config] backend/config/cloudflare.local.php prints ' . strlen($printed) . ' bytes of its own (no <?php line, text after ?>, or a BOM): no origin secret.');
+        return null;
+    }
+    $secret = is_array($values) ? ($values['origin_secret'] ?? null) : null;
+    if (!is_string($secret) || trim($secret) === '') {
+        error_log('[config] backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no origin secret.');
+    }
+    return is_array($values) ? $values : null;
+}
+
+/**
  * The settings: ['db' => database.local.php, 'auth' => auth.local.php,
- * 'app' => app.local.php], each [] when its file is missing. $reload reads the
- * files again (the setup page, after it wrote them). A test folder of settings
- * (ACADEMY_CONFIG_DIR) that names anything but a test database stops the app.
+ * 'app' => app.local.php, 'cloudflare' => cloudflare.local.php], each [] when
+ * its file is missing. $reload reads the files again (the setup page, after it
+ * wrote them). A test folder of settings (ACADEMY_CONFIG_DIR) that names
+ * anything but a test database stops the app.
  */
 function config_all(bool $reload = false): array
 {
@@ -154,6 +208,7 @@ function config_all(bool $reload = false): array
         'db' => config_read_file('database') ?? [],
         'auth' => config_read_file('auth') ?? [],
         'app' => config_read_file('app') ?? [],
+        'cloudflare' => config_read_cloudflare() ?? [],
     ];
     $name = (string) ($config['db']['name'] ?? '');
     if (getenv('ACADEMY_CONFIG_DIR') && !config_is_test_db($name)) {
@@ -218,6 +273,32 @@ function config(string $key)
         $value = $value[$part];
     }
     return $value;
+}
+
+/**
+ * The secret the owner's Cloudflare zone adds to every request through it
+ * (X-Anotoki-Origin, the library's ClientAddress::ORIGIN_HEADER: a Transform
+ * Rule - the owner's decision of 2026-10-13), from cloudflare.local.php; null
+ * without one. Cloudflare's published ranges are every Cloudflare customer's,
+ * not the owner's zone alone: anybody's Worker can reach the site from them
+ * and write the CF-Connecting-IP it likes, a new one for every request. With
+ * the secret that header is believed only on a request that carries it, and
+ * any other request from Cloudflare counts as the edge it came from - coarser,
+ * never looser (src/client_address.php, and the admin tools' context,
+ * academy_admin_context()). Only a string with something in it is a secret
+ * (trimmed: a header's value never starts or ends with a space); anything else
+ * is none, as before the file. Settings that cannot be read at all
+ * (config_all() refuses a test's folder of settings that names a real
+ * database) are none too: the site's gate says what is wrong.
+ */
+function config_origin_secret(): ?string
+{
+    try {
+        $secret = config('cloudflare.origin_secret');
+    } catch (RuntimeException $e) {
+        return null;
+    }
+    return is_string($secret) && trim($secret) !== '' ? trim($secret) : null;
 }
 
 /**

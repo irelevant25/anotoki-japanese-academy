@@ -553,7 +553,8 @@ function test_frontend(): string
  * test_frontend(); ['issuer' => URL] for a stand-in IAM's tokens and its answer
  * whether sign-in is required (stand_in_iam()); ['auth' => [...]] adds to its
  * auth.local.php (test_server_config()), ['app' => [...]] to its app.local.php
- * (the visitors' limits, the trusted proxies);
+ * (the visitors' limits, the trusted proxies); ['cloudflare' => [...]] is its
+ * cloudflare.local.php (['origin_secret' => …]);
  * ['env' => [...]] sets its environment (settings of its own,
  * ACADEMY_CONFIG_DIR, perhaps not whole: then only that it answers is checked);
  * ['ini' => ['memory_limit' => '48M', …]] PHP's own settings, as a host's php.ini
@@ -571,6 +572,9 @@ function start_app(array $how = []): array
     $frontend = array_key_exists('frontend', $how) ? (string) $how['frontend'] : test_frontend();
     $own = isset($how['env']['ACADEMY_CONFIG_DIR']);
     $env = ($how['env'] ?? []) + ['ACADEMY_CONFIG_DIR' => $own ? '' : test_server_config($frontend, (string) ($how['issuer'] ?? 'https://iam.test'), $how['auth'] ?? [], $how['app'] ?? [])] + getenv();
+    if (isset($how['cloudflare']) && !$own) {
+        file_put_contents($env['ACADEMY_CONFIG_DIR'] . '/cloudflare.local.php', "<?php\n// A test's own settings (backend/tests/lib.php).\n\nreturn " . var_export($how['cloudflare'], true) . ";\n");
+    }
     unset($env['ACADEMY_JWKS_FILE']);
     $port = test_free_port();
     // The built-in server logs every request: to a file, as a pipe nobody reads would fill up and stall it.

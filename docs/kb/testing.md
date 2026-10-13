@@ -89,7 +89,7 @@ stand-in asks it (`GET /api/public/anonymized-accounts`, its state's
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 260 tests (252 before anotoki-lib 0.5), which must pass on PHP 8.5 (the owner's rule of 2026-10-12; the host runs 8.2, the library's floor, so the code uses nothing 8.2 lacks) (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 263 tests (260 before the origin secret, anotoki-lib PHP 0.5.2; 252 before anotoki-lib 0.5), which must pass on PHP 8.5 (the owner's rule of 2026-10-12; the host runs 8.2, the library's floor, so the code uses nothing 8.2 lacks) (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
 | `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 436 tests in 43 files (432 in 42 before anotoki-lib 0.5.0: the reporter of the pages' own errors and the interceptor leaving its answers alone; 476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
 | `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, an error thrown in a learner's page reported (her token and zone on it, the address scrubbed out in the page) and listed on the error log's page, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 207 checks | ~4 min |
@@ -269,7 +269,12 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   an IPv6 /64 as one address, `X-Forwarded-For` alone and an untrusted
   proxy's header - a server with no `app.local.php` trusts Cloudflare's
   ranges alone - counting for nothing, per hour, at once - new visitors only,
-  never one already here nor a person); the caps (answers, exam attempts: no
+  never one already here nor a person); with the origin secret
+  (`cloudflare.local.php`, a server of its own trusting this computer as
+  Cloudflare's edge): made-up `CF-Connecting-IP`s without `X-Anotoki-Origin`,
+  or with a wrong one, one sender - the proxy - for the visitors' limit and
+  the pages' reports alike, the right secret a visitor with a budget of their
+  own; the caps (answers, exam attempts: no
   paper at the cap; a person has none); a token always wins over a key (an
   expired, a foreign, a garbage token, Bearer alone: 401 `invalid_token`, the
   visitor not even seen; Basic is no token); sign-in required (401
@@ -296,7 +301,16 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   wider than /8 or /16 (`0.0.0.0/0`, `::/0`, `10.0.0.0/7` …) or no range at all
   refused and said once in PHP's log, the proxies' own beside it kept; the
   admin tools' `AdminContext` counting by the same rule; a visitor's row
-  keeping a keyed hash of the bucket, the visitor's and never Cloudflare's.
+  keeping a keyed hash of the bucket, the visitor's and never Cloudflare's;
+  the origin secret (anotoki-lib 0.5.2, `config_origin_secret()`): none - as
+  before; a secret but no `X-Anotoki-Origin`, or a wrong one (another value,
+  one character short or more, in capitals, empty) - the edge, twenty made-up
+  visitors one hash; the right one - the visitor, IPv4 and IPv6; the right one
+  from outside Cloudflare's ranges - the connection; only a string with
+  something in it a secret (trimmed); `cloudflare.local.php` as written - a
+  value of no use, no array, a parse error, a word without its quotes - none,
+  the copy still set up, said in PHP's log by its kind and line and never
+  with the value.
 - `api/visitors-migration.test.php` — migration 007 on a database at 006 with
   two people's data: a database it does not expect (an id below 1 written by
   hand) fails it, its own check at the end fails it by name when a row came
@@ -578,7 +592,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   user 1's, `auth.local.php` the IAM alone, no `app.local.php`, the page
   staying; the owner signed in as user 1 finding their data); an earlier
   version's settings (`mode`, `local_user_id`, a time zone) still working,
-  shown and written afresh, and one for the sign-in mode `none` not set up
+  shown and written afresh - `app.local.php` and the owner's
+  `cloudflare.local.php` left as they were, the origin secret never shown -,
+  and one for the sign-in mode `none` not set up
   until saved again; and the same copy asked as a website showing nothing of
   what is saved.
 - `api/upkeep.test.php` — every migration but 001 ends with its own

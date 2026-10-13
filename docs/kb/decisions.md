@@ -2083,3 +2083,46 @@ and what stays this app's:
 - **Tests**: PHP 260 (on 8.5; the owner's instruction of 2026-10-12 dropped
   the 8.2 runs of this change), Angular 436 in 43 files, the browser suite's
   207 checks - each passing.
+
+**2026-10-13 — anotoki-lib PHP 0.5.2 (Angular 0.5.0): the origin secret.**
+The owner's decision of 2026-10-13, for every anotoki site. Cloudflare's
+published ranges are every Cloudflare customer's, not the owner's zone
+alone: anybody's Worker can open a connection to the site from them and
+write a `CF-Connecting-IP` of its choosing - a new address for every
+request, past every limit counted per address (the new visitors an hour,
+the feedback's and the pages' reports' senders). So a Transform Rule of the
+owner's zone adds a secret header, `X-Anotoki-Origin`, to every request
+through it, and the site, given the same value, believes `CF-Connecting-IP`
+only on a request that carries it (the library's `ClientAddress::of()`,
+compared in constant time); any other request from Cloudflare counts as the
+edge it came from - coarser, a Worker's made-up visitors sharing the edge's
+one bucket, never looser.
+
+- **One setting, the same file in every site**: the optional
+  `backend/config/cloudflare.local.php` (`['origin_secret' => …]`, one of
+  `CONFIG_FILES`; `config_origin_secret()`), put there by FTP like
+  `app.local.php` - the setup page never asks for, writes or shows it (a test holds
+  it left alone and never shown), the build never carries it, and it is
+  never a reason for "not set up". Only a string with something in it is a
+  secret (trimmed: a header's value never has spaces around it); anything
+  else, or no file, is none - the site as before. Unlike the other settings
+  files, one PHP cannot run (a parse error, a word without its quotes) is
+  said in PHP's error log - by the kind of error and its line alone, since
+  what PHP says can quote the file - and passed over; the secret is never
+  shown or logged.
+- **Every reading of an address takes it**: `client_address()` (the
+  visitors' limits) and `academy_admin_context()` - the context's tenth and
+  last positional argument (`src/admin.php` stays parseable by PHP 7.4) -
+  for the feedback's limits and the error log's client hash. The audit log
+  keeps no address, so it needs none.
+- **Only the PHP half changed**: `composer.lock` at v0.5.2, the frontend on
+  the 0.5.0 tarball; no migration, nothing to Apply. What a learner notices:
+  nothing.
+- **Tests**: PHP 263 (on 8.5; 260 before) - the secret in this process (none,
+  none sent, a wrong one, the right one, the right one from outside the
+  ranges; twenty made-up visitors one hash), the file as written (a value of
+  no use, a parse error, a bare word: none, logged without the value), a
+  server with the secret (the visitors' limit and the pages' reports count
+  the proxy without it), and the setup page leaving the file alone -
+  mutation-checked: without the secret in `client_address()`, or in the
+  context's last argument, they fail.

@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on PHP 0.5.1, Angular 0.5.0) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on PHP 0.5.2, Angular 0.5.0) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -425,7 +425,9 @@ database hold every row, a visitor's too, as they hold every table.
 `backend/config/app.local.php`, [hosting.md](hosting.md), *Visitors*): 300
 visitors at once, 10 new ones an hour from one address (an IPv6 address by
 its /64; Cloudflare's `CF-Connecting-IP` only from Cloudflare's published
-ranges, the trusted proxies by default - the library's `ClientAddress`
+ranges, the trusted proxies by default - and, with the origin secret
+(`backend/config/cloudflare.local.php`), only on a request that carries it
+in `X-Anotoki-Origin` - the library's `ClientAddress`
 rule, `src/client_address.php`), 60 an hour in all -
 over them 429 `too_many_visitors` for a NEW visitor only, never for one
 already here; and per visitor 10 exam attempts and 20,000 lines of the

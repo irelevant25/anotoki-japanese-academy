@@ -212,6 +212,18 @@ had it, should lose its `client_address`: its list replaces the committed
 one whole; a `client_ip_header` there is read no more - the code pins
 Cloudflare's header - and a range wider than /8 or /16 is refused).
 
+**The update that brings anotoki-lib PHP 0.5.2** (Angular still 0.5.0; no
+migration): the origin secret. First the Cloudflare zone's Transform Rule
+(Rules → Transform Rules → Modify Request Header → "Set static"
+`X-Anotoki-Origin` to the secret, every request of the zone - a site without
+the secret pays it no heed), then `backend/config/cloudflare.local.php` on the
+site by FTP (`<?php return ['origin_secret' => '<the same value>'];` - a long
+random value, 32+ characters, the same file in every anotoki site; the setup
+page never asks for, writes or shows it, the build never carries it): from then on
+`CF-Connecting-IP` is believed only on a request carrying the secret. Never
+print it; without the file the site works as before (`docs/kb/hosting.md`,
+*The origin secret*).
+
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing
 at start), after a raw copy of every table — or `manage.php --sync`, or the

@@ -164,8 +164,13 @@ settings, Apache or the setup page; `architecture.md` for the map).
    where a request comes from is the library's `ClientAddress` over
    Cloudflare's ranges (`CLIENT_ADDRESS_DEFAULTS`; a range wider than /8 or
    /16 refused) with `CF-Connecting-IP` pinned in the code (no setting may
-   name `X-Real-IP` or `True-Client-IP`), the same for the visitors' limits
-   and the admin tools' (`AdminContext`'s `trustedProxies`), every
+   name `X-Real-IP` or `True-Client-IP`) and, with the origin secret
+   (`backend/config/cloudflare.local.php`, `config_origin_secret()`), believed
+   only on a request carrying it in `X-Anotoki-Origin` - a reading of an
+   address that is not given it, or the secret shown or logged, is a finding -,
+   the same for the visitors' limits
+   and the admin tools' (`AdminContext`'s `trustedProxies` and its tenth,
+   last argument, `originSecret`), every
    per-address limit by the bucket (an IPv6 address by its /64), only a keyed
    HMAC of the bucket kept - never documented as unreadable: it is a stable
    pseudonym while its key lasts; every scrub or delete hook writes only on
