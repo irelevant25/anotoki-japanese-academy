@@ -49,7 +49,8 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      and the copy of every table before an apply - a request never applies a migration),
                      srs/ (the kanji SRS), exam.php, generate.php, conjugate.php, score.php, report.php,
                      content.php, speech.php, backup.php (the app's own JSON copies, each written 0600 in
-                     a folder made 0700), me.php (a person's own data file),
+                     a folder kept 0700 - found open, closed, and every copy in it made 0600), me.php (a
+                     person's own data file),
                      people.php (the library's people module for this site: each person's row, the
                      scrub of the accounts the IAM deleted and what it blanks here, the People page's
                      columns and delete - the one a restore does again), admin.php (the library's
@@ -59,10 +60,11 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      app: its released languages, the copy before a language goes), util.php, errors.php
 config/              config.php (and the committed default of the trusted proxies: Cloudflare's ranges;
                      storage_dir(); config_require_cleanly(), through which every settings file is read:
-                     what one prints is caught and never sent, and the file passed over - a required
-                     one leaves the copy not set up, app.local.php its defaults, cloudflare.local.php a
-                     secret no request carries - said once a day in PHP's error log, by its fault and
-                     byte count alone); this copy's settings in *.local.php (gitignored, written by
+                     one that does not start with <?php is passed over uncompiled, what one prints is
+                     caught and never sent, and the file passed over - a required one leaves the copy
+                     not set up, app.local.php its defaults (its trusted proxies then nobody),
+                     cloudflare.local.php a secret no request carries - said once a day in PHP's error
+                     log, by its fault alone); this copy's settings in *.local.php (gitignored, written by
                      setup.php but for app.local.php and cloudflare.local.php, the owner's by FTP)
 migrations/          the schema and the app's words, NNN_name.sql (a committed one is never edited; one
                      still being written is a draft without its "-- end of NNN" line, which only the

@@ -315,9 +315,11 @@ check after the upload that the site is not "not set up" because of a file
 saved with a byte-order mark (`manage.php --check`, or the setup page on
 this computer, names it; on the site, PHP's error log does, once a day) -,
 a `cloudflare.local.php` that cannot be read cleanly counts as a secret no
-request carries (*The origin secret*, below), and the app's own JSON copies
-are written for the site's user alone (0600; the ones already there keep
-their mode until they rotate out).
+request carries (*The origin secret*, below), an `app.local.php` that cannot
+be read cleanly believes no proxy at all until it is mended (its own `[]`,
+perhaps), and the backup folder is the site's user's alone - closed (0700)
+at the next copy whoever made it, every copy already in it, this app's and
+the library's, made 0600 then; each new JSON copy written 0600.
 
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
@@ -454,7 +456,10 @@ address against it, so the key stays as private as the storage folder.
 Cloudflare's ranges change rarely: when Cloudflare announces a change,
 refresh the list in `config.php` (and the library's, in a release).
 `app.local.php` names others only for a host that is not behind Cloudflare
-(above).
+(above). One that cannot be read cleanly (or holds no settings) believes
+nobody until it is mended - never the default: it may be the very file that
+said `[]`, and Cloudflare's ranges believed then would be looser than its
+owner meant (coarser, never looser; since 2026-10-18).
 
 **The origin secret** (anotoki-lib PHP 0.5.2, the owner's decision of
 2026-10-13): Cloudflare's ranges are every Cloudflare customer's, not the
@@ -485,15 +490,19 @@ rule is there; changing the secret, likewise. Without the file, or with one
 read cleanly whose value is not a string with something in it, the site
 believes `CF-Connecting-IP` from the trusted proxies alone, as before. **A
 file there that cannot be read cleanly fails closed** (since 2026-10-18, the
-IAM's rule case for case): one that prints anything as PHP reads it - a
-byte-order mark or a line before its `<?php`, no `<?php` line, text after a
-closing tag - or that PHP cannot open, parse or run stands for a secret no
+IAM's rule case for case): one that does not start with `<?php` - a
+byte-order mark or a blank line before it, or no such line: never compiled,
+for with `declare(strict_types=1)` after such a start PHP could not even
+compile it, a fatal error no handler catches -, one that prints anything as
+PHP reads it (text after a closing tag), or one that PHP cannot open, parse
+or run stands for a secret no
 request carries, so every request from Cloudflare's ranges counts as the
 edge it came from until it is mended; the site keeps running, and it is
 never a reason for "not set up". PHP's error log says so at most once a day
-(`[config] backend/config/cloudflare.local.php prints N bytes of its own
-(…): no request carries its secret …`, or `cannot be read (…)`: its fault
-and byte count or its error's kind and line, never its contents). The
+(`[config] backend/config/cloudflare.local.php does not start with <?php
+(…): no request carries its secret …`, `prints N bytes of its own (…)` or
+`cannot be read (…)`: its fault, its byte count or its error's kind and
+line, never its contents). The
 secret is never shown or logged; keep a copy off the server, with the other
 settings.
 
@@ -574,7 +583,10 @@ copy before a migration, and the strings of a language the owner deleted
 also holds the app's words as the owner reworded them (`translations`); a
 restore passes them over, and on a computer `php backend/translations.php
 --import <code> <file>` takes a language's strings from it. Each is written
-for the site's user alone (0600, in a folder made 0700, since 2026-10-18).
+for the site's user alone (0600, since 2026-10-18), in a folder kept 0700:
+found open to others - made by FTP, or by the old code - it is closed at the
+next copy, and every copy already in it, the library's backups too, made
+0600 then.
 Download them by
 FTP now and then: they are the only copy outside the host's database. They do
 not restore on the site; one restores on a computer with

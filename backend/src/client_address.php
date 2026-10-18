@@ -67,11 +67,21 @@ const CLIENT_ADDRESS_WIDEST_IPV6 = 16;
  * not on every request that reads the list: the setting is read on every
  * request, and a range left in it is the same range tomorrow.
  *
+ * An app.local.php that is there but cannot be read cleanly, or holds no
+ * settings (config_file_problems()['app']), believes nobody until it is
+ * mended - never the default: it may be the very file that said [] for a host
+ * not behind Cloudflare, and Cloudflare's ranges believed then would be
+ * looser than its owner meant. Every request counts as its connection:
+ * coarser, never looser (its fault is said in PHP's log by config_read_file()).
+ *
  * @return list<string>
  */
 function client_address_trusted_proxies(): array
 {
     $configured = client_address_setting('trusted_proxies');
+    if (isset(config_file_problems()['app'])) {
+        return [];
+    }
     if (!is_array($configured)) {
         return CLIENT_ADDRESS_DEFAULTS['trusted_proxies'];
     }

@@ -813,11 +813,16 @@ test('in this process, a cloudflare.local.php that cannot be read cleanly fails 
         foreach ([
             'a parse error' => ["<?php return ['origin_secret' => 'x' '" . ORIGIN_SECRET . "'];\n", 'cannot be read (ParseError on line 1)'],
             'a bare word' => ["<?php return ['origin_secret' => $bare];\n", 'cannot be read (Error on line 1)'],
-            // Written by hand without its first line, or saved with a BOM, or with text after a closing tag: PHP would
-            // print it before every answer.
-            'no <?php line' => ["return $list;\n", 'prints ' . strlen("return $list;\n") . ' bytes of its own'],
-            'a byte-order mark' => ["\xEF\xBB\xBF<?php return $list;\n", 'prints 3 bytes of its own'],
-            'a line before its <?php' => ["\n<?php return $list;\n", 'prints 1 bytes of its own'],
+            // Written by hand without its first line, or saved with a BOM or a line before it: PHP would print what
+            // comes before its <?php ahead of every answer - and with declare(strict_types=1) after it could not even
+            // compile it, a fatal error no handler catches (every request a 500, the file never failing closed). None
+            // is compiled: a file that does not start with <?php is passed over unread.
+            'no <?php line' => ["return $list;\n", 'does not start with <?php'],
+            'a byte-order mark' => ["\xEF\xBB\xBF<?php return $list;\n", 'does not start with <?php'],
+            'a line before its <?php' => ["\n<?php return $list;\n", 'does not start with <?php'],
+            'a byte-order mark before declare(strict_types=1)' => ["\xEF\xBB\xBF<?php declare(strict_types=1);\nreturn $list;\n", 'does not start with <?php'],
+            'a blank line before declare(strict_types=1)' => ["\n<?php declare(strict_types=1);\nreturn $list;\n", 'does not start with <?php'],
+            // Text after a closing tag, or echoed: printed all the same, and caught.
             'text after a closing tag' => ["<?php \$kept = 1; ?>\n" . ORIGIN_SECRET . "\n<?php return $list;\n", 'prints ' . (strlen(ORIGIN_SECRET) + 1) . ' bytes of its own'],
             // What it prints into a buffer of its own, left open, is caught all the same.
             'a buffer of its own left open' => ["<?php ob_start(); echo '" . ORIGIN_SECRET . "'; return $list;\n", 'prints ' . strlen(ORIGIN_SECRET) . ' bytes of its own'],
@@ -861,10 +866,10 @@ test('in this process, a cloudflare.local.php that cannot be read cleanly fails 
         for ($i = 0; $i < 3; $i++) {
             config_all(true);
         }
-        assert_same(1, substr_count((string) file_get_contents($log), 'backend/config/cloudflare.local.php prints 3 bytes'), 'three reads, one line');
+        assert_same(1, substr_count((string) file_get_contents($log), 'backend/config/cloudflare.local.php does not start with <?php'), 'three reads, one line');
         forget_said();
         config_all(true);
-        assert_same(2, substr_count((string) file_get_contents($log), 'backend/config/cloudflare.local.php prints 3 bytes'), 'its stamp gone (a day later): said again');
+        assert_same(2, substr_count((string) file_get_contents($log), 'backend/config/cloudflare.local.php does not start with <?php'), 'its stamp gone (a day later): said again');
     } finally {
         @unlink($file);
         config_all(true);
@@ -876,12 +881,13 @@ test('in this process, a cloudflare.local.php that cannot be read cleanly fails 
     assert_same('198.51.100.7', client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])));
 });
 
-test('a cloudflare.local.php that cannot be read cleanly fails closed through the server too: with a byte-order mark before the very secret, made-up CF-Connecting-IP addresses that carry it are one sender - the proxy - for the visitors\' limit and the pages\' reports; nothing of the file in any answer', function (): void {
+test('a cloudflare.local.php that cannot be read cleanly fails closed through the server too: with a byte-order mark before <?php declare(strict_types=1) and the very secret - a file PHP could not even compile -, made-up CF-Connecting-IP addresses that carry it are one sender - the proxy - for the visitors\' limit and the pages\' reports; the site keeps answering; nothing of the file in any answer', function (): void {
     db_exec("UPDATE users SET created_at = now() - interval '2 hours' WHERE id < 0"); // what earlier tests made counts no more this hour
-    // This computer standing in for Cloudflare's edge, as above - and the owner's file saved with a byte-order mark.
+    // This computer standing in for Cloudflare's edge, as above - and the owner's file saved with a byte-order mark
+    // before a declare(strict_types=1): compiled, a fatal error every request would answer with a 500.
     $secret = 'origin-' . bin2hex(random_bytes(20));
     $app = start_app(['app' => ['client_address' => ['trusted_proxies' => ['127.0.0.1', '::1']], 'visitors' => ['new_per_hour_per_address' => 2, 'new_per_hour' => 100, 'max' => 100]]]);
-    file_put_contents($app['config'] . '/cloudflare.local.php', "\xEF\xBB\xBF<?php\n\nreturn " . var_export(['origin_secret' => $secret], true) . ";\n");
+    file_put_contents($app['config'] . '/cloudflare.local.php', "\xEF\xBB\xBF<?php declare(strict_types=1);\n\nreturn " . var_export(['origin_secret' => $secret], true) . ";\n");
     $base = $app['base'];
     $through = static fn (string $address): array => ["CF-Connecting-IP: $address", "X-Anotoki-Origin: $secret"];
     $first = call($base, 'POST', '/api/kanji/learn', ['id' => 'k:大'], nobody($through('198.51.100.51')));
@@ -902,7 +908,8 @@ test('a cloudflare.local.php that cannot be read cleanly fails closed through th
     assert_same([200, 'ready'], [$status['status'], $status['body']['state'] ?? null], 'the site keeps running: the file is optional');
     assert_false(str_contains($status['raw'], $secret), 'and says nothing of it');
     $log = (string) file_get_contents($app['log']);
-    assert_same(1, substr_count($log, 'backend/config/cloudflare.local.php prints 3 bytes of its own'), 'said once in the server\'s log, for all those requests');
+    assert_same(1, substr_count($log, 'backend/config/cloudflare.local.php does not start with <?php'), 'said once in the server\'s log, for all those requests');
+    assert_false(str_contains($log, 'strict_types'), 'never compiled: no fatal error');
     assert_false(str_contains($log, $secret), 'never the secret');
 });
 
@@ -922,4 +929,56 @@ test('a refused range in app.local.php is said in PHP\'s log once a day, not on 
     call($base, 'POST', '/api/client-errors', ['message' => 'a day later'], nobody());
     call($base, 'POST', '/api/client-errors', ['message' => 'and again'], nobody());
     assert_same(2, $said(), 'a day later: once more');
+});
+
+test('in this process, an app.local.php that cannot be read cleanly - or holds no settings - believes nobody, never Cloudflare\'s ranges again: it may be the very file that said [] for a host not behind Cloudflare (coarser, never looser)', function (): void {
+    $file = $GLOBALS['TEST_CONFIG']['dir'] . '/app.local.php';
+    $kept = is_file($file) ? (string) file_get_contents($file) : null;
+    $edge = '173.245.48.1';
+    $log = (string) tempnam(sys_get_temp_dir(), 'academy-app-');
+    $logBefore = ini_set('error_log', $log);
+    try {
+        config_all(true);
+        assert_same(CLIENT_ADDRESS_DEFAULTS['trusted_proxies'], client_address_trusted_proxies(), 'this test\'s app.local.php names no proxies: Cloudflare\'s ranges, the default');
+        assert_same('198.51.100.7', client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), 'so a Cloudflare edge\'s header is believed');
+        // What a host that is not behind Cloudflare writes: believe nobody.
+        $nobody = var_export(['client_address' => ['trusted_proxies' => []]], true);
+        foreach ([
+            'a byte-order mark' => "\xEF\xBB\xBF<?php return $nobody;\n",
+            'a blank line before declare(strict_types=1)' => "\n<?php declare(strict_types=1);\nreturn $nobody;\n",
+            'a parse error' => "<?php return ['client_address' => ['trusted_proxies' => []] 'x'];\n",
+            'no list returned' => "<?php return 'client_address';\n",
+        ] as $case => $contents) {
+            file_put_contents($file, $contents);
+            forget_said();
+            ob_start();
+            try {
+                config_all(true);
+                assert_true(isset(config_file_problems()['app']), "$case: not read cleanly");
+                assert_same([], client_address_trusted_proxies(), "$case: nobody believed - never the default");
+                assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), "$case: a request from Cloudflare's ranges counts as its connection, its header not believed");
+                assert_same('192.0.2.1', client_address(from_address('192.0.2.1', ['CF-Connecting-IP' => '198.51.100.7'])), "$case: from anywhere else, the connection, as ever");
+                assert_same(null, config_problem(), "$case: the copy is set up all the same - the file is optional");
+            } finally {
+                $printed = (string) ob_get_clean();
+            }
+            assert_same('', $printed, "$case: nothing of the file printed");
+            assert_match('/\[config\] backend\/config\/app\.local\.php .*: its defaults hold until it is mended\./', (string) file_get_contents($log), "$case: said in PHP's log");
+        }
+        // Mended, the same [] read cleanly: nobody, as it says.
+        file_put_contents($file, "<?php return $nobody;\n");
+        config_all(true);
+        assert_same([[], []], [config_file_problems(), client_address_trusted_proxies()], 'mended: read, and its [] believes nobody');
+    } finally {
+        if ($kept === null) {
+            @unlink($file);
+        } else {
+            file_put_contents($file, $kept);
+        }
+        config_all(true);
+        forget_said();
+        ini_set('error_log', (string) $logBefore);
+        @unlink($log);
+    }
+    assert_same(CLIENT_ADDRESS_DEFAULTS['trusted_proxies'], client_address_trusted_proxies(), 'the test\'s own file back: Cloudflare\'s ranges again');
 });

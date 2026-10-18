@@ -110,10 +110,11 @@ export class ItemComponent {
       return;
     }
     // The kit's question, worded at the moment it is raised, in the language on the page: "Reset 大?", what it
-    // does, and the page's own button's words for the yes.
+    // does, and the page's own button's words for the yes. The sentence is given the characters too: a rewording
+    // an owner saved before the question had a title still names the item ({chars}), and migration 011 keeps it.
     const go = await this.confirm.ask({
       title: this.i18n.t('item.resetTitle', { chars: it.chars }),
-      message: this.i18n.t('item.confirmReset'),
+      message: this.i18n.t('item.confirmReset', { chars: it.chars }),
       confirmLabel: this.i18n.t('item.reset'),
       tone: 'danger',
     });

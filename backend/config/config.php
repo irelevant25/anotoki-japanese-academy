@@ -172,17 +172,28 @@ function storage_dir(): string
 
 /**
  * Requires a PHP file of this folder - every settings file, and the setup
- * page's token (backend/setup.php) - read cleanly, or not at all. A file
- * saved by hand with a byte-order mark or a line before its <?php, without
- * that line at all, or with text after a closing tag prints that text when
- * PHP requires it (all of it, the password or the secret too, where the
- * <?php line is missing) ahead of whatever answer is on its way: here what
- * it prints is caught, sent nowhere, and the file is read as no file, its
- * problem the number of bytes it printed. A file PHP cannot parse or run (a
- * ParseError, an Error, a warning the app's handler throws: src/bootstrap.php)
- * or may not open is no file either, said by the kind of error and its line
- * alone - never the error's message, which can quote the file. It runs in a
- * function of its own, so the file sees none of the caller's variables.
+ * page's token (backend/setup.php) - read cleanly, or not at all.
+ *
+ * A file that does not start with <?php - saved by hand with a byte-order
+ * mark, a blank line or a space before it, or without that line at all - is
+ * passed over before PHP ever compiles it: required, it would print what
+ * comes before (all of it, the password or the secret too, where the <?php
+ * line is missing), and one with declare(strict_types=1) after such a start
+ * is a compile-time fatal error ("strict_types declaration must be the very
+ * first statement") that no handler catches - every request, where the site
+ * stands included, would be a 500 instead of "not set up", and a
+ * cloudflare.local.php would never fail closed (the checkpoint review of
+ * 2026-10-18). The first five bytes are read alone, never the rest.
+ *
+ * A file that does start with it is required inside an output buffer: what it
+ * prints all the same - text after a closing tag, an echo, a buffer of its
+ * own left open - is caught, sent nowhere, and the file is read as no file,
+ * its problem the number of bytes it printed. A file PHP cannot parse or run
+ * (a ParseError, an Error, a warning the app's handler throws:
+ * src/bootstrap.php) or may not open is no file either, said by the kind of
+ * error and its line alone - never the error's message, which can quote the
+ * file. It runs in a function of its own, so the file sees none of the
+ * caller's variables.
  *
  * ['value' => what the file returned, 'problem' => null], or
  * ['value' => null, 'problem' => why it was not read]. What a caller makes of
@@ -196,6 +207,13 @@ function config_require_cleanly(string $file): array
 {
     if (!is_readable($file)) {
         return ['value' => null, 'problem' => 'cannot be read (PHP may not open it)'];
+    }
+    $head = @file_get_contents($file, false, null, 0, 5);
+    if ($head === false) {
+        return ['value' => null, 'problem' => 'cannot be read (PHP may not open it)'];
+    }
+    if (strtolower($head) !== '<?php') {
+        return ['value' => null, 'problem' => 'does not start with <?php (a byte-order mark, a blank line or a space before it, or no <?php line at all)'];
     }
     $level = ob_get_level();
     $value = null;
@@ -222,7 +240,7 @@ function config_require_cleanly(string $file): array
         return ['value' => null, 'problem' => $failure];
     }
     if ($printed > 0) {
-        return ['value' => null, 'problem' => "prints $printed bytes of its own (a byte-order mark or a line before its <?php, no <?php line, or text after a closing tag)"];
+        return ['value' => null, 'problem' => "prints $printed bytes of its own (text after a closing tag, or something it echoes)"];
     }
     return ['value' => $value, 'problem' => null];
 }

@@ -388,6 +388,55 @@ test('every copy of people\'s data is the site\'s own user\'s alone - 0600, the 
     }
 });
 
+test('a backup folder somebody else made, open to others (0755: by FTP, or the old mkdir with 0777), with copies of before in it (0644): closed at the next copy (0700), every copy in it then the site\'s own user\'s alone - this app\'s and the anotoki library\'s -, its guard left as it is (on Windows the folder\'s permissions apply)', function (): void {
+    $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-open-' . getmypid() . '-' . bin2hex(random_bytes(3));
+    $before = config_overrides();
+    $umask = umask(0022);
+    try {
+        mkdir($folder, 0755);
+        chmod($folder, 0755);
+        $old = [
+            'the day\'s of before' => "$folder/academy-2026-10-01.json",
+            'a raw one of before' => "$folder/academy-before-migration-2026-10-01T00-00-00Z.raw.json",
+            'a language\'s of before' => "$folder/academy-before-language-delete-de-2026-10-01T00-00-00Z.json",
+            'the library\'s backup' => "$folder/20261001-000000-abcdef.anotoki-backup",
+            'the library\'s backup\'s note' => "$folder/20261001-000000-abcdef.json",
+        ];
+        foreach ($old as $file) {
+            file_put_contents($file, '{}');
+            chmod($file, 0644);
+        }
+        file_put_contents("$folder/.htaccess", "Require all denied\n");
+        chmod("$folder/.htaccess", 0644);
+        config_overrides(['app' => ['backups_dir' => $folder]]);
+        study(OTHER, 'k:大');
+        $made = backup_write('daily');
+        assert_true(is_file($made), 'the day\'s copy written');
+        if (PHP_OS_FAMILY !== 'Windows') {
+            clearstatcache();
+            assert_same('700', decoct(fileperms($folder) & 0777), 'the folder closed');
+            foreach ($old as $what => $file) {
+                assert_same('600', decoct(fileperms($file) & 0777), "$what: the site's own user's alone now");
+            }
+            assert_same('600', decoct(fileperms($made) & 0777), 'the new copy too');
+            assert_same('644', decoct(fileperms("$folder/.htaccess") & 0777), 'the guard left for the web server to read');
+            // Opened again by hand: closed again at the next copy, whatever is in it.
+            chmod($folder, 0755);
+            chmod($old['the day\'s of before'], 0644);
+            backup_person_copy('before-reset', OTHER);
+            clearstatcache();
+            assert_same(['700', '600'], [decoct(fileperms($folder) & 0777), decoct(fileperms($old['the day\'s of before']) & 0777)], 'every copy, the folder on every call');
+        }
+    } finally {
+        umask($umask);
+        config_overrides($before);
+        foreach (array_merge(glob("$folder/*") ?: [], glob("$folder/.htaccess") ?: []) as $file) {
+            @unlink($file);
+        }
+        @rmdir($folder);
+    }
+});
+
 test('a backup of several people: one of them is picked by user id, or none', function (): void {
     $data = backup_data();
     assert_same(OTHER, backup_person_in($data, OTHER)['id']);

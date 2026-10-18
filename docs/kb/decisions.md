@@ -2241,3 +2241,47 @@ survey and Piano Academy).
   shots of 35 screens (174 of 29) - each passing. The checkpoint agents
   (academy-code-reviewer, academy-ui-tester) were not run: the brief allowed
   no helper agent.
+
+**2026-10-18 — The checkpoint code review of that pass: four fixes.** No
+blocker; each fix has its test, and the settings', the proxies' and the
+reset's were checked by breaking the code they hold (the folder's modes are
+checked only where the system has them - not on the Windows computer they
+were written on).
+
+- **A settings file that does not start with `<?php` is never compiled.**
+  The output buffer catches what a file prints, but not a compile-time fatal
+  error: a file with `declare(strict_types=1)` after a byte-order mark or a
+  blank line ("strict_types declaration must be the very first statement")
+  died before any handler, so every request - where the site stands included
+  - was a 500 instead of "not set up", and `cloudflare.local.php` never
+  failed closed (the reviewer's run on PHP 8.5). `config_require_cleanly()`
+  now reads a file's first five bytes and passes it over, uncompiled, unless
+  they are `<?php` (in any case): "does not start with <?php" - which also
+  names a plain byte-order mark, a line before, or no such line, as "prints N
+  bytes" did. Tests: both starts for a `database.local.php` (not set up,
+  never a 500, no password anywhere) and a `cloudflare.local.php` (fails
+  closed, in this process and through the server); without the check, PHP's
+  fatal error. The IAM and the other sites get the same fix from the
+  coordinator.
+- **An `app.local.php` that cannot be read cleanly believes nobody.** It
+  fell back to the defaults, its trusted proxies included - Cloudflare's
+  ranges -, so a host not behind Cloudflare, whose `app.local.php` said
+  `[]`, would believe Cloudflare's ranges again over a typo: looser. While
+  `config_file_problems()['app']` is set, `client_address_trusted_proxies()`
+  is `[]` - coarser, never looser: the visitors' limits, the feedback's and
+  the error log's client hash count each request's connection (behind
+  Cloudflare, its edge) until the file is mended; its other settings keep
+  their defaults.
+- **The backup folder is kept 0700 whoever made it.** `backup_folder()` made
+  it 0700 only when it made it: one made by FTP (the move of 2026-10) or by
+  the old `mkdir()` with 0777 stayed 0755, its copies 0644. Found open, it is
+  closed now, and every copy in it - this app's JSON, the library's backups
+  and their notes - made 0600 at the same time (once: it stays closed); its
+  guard (`.htaccess`, `index.html`) stays readable by the web server.
+  Nothing on Windows, where the folder's permissions apply.
+- **The reset question's sentence names the item when a rewording does.**
+  011 leaves a string somebody saved as it was, and the browser's question
+  of before named the item in it (`{chars}`): the sentence is given the
+  characters too, and the key's description says it may name them.
+- **Tests**: PHP 271 (269), Angular 452 (451); the browser suite and the
+  setup page's suite again.

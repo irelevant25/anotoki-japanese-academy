@@ -115,13 +115,14 @@ describe('ItemComponent', () => {
   const texts = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).map((el) => clean(el.textContent));
   const stats = (): string[] => texts('dl.facts dd');
 
-  async function open(id: string, progress: Record<string, ItemState>, slovak = false): Promise<void> {
+  /** The item's page at its address; `words`: strings an owner reworded, over the seeded English. */
+  async function open(id: string, progress: Record<string, ItemState>, slovak = false, words: Record<string, string> = {}): Promise<void> {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         provideAuth(),
         provideRouter([{ path: 'kanji/item/:id', component: ItemComponent }]),
-        slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations(ENGLISH),
+        slovak ? provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }) : provideTestTranslations({ ...ENGLISH, ...words }),
         { provide: ApiService, useValue: api },
         { provide: AudioService, useValue: { play: vi.fn() } },
       ],
@@ -231,6 +232,15 @@ describe('ItemComponent', () => {
     TestBed.inject(ConfirmService).settle(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.resetItem).toHaveBeenCalledWith('k:大');
+  });
+
+  it('a sentence an owner reworded before the question had a title, which still names the item ({chars}), names it: never "{chars}" on the page', async () => {
+    // Migration 011 leaves a string somebody saved as it was: the browser's question of before named the item in it.
+    await open('k:大', { 'k:大': state(1) }, false, { 'item.confirmReset': 'Reset {chars}? It goes back to "not learned".' });
+    const question = TestBed.inject(ConfirmService);
+    (host.querySelectorAll('#itemActions button')[1] as HTMLButtonElement).click();
+    expect(question.pending()?.message).toBe('Reset 大? It goes back to "not learned".');
+    question.settle(false);
   });
 
   it('says so when the address names no item', async () => {

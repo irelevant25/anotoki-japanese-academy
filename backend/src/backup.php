@@ -159,7 +159,8 @@ function backup_write(string $label, ?array $only = null): string
 /**
  * The backup folder (backup_dir()), made the first time - the site's own
  * user's alone (0700): it holds every copy of people's data, this site's and
- * the anotoki library's.
+ * the anotoki library's. Kept so on every call, whoever made it
+ * (backup_folder_private()).
  */
 function backup_folder(): string
 {
@@ -167,7 +168,41 @@ function backup_folder(): string
     if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException("Cannot create the backup folder $dir");
     }
+    backup_folder_private($dir);
     return $dir;
+}
+
+/**
+ * The backup folder the site's own user's alone (0700), whoever made it: one
+ * made by FTP (the move of 2026-10) or by the old mkdir() with 0777 is 0755
+ * under the usual umask - and the library's backups lie beside this app's
+ * copies in it (its own GuardedDirectory closes only a folder it makes).
+ * Found open to others, it is
+ * closed, and every copy already in it - this app's JSON (written 0644 under
+ * that umask before 2026-10-18: the day's, the raw ones, the manual ones, a
+ * person's, a language's) and the library's backups and their notes - is made
+ * the site's own user's alone (0600) at the same time: once, since the folder
+ * is closed from then on. The folder's guard (.htaccess, index.html) stays as
+ * it is: the web server reads it. Nothing on Windows, where the folder's
+ * permissions apply.
+ */
+function backup_folder_private(string $dir): void
+{
+    if (PHP_OS_FAMILY === 'Windows') {
+        return;
+    }
+    clearstatcache(true, $dir);
+    $mode = @fileperms($dir);
+    if ($mode !== false && ($mode & 0777) === 0700) {
+        return;
+    }
+    @chmod($dir, 0700);
+    foreach (array_merge(glob("$dir/*.json") ?: [], glob("$dir/*.anotoki-backup") ?: []) as $copy) {
+        $copyMode = @fileperms($copy);
+        if (is_file($copy) && $copyMode !== false && ($copyMode & 0077) !== 0) {
+            @chmod($copy, 0600);
+        }
+    }
 }
 
 /**

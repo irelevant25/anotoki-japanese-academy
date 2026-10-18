@@ -170,13 +170,19 @@ count wrong, fix it in the same piece of work.
   - those two, the optional `app.local.php` and `cloudflare.local.php`, the
   setup page's token - is read cleanly or not at all
   (`config_require_cleanly()`, `backend/config/config.php`, the IAM's rule):
-  what it prints as PHP requires it - a byte-order mark or a line before its
-  `<?php`, no `<?php` line at all, text after a closing tag - is caught and
-  never sent, and the file is passed over, as is one PHP cannot open or run;
-  said in PHP's error log at most once a day, by its fault and byte count,
-  never its text. A required one so passed over leaves the copy not set up
+  one that does not start with `<?php` - a byte-order mark, a blank line or
+  a space before it, or no such line at all - is passed over before PHP
+  ever compiles it (with `declare(strict_types=1)` after such a start PHP
+  could not even compile it: a fatal error no handler catches, every
+  request a 500); what one that does start so prints as PHP requires it -
+  text after a closing tag, an echo - is caught and never sent, and the
+  file is passed over, as is one PHP cannot open or run; said in PHP's
+  error log at most once a day, by its fault (and byte count), never its
+  text. A required one so passed over leaves the copy not set up
   (the library's page says so, the setup page names it), `app.local.php` its
-  defaults, `cloudflare.local.php` a secret no request carries (below). What an earlier version
+  defaults - but for its trusted proxies, which then believe nobody (it may
+  be the file that said `[]`: coarser, never looser) -, `cloudflare.local.php`
+  a secret no request carries (below). What an earlier version
   wrote beside them (`auth`'s `mode` and `local_user_id`, an `app.local.php`
   with a time zone) is ignored. Never print them, copy their values anywhere
   or commit them. On a computer that ran an older version,
@@ -214,9 +220,9 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (269): after every change - on PHP 8.2
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (271): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
-cd frontend && npm test                      the Angular unit tests (451 in 44 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (452 in 44 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              Edge end to end (215 checks), signed in through the library's stand-in
@@ -288,7 +294,8 @@ node backend/tools/pdf/pages.js <book> <pages>   page images of the scanned PDFs
   one made before 0.5.0 has none and is restored offline alone
   (`docs/kb/hosting.md`); its files are the site's own user's alone (0600),
   and so are the app's own JSON copies (`academy-*.json`, written 0600 in a
-  folder made 0700: `backup_folder()`, `file_put_atomic()`).
+  folder kept 0700 whoever made it - found open, it is closed and every copy
+  in it, the library's too, made 0600: `backup_folder()`, `file_put_atomic()`).
   Never delete them, nor the error log's files in
   `backend/storage/logs/`: the owner does; when they have to move, copy
   them, compare each file's hash,
@@ -448,7 +455,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   connection is from one of the trusted proxies - Cloudflare's published
   ranges, committed in `backend/config/config.php` (`CLIENT_ADDRESS_DEFAULTS`,
   held equal to the library's list by a test), which `app.local.php`'s
-  `client_address.trusted_proxies` may replace (`[]`: nobody; a range wider
+  `client_address.trusted_proxies` may replace (`[]`: nobody - and nobody too
+  while that file cannot be read cleanly, never the default; a range wider
   than any proxy's - an IPv4 prefix shorter than /8, an IPv6 one shorter
   than /16, `0.0.0.0/0`, `::/0` - refused, never believed, and said in PHP's
   error log once a day, not on every request) - and then
@@ -466,8 +474,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `CF-Connecting-IP` only on a request that carries it - any other from
   Cloudflare counts as its edge, coarser, never looser; without the file, as
   before. **A file there that cannot be read cleanly fails closed**, as the
-  IAM's does, case for case (`config_read_cloudflare()`): it prints anything,
-  or PHP cannot parse, run or open it - it stands for a secret no request
+  IAM's does, case for case (`config_read_cloudflare()`): it does not start
+  with `<?php` (never compiled), it prints anything, or PHP cannot parse,
+  run or open it - it stands for a secret no request
   carries (a random one, `config_origin_secret_nobody_carries()`), so every
   request from Cloudflare's ranges counts as its edge until it is mended;
   the site keeps running. One read cleanly that names no secret (none, or

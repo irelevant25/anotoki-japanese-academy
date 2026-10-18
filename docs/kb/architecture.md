@@ -537,18 +537,27 @@ default, Cloudflare's published ranges: `CLIENT_ADDRESS_DEFAULTS` in
 **Every settings file is read cleanly or not at all** (since 2026-10-18, the
 IAM's rule of 2026-10-13; `config_require_cleanly()`): the two above, the
 optional `app.local.php` and `cloudflare.local.php`, and the setup page's
-token are each required inside an output buffer, by a closure of its own -
-what one prints as PHP reads it (a byte-order mark or a line before its
-`<?php`, no `<?php` line at all, which would print the whole file -
-`database.local.php`'s password among it -, text after a closing tag) is
-caught and never sent, and the file is passed over; so is one PHP cannot
-open, parse or run. PHP's error log says so at most once a day for each
-fault (`config_said()`, a stamp in `storage/cache/`), by the fault and the
-number of bytes printed, never the file's text nor what PHP said of it (an
-error's words can quote it). A required file so passed over leaves the copy
-not set up (`config_file_problems()`, named by `manage.php --check` and the
-setup page, whose Save writes it again), `app.local.php` stands for its
-defaults, `cloudflare.local.php` for a secret no request carries
+token. One that does not start with `<?php` - a byte-order mark, a blank
+line or a space before it, or no such line at all, which would print the
+whole file, `database.local.php`'s password among it - is passed over
+before PHP ever compiles it: its first five bytes are read alone.
+(Compiled, one with `declare(strict_types=1)` after such a start is a fatal
+error no handler catches - every request, where the site stands included,
+a 500 instead of "not set up", and `cloudflare.local.php` never failing
+closed: the checkpoint review of 2026-10-18.) One that does start so is
+required inside an output buffer, by a closure of its own - what it prints
+all the same (text after a closing tag, an echo, a buffer of its own left
+open) is caught and never sent, and the file is passed over; so is one PHP
+cannot open, parse or run. PHP's error log says so at most once a day for
+each fault (`config_said()`, a stamp in `storage/cache/`), by the fault and
+the number of bytes printed, never the file's text nor what PHP said of it
+(an error's words can quote it). A required file so passed over leaves the
+copy not set up (`config_file_problems()`, named by `manage.php --check`
+and the setup page, whose Save writes it again), `app.local.php` stands for
+its defaults - but for its trusted proxies, which then believe nobody (it
+may be the very file that said `[]` for a host not behind Cloudflare:
+coarser, never looser; `client_address_trusted_proxies()`) -,
+`cloudflare.local.php` for a secret no request carries
 ([hosting.md](hosting.md), *Visitors on the site*, *The origin secret*); one read cleanly that
 returns no list of settings is a problem of its own ("holds no settings").
 
