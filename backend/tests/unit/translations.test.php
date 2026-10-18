@@ -382,8 +382,9 @@ test('every string the migrations wrote passes the checks a save makes, as it is
 const KEPT_ENGLISH_FILES = [
     'standin/problem/problem.component.ts' => 6,
     'standin/sign-in/sign-in.component.ts' => 2,
-    'top-bar/top-bar.component.ts' => 6,
+    'top-bar/top-bar.component.ts' => 8,
     'core/kit.config.ts' => 2,
+    'core/notice/notice-host.component.ts' => 1,
 ];
 
 /** Every kept English map of the frontend, read whole by the library's reader: [file => [key => English]]. */
@@ -724,6 +725,63 @@ test('migration 009 in a form of its own: a temporary copy of the strings it mov
     assert_same(['The app’s sections', 'Časti aplikácie'], [$english['anotoki.topbar.sections'] ?? null, $slovak['anotoki.topbar.sections'] ?? null], 'the app\'s words, not the library\'s "Main navigation"');
     assert_same(['System', 'Systémový'], [$english['anotoki.theme.auto'] ?? null, $slovak['anotoki.theme.auto'] ?? null]);
     assert_same(['Cancel', 'Zrušiť'], [$english['anotoki.ui.cancel'] ?? null, $slovak['anotoki.ui.cancel'] ?? null], 'a library key the app had no words for: the library\'s');
+});
+
+test('migration 011 in 004\'s form: keys and strings written, rewords only of the seeded words nobody saved, descriptions, no table and no other row touched, a check at its end; no string holds an address', function (): void {
+    $file = '011_legal_pages_and_questions.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 011 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 011') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 011"/', $sql, 'and says so at its top');
+    }
+
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        $allowed = preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
+            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\' AND updated_by IS NULL$/', $statement)
+            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
+        assert_true((bool) $allowed, "not in 004's form: $statement");
+    }
+
+    // Each reword is of the text 004, 005 or 007 wrote, nobody's save, and the check names that text.
+    preg_match_all("/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)' AND updated_by IS NULL;$/m", $sql, $rewords, PREG_SET_ORDER);
+    assert_same(24, count($rewords), 'twelve keys, in English and Slovak');
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $sql, $check);
+    foreach ($rewords as [, $new, $key, $language, $old]) {
+        assert_true(str_contains($check[0] ?? '', "('$key', '$language', '$old')"), "$key ($language): the check looks for the old text");
+        assert_false(str_contains($new, '?') && in_array($key, ['session.confirmEnd.one', 'exam.confirmFinish.one', 'signOut.notSaved', 'signIn.notSaved'], true),
+            "$key ($language): the question is the dialog's title now, not the sentence's");
+    }
+    assert_match('/WHERE t\.updated_by IS NULL;/', $check[0] ?? '', 'the check leaves alone a string somebody saved');
+    assert_match("/RAISE EXCEPTION '011_legal_pages_and_questions: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+
+    // Where a link goes is the code's, never a string an administrator rewords (the library's 0.6.0 review).
+    preg_match_all("/^\\s*\\('(legal\\.[^']+)', '((?:[^']|'')*)'\\)/m", $sql, $strings, PREG_SET_ORDER);
+    assert_true(count($strings) > 100, 'the legal strings, in English and Slovak, and their descriptions');
+    foreach ($strings as [, $key, $text]) {
+        assert_no_match('~https?://|www\.|@[a-z0-9-]+\.[a-z]|\.(eu|sk|com|org)\b~i', $text, "$key: no address in it");
+    }
+
+    // On the database it was applied to: the questions' sentences without their questions, the titles beside them.
+    test_db();
+    $english = translations_of('en');
+    $slovak = translations_of('sk');
+    assert_same(['{count} half-answered items will not be saved.', 'Stop now?'], [$english['session.confirmEnd.other'] ?? null, $english['session.endTitle'] ?? null]);
+    assert_same(['{count} rozpracovaných položiek sa neuloží.', 'Skončiť teraz?'], [$slovak['session.confirmEnd.other'] ?? null, $slovak['session.endTitle'] ?? null]);
+    assert_same(['It goes back to "not learned"; your notes stay.', 'Reset {chars}?'], [$english['item.confirmReset'] ?? null, $english['item.resetTitle'] ?? null]);
+    assert_same(['listen to question {n}', 'vypočuť si otázku {n}'], [$english['exam.result.listenTo'] ?? null, $slovak['exam.result.listenTo'] ?? null],
+        'the listen button\'s name begins with the words it shows (exam.result.listen: "listen", "vypočuť si")');
+    assert_true(str_starts_with($english['exam.result.listenTo'], $english['exam.result.listen']) && str_starts_with($slovak['exam.result.listenTo'], $slovak['exam.result.listen']));
+    $described = array_column(db_all("SELECT name, description FROM translation_keys WHERE name IN ('exam.result.missedOnly', 'exam.result.everything', 'exam.playRecording')"), 'description', 'name');
+    assert_no_match('/\bchip\b/', ($described['exam.result.missedOnly'] ?? '') . ($described['exam.result.everything'] ?? ''), 'the result\'s two choices are a segmented control');
+    assert_no_match('/\bresult\b|"listen"/', $described['exam.playRecording'] ?? '', 'the round play button\'s name alone, no longer the result\'s small "listen" button\'s');
 });
 
 /* --------------------------------------------------------------- the scan */

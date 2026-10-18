@@ -16,6 +16,7 @@ import {
 import { TranslatePipe, TranslationParams, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CardComponent } from '@anotoki/lib/ui/card';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { bind, toKana, unbind } from 'wanakana';
 import { ApiError, ApiService, toApiError } from '../../core/api/api.service';
 import { CatalogItem } from '../../core/api/api.types';
@@ -87,6 +88,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly audio = inject(AudioService);
   private readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly confirm = inject(ConfirmService);
 
   readonly mode = input.required<SessionMode>();
   readonly items = input.required<CatalogItem[]>();
@@ -397,11 +399,21 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  end(): void {
+  async end(): Promise<void> {
     const half = this.engine.halfAnswered();
-    // The browser's own dialog, worded at the moment it is raised, in the language on the page.
-    if (half && !confirm(this.i18n.plural('session.confirmEnd', half))) {
-      return;
+    // The kit's question, worded at the moment it is raised, in the language on the page ("Stop now?", what goes,
+    // End or Keep going). No key pressed in it reaches this card: its host keeps them (app.component.html).
+    if (half) {
+      const go = await this.confirm.ask({
+        title: this.i18n.t('session.endTitle'),
+        message: this.i18n.plural('session.confirmEnd', half),
+        confirmLabel: this.i18n.t('session.end'),
+        cancelLabel: this.i18n.t('session.goOn'),
+        tone: 'danger',
+      });
+      if (!go || this.finished || this.destroyed) {
+        return;
+      }
     }
     this.finish(true);
   }

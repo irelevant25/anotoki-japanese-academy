@@ -352,6 +352,42 @@ test('a file written aside has a name of its own: another writer’s half-writte
     unlink($file);
 });
 
+test('every copy of people\'s data is the site\'s own user\'s alone - 0600, the folder 0700 - whatever umask the host runs PHP with: the day\'s, a person\'s, the raw one before a migration, a language\'s strings (on Windows the folder\'s permissions apply)', function (): void {
+    $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-private-' . getmypid() . '-' . bin2hex(random_bytes(3));
+    $before = config_overrides();
+    $umask = umask(0022); // the usual host's: everybody may read what PHP writes, unless the app says otherwise
+    try {
+        config_overrides(['app' => ['backups_dir' => $folder]]);
+        study(OTHER, 'k:大');
+        $made = [
+            'the day\'s' => backup_write('daily'),
+            'a person\'s' => backup_person_copy('before-reset', OTHER),
+            'the raw one before a migration' => backup_write_raw('before-migration'),
+            'a language\'s strings' => translations_copy('sk', ['home.title' => 'Domov']),
+        ];
+        file_put_atomic("$folder/plain.json", '{}');
+        foreach ($made as $what => $file) {
+            assert_true(is_file($file), "$what: written");
+            if (PHP_OS_FAMILY !== 'Windows') {
+                assert_same('600', decoct(fileperms($file) & 0777), "$what: for the site's own user only");
+            }
+        }
+        if (PHP_OS_FAMILY !== 'Windows') {
+            assert_same('700', decoct(fileperms($folder) & 0777), 'the folder too, made by the first copy');
+            assert_same('644', decoct(fileperms("$folder/plain.json") & 0777), 'a file nobody marks private keeps the umask\'s mode (the data builders\' files in backend/data/)');
+            assert_same(0022, umask(), 'the umask put back');
+        }
+        assert_same([], glob("$folder/*.tmp") ?: [], 'nothing left aside');
+    } finally {
+        umask($umask);
+        config_overrides($before);
+        foreach (glob("$folder/*") ?: [] as $file) {
+            @unlink($file);
+        }
+        @rmdir($folder);
+    }
+});
+
 test('a backup of several people: one of them is picked by user id, or none', function (): void {
     $data = backup_data();
     assert_same(OTHER, backup_person_in($data, OTHER)['id']);

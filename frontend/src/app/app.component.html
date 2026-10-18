@@ -12,16 +12,18 @@
         <router-outlet />
       }
       @case ('visiting') {
-        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page). -->
-        @if (auth.signInError()) {
+        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page) - but on a legal page, which is anybody's. -->
+        @if (auth.signInError() && !legalPage()) {
           <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
         } @else {
           <router-outlet />
         }
       }
       @case ('signed-out') {
-        <!-- A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
-        @if (auth.signInError()) {
+        <!-- A legal page: anybody's, signed in or not. A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
+        @if (legalPage()) {
+          <router-outlet />
+        } @else if (auth.signInError()) {
           <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
         } @else if (auth.showSignIn()) {
           <app-sign-in />
@@ -35,9 +37,18 @@
 </anotoki-site-gate>
 
 <footer class="foot">
-  <app-version />
-  <app-feedback-button />
+  <div class="foot-row">
+    <app-version />
+    <app-feedback-button />
+  </div>
+  <!-- Terms · Privacy · Contact: the family's links (@anotoki/lib/legal) to the legal pages' own paths - their words the library's (anotoki.legalLinks.*), the open one marked. -->
+  <anotoki-legal-links class="foot-legal" id="footLegal" />
 </footer>
 
-<!-- The kit's one question (ConfirmService: the admin panel's "Delete…?", "Leave without saving?"), drawn over the page. -->
-<anotoki-confirm-host />
+<!--
+  The kit's one question (ConfirmService: "Stop now?", "Sign out anyway?", the admin panel's "Delete…?") and the app's
+  one notice (NoticeService: a report that would not open), drawn over the page. No key pressed in either reaches the
+  page behind: Enter on Cancel never answers a card or hands a paper in.
+-->
+<anotoki-confirm-host (keydown)="$event.stopPropagation()" />
+<app-notice-host />

@@ -9,70 +9,21 @@
   } @else {
     <anotoki-card>
       <div class="stack">
-        <div class="choice" role="group" aria-labelledby="practice-what">
-          <span class="choice-label" id="practice-what">{{ 'practice.what' | translate }}</span>
-          <div class="cluster">
-            @for (c of scopeChoices(); track c.id) {
-              <button
-                anotokiButton
-                size="sm"
-                [variant]="scope() === c.id ? 'primary' : 'secondary'"
-                [attr.aria-pressed]="scope() === c.id"
-                [attr.data-scope]="c.id"
-                [disabled]="!c.n && scope() !== c.id"
-                (click)="scope.set(c.id)"
-              >
-                <!-- one piece of the button's row: the stage name inside it says it is English (app-worded) -->
-                <span><app-worded [parts]="c.name" /> ({{ c.n }})</span>
-              </button>
-            }
-          </div>
-        </div>
-        <div class="choice" role="group" aria-labelledby="practice-lessons">
-          <span class="choice-label" id="practice-lessons">{{ 'kanji.tab.lessons' | translate }}</span>
-          <div class="cluster">
-            <button anotokiButton size="sm" [variant]="!lessons().size ? 'primary' : 'secondary'" [attr.aria-pressed]="!lessons().size" (click)="allLessons()">
-              {{ 'practice.allLessons' | translate }}
-            </button>
-            @for (L of learnedLessons(); track L) {
-              <button
-                anotokiButton
-                size="sm"
-                [variant]="lessons().has(L) ? 'primary' : 'secondary'"
-                [attr.aria-pressed]="lessons().has(L)"
-                [attr.data-lesson]="L"
-                (click)="toggleLesson(L)"
-              >
-                L{{ L }}
-              </button>
-            }
-          </div>
-        </div>
-        <div class="choice" role="group" aria-labelledby="practice-type">
-          <span class="choice-label" id="practice-type">{{ 'practice.type' | translate }}</span>
-          <div class="cluster">
-            @for (k of kinds; track k[0]) {
-              <button anotokiButton size="sm" [variant]="types() === k[0] ? 'primary' : 'secondary'" [attr.aria-pressed]="types() === k[0]" [attr.data-types]="k[0]" (click)="types.set(k[0])">
-                {{ k[1] | translate }}
-              </button>
-            }
-          </div>
-        </div>
-        <div class="choice" role="group" aria-labelledby="practice-ask">
-          <span class="choice-label" id="practice-ask">{{ 'practice.askLabel' | translate }}</span>
-          <div class="cluster">
-            @for (a of asks; track a[0]) {
-              <button anotokiButton size="sm" [variant]="parts() === a[0] ? 'primary' : 'secondary'" [attr.aria-pressed]="parts() === a[0]" [attr.data-ask]="a[0]" (click)="parts.set(a[0])">
-                {{ a[1] | translate }}
-              </button>
-            }
-          </div>
-        </div>
-        <div class="choice">
-          <!-- the segmented choice says its own name to a screen reader (its label), as the library's own pages do -->
-          <span class="choice-label" aria-hidden="true">{{ 'practice.howMany' | translate }}</span>
+        <!-- what to practise: the kit's choice chips, each scope's count its quieter note (a stage's own name, alone, says it is English) -->
+        <anotoki-chip-group id="practiceScope" [label]="'practice.what' | translate" [options]="scopeOptions()" [value]="scope()" (valueChange)="setScope($event)" />
+        <!-- the lessons: several at once, toggles in a group the kit's labelled group names; All when none is chosen -->
+        <anotoki-labelled-group id="practiceLessons" [label]="'kanji.tab.lessons' | translate">
+          <button anotokiChip [pressed]="!lessons().size" data-lesson="all" (click)="allLessons()">{{ 'practice.allLessons' | translate }}</button>
+          @for (L of learnedLessons(); track L) {
+            <button anotokiChip [pressed]="lessons().has(L)" [attr.data-lesson]="L" (click)="toggleLesson(L)">L{{ L }}</button>
+          }
+        </anotoki-labelled-group>
+        <anotoki-chip-group id="practiceTypes" [label]="'practice.type' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
+        <anotoki-chip-group id="practiceAsk" [label]="'practice.askLabel' | translate" [options]="askOptions()" [value]="parts()" (valueChange)="setParts($event)" />
+        <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
+        <anotoki-labelled-group selfNamed [label]="'practice.howMany' | translate">
           <anotoki-segmented id="howMany" [label]="'practice.howMany' | translate" [options]="countOptions()" [value]="'' + count()" (valueChange)="count.set(+$event)" />
-        </div>
+        </anotoki-labelled-group>
         <p class="small muted" id="practiceInfo">{{ info() }}</p>
         <div class="cluster">
           <button anotokiButton variant="primary" id="startPractice" [disabled]="!take()" (click)="start()">

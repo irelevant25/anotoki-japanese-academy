@@ -92,8 +92,15 @@ use the `academy-test` skill.
   words on a computer whose system language is Slovak. Signed-in sessions say
   `en` in their token. A test that switches to Slovak switches back before the
   suite goes on (the choice is kept in that browser).
+- The browser's own boxes are never raised: a spec answers the kit's question
+  through `ConfirmService` (`pending()`, `settle()`) and reads the app's
+  notice through `NoticeService` (`pending()`), and fails when
+  `window.confirm` / `alert` is called; a browser suite answers the kit's
+  question with `answerQuestion()` and reads the notice by `NOTICE`
+  (`frontend/e2e/browser.js`), counting any native dialog as a failure.
 - The Slovak pass (`screens.js`, variants `sk-phone` and `sk-phone-dark`, 390 px,
-  locale `sk-SK`) checks every screen for `<html lang="sk">`, no text that is a
+  locale `sk-SK`; and for the legal pages `sk-light` and `sk-dark`, 1280 px)
+  checks every screen for `<html lang="sk">`, no text that is a
   key (the admin panel lists keys, and is let off: it is `<html lang="en">`), no
   English string of the bundle whose Slovak differs outside `[lang=en]` /
   `[lang=ja]`, and no overflow; every screen in every variant is checked for
@@ -102,8 +109,9 @@ use the `academy-test` skill.
   panel's at 360, 390, 1170, 1171, 1351 and 1530, read from
   `top-bar.component.ts`), in both
   languages, light and dark, signed in with 999 due, signed out, visiting
-  (sign-in not required) and in the admin panel, and Tabs out of its open menus; the kanji tab strip is checked
-  on every screen. Keep these checks when a screen is added.
+  (sign-in not required) and in the admin panel, and Tabs out of its open menus; the kanji tabs (the kit's
+  link tabs, which scroll sideways in their strip on a phone) are checked on every screen for the page's tab
+  in view. Keep these checks when a screen is added.
 - The keyboard checks (`run.js`): the chooser worked by keys, and Enter and
   Space on the bar's controls, on a review card and on a paper's last question
   must do the bar's work and nothing else — the card unchecked, the paper

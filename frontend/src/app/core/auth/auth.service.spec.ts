@@ -4,6 +4,7 @@ import { ANOTOKI_AUTH_BROWSER, ANOTOKI_AUTH_CLIENT_FACTORY, AnotokiAuthEnvironme
 import { FakeAuthClient, testAnotokiAuth, TestAnotokiAuth, TestUser } from '@anotoki/lib/auth/testing';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { provideTestSiteStatus } from '../testing/site-status';
 import { provideAuth } from './auth.config';
@@ -242,13 +243,19 @@ describe('AuthService: the page and its person', () => {
     const saves = TestBed.inject(SavesInFlight);
     let fail!: () => void;
     void saves.track(new Promise<void>((_resolve, reject) => (fail = () => reject(new Error('offline'))))).catch(() => undefined);
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    // The kit's question (drawn in the app's root), never the browser's own box.
+    const question = TestBed.inject(ConfirmService);
+    const box = vi.spyOn(window, 'confirm');
     const going = auth.login();
     await settle();
     expect(client?.logins, 'not while an answer is on its way').toEqual([]);
+    expect(question.pending(), 'nothing failed yet: nothing asked').toBeNull();
     fail();
+    await vi.waitFor(() => expect(question.pending()?.message).toBe('signIn.notSaved'));
+    question.settle(false);
     expect(await going, 'the visitor chose to stay').toBe(false);
-    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(question.pending(), 'asked once').toBeNull();
+    expect(box).not.toHaveBeenCalled();
     expect(client?.logins).toEqual([]);
   });
 
@@ -256,8 +263,11 @@ describe('AuthService: the page and its person', () => {
     const { auth, client } = await start(undefined, { sub: '7' });
     const saves = TestBed.inject(SavesInFlight);
     const release = saves.watch(() => 'signOut.examOpen');
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    expect(await auth.logout()).toBe(false);
+    const question = TestBed.inject(ConfirmService);
+    const going = auth.logout();
+    await vi.waitFor(() => expect(question.pending()?.message).toBe('signOut.examOpen'));
+    question.settle(false);
+    expect(await going).toBe(false);
     expect(client?.logouts).toEqual([]);
     release();
     expect(await auth.logout()).toBe(true);

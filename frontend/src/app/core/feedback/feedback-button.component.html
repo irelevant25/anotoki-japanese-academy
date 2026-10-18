@@ -1,6 +1,6 @@
 @if (offered()) {
   <span class="sep" aria-hidden="true">·</span>
-  <button type="button" class="send-feedback" id="sendFeedback" [attr.lang]="lang()" (click)="open.set(true)">{{ title() }}</button>
+  <button anotokiButton variant="link" size="sm" class="send-feedback" id="sendFeedback" [attr.lang]="lang()" (click)="open.set(true)">{{ title() }}</button>
 }
 @if (open()) {
   <anotoki-dialog [heading]="title()" size="md" (dismiss)="open.set(false)">

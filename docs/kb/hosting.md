@@ -300,6 +300,25 @@ owner's decision of 2026-10-13) brings no migration: the origin secret
 zone's Transform Rule, then `backend/config/cloudflare.local.php` on the
 site by FTP; without the file the site works as before.
 
+**The update that brings anotoki-lib 0.6.2** (both halves; 2026-10-18)
+brings, once its draft is final, migration **011** of this app's (the legal
+pages' words, the questions' and notices' titles and buttons; rewordings
+only of strings nobody changed) and the library's
+`anotoki_translations/005_…` to `011_…` (its legal pages', top bar's and
+newer pieces' words, two sentences of the Privacy page made true), all in
+one Apply on the Migrations page after the upload - `backend/vendor/` first,
+as ever. Until it is applied, Terms, Privacy and Contact read the library's
+built-in English and Slovak around keys of the app's own (the Privacy
+page's parts would show as keys), so apply it right after the upload. Also
+with it: every hand-written settings file is read cleanly or not at all -
+check after the upload that the site is not "not set up" because of a file
+saved with a byte-order mark (`manage.php --check`, or the setup page on
+this computer, names it; on the site, PHP's error log does, once a day) -,
+a `cloudflare.local.php` that cannot be read cleanly counts as a secret no
+request carries (*The origin secret*, below), and the app's own JSON copies
+are written for the site's user alone (0600; the ones already there keep
+their mode until they rotate out).
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
@@ -426,7 +445,8 @@ counts. The header is pinned in the code: `X-Real-IP`, `True-Client-IP` and
 are never read, and no setting can point at one. A range in `app.local.php`
 wider than any proxy's (an IPv4 prefix shorter than /8, an IPv6 one shorter
 than /16: `0.0.0.0/0`, `::/0`) is refused, never believed - said in PHP's
-error log on every request that reads it, loud until the setting is fixed. The visitors' limits, the feedback's limits and the error
+error log once a day until the setting is fixed (every request, until
+2026-10-18: a log that filled with it). The visitors' limits, the feedback's limits and the error
 log's client hash all count the visitor's address bucket so (an IPv6 address
 by its /64), and keep a keyed HMAC of it, never the address: a stable
 pseudonym for as long as its key lasts - whoever holds the key can test an
@@ -461,14 +481,21 @@ characters or more:
 
 Set the rule first - a site without the file pays the header no heed - then
 the file: the other way round, every visitor counts as their edge until the
-rule is there; changing the secret, likewise. Without the file, or with a
-value that is not a string with something in it, the site believes
-`CF-Connecting-IP` from the trusted proxies alone, as before. A file PHP
-cannot run is said in PHP's error log (`[config]
-backend/config/cloudflare.local.php cannot be read (...)`: its error's kind
-and line, never its contents) and passed over - never a reason for "not set
-up". The secret is never shown or logged; keep a copy off the server, with
-the other settings.
+rule is there; changing the secret, likewise. Without the file, or with one
+read cleanly whose value is not a string with something in it, the site
+believes `CF-Connecting-IP` from the trusted proxies alone, as before. **A
+file there that cannot be read cleanly fails closed** (since 2026-10-18, the
+IAM's rule case for case): one that prints anything as PHP reads it - a
+byte-order mark or a line before its `<?php`, no `<?php` line, text after a
+closing tag - or that PHP cannot open, parse or run stands for a secret no
+request carries, so every request from Cloudflare's ranges counts as the
+edge it came from until it is mended; the site keeps running, and it is
+never a reason for "not set up". PHP's error log says so at most once a day
+(`[config] backend/config/cloudflare.local.php prints N bytes of its own
+(…): no request carries its secret …`, or `cannot be read (…)`: its fault
+and byte count or its error's kind and line, never its contents). The
+secret is never shown or logged; keep a copy off the server, with the other
+settings.
 
 `backend/storage/cache/` holds the visitors' address secret
 (`visitor-address.key`, made the first time; losing it only restarts the
@@ -546,7 +573,9 @@ copy before a migration, and the strings of a language the owner deleted
 (`academy-before-language-delete-<code>-<time>.json`). A copy of everybody
 also holds the app's words as the owner reworded them (`translations`); a
 restore passes them over, and on a computer `php backend/translations.php
---import <code> <file>` takes a language's strings from it. Download them by
+--import <code> <file>` takes a language's strings from it. Each is written
+for the site's user alone (0600, in a folder made 0700, since 2026-10-18).
+Download them by
 FTP now and then: they are the only copy outside the host's database. They do
 not restore on the site; one restores on a computer with
 `php backend/manage.php --restore=FILE`.

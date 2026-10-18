@@ -6,18 +6,32 @@ import { FakeAuthClient } from '@anotoki/lib/auth/testing';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { AppComponent } from './app.component';
 import { provideAuth } from './core/auth/auth.config';
 import { AuthService } from './core/auth/auth.service';
 import { ChangelogService } from './core/changelog/changelog.service';
 import { provideFeedback } from './core/feedback.config';
 import { provideKit } from './core/kit.config';
+import { NoticeService } from './core/notice/notice.service';
 import { provideKitEnglish } from './core/testing/kit-english';
 import { provideTestSiteStatus } from './core/testing/site-status';
 import { KanjiStateService } from './kanji/kanji-state.service';
 
-const ENGLISH = { 'topbar.exam': 'Exam', 'anotoki.language.button': 'Language: {name} ({code})' };
-const SLOVAK = { 'topbar.exam': 'Skúška', 'anotoki.language.button': 'Jazyk: {name} ({code})' };
+const ENGLISH = {
+  'topbar.exam': 'Exam',
+  'topbar.kanjiDue.one': '{count} review due',
+  'topbar.kanjiDue.few': '{count} reviews due',
+  'topbar.kanjiDue.other': '{count} reviews due',
+  'anotoki.language.button': 'Language: {name} ({code})',
+};
+const SLOVAK = {
+  'topbar.exam': 'Skúška',
+  'topbar.kanjiDue.one': '{count} opakovanie čaká',
+  'topbar.kanjiDue.few': '{count} opakovania čakajú',
+  'topbar.kanjiDue.other': '{count} opakovaní čaká',
+  'anotoki.language.button': 'Jazyk: {name} ({code})',
+};
 
 /** These specs' own client id: the client's storage listeners of other specs never hear their tabs. */
 const CLIENT = 'academy-test-app';
@@ -149,11 +163,12 @@ describe('AppComponent: the bar above, the foot below — in every state', () =>
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const el = await draw();
     expect(el.firstElementChild?.tagName.toLowerCase(), 'the bar first').toBe('app-top-bar');
-    expect(Array.from(el.children, (child) => child.tagName.toLowerCase()), 'the bar first, the foot last - then the kit’s question, drawn only when asked').toEqual([
+    expect(Array.from(el.children, (child) => child.tagName.toLowerCase()), 'the bar first, the foot last - then the kit’s question and the app’s notice, drawn only when asked').toEqual([
       'app-top-bar',
       'anotoki-site-gate',
       'footer',
       'anotoki-confirm-host',
+      'app-notice-host',
     ]);
     expect(el.querySelector('footer app-version')).not.toBeNull();
     expect(links(el)).toEqual(['Kanji', 'Exam']);
@@ -162,14 +177,63 @@ describe('AppComponent: the bar above, the foot below — in every state', () =>
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it('the foot: the version, What’s new and Send feedback, then the family’s Terms · Privacy · Contact to the legal pages’ own paths, in a nav of their own', async () => {
+    const el = await draw();
+    const legal = el.querySelector('footer anotoki-legal-links');
+    expect(legal?.querySelector('nav')?.getAttribute('aria-label')).toBe('Legal');
+    expect(Array.from(legal?.querySelectorAll('a') ?? [], (a) => [words(a), a.getAttribute('href')])).toEqual([
+      ['Terms', '/terms'],
+      ['Privacy', '/privacy'],
+      ['Contact', '/contact'],
+    ]);
+    expect(el.querySelector('footer .foot-row app-version'), 'above them, the version and its news').not.toBeNull();
+  });
+
+  it('the kit’s question and the app’s notice keep every key pressed in them from the page — where the reviews and the exam listen: Enter there answers no card and hands no paper in', async () => {
+    const el = await draw();
+    const reached: string[] = [];
+    const onDocument = (event: KeyboardEvent): void => void reached.push(event.key);
+    document.addEventListener('keydown', onDocument);
+    try {
+      const question = TestBed.inject(ConfirmService);
+      const asked = question.ask({ title: 'Stop now?', message: '1 half-answered item will not be saved.' });
+      await settle();
+      const no = el.querySelector<HTMLButtonElement>('anotoki-confirm-host [data-answer="no"]')!;
+      expect(words(el.querySelector('anotoki-confirm-host h2'))).toBe('Stop now?');
+      no.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      no.click();
+      expect(await asked).toBe(false);
+
+      const notice = TestBed.inject(NoticeService);
+      const told = notice.tell({ title: 'The report did not open', message: 'Could not open it: No such report.', detail: 'Not found' });
+      await settle();
+      const ok = el.querySelector<HTMLButtonElement>('app-notice-host [data-answer="ok"]')!;
+      expect([words(el.querySelector('app-notice-host h2')), words(el.querySelector('[data-notice-message]')), words(ok)]).toEqual([
+        'The report did not open',
+        'Could not open it: No such report.',
+        'OK',
+      ]);
+      expect(el.querySelector('[data-notice-detail]')?.getAttribute('lang'), 'the server’s reason, as it came').toBe('en');
+      ok.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      ok.click();
+      await told;
+      await settle();
+      expect(el.querySelector('app-notice-host anotoki-dialog'), 'OK closes it').toBeNull();
+      expect(reached, 'no key reached the page').toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', onDocument);
+    }
+  });
+
   it('in the language on the page: the exam is worded, the term “Kanji” and the app’s name are what they are everywhere', async () => {
     const el = await draw([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH })], 125);
-    expect(links(el)).toEqual(['Kanji 125', 'Skúška']);
+    // The number seen alone; what it counts heard after the link's name, in the page's language (badgeLabel: never the kit's "125 new").
+    expect(links(el)).toEqual(['Kanji 125, 125 opakovaní čaká', 'Skúška']);
     expect(el.querySelector('app-top-bar nav.anotoki-top-bar__nav .anotoki-top-bar__badge')?.textContent?.trim()).toBe('125');
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(links(el)).toEqual(['Kanji 125', 'Exam']);
+    expect(links(el)).toEqual(['Kanji 125, 125 reviews due', 'Exam']);
   });
 
   it('the sections show only while the app can be used: a copy that is not set up has the bar, the foot and the library’s page — never installed, with the way to the setup page', async () => {
@@ -358,6 +422,34 @@ describe('AppComponent: nobody signed in', () => {
     await TestBed.inject(ApplicationRef).whenStable();
     expect(el.querySelector('#signInFailure')).toBeNull();
     expect(el.querySelector('router-outlet'), 'and the page, for a visitor').not.toBeNull();
+  });
+
+  it('a legal page (Terms, Privacy, Contact) is anybody’s: signed out, it is drawn in the page’s place - Sign in in the bar, no card -, and any other page is not (on the way to the IAM)', async () => {
+    const el = await draw([], 0, false);
+    const router = TestBed.inject(Router);
+    for (const path of ['/terms', '/privacy', '/contact']) {
+      await router.navigateByUrl(path);
+      await settle();
+      expect(el.querySelector('#a-page'), path).not.toBeNull();
+      expect(el.querySelector('#signin'), ).toBeNull();
+      expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in'), ).not.toBeNull();
+      expect(links(el), ).toEqual([]);
+    }
+    await router.navigateByUrl('/kanji');
+    await settle();
+    expect(el.querySelector('#a-page'), 'any other page: nothing drawn').toBeNull();
+    expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in')).toBeNull();
+  });
+
+  it('visiting with a failed sign-in standing: a legal page is drawn all the same, the failure’s screen back on any other page', async () => {
+    const el = await draw([refusedSignIn('access_denied')], 0, false, { loginRequired: false });
+    expect(await failureShown(el)).not.toBeNull();
+    await TestBed.inject(Router).navigateByUrl('/privacy');
+    await settle();
+    expect([el.querySelector('#a-page') !== null, el.querySelector('#signInFailure')]).toEqual([true, null]);
+    await TestBed.inject(Router).navigateByUrl('/exam');
+    await settle();
+    expect(el.querySelector('#signInFailure')).not.toBeNull();
   });
 
   it('signed in after all - in another tab - while the failure is said: it is put away, and the app is theirs', async () => {

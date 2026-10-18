@@ -153,18 +153,16 @@ function translations_ready(): bool
  * backend/storage/backups/academy-before-language-delete-<code>-<time>.json:
  * one flat JSON object, a key a line (the library's TranslationFile, the
  * export's format). Put back with php backend/translations.php --import
- * <code> <file>, once the language is there again. Returns the file.
+ * <code> <file>, once the language is there again. Returns the file - the
+ * site's own user's alone (0600), as every copy in the backup folder.
  *
  * @param array<string, string> $strings
  */
 function translations_copy(string $code, array $strings): string
 {
-    $dir = backup_dir();
-    if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-        throw new RuntimeException("Cannot create the backup folder $dir");
-    }
+    $dir = backup_folder();
     $file = "$dir/" . TRANSLATIONS_COPY_PREFIX . "$code-" . utc_stamp(now_ms()) . '.json';
-    file_put_atomic($file, TranslationFile::text($strings));
+    file_put_atomic($file, TranslationFile::text($strings), true);
     return $file;
 }
 

@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { Notice, NoticeService } from '../notice/notice.service';
 import { AuthService } from './auth.service';
 import { failureKey, fileNameOf, lockDown, PrivateLinksService, REPORT_CSP } from './private-links.service';
 import { derivedFromState } from '../testing/auth-states';
@@ -53,12 +54,14 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
   const ENGLISH = {
     'report.opening': 'Opening…',
     'report.openFailed': 'Could not open it: {reason}',
+    'report.openFailedTitle': 'The report did not open',
     'report.notFound': 'No such report.',
     'error.unknown': 'Something went wrong.',
   };
   const SLOVAK = {
     'report.opening': 'Otvára sa…',
     'report.openFailed': 'Nepodarilo sa to otvoriť: {reason}',
+    'report.openFailedTitle': 'Správa sa neotvorila',
     'report.notFound': 'Taká správa neexistuje.',
     'error.unknown': 'Niečo sa pokazilo.',
   };
@@ -74,7 +77,9 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
   let answer: () => Promise<Response>;
   let tab: Tab;
   let opened: ReturnType<typeof vi.spyOn>;
-  let alerted: ReturnType<typeof vi.spyOn>;
+  let box: ReturnType<typeof vi.spyOn>;
+  /** The app's notices raised (NoticeService, drawn with the kit's dialog in the app's root), in order. */
+  let told: Notice[];
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -87,9 +92,23 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     });
     tab = { document: { title: '' }, opener: window, location: { replace: vi.fn() }, close: vi.fn() };
     opened = vi.spyOn(window, 'open').mockImplementation(() => tab as unknown as Window);
-    alerted = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    // Never the browser's own box.
+    box = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    told = [];
+    // On the prototype: a test overrides a provider before anything is injected.
+    const tell = NoticeService.prototype.tell;
+    vi.spyOn(NoticeService.prototype, 'tell').mockImplementation(function (this: NoticeService, said: Notice) {
+      told.push(said);
+      return tell.call(this, said);
+    });
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    try {
+      expect(box, 'never the browser’s own box').not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 
   it('a report that is not there: the waiting tab was named in the reader’s language, is closed, and the dialog says so in it — nothing of the server’s English', async () => {
     answer = () => Promise.resolve(new Response('No such report', { status: 404, headers: { 'Content-Type': 'text/plain' } }));
@@ -98,7 +117,8 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     expect(tab.document.title).toBe('Otvára sa…');
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(tab.location.replace).not.toHaveBeenCalled();
-    expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.']]);
+    expect(told).toEqual([{ title: 'Správa sa neotvorila', message: 'Nepodarilo sa to otvoriť: Taká správa neexistuje.' }]);
+    expect(TestBed.inject(NoticeService).pending()?.message, 'drawn until it is closed').toBe('Nepodarilo sa to otvoriť: Taká správa neexistuje.');
   });
 
   it('a visitor’s report (studying without signing in): fetched as the visitor’s (the library’s fetch() sends the key this browser holds) — and a key the server no longer knows is forgotten', async () => {
@@ -139,8 +159,8 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     answer = () =>
       Promise.resolve(new Response(JSON.stringify({ error: 'Something went wrong on the server. SQLSTATE[08006]', code: 'server_error' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
     await TestBed.inject(PrivateLinksService).open('/report/12');
-    expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']]);
-    expect(String(alerted.mock.calls[0][0])).not.toContain('SQLSTATE');
+    expect(told.map((said) => said.message)).toEqual(['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']);
+    expect(JSON.stringify(told)).not.toContain('SQLSTATE');
   });
 
   it('the site being updated (or not set up after all): the waiting tab closed, and no dialog — the anotoki library’s page says what is going on', async () => {
@@ -151,7 +171,7 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     }
     expect(tab.close).toHaveBeenCalledTimes(2);
     expect(tab.location.replace).not.toHaveBeenCalled();
-    expect(alerted).not.toHaveBeenCalled();
+    expect(told).toEqual([]);
   });
 
   it('no answer at all: the general sentence on the page, what it was in the console', async () => {
@@ -159,8 +179,8 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     answer = () => Promise.reject(new TypeError('Failed to fetch'));
     await TestBed.inject(PrivateLinksService).open('/report/12');
     expect(tab.close).toHaveBeenCalledTimes(1);
-    expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']]);
-    expect(String(alerted.mock.calls[0][0])).not.toContain('Failed to fetch');
+    expect(told.map((said) => said.message)).toEqual(['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']);
+    expect(JSON.stringify(told)).not.toContain('Failed to fetch');
     expect(logged).toHaveBeenCalledTimes(1);
   });
 
@@ -171,7 +191,10 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await links.open('/report/12');
     expect(tab.document.title).toBe('Opening…');
-    expect(alerted.mock.calls).toEqual([['Nepodarilo sa to otvoriť: Taká správa neexistuje.'], ['Could not open it: No such report.']]);
+    expect(told).toEqual([
+      { title: 'Správa sa neotvorila', message: 'Nepodarilo sa to otvoriť: Taká správa neexistuje.' },
+      { title: 'The report did not open', message: 'Could not open it: No such report.' },
+    ]);
   });
 
   it('a report that comes is opened from memory with its no-script policy, and nothing is said', async () => {
@@ -186,7 +209,7 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
       expect(tab.location.replace).toHaveBeenCalledWith('blob:report-1');
       expect(await pages[0].text()).toBe(`<!doctype html>${META}<title>Report</title>`);
       expect(tab.close).not.toHaveBeenCalled();
-      expect(alerted).not.toHaveBeenCalled();
+      expect(told).toEqual([]);
     } finally {
       urls.createObjectURL = real;
     }

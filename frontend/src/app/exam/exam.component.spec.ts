@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { SiteGateComponent, SitePagesDirective, SiteStatus } from '@anotoki/lib/migrations';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { ApiError, ApiService } from '../core/api/api.service';
 import { Attempt, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
@@ -13,12 +14,14 @@ import { PrivateLinksService } from '../core/auth/private-links.service';
 import { fmtDateTime } from '../core/format';
 import { TimeWording } from '../core/i18n/time-wording';
 import { provideKit } from '../core/kit.config';
+import { NoticeService } from '../core/notice/notice.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { drawnFoot } from '../core/testing/foot-controls';
 import { provideTestSiteStatus } from '../core/testing/site-status';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { TopBarComponent } from '../top-bar/top-bar.component';
-import { ExamComponent, KEPT_PAPER_KEY, KeptPaper } from './exam.component';
+import { ExamComponent, KeptPaper } from './exam.component';
+import { KEPT_PAPER_KEY } from './kept-paper-key';
 import { derivedFromState } from '../core/testing/auth-states';
 import { provideAuth } from '../core/auth/auth.config';
 
@@ -111,9 +114,13 @@ const ENGLISH: Record<string, string> = {
   'exam.error.noQuestions': 'No questions match that scope.',
   'exam.error.score': 'Could not score the test: {reason}',
   'exam.finishNow': 'Finish now',
-  'exam.confirmFinish.one': '1 question unanswered. Finish and score anyway?',
-  'exam.confirmFinish.few': '{count} questions unanswered. Finish and score anyway?',
-  'exam.confirmFinish.other': '{count} questions unanswered. Finish and score anyway?',
+  'exam.confirmFinish.one': '1 question is unanswered.',
+  'exam.confirmFinish.few': '{count} questions are unanswered.',
+  'exam.confirmFinish.other': '{count} questions are unanswered.',
+  'exam.finishTitle': 'Finish and score anyway?',
+  'exam.backToPaper': 'Back to the test',
+  'exam.error.scoreTitle': 'Your answers stay here',
+  'exam.result.listenTo': 'listen to question {n}',
   'exam.playRecording': 'Play the recording',
   'exam.replayHint': 'press {key} to replay',
   'exam.back': 'Back',
@@ -184,9 +191,15 @@ const SLOVAK: Record<string, string> = {
   'exam.error.load': 'Skúšku sa nepodarilo načítať: {reason}',
   'exam.error.noSections': 'Vyber aspoň jednu oblasť.',
   'exam.error.score': 'Test sa nepodarilo vyhodnotiť: {reason}',
-  'exam.confirmFinish.one': '1 otázka je bez odpovede. Ukončiť a vyhodnotiť aj tak?',
-  'exam.confirmFinish.few': '{count} otázky sú bez odpovede. Ukončiť a vyhodnotiť aj tak?',
-  'exam.confirmFinish.other': '{count} otázok je bez odpovede. Ukončiť a vyhodnotiť aj tak?',
+  'exam.confirmFinish.one': '1 otázka je bez odpovede.',
+  'exam.confirmFinish.few': '{count} otázky sú bez odpovede.',
+  'exam.confirmFinish.other': '{count} otázok je bez odpovede.',
+  'exam.finishTitle': 'Odovzdať a vyhodnotiť aj tak?',
+  'exam.finish': 'Odovzdať',
+  'exam.backToPaper': 'Späť k testu',
+  'exam.error.scoreTitle': 'Tvoje odpovede zostávajú tu',
+  'exam.result.listenTo': 'vypočuť si otázku {n}',
+  'exam.result.listen': 'vypočuť si',
   'exam.playRecording': 'Prehrať nahrávku',
   'exam.replayHint': 'stlač {key} a nahrávka sa prehrá znova',
   'exam.result.bar': '{pct} % ({right}/{total})',
@@ -348,8 +361,11 @@ describe('ExamComponent', () => {
   let host: HTMLElement;
   let i18n: TranslationService;
   let api: { meta: ReturnType<typeof vi.fn>; paper: ReturnType<typeof vi.fn>; submit: ReturnType<typeof vi.fn>; attempts: ReturnType<typeof vi.fn> };
-  let confirmBox: ReturnType<typeof vi.fn>;
-  let alertBox: ReturnType<typeof vi.fn>;
+  /** The kit's question the page asks (ConfirmService), if any: its words; answered with answer(). */
+  const asked = () => TestBed.inject(ConfirmService).pending();
+  const answer = (yes: boolean) => TestBed.inject(ConfirmService).settle(yes);
+  /** The app's notice the page raises (NoticeService), if any. */
+  const told = () => TestBed.inject(NoticeService).pending();
 
   const one = (selector: string) => host.querySelector<HTMLElement>(selector)!;
   const all = (selector: string) => Array.from(host.querySelectorAll<HTMLElement>(selector));
@@ -432,10 +448,9 @@ describe('ExamComponent', () => {
     localStorage.clear();
     sessionStorage.clear();
     api = { meta: vi.fn().mockResolvedValue(META), paper: vi.fn(), submit: vi.fn().mockResolvedValue(RESULT), attempts: vi.fn().mockResolvedValue([]) };
-    confirmBox = vi.fn(() => true);
-    alertBox = vi.fn();
-    vi.stubGlobal('confirm', confirmBox);
-    vi.stubGlobal('alert', alertBox);
+    // The browser's own boxes are never raised any more (the kit's question and the app's notice are): any that were would fail the test.
+    vi.stubGlobal('confirm', vi.fn(() => { throw new Error('the browser’s confirm() was raised'); }));
+    vi.stubGlobal('alert', vi.fn(() => { throw new Error('the browser’s alert() was raised'); }));
     // jsdom has neither a player nor a page to scroll.
     vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
@@ -464,7 +479,7 @@ describe('ExamComponent', () => {
         'Could you pass a test on the whole course? Built from its vocabulary, all 317 kanji, the conjugation charts, hand-written grammar questions and spoken vocabulary — Part 1 (Lessons 1–12) and Part 2 (13–23).',
       );
       expect(texts('#sizeChips button')).toEqual(['Quick check · 40', 'Standard · 120', 'Full exam · 250', 'Marathon · 500']);
-      expect(all('#sizeChips button').map((chip) => chip.getAttribute('data-size'))).toEqual(['40', '120', '250', '500']);
+      expect(all('#sizeChips button').map((chip) => chip.getAttribute('data-value'))).toEqual(['40', '120', '250', '500']);
       expect(text('#startBtn')).toBe('Start the test');
       expect(text('#historyBtn')).toBe('Past attempts');
       expect(one('#candidate input').getAttribute('placeholder')).toBe('optional');
@@ -501,11 +516,15 @@ describe('ExamComponent', () => {
       await open();
       expect(texts('#bookChips button')).toEqual(['Part 1', 'Part 2']);
       expect(all('#bookChips button').map((chip) => chip.title)).toEqual(['5,204 questions · lessons 0–12', '6,319 questions · lessons 13–23']);
-      expect(texts('#sectionChips button')).toEqual(SECTIONS.map(([, english]) => english));
+      expect(texts('#sectionChips [data-section]')).toEqual(SECTIONS.map(([, english]) => english));
       expect(one('#sectionChips [data-section="particle"]').title).toBe('1,204 available');
       // Part 1 is chosen at first: its lessons only.
-      expect(texts('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
-      expect(all('#lessonChips button').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lesson 1', 'Lesson 6']);
+      expect(texts('#lessonChips [data-lesson]')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
+      expect(all('#lessonChips [data-lesson]').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lesson 1', 'Lesson 6']);
+      // All and none before each row: the kit's quiet link buttons.
+      expect(texts('#lessonChips .choice-actions button')).toEqual(['all', 'none']);
+      expect(texts('#sectionChips .choice-actions button')).toEqual(['all', 'none']);
+      expect(one('#sectionChips [data-all="sections"]').classList.contains('anotoki-button--link')).toBe(true);
       expect(host.textContent).not.toContain('server');
       expect(host.innerHTML).not.toContain('server');
     });
@@ -513,22 +532,27 @@ describe('ExamComponent', () => {
     it('its choices are the kit’s buttons, pressed as chosen: one part at least, one length, the lessons and the sections each on or off', async () => {
       await open();
       const pressed = (selector: string) => all(selector).filter((button) => button.getAttribute('aria-pressed') === 'true').map(said);
+      // The length is one of four: the kit's choice chips, radios.
+      const checked = (selector: string) => all(selector).filter((button) => button.getAttribute('aria-checked') === 'true').map(said);
       expect(pressed('#bookChips button')).toEqual(['Part 1']);
-      expect(pressed('#sizeChips button')).toEqual(['Full exam · 250']);
-      expect(one('#sizeChips [data-size="250"]').classList.contains('anotoki-button--primary')).toBe(true);
-      expect(pressed('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
-      expect(pressed('#sectionChips button')).toHaveLength(SECTIONS.length);
-      expect(all('[role="group"][aria-labelledby]').map((group) => said(host.querySelector('#' + group.getAttribute('aria-labelledby'))))).toEqual(['Part', 'Paper length', 'Lessons', 'Sections']);
+      expect(checked('#sizeChips [role="radio"]')).toEqual(['Full exam · 250']);
+      expect(one('#sizeChips [data-value="250"]').classList.contains('anotoki-chip--on')).toBe(true);
+      expect(pressed('#lessonChips [data-lesson]')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
+      expect(pressed('#sectionChips [data-section]')).toHaveLength(SECTIONS.length);
+      // Each row named by its label: the parts, the lessons and the sections the kit's labelled group, the length its radio group.
+      expect(
+        all('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').map((group) => said(host.querySelector('#' + group.getAttribute('aria-labelledby')))),
+      ).toEqual(['Part', 'Paper length', 'Lessons', 'Sections']);
 
       one('#bookChips [data-book="1"]').click(); // the only part chosen: it stays
-      one('#sizeChips [data-size="40"]').click();
+      one('#sizeChips [data-value="40"]').click();
       one('#lessonChips [data-lesson="6"]').click();
       one('#sectionChips [data-section="particle"]').click();
       await settle();
       expect(pressed('#bookChips button'), 'never nothing').toEqual(['Part 1']);
-      expect(pressed('#sizeChips button')).toEqual(['Quick check · 40']);
-      expect(pressed('#lessonChips button')).toEqual(['Greetings (あいさつ)', 'L1']);
-      expect(pressed('#sectionChips button')).toHaveLength(SECTIONS.length - 1);
+      expect(checked('#sizeChips [role="radio"]')).toEqual(['Quick check · 40']);
+      expect(pressed('#lessonChips [data-lesson]')).toEqual(['Greetings (あいさつ)', 'L1']);
+      expect(pressed('#sectionChips [data-section]')).toHaveLength(SECTIONS.length - 1);
       expect(one('#sectionChips [data-section="particle"]').getAttribute('aria-pressed')).toBe('false');
 
       one('#bookChips [data-book="2"]').click();
@@ -540,10 +564,10 @@ describe('ExamComponent', () => {
       await open('sk');
       expect(texts('#bookChips button')).toEqual(['Časť 1', 'Časť 2']);
       expect(all('#bookChips button').map((chip) => chip.title)).toEqual([`5${NBSP}204 otázok · lekcie 0 – 12`, `6${NBSP}319 otázok · lekcie 13 – 23`]);
-      expect(texts('#sectionChips button')).toEqual(SECTIONS.map(([, , slovak]) => slovak));
+      expect(texts('#sectionChips [data-section]')).toEqual(SECTIONS.map(([, , slovak]) => slovak));
       expect(one('#sectionChips [data-section="particle"]').title).toBe(`dostupné otázky: 1${NBSP}204`);
-      expect(texts('#lessonChips button')).toEqual(['Pozdravy (あいさつ)', 'L1', 'L6']);
-      expect(all('#lessonChips button').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lekcia 1', 'Lekcia 6']);
+      expect(texts('#lessonChips [data-lesson]')).toEqual(['Pozdravy (あいさつ)', 'L1', 'L6']);
+      expect(all('#lessonChips [data-lesson]').map((chip) => chip.getAttribute('title'))).toEqual([null, 'Lekcia 1', 'Lekcia 6']);
       expect(texts('#sizeChips button')[0]).toBe('Rýchla kontrola · 40');
 
       const kana = one('#lessonChips [data-lesson="0"] span[lang]');
@@ -772,35 +796,45 @@ describe('ExamComponent', () => {
 
   /* ----------------------------------------------------------- dialogs */
 
-  describe('the native dialogs', () => {
-    it('finishing with questions unanswered asks first, worded when it is raised: a plural family', async () => {
-      confirmBox.mockReturnValue(false);
+  describe('the kit’s question and the app’s notice', () => {
+    it('finishing with questions unanswered asks first - the kit’s question, worded when it is raised: a plural family, Finish or back to the test', async () => {
       await open();
       await start([question(1), question(2), question(3)]);
       one('#quitBtn').click();
-      expect(confirmBox).toHaveBeenLastCalledWith('3 questions unanswered. Finish and score anyway?');
-      expect(api.submit, 'Cancel: nothing is sent').not.toHaveBeenCalled();
+      expect(asked()).toMatchObject({ title: 'Finish and score anyway?', message: '3 questions are unanswered.', confirmLabel: 'Finish', cancelLabel: 'Back to the test' });
+      expect(asked()?.tone, 'handing in is no danger').toBeUndefined();
+      answer(false);
+      await settle();
+      expect(api.submit, 'back to the test: nothing is sent').not.toHaveBeenCalled();
+      expect(one('#test').hidden, 'the paper stays').toBe(false);
 
       // Set as the answers are kept: choosing an option moves on by itself a moment later.
       fixture.componentInstance.answers.set({ q1: { choice: 0, ms: 5 }, q2: { choice: 3, ms: 5 } });
       one('#quitBtn').click();
-      expect(confirmBox).toHaveBeenLastCalledWith('1 question unanswered. Finish and score anyway?');
+      expect(asked()?.message).toBe('1 question is unanswered.');
+      answer(true);
+      await settle();
+      expect(api.submit, 'Finish: handed in').toHaveBeenCalledTimes(1);
     });
 
     it('in Slovak the verb agrees with the count too', async () => {
-      confirmBox.mockReturnValue(false);
       await open('sk');
       await start([question(1), question(2), question(3), question(4), question(5)]);
       one('#quitBtn').click();
-      expect(confirmBox).toHaveBeenLastCalledWith('5 otázok je bez odpovede. Ukončiť a vyhodnotiť aj tak?');
+      expect(asked()).toMatchObject({ title: 'Odovzdať a vyhodnotiť aj tak?', message: '5 otázok je bez odpovede.', confirmLabel: 'Odovzdať', cancelLabel: 'Späť k testu' });
+      answer(false);
       fixture.componentInstance.answers.set({ q1: { choice: 0, ms: 5 } });
       one('#quitBtn').click();
-      expect(confirmBox).toHaveBeenLastCalledWith('4 otázky sú bez odpovede. Ukončiť a vyhodnotiť aj tak?');
+      expect(asked()?.message).toBe('4 otázky sú bez odpovede.');
+      answer(false);
 
-      // The words are made at the moment the dialog is raised: the next one is in the new language.
+      // The words are made at the moment the question is asked: the next one is in the new language.
       await i18n.setLanguage('en', { remember: false });
       one('#quitBtn').click();
-      expect(confirmBox).toHaveBeenLastCalledWith('4 questions unanswered. Finish and score anyway?');
+      expect(asked()).toMatchObject({ title: 'Finish and score anyway?', message: '4 questions are unanswered.' });
+      answer(false);
+      await settle();
+      expect(api.submit).not.toHaveBeenCalled();
     });
 
     it('a paper open and not handed in is what a sign-out would lose (SavesInFlight); handed in, nothing; scored, the save is waited for', async () => {
@@ -825,13 +859,13 @@ describe('ExamComponent', () => {
       expect(saves.losses(), 'the page gone: it watches nothing any more').toEqual([]);
     });
 
-    it('every question answered: no dialog, the paper is handed in', async () => {
+    it('every question answered: no question, the paper is handed in', async () => {
       await open();
       await start([question(1)]);
       fixture.componentInstance.choose(1);
       one('#quitBtn').click();
       await settle();
-      expect(confirmBox).not.toHaveBeenCalled();
+      expect(asked()).toBeNull();
       expect(api.submit).toHaveBeenCalledTimes(1);
       expect(api.submit.mock.calls[0][0].spec, 'the spec echoed as it came').toEqual({ seed: 'abc' });
     });
@@ -844,20 +878,23 @@ describe('ExamComponent', () => {
       fixture.componentInstance.choose(1);
       one('#nextBtn').click();
       await settle();
-      expect(alertBox).toHaveBeenCalledTimes(1);
-      expect(alertBox).toHaveBeenLastCalledWith('Test sa nepodarilo vyhodnotiť: Odoslané odpovede nepatria k tomuto testu. Nič sa neuložilo.');
+      expect(told()).toMatchObject({
+        title: 'Tvoje odpovede zostávajú tu',
+        message: 'Test sa nepodarilo vyhodnotiť: Odoslané odpovede nepatria k tomuto testu. Nič sa neuložilo.',
+        detail: null,
+      });
       expect(one('#test').hidden, 'the paper stays on the screen').toBe(false);
       expect(one('#quitBtn').hasAttribute('disabled'), 'and can be handed in again').toBe(false);
     });
 
-    it('on the owner’s own computer the server’s reason follows the page’s words in the dialog', async () => {
+    it('on the owner’s own computer the server’s reason follows the page’s words in the notice, as it came', async () => {
       api.submit.mockRejectedValue(new ApiError('x', 500, { error: 'x', code: 'server_error', detail: 'Undefined index in score.php' }));
       await open();
       await start([question(1)]);
       fixture.componentInstance.choose(1);
       one('#nextBtn').click();
       await settle();
-      expect(alertBox).toHaveBeenLastCalledWith('Could not score the test: Something went wrong on the server.\n\nUndefined index in score.php');
+      expect(told()).toMatchObject({ message: 'Could not score the test: Something went wrong on the server.', detail: 'Undefined index in score.php' });
     });
   });
 
@@ -914,9 +951,10 @@ describe('ExamComponent', () => {
       exam()!.go(1);
       exam()!.toggleFlag();
       one('#quitBtn').click();
+      answer(true); // one question unanswered: handed in all the same
       await settle();
       expect(api.submit).toHaveBeenCalledTimes(1);
-      expect(alertBox, 'no error for a learner to read').not.toHaveBeenCalled();
+      expect(told(), 'no error for a learner to read').toBeNull();
       expect(exam(), 'the paper is taken down, to be handed in once the site is back').toBeNull();
       expect(text('anotoki-site-status h1')).toBe('The site is being updated');
       const paper = kept()!;
@@ -996,6 +1034,7 @@ describe('ExamComponent', () => {
       // Handed in, it is the paper it was: its spec, its start, its answers.
       exam.choose(0);
       one('#quitBtn').click();
+      answer(true); // its third question unanswered: handed in all the same
       await settle();
       const sent = api.submit.mock.calls[0][0];
       expect([sent.spec, sent.startedAt, sent.meta, sent.responses['q1'].choice, sent.responses['q2'].choice]).toEqual([{ seed: 'abc' }, startedAt, { candidate: 'Hana' }, 2, 0]);
@@ -1106,7 +1145,9 @@ describe('ExamComponent', () => {
       expect([said(label), label.getAttribute('lang')]).toEqual(['Otázka 1 · Počúvanie – slovo', 'sk']);
       expect(said(first.querySelector('.rq'))).toContain('Which word did you hear?');
       const listen = first.querySelector('.miniplay')!;
-      expect([listen.getAttribute('lang'), listen.getAttribute('aria-label'), said(listen)]).toEqual(['sk', 'Prehrať nahrávku', '▶ listen']);
+      // Named for what it shows (WCAG 2.5.3): its name begins with its words; the play mark is drawn, not heard.
+      expect([listen.getAttribute('lang'), listen.getAttribute('aria-label'), said(listen)]).toEqual(['sk', 'vypočuť si otázku 1', '▶ vypočuť si']);
+      expect(listen.querySelector('[aria-hidden="true"]')!.textContent).toBe('▶');
 
       expect(said(first.querySelector('.mine'))).toBe('Tvoja odpoveď: to eat');
       expect(first.querySelector('.mine b')!.getAttribute('lang')).toBe('en');

@@ -60,9 +60,9 @@ Always finish with the full PHP tests, and the full frontend tests when
   and the test file's line. `npm test` in `frontend/` first prints
   `catalog fixture: 1373 items`, then the build, then Vitest's `Test Files` /
   `Tests` lines. Report the real numbers of both (at the last count, on
-  2026-10-13, anotoki-lib 0.5 (PHP 0.5.2, Angular 0.5.0): 263 backend tests, on PHP 8.5; 436
-  frontend tests in 43 files (2026-10-12); 207 browser checks in `run.js`, 42 in
-  `setup.js`, 174 shots in `screens.js` — `docs/kb/testing.md`). The PHP tests must pass on
+  2026-10-18, anotoki-lib 0.6.2, both halves: 269 backend tests, on PHP 8.5; 451
+  frontend tests in 44 files; 215 browser checks in `run.js`, 42 in
+  `setup.js`, 218 shots of 35 screens in `screens.js` — `docs/kb/testing.md`). The PHP tests must pass on
   PHP 8.5 (the owner's rule of 2026-10-12); the host runs 8.2, so the code uses nothing 8.2 lacks.
 - `academy_test_template: updated (3 s)` at the start means `backend/data/`, a
   generator or a migration changed since the last run — expected.

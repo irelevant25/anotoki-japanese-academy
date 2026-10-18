@@ -6,6 +6,9 @@
  *             to it, with nothing of the app drawn or asked for on the way; a
  *             refused sign-in shows the anotoki library's screen (why, Try
  *             again, Back), and Try again signs in
+ *   legal     Terms, Privacy and Contact signed out: the family's pages with
+ *             the app's facts, the foot's links between them, no trip to the
+ *             IAM - which any other page still makes first
  *   kanji     lessons → quiz (romaji typed, one miss on purpose) → reviews
  *             (clock moved) → practice (+ "My answer was right") → item page →
  *             browse; on a review card the language chooser by keys, and Enter
@@ -13,7 +16,8 @@
  *   exam      a 40-question listening paper, answered and finished with the
  *             keys, scored (once, though Enter came twice), reported; on its
  *             last question the chooser and the bar's keys hand nothing in,
- *             and Sign out asks first
+ *             and Sign out asks first - the kit's question: no browser box is
+ *             ever raised
  *   the app   moving between its sections loads no page; What's new at the
  *             foot; the bar's menus by keys, a real Tab landing on their
  *             button, on a desktop and on a phone
@@ -71,7 +75,7 @@ const { isolate, startApp, closeAll, iamState, iamSession, plant, IAM, FRONTEND 
 isolate('academy-browser'); // before the server starts: a throwaway database
 
 const wk = require('wanakana');
-const { launch, newContext, watch, reporter, keyShaped, BAR, barLink, themeChoice, focusedOn, SHOTS } = require('./browser');
+const { launch, newContext, watch, reporter, keyShaped, BAR, barLink, themeChoice, focusedOn, answerQuestion, NOTICE, SHOTS } = require('./browser');
 
 /** The people of this run. Roles are the IAM's: everybody holds MEMBER, and MEMBER alone is a learner. */
 const LEA = { sub: 4101, name: 'lea', roles: ['MEMBER'] };
@@ -199,6 +203,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     decodeURIComponent(new URL(again.url()).pathname) === '/kanji/item/k:大' && againErrors.length === 0, again.url() + ' ' + againErrors.join(' | '));
   await deniedAgain.close();
 
+  /* ---------------------------------------------- the legal pages */
+  // Terms, Privacy and Contact are anybody's: signed out - sign-in required here - each opens with no trip to the
+  // IAM, the family's page with Japanese Academy's facts in the app's frame, and the foot's links go from one to
+  // another. Any other page still goes to the IAM first.
+  console.log('the legal pages, signed out');
+  const legalContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
+  const legalSent = [];
+  legalContext.on('request', (request) => legalSent.push(request.url()));
+  const legal = await legalContext.newPage();
+  const legalErrors = watch(legal);
+  const toTheIam = () => legalSent.some((url) => url.startsWith(`${IAM.issuer}/api/oidc/authorize`));
+  await legal.goto(app.base + '/privacy');
+  await legal.waitForSelector('anotoki-privacy-page h1', { timeout: 15000 });
+  ck('signed out, /privacy: the family’s page in the app’s frame - no trip to the IAM, Sign in in the bar, the foot’s links',
+    (await legal.textContent('anotoki-privacy-page h1')).trim() === 'Privacy policy' && !toTheIam()
+      && (await legal.isVisible(BAR.signInButton)) && (await legal.$('footer anotoki-legal-links')) !== null);
+  const storedNames = await legal.$$eval('[data-stored] code', (els) => els.map((el) => el.textContent.trim()));
+  ck('its facts are Japanese Academy’s: its stored items by name, the anotoki account’s Privacy page at the IAM it signs in with',
+    storedNames.includes('academy-exam-kept-paper') && storedNames.includes('japanese-academy-visitor')
+      && (await legal.getAttribute('[data-account-privacy]', 'href')) === `${IAM.issuer}/privacy`, storedNames.join(', '));
+  await legal.click('footer anotoki-legal-links a[href="/terms"]');
+  await legal.waitForSelector('anotoki-terms-page h1');
+  await legal.click('footer anotoki-legal-links a[href="/contact"]');
+  await legal.waitForSelector('anotoki-contact-page [data-open-feedback]');
+  ck('the foot’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
+    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(), legal.url());
+  await legal.click(BAR.brand);
+  await legal.waitForSelector(BAR.userButton, { timeout: 15000 });
+  ck('the home page from there is a learner’s: to the IAM first, and back signed in', toTheIam() && new URL(legal.url()).pathname === '/', legal.url());
+  ck('no browser errors on the legal pages', legalErrors.length === 0, legalErrors.join(' | '));
+  await legalContext.close();
+
   /* ---------------------------------------------------- the study flow */
   // on her page, or on another's (pg: the visitors' part)
   async function card(pg = page) {
@@ -323,7 +359,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The lesson ran over the dashboard, so the address is still /kanji, the
   // same as the Dashboard link's: clicking it must still bring the dashboard back.
   ck('the address stayed /kanji', new URL(page.url()).pathname === '/kanji', page.url());
-  await page.click('.subnav a[data-route=""]');
+  await page.click('.subnav a[href="/kanji"]');
   ck('the Dashboard link works after a lesson started there',
     await page.waitForSelector('.cards3', { timeout: 3000 }).then(() => true, () => false));
   let p = await progressOf(LEA);
@@ -435,7 +471,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await next();
   }
   ck('the finished practice is still saving', (await page.textContent('.s-feedback')) === 'Saving…');
-  await page.click('.subnav a[data-route=""]');
+  await page.click('.subnav a[href="/kanji"]');
   await page.waitForSelector('.cards3');
   await page.waitForTimeout(2500); // the save lands meanwhile
   ck('a late save leaves the dashboard alone',
@@ -453,14 +489,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   page.on('response', (r) => {
     if (r.url().includes('/audio/')) audio.push(`${r.status()} ${r.headers()['content-type']}`);
   });
-  // the browser's own question boxes: answered yes unless a check says otherwise
-  let onDialog = (d) => d.accept();
-  page.on('dialog', (d) => onDialog(d));
+  // The browser's own boxes are never raised - the kit's question asks, the app's notice tells -: each one would be
+  // counted here (and dismissed).
+  const boxes = [];
+  page.on('dialog', (d) => {
+    boxes.push(`${d.type()}: ${d.message()}`);
+    void d.dismiss();
+  });
   await open('/exam');
   await page.waitForSelector('#bookChips button');
-  await page.click('[data-size="40"]');
-  await page.click('details.adv summary');
-  for (const b of await page.$$('#sectionChips button')) {
+  await page.click('#sizeChips [data-value="40"]');
+  await page.click('#narrow .anotoki-disclosure__button');
+  for (const b of await page.$$('#sectionChips [data-section]')) {
     const id = await b.getAttribute('data-section');
     const on = (await b.getAttribute('aria-pressed')) === 'true';
     if (on !== id.startsWith('listening')) await b.click();
@@ -496,18 +536,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('Enter and Space on the bar over the last question: the bar’s controls work', barDidItsOwn(didOnPaper), JSON.stringify(didOnPaper));
   ck('and the paper is still open: nothing chosen, nothing handed in',
     (await paperOpen()) && (await page.$$('#gridNav .done')).length === total, `stored: ${stored()}`);
-  // Sign out over an open paper asks first; "no" keeps the paper and the sign-in
-  let asked = '';
-  onDialog = (d) => {
-    asked = d.message();
-    d.dismiss();
-  };
+  // Sign out over an open paper asks first - the kit's question, in a modal dialog; Cancel keeps the paper and the sign-in
   await page.click(BAR.userButton);
   await page.click(BAR.signOut);
-  await page.waitForTimeout(300);
-  onDialog = (d) => d.accept();
-  ck('Sign out over an open paper asks first', asked === 'Your exam is not finished, and signing out loses the test. Sign out anyway?', asked);
-  ck('and "no" keeps the paper and the sign-in', (await paperOpen()) && (await page.isVisible(BAR.userButton)));
+  const asked = await answerQuestion(page, false);
+  ck('Sign out over an open paper asks first: the kit’s question, its title asking, the sentence saying what goes',
+    asked?.title === 'Sign out anyway?' && asked?.message === 'Your exam is not finished, and signing out loses the test.' && asked?.no === 'Cancel' && asked?.yes === 'Sign out',
+    JSON.stringify(asked));
+  ck('and Cancel keeps the paper and the sign-in', (await paperOpen()) && (await page.isVisible(BAR.userButton)));
   await page.keyboard.press('Escape'); // the menu, if it stayed open
   await page.evaluate(() => document.activeElement && document.activeElement.blur()); // the paper's keys again
   await page.keyboard.press('Enter'); // the last question: Enter finishes
@@ -523,6 +559,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     (await app.api(reportHref, LEA)).status === 200 && (await fetch(app.base + reportHref)).status === 401 && (await app.api(reportHref, MAX)).status === 404);
   await page.click('#againBtn');
   ck('"New test": the setup again', (await until('#setup:not([hidden]) #bookChips button')) && !(await page.isVisible('#result')));
+  ck('no browser box was raised over the paper', boxes.length === 0, boxes.join(' | '));
 
   /* ---------------------------------------------------------- the app */
   console.log('the app');
@@ -537,7 +574,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.waitForSelector('#bookChips button');
   await page.click(barLink('/kanji'));
   await page.waitForSelector('.cards3');
-  await page.click('.subnav a[data-route="browse"]');
+  await page.click('.subnav a[href="/kanji/browse"]');
   await page.waitForSelector('.bgrid');
   await page.click(BAR.brand);
   await page.waitForSelector('.homecards');
@@ -709,10 +746,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.waitForSelector(BAR.userButton, { timeout: 15000 });
   await open('/exam');
   await page.waitForSelector('#bookChips button');
-  await page.click('[data-size="40"]');
+  await page.click('#sizeChips [data-value="40"]');
   await page.click('#startBtn');
   await page.waitForSelector('#test:not([hidden])');
   await page.click('#quitBtn');
+  const unanswered = await answerQuestion(page, true);
+  ck('Finish now with every question unanswered: the kit’s question, Finish or back to the paper',
+    unanswered?.title === 'Finish and score anyway?' && /^\d+ questions are unanswered\.$/.test(unanswered?.message ?? '') &&unanswered?.no === 'Back to the test' && unanswered?.yes === 'Finish',
+    JSON.stringify(unanswered));
   await page.waitForSelector('#result:not([hidden])', { timeout: 15000 });
   const [report] = await Promise.all([context.waitForEvent('page'), page.click('#reportLink')]);
   await report.waitForFunction(() => document.body && /By skill/.test(document.body.innerText), null, { timeout: 10000 });
@@ -781,6 +822,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('somebody else signs in there: this page loads again, as her', (await page.evaluate(() => window.stayed)) === undefined);
   await tab.close();
   ck('no browser errors after it', errors.length === 0, errors.join(' | '));
+  ck('and no browser box was ever raised on her page', boxes.length === 0, boxes.join(' | '));
   await iamState({ deny: false });
   await context.close();
 
@@ -830,7 +872,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const lessonCell = admin.locator('textarea[aria-label="Slovak: common.lesson"]');
   await lessonCell.fill('Lekcia {x}');
   await admin.click('anotoki-translations-page button[data-save]');
-  const refusal = admin.locator('.anotoki-translations-page__row:has(code.anotoki-translations-page__key-name:text-is("common.lesson")) .anotoki-translations-admin__field-error');
+  // The key's row by its name: since anotoki-lib 0.6.0 the page writes a key in parts (a <wbr> after each dot), which
+  // :text-is() - a match of one text node - no longer finds; the row's name as a whole does.
+  const refusal = admin
+    .locator('.anotoki-translations-page__row')
+    .filter({ has: admin.locator('code.anotoki-translations-page__key-name', { hasText: /^common\.lesson$/ }) })
+    .locator('.anotoki-translations-admin__field-error');
   const refusedText = await refusal.textContent({ timeout: 5000 }).catch(() => '');
   ck('a refused string: the reason stands beside its key', /^Nothing was saved\. .*\{x\}/.test(refusedText), refusedText);
 
@@ -1051,14 +1098,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const sitter = await asSitter.newPage();
   // her hand-in refused while the update waits: 503, on purpose
   const sitterErrors = watch(sitter, { ignore: [/\/api\/submit$/] });
-  const sitterAsked = [];
+  const sitterBoxes = [];
   sitter.on('dialog', (d) => {
-    sitterAsked.push(d.type());
-    void d.accept();
+    sitterBoxes.push(d.type());
+    void d.dismiss();
   });
   await sitter.goto(app.base + '/exam');
   await sitter.waitForSelector('#bookChips button');
-  await sitter.click('[data-size="40"]');
+  await sitter.click('#sizeChips [data-value="40"]');
   await sitter.click('#startBtn');
   await sitter.waitForSelector('#test:not([hidden])');
   for (const key of ['2', '3', 'f']) {
@@ -1095,12 +1142,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // Pia hands her paper in: refused (503 update_pending), and the library's page stands in - the gate takes the
   // exam down, which keeps the paper for her tab.
-  await sitter.click('#quitBtn'); // "questions unanswered: finish anyway?" - yes
+  await sitter.click('#quitBtn');
+  const sitterAsked = await answerQuestion(sitter, true); // "questions unanswered: finish anyway?" - Finish
   await sitter.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   ck('a paper open as the update lands: its hand-in refused with no error (the “unanswered?” question alone), the library’s page in its place, the paper kept for the tab',
-    (await libraryPage(sitter)).title === 'The site is being updated' && sitterAsked.join(',') === 'confirm'
+    (await libraryPage(sitter)).title === 'The site is being updated' && sitterAsked?.title === 'Finish and score anyway?'
+      && (await sitter.$(NOTICE)) === null && sitterBoxes.length === 0
       && (await sitter.$('app-exam')) === null && (await keptOf(sitter))?.idx === 2,
-    `${sitterAsked.join(',')} ${JSON.stringify(sitting)}`);
+    `${JSON.stringify(sitterAsked)} ${sitterBoxes.join(',')} ${JSON.stringify(sitting)}`);
 
   // A visitor - nobody signed in, sign-in required here: never sent to the IAM while the site is being updated.
   const asVisitor = await newContext(browser, { viewport: { width: 390, height: 844 } });
@@ -1243,9 +1292,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sitter.keyboard.press('1');
   await sitter.waitForFunction((done) => document.querySelectorAll('#gridNav .done').length === done + 1, sitting.done);
   await sitter.click('#quitBtn');
+  await answerQuestion(sitter, true); // the others unanswered: Finish
   await sitter.waitForSelector('#result:not([hidden])', { timeout: 15000 });
   ck('then handed in, and scored once', (await keptOf(sitter)) === null && Number(app.sql('SELECT count(*) AS n FROM exam_attempts WHERE user_id = ?', PIA.sub)[0].n) === 1);
-  ck('no browser errors on her tab but the refused hand-in', sitterErrors.length === 0, sitterErrors.join(' | '));
+  ck('no browser errors on her tab but the refused hand-in, and no browser box', sitterErrors.length === 0 && sitterBoxes.length === 0, [...sitterErrors, ...sitterBoxes].join(' | '));
   await asSitter.close();
 
   /* -------------------------------------------------------- time zones */
@@ -1316,7 +1366,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     vSent.push({ url: request.url(), method: request.method(), headers: Promise.race([request.allHeaders(), sleep(3000).then(() => request.headers())]).catch(() => request.headers()) });
   });
   const vPage = await vContext.newPage();
-  vPage.on('dialog', (d) => d.accept()); // the exam's "quit?"
+  const vBoxes = [];
+  vPage.on('dialog', (d) => {
+    vBoxes.push(d.type());
+    void d.dismiss();
+  });
   // a refused sign-in below comes back with its error, on purpose
   const vErrors = watch(vPage);
   const heldKey = () => vPage.evaluate((k) => localStorage.getItem(k), VISITOR_KEY);
@@ -1392,10 +1446,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // An exam handed in, and its report, as the visitor.
   await vOpen('/exam');
   await vPage.waitForSelector('#bookChips button');
-  await vPage.click('[data-size="40"]');
+  await vPage.click('#sizeChips [data-value="40"]');
   await vPage.click('#startBtn');
   await vPage.waitForSelector('#test:not([hidden])');
   await vPage.click('#quitBtn');
+  await answerQuestion(vPage, true); // the exam's "finish anyway?"
   await vPage.waitForSelector('#result:not([hidden])', { timeout: 15000 });
   ck('an exam as a visitor: scored and kept, the visitor’s', rowsOf('exam_attempts', visitor) === 1);
   const [vReport] = await Promise.all([vContext.waitForEvent('page'), vPage.click('#reportLink')]);
@@ -1479,7 +1534,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('never a token and a key together but on the move; never the key to the IAM',
     vAll.every((r) => !(r.headers['x-visitor-key'] && r.headers.authorization) || r.url === `${app.base}/api/visitor/move`)
       && !vAll.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-visitor-key']));
-  ck('no browser errors as a visitor, signing in and out', vErrors.length === 0, vErrors.join(' | '));
+  ck('no browser errors as a visitor, signing in and out, and no browser box', vErrors.length === 0 && vBoxes.length === 0, [...vErrors, ...vBoxes].join(' | '));
   await vContext.close();
 
   // The Slovak pass of a visitor's page, on a phone.

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { ApiService } from '../core/api/api.service';
 import { Attempt, BroughtBack, ExamMeta, Summary, VisitorMove } from '../core/api/api.types';
 import { AuthService } from '../core/auth/auth.service';
@@ -427,11 +428,15 @@ describe('HomeComponent: somebody studying without signing in (visiting)', () =>
     const auth = authStandIn('visiting');
     const el = await draw({}, 'en', [{ provide: AuthService, useValue: auth }]);
     TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
-    const asked: string[] = [];
-    vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
+    // The kit's question, never the browser's own box.
+    const box = vi.spyOn(window, 'confirm');
+    const question = TestBed.inject(ConfirmService);
     el.querySelector<HTMLButtonElement>('#visitorSignIn')!.click();
-    await vi.waitFor(() => expect(asked).toEqual(['signIn.examOpen']));
+    await vi.waitFor(() => expect(question.pending()).toMatchObject({ title: 'signIn.confirmTitle', message: 'signIn.examOpen', tone: 'danger' }));
+    question.settle(false);
+    await TestBed.inject(ApplicationRef).whenStable();
     expect(auth.logins).toEqual([]);
+    expect(box).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
 

@@ -1,8 +1,7 @@
+<!-- The section's pages: the kit's link tabs (a named nav of links, the page's marked - the one drawn over too), scrolling sideways in their strip where they do not fit -->
 <div class="subnav">
   <div class="in">
-    @for (tab of tabs; track tab[1]) {
-      <a [routerLink]="tab[0]" [attr.data-route]="tab[1]" [attr.aria-current]="screen.tab() === tab[1] ? 'page' : null">{{ tab[2] | translate }}</a>
-    }
+    <anotoki-link-tabs label="Kanji" [links]="tabs()" [current]="currentTab()" />
   </div>
 </div>
 

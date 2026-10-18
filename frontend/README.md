@@ -12,9 +12,11 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 src/app/            app.component (the bar, the page - the marked template of the anotoki library's
                     <anotoki-site-gate>, made only while the site is open; the gate shows its own page
                     instead while the site is not ready -, the library's screen of a sign-in that came
-                    back without one, the foot - the version, What's new, Send feedback -, the kit's
-                    question), app.routes.ts (the library's guards, its callback and failure routes),
-                    app.config.ts
+                    back without one, the foot - the version, What's new, Send feedback, then the
+                    family's Terms · Privacy · Contact -, the kit's question and the app's notice; a legal
+                    page drawn whatever the sign-in says), app.routes.ts (the library's guards, its
+                    callback and failure routes, the legal pages each a route of its own in their frame,
+                    before the learner's catch-all), app.config.ts
   top-bar/          the anotoki family's top bar, the library's <anotoki-top-bar> worded and wired: brand,
                     Kanji (the reviews due) and Exam, language, theme, the person's menu; in the admin
                     panel its eight pages, Feedback with the count of new messages (the library's
@@ -24,8 +26,12 @@ src/app/            app.component (the bar, the page - the marked template of th
                     after a move)
   kanji/            the kanji SRS: dashboard, lessons, reviews, practice, browse, the item page;
                     answer.ts (answer checking)
-  exam/             the exam
+  exam/             the exam (kept-paper-key.ts: where an open paper is kept for the tab)
   home/your-data/   Your data: the learner's data as a file, down and back (GET / PUT /api/me/data)
+  legal/            the legal pages' frame (legal-frame: the page's column, and the facts the family's
+                    Terms, Privacy and Contact read, legal-facts.ts - what the app keeps, why and for how
+                    long, its stored items by name, who else handles data -, loaded with the first of them
+                    opened, out of the first load)
   core/             api/ (ApiService; not-set-up.interceptor.ts, which leaves a report's answer alone), auth/ (the sign-in, the anotoki library's @anotoki/lib/auth:
                     auth.config.ts wires it - the boot configuration, the token or a visitor's key and
                     X-Time-Zone to this site's API, who may make a visitor, the words, the checks before
@@ -51,7 +57,11 @@ src/app/            app.component (the bar, the page - the marked template of th
                     format.ts (dates and clocks in the language's way, or the account's order and clock),
                     site-status.config.ts and site-status.ts (the anotoki library's migrations module,
                     @anotoki/lib/migrations, wired to this app: where the site stands, its gate and
-                    pages, the Migrations page), testing/ (the module, the kit's English and the kit's
+                    pages, the Migrations page), legal.config.ts (the anotoki library's legal pages,
+                    @anotoki/lib/legal, wired to this app: the page's language, the database's words;
+                    the facts come with the pages' frame), notice/ (the app's notice, NoticeService
+                    and <app-notice-host>: something to tell, one button, OK, in the kit's dialog where
+                    the browser's alert() stood), testing/ (the module, the kit's English and the kit's
                     question as a spec needs them)
   admin/            the admin panel at /admin, English: Translations (EDITOR, ADMIN) and Languages (ADMIN)
                     - the library's pages, @anotoki/lib/translations/admin -, People, Feedback, Errors,
@@ -62,9 +72,9 @@ src/styles.scss     the library's styles (@anotoki/lib/styles: Manrope, its base
                     then src/styles/
 src/styles/         _tokens.scss (Japanese's palette given to the library's tokens, anotoki.root(), and the
                     study colours, light and dark; dark also by <html data-theme>), _base.scss (after the
-                    family's: the reading size, the frame .wrap, a choice's name .choice-label, kbd, the
-                    stand-in pages), _items.scss (the study's tiles and an item's details); the pages'
-                    cards, alerts, choices, fields and table are the kit's
+                    family's: the reading size, the frame .wrap, kbd, the stand-in pages), _items.scss
+                    (the study's tiles and an item's details); the pages' cards, alerts, choices and
+                    chips, labelled groups, disclosures, tabs, fields and table are the kit's
 src/testing/        browser-parts.ts (what jsdom lacks for the kit), the catalog fixture
 public/             favicon.svg, anotoki.png (the family's mark), changelog.json (the releases; the version at
                     the foot); the library's theme-boot.js (the light/dark shown last, before the first

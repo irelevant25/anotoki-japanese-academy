@@ -89,12 +89,12 @@ stand-in asks it (`GET /api/public/anonymized-accounts`, its state's
 
 | Command | What | Time |
 |---|---|---|
-| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 263 tests (260 before the origin secret, anotoki-lib PHP 0.5.2; 252 before anotoki-lib 0.5), which must pass on PHP 8.5 (the owner's rule of 2026-10-12; the host runs 8.2, the library's floor, so the code uses nothing 8.2 lacks) (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
+| `node backend/tools/php.js backend/tests/run.php` | every `backend/tests/unit/*.test.php` and `backend/tests/api/*.test.php`, four files at a time, each in its own process and database: 269 tests (263 before anotoki-lib 0.6.2: a settings file read cleanly or not at all, the origin secret failing closed, the JSON copies 0600, migration 011; 260 before the origin secret, anotoki-lib PHP 0.5.2; 252 before anotoki-lib 0.5), which must pass on PHP 8.5 (the owner's rule of 2026-10-12; the host runs 8.2, the library's floor, so the code uses nothing 8.2 lacks) (`php backend/tests/run.php` where the PHP first on PATH is 8.2+; Git Bash's is 7.4 on the owner's computer, see [environment.md](environment.md)) | ~25 s |
 | `… run.php backend/tests/unit/srs.test.php` | some PHP files | |
-| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 436 tests in 43 files (432 in 42 before anotoki-lib 0.5.0: the reporter of the pages' own errors and the interceptor leaving its answers alone; 476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
-| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, an error thrown in a learner's page reported (her token and zone on it, the address scrubbed out in the page) and listed on the error log's page, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone): 207 checks | ~4 min |
+| `npm test` in `frontend/` | `ng test` (Vitest, jsdom): 451 tests in 44 files (436 in 43 before anotoki-lib 0.6.2: the legal pages' facts drawn for real, the routes as the router reads them, the keys kept by the kit's question and the app's notice - and the browser's boxes gone; 432 in 42 before anotoki-lib 0.5.0: the reporter of the pages' own errors and the interceptor leaving its answers alone; 476 before 2026-10-11: the specs of the app's own sign-in guard and interceptor, and of its own People page, went with them - the library tests its own; 428 until the pages moved onto the kit's pieces, the same day: four more, of the kit's choices - pressed, checked, named - on Lessons, Practice and the exam, and of an item's added answers, each beside the kit's button that takes it away); `scripts/catalog-fixture.mjs` first writes the catalog PHP builds from `backend/data/` for them | ~15 s |
+| `node frontend/e2e/run.js` | Edge, the production build, everybody signed in through the library's stand-in IAM: a deep link signed out, a refused sign-in (the library's screen, its Try again and the bar's Sign in back on the page asked for: /exam, /kanji/item/…), the whole study loop + an exam, the bar's keys over a review and a paper, the bar's menus by keys (a real Tab), Your data, sign-out waiting, the token and the zone going only to this site, the admin panel by role, People (the library's page: the list, a delete after its question, recorded), feedback sent from the foot by a learner and read on the Feedback page with its badge, an error thrown in a learner's page reported (her token and zone on it, the address scrubbed out in the page) and listed on the error log's page, the audit log, a backup made (Back up now), a migration waiting (an exam paper open as it lands: its hand-in refused without an error and the paper kept, back once the library's page has loaded the tab afresh by itself, then handed in; the anotoki library's page for a visitor, a learner and an EDITOR everywhere, with no page made behind it — none asks for data, no answer fails —, a signed-out ADMIN signing in from it and reaching the Migrations page, an Apply that fails (PostgreSQL's words on the page) and one that applies, back to the app by the menu in words), two time zones, a Slovak pass, then visitors (sign-in not required: the notice, one visitor per lesson batch, an exam, Sign in straight after the last answer moving it all, sign-out, sign-in switched on with a key held, a visitor's refused sign-in and its Back, the notice in Slovak on a phone), the legal pages signed out with no trip to the IAM, the kit's question answered where the app asks, no browser box ever: 215 checks | ~4 min |
 | `node frontend/e2e/setup.js` | Edge, the setup page on a built upload: not set up, this computer's way, a website's, then the app signing in on each, then the website installed and its settings gone: 42 checks | ~1 min |
-| `node frontend/e2e/screens.js [filter]` | 29 screens × light/dark at 1280 px, light/dark at 390 px and Slovak at 390 px light/dark (174 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form and the admin tools' pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
+| `node frontend/e2e/screens.js [filter]` | 35 screens × light/dark at 1280 px, light/dark at 390 px and Slovak at 390 px light/dark, the legal pages in Slovak at 1280 px too (218 shots; a visitor's home, the library's update-waiting page, the failed sign-in's screen, the feedback form, the admin tools' pages - the Errors page with a row -, the kit's question, the app's notice and the legal pages among them), then the room: the top bar measured 86 times (signed in, signed out, visiting, the admin panel) at 360-1280 px (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530) (`bar-*.png`) and its menus open and Tabbed out of 5 times (`menu-*.png`); into `frontend/e2e/shots/`; fails on overflow, an error, key-shaped text, English left on a Slovak page, or a bar that is not one row in order | ~10 min |
 
 The browser suites run against the production build: build it first with
 `node frontend/scripts/ensure-build.mjs` (it builds only when the sources
@@ -145,7 +145,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   variable, `f(...)`, `new` in a default, trailing commas in parameter lists,
   `$object::class`, `0o` numbers, typed and dynamic class constants — and a
   second test proves it finds each.
-- `unit/translations.test.php` — the catalogue as the migrations leave it
+- `unit/translations.test.php` — (and 011's form: 004's, each rewording only
+  of a seeded string saved by nobody and named by its check - the check
+  last -, no address in a legal string) the catalogue as the migrations leave it
   (the app's own keys: the anotoki library's, `anotoki.`, left out):
   English and Slovak, English first; the library's set after this app's own,
   its keys in the database described as it describes them; every key with an
@@ -250,7 +252,15 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   answer, a string for a boolean); the seams (`application_file`,
   `application_ttl`, `cache_dir`, `ACADEMY_APPLICATION_FILE`) for a
   throwaway database only.
-- `api/visitors.test.php` — visitors (`src/visitors.php`,
+- `api/visitors.test.php` — (and the origin secret's file, failing closed as
+  the IAM's: one read cleanly that names no secret - empty, a number, another
+  key, no list - is none, said by its name alone; one that cannot be read
+  cleanly is a secret no request carries, so a request from Cloudflare's
+  ranges is its edge even with the file's very value in `X-Anotoki-Origin`,
+  in this process and through the server - made-up `CF-Connecting-IP`
+  addresses one sender for the visitors' limit and the pages' reports,
+  nothing of the file in any answer; a refused range said in PHP's log once a
+  day, not on every request) visitors (`src/visitors.php`,
   `learner_middleware()`), with the IAM's answer "not required"
   (`test_access(false)`) and 007 from the template; visitor ids are never
   assumed (found by their key's hash). The relay (`login_required` false,
@@ -318,7 +328,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   it was, the old `CHECK (id > 0)` gone, a row a person (id > 0, no key) or a
   visitor (id < 0, a key), visitor ids from -1 down; its form (whole, with
   its last line - while it was a draft, saying so at its top -, LF, no row of
-  anybody's written, the check last).
+  anybody's written, the check last). 011, which rewords 007's words and
+  checks they are there, is recorded as applied and never run here (on a
+  real database it never runs before 007).
 - `api/auth.test.php` — sign-in, the one way (the anotoki library's auth
   module, `src/auth.php`): how to sign in
   (`/api/auth/config`: the IAM, `client_id`, `login_required`); the pages, the clips, health
@@ -417,7 +429,9 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   page's Check now (unreachable, then done: handled and scrubbed counted,
   recorded as `people.synced`, the deleted account listed under its
   placeholder) for `ADMIN` alone.
-- `api/admin-tools.test.php` — the library's admin tools on this site: every
+- `api/admin-tools.test.php` — the library's admin tools on this site (a
+  backup's refusals in the library's fixed sentences since anotoki-lib 0.6.0,
+  why in the error log): every
   address of the error log, the audit log, the feedback and the backups for
   the site's `ADMIN` alone (nobody and a visitor's key alone 401
   `sign_in_required`; a token that is no good, an ADMIN's run out an hour
@@ -483,7 +497,8 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   zone; and a database without the column (a site whose 005 has not arrived
   whole: the request's zone counting, nothing kept, the data file and the
   People page working; that such a file waits is `api/deploy.test.php`'s).
-- `api/backup.test.php` — the day's backup (nothing for an empty database; a
+- `api/backup.test.php` — (every JSON copy written for the site's user alone,
+  0600, in a folder made 0700, where the system has modes) the day's backup (nothing for an empty database; a
   complete copy of everybody's data once a day, named by the UTC day even for
   a request far east, naming its database; the last
   14 kept), a throwaway database's backups kept out of `backend/storage/backups/`, the raw copy
@@ -572,7 +587,14 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   `migrations` table, its shape as ever), and `manage.php` on it: `--check`
   says what is left, `--sync` builds the content and applies a migration
   that waits first.
-- `api/setup.test.php` — the setup page on the owner's computer: before it is
+- `api/setup.test.php` — the setup page on the owner's computer (and every
+  settings file read cleanly or not at all: a `database.local.php` with a
+  byte-order mark, a password and no `<?php` line leaves the copy not set up,
+  and no answer - the status, the pages, the setup page - carries the
+  password, the setup page naming the file by its fault and Save writing it
+  again; a broken `auth.local.php` likewise, a broken `app.local.php` its
+  defaults; with a plain `require` back the status answer begins with the
+  whole file): before it is
   set up every address says so, the anotoki library's way, with the way to
   the setup page (this computer's copy is never installed), and
   `/api/site-status` answers; the page from this
@@ -676,7 +698,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   set up after all).
 - `core/auth/sign-out.service.spec.ts` — signing out waits for the saves on
   their way (the spinner meanwhile), sends a note still waiting at once, asks
-  in the learner's language when one failed meanwhile (Cancel stays signed
+  in the learner's language - the kit's question (`ConfirmService`: "Sign out
+  anyway?", the sentence, the bar's Sign out, `danger`), never the browser's
+  box - when one failed meanwhile (Cancel stays signed
   in) or an exam paper is open, not for a failure said long before; a second
   press does nothing. The session, the notes editor and the exam tell
   `SavesInFlight` (`notes-editor.component.spec.ts`, `exam.component.spec.ts`;
@@ -705,7 +729,24 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   sign-in that came back without one to the failure's screen, never round to
   the IAM again; visiting, the learner's pages open as they are and the admin
   panel goes to the IAM (or to the failure's screen after a refused
-  sign-in).
+  sign-in). And with a stand-in for every frame and page, what the router
+  itself makes of an address: `/` the home page under the learner's guard,
+  an unknown address (and `/terms-of-use`, `/privacy2`, `/contact/me`,
+  `/terms/x`) home too, `/terms`, `/privacy` and `/contact` each its own
+  route in the legal frame with no guard (the frame and the page loaded when
+  opened), their paths the library's and before the learner's `**`, and a
+  legal page known by its path alone (`isLegalPage()`).
+- `legal/legal-facts.spec.ts` — the family's legal pages as Japanese Academy
+  fills them in, drawn for real: the root configuration (the page's
+  language, the database's words, no facts - they come with the frame); the
+  facts (five parts of its own, the visitors for the server's days, feedback,
+  the library's logs and plain backups, the stored items by name, the
+  hosting company and Cloudflare); Privacy's parts in order, the backups
+  plain and kept by count, the anotoki account's pages at the IAM's address,
+  and every link where the code says - a rewording that names another
+  address changes words, never a link; Terms under the app's name, no fan
+  clause; Contact with Send feedback first; the Slovak around the app's
+  words, its `{days}` filled in.
 - `app.component.spec.ts` — the bar above and the foot below in every state
   (with no strings, the English the app keeps; the sections only while the
   app can be used; a site not set up, or installed once and its settings
@@ -717,7 +758,12 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   out of the first load); visiting, the app
   itself, and after a refused sign-in the library's screen in the page's
   place until its Back; signed in after all in another tab while the
-  failure is said: it is put away, and the app is theirs.
+  failure is said: it is put away, and the app is theirs. A legal page is
+  drawn in each of those states (signed out: Sign in in the bar, no card;
+  any other page not); the foot's Terms · Privacy · Contact to the library's
+  paths in a nav of their own; the kit's question and the app's notice keep
+  every key pressed in them from `document` (Enter there answers no card and
+  hands no paper in), the notice's OK closing it.
 - `standin/sign-in/sign-in.component.spec.ts` — the Sign in card: its own
   English with no strings, word for word; a sign-in that came back without
   one is no business of the card's (the library finishes the callback, the
@@ -729,8 +775,11 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
 - `core/auth/private-links.service.spec.ts` — `lockDown()` puts the no-script
   policy before anything of a report's; a download's file name; a visitor's
   report fetched as the visitor's (the library's `fetch()` sends the key this
-  browser holds), an unknown key forgotten; while the site is being updated
-  (or not set up after all) the waiting tab closed and no dialog.
+  browser holds), an unknown key forgotten; a report that would not open
+  said by the app's notice (`NoticeService`: its title, the sentence in the
+  page's language, worded as it is raised; never the browser's `alert()`,
+  never the server's words); while the site is being updated
+  (or not set up after all) the waiting tab closed and no notice.
 - `home/your-data/your-data.component.spec.ts` — `readDataFile()` (one
   person, the caller's part of several, `several_people`, `not_a_data_file`);
   the zone line; Download through the sign-in's fetch under the server's
@@ -898,20 +947,29 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   Feedback, Errors, Audit log and Backups are the library's pages too (since
   2026-10-11), tested there; here `admin/tools.spec.ts` and
   `core/admin.config.spec.ts` (above). The kit's question in a spec is
-  answered through `core/testing/kit-question.ts`.
+  answered through `core/testing/kit-question.ts` (drawn) or `ConfirmService`
+  itself (`pending()`, `settle()`), the app's notice read through
+  `NoticeService.pending()`; the session's End, the exam's Finish now, an
+  item's Reset, Sign in and Sign out over something unsaved ask it, each
+  worded as it is raised, never the browser's box.
 - Every screen's component in English and Slovak: home, exam, the kanji
   shell, dashboard, lessons, practice, session, summary, browse, item, the
   tile, the notes editor, `worded-parts.spec.ts` (material inside a sentence,
   with its `lang`), the stand-in page (`problem.component.spec.ts`: what
   happened and Try again, never a way to the Migrations page — the
   library's page has it). They read the kit's pieces by the kit's names: a
-  choice's segments by their `role="radio"` and `aria-checked`, a row of
-  the kit's buttons by `aria-pressed` (the chosen ones `primary`; Lessons,
-  Practice and the exam check that each row is a `role="group"` named by the
-  words over it - Browse's, with none over them, by an `aria-label` -, and
+  choice's segments and choice chips by their `role="radio"` and
+  `aria-checked` (a choice chip by its `data-value`, its `note` and its
+  `name`), a row of the kit's chips by `aria-pressed` (the chosen ones
+  `anotoki-chip--on`; Lessons, Practice and the exam check that each row is
+  a `role="group"` - the kit's labelled group - or a `radiogroup` named by
+  the words over it - Browse's for a screen reader alone -, and
   that a part of the exam, the only one chosen, stays
-  chosen), a card's title, a page header's lead, an alert's tone and role,
-  a badge's tone, the notes' hints (tied to their textarea).
+  chosen), the kanji tabs as the kit's link tabs (a nav named Kanji, each
+  link's address, the one the screen says marked, an item's page none), the
+  review's listen button named for what it shows, a card's title, a page
+  header's lead, an alert's tone and role, a badge's tone, the notes' hints
+  (tied to their textarea).
 - `core/format.spec.ts` (times, dates, counts in words: "1 attempt", in the
   language's locale; a signed-in person's own date order — the four — and
   clock, 24 hours or 12 with the language's am and pm, side by side in a
@@ -946,7 +1004,13 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   (`iamState({ deny: true })`): the anotoki library's screen saying so in its
   words, never the IAM's (`sign-in-failed.png`), and its Try again signing in
   once the IAM lets them, back on the page asked for (and refused on
-  `/kanji/item/…`, the bar's Sign in coming back there). Then the study flow as that
+  `/kanji/item/…`, the bar's Sign in coming back there). Then **the legal
+  pages signed out** (sign-in required): `/privacy` drawn in the app's frame
+  with no trip to the IAM (Sign in in the bar, the foot's links), its stored
+  items Japanese Academy's by name and the anotoki account's Privacy page at
+  the IAM it signs in with; the foot's Terms, then Contact (Send feedback
+  first, the link marked `aria-current`), still no trip; the brand from
+  there going to the IAM first. Then the study flow as that
   learner: types answers like a person (romaji readings, one miss on
   purpose), makes reviews due, uses F for the item info, practises, uses "My
   answer was right", clicks the links that point at the current address
@@ -960,7 +1024,12 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   dark and light choices, the person's button and Escape, the links) do what
   the control does and never reach the page — the card unchecked with its
   typed answer, the paper open, nothing chosen, no attempt; Sign out over the
-  open paper asks first, and "no" keeps it. Then moving between the sections
+  open paper asks first - the kit's question ("Sign out anyway?", the
+  sentence, Cancel or Sign out: `answerQuestion()`) -, and Cancel keeps it;
+  "Finish now" on a paper with nothing answered asks the kit's question too
+  (Back to the test or Finish); **no browser box is ever raised** (every
+  native dialog counted: none on the learner's page, the sitter's or the
+  visitor's). Then moving between the sections
   and the brand without a page load, the version and What's new at the foot,
   **the bar's menus by keys** at 1280 px (Enter opens on the first item, End,
   Home, ↑ round, Escape back to the button; **real Tab and Shift+Tab presses
@@ -1081,17 +1150,21 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   right now", asking again by itself — never the setup page.
 - `screens.js` — everybody signed in (a planted session of an ADMIN): the
   home page, every kanji screen (with a review answered wrongly and its item
-  info open), the exam's three screens, the changelog, Your data's question,
+  info open), the exam's three screens and its two dialogs (the kit's
+  question of "Finish now", the app's notice of a paper that could not be
+  scored - the hand-in cut off), the changelog, Your data's question,
   the bar's menu open (the person's on a desktop, the one menu on a phone), the
   feedback form open from the foot, the library's screen of a refused
   sign-in, a visitor's home with its notice (sign-in
   not required, nobody signed in), the admin panel's pages (Translations,
-  Languages, People, Feedback and a message open in it, Errors, Audit log,
+  Languages, People, Feedback and a message open in it, Errors with a page's
+  error listed (reported through `POST /api/client-errors` first), Audit log,
   Backups, Migrations - a feedback message, a hidden language and a backup
-  seeded for them), and the
+  seeded for them), the
   anotoki library's page while a database update waits, as a learner reads it
   and as the site's ADMIN does (a migration taken off the list for it, and put
-  back): 29
+  back), and the legal pages - Terms, Privacy and Contact signed out, Privacy
+  signed in: 35
   screens in light and dark at 1280 px and on a phone (390 px), each checked for key-shaped text,
   overflow and what the reviews found by eye (`looks()`: People's Delete in
   view, the What's new dot beside its words and clear of the '·' before
@@ -1100,10 +1173,12 @@ Browser (`frontend/e2e/`, Edge through `playwright-core`):
   segmented choice of the kit's whole inside its card or the page's frame),
   and **the
   Slovak pass** — every screen again at 390 px in a
-  Slovak browser (`sk-phone`, `sk-phone-dark`), each checked for `<html
+  Slovak browser (`sk-phone`, `sk-phone-dark`), and the legal pages at 1280 px
+  too (`sk-light`, `sk-dark`), each checked for `<html
   lang="sk">` (the admin panel: `en`), no text that is a key, no English string
   of the bundle whose Slovak differs outside `[lang=en]` / `[lang=ja]`; the
-  kanji tab strip is checked on every screen. Then **the room**: the bar
+  kanji tabs (the kit's link tabs, which scroll sideways in their strip on a
+  phone) are checked on every screen for the page's tab in view. Then **the room**: the bar
   measured piece by piece at 360, 390, 760, 761, 960, 961 and 1280 px (the
   admin panel's at 360, 390, 1170, 1171, 1351 and 1530, a new feedback
   message seeded so its count shows), in

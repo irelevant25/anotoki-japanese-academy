@@ -16,6 +16,9 @@ import { HomeComponent } from './home/home.component';
  */
 export const whenReady: CanActivateFn = () => inject(AuthService).usable();
 
+/** The legal pages' frame, loaded with the first of them that is opened (and the app's facts with it, out of the first load). */
+const legalFrame = () => import('./legal/legal-frame.component').then((m) => m.LegalFrameComponent);
+
 /**
  *   /                       the Academy's home (and Your data, at its foot)
  *   /kanji                  the kanji trainer: /kanji/lessons, /reviews, /practice, /browse?lesson=6, /item/:id
@@ -32,8 +35,20 @@ export const whenReady: CanActivateFn = () => inject(AuthService).usable();
  *   /auth/callback          where the IAM sends the browser back after a sign-in (the library's page)
  *   /sign-in-failed         where a sign-in that came back without one is said (the library's screen,
  *                           which AppComponent draws in its place while the failure stands)
+ *   /terms, /privacy,       the legal pages: the anotoki family's (@anotoki/lib/legal/pages) with Japanese
+ *   /contact                Academy's facts, which their frame gives them (legal/) - anybody's
  *
- * Every page but those two is for somebody signed in: the anotoki library's
+ * The legal pages are anybody's: no guard, nothing of a person's study on
+ * them, and AppComponent draws them whatever the sign-in says. Each is a path
+ * of its own with the frame as its parent - never one parent with an empty
+ * path holding the three: the router takes an address it has read whole ("/")
+ * for such a parent when none of its children match, and would draw the
+ * empty frame at "/" with no guard (the survey's lesson, 2026-10-17;
+ * app.routes.spec.ts). They come before the learner's pages, whose "**" would
+ * take them. Their paths are the library's (DEFAULT_LEGAL_PATHS, the foot's
+ * links go there), their titles the library's own headings.
+ *
+ * Every page but those is for somebody signed in: the anotoki library's
  * guards send anybody else to the IAM, and back to the address they asked for
  * — personOrVisitorGuard on each of a learner's pages (`canActivateChild`),
  * where the IAM does not require sign-in a visitor's too; staffGuard as the
@@ -116,6 +131,22 @@ export const routes: Routes = [
   // Where the admin pages were before they had an area of their own.
   { path: 'translations', pathMatch: 'full', redirectTo: '/admin/translations' },
   { path: 'languages', pathMatch: 'full', redirectTo: '/admin/languages' },
+  // The legal pages: anybody's, each a path of its own in the frame that gives them the app's facts (see above).
+  {
+    path: 'terms',
+    loadComponent: legalFrame,
+    children: [{ path: '', title: 'anotoki.legal.termsTitle', loadComponent: () => import('@anotoki/lib/legal/pages').then((m) => m.TermsPageComponent) }],
+  },
+  {
+    path: 'privacy',
+    loadComponent: legalFrame,
+    children: [{ path: '', title: 'anotoki.legal.privacyTitle', loadComponent: () => import('@anotoki/lib/legal/pages').then((m) => m.PrivacyPageComponent) }],
+  },
+  {
+    path: 'contact',
+    loadComponent: legalFrame,
+    children: [{ path: '', title: 'anotoki.legal.contactTitle', loadComponent: () => import('@anotoki/lib/legal/pages').then((m) => m.ContactPageComponent) }],
+  },
   {
     path: '',
     canActivateChild: [personOrVisitorGuard],

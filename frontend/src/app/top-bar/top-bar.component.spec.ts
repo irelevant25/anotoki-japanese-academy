@@ -7,6 +7,7 @@ import { SiteStatus } from '@anotoki/lib/migrations';
 import { ThemeService } from '@anotoki/lib/shell';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { AppState, AuthService } from '../core/auth/auth.service';
 import { AnotokiPreferenceChanges, AnotokiUser } from '@anotoki/lib/auth';
 import { provideKit } from '../core/kit.config';
@@ -29,13 +30,20 @@ const ENGLISH: Record<string, string> = {
   'topbar.phoneMenuDue.one': 'Menu: {count} review due',
   'topbar.phoneMenuDue.few': 'Menu: {count} reviews due',
   'topbar.phoneMenuDue.other': 'Menu: {count} reviews due',
+  'topbar.kanjiDue.one': '{count} review due',
+  'topbar.kanjiDue.few': '{count} reviews due',
+  'topbar.kanjiDue.other': '{count} reviews due',
+  'anotoki.topbar.linkCount': '{count} new',
   'anotoki.topbar.roleAdmin': 'Administrator',
   'anotoki.topbar.roleEditor': 'Editor',
   'topbar.admin': 'Admin panel',
   'account.noName': 'Account',
   'anotoki.topbar.account': 'Your anotoki account',
-  'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them. Sign out anyway?',
-  'signOut.examOpen': 'Your exam is not finished, and signing out loses the test. Sign out anyway?',
+  'signOut.confirmTitle': 'Sign out anyway?',
+  'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them.',
+  'signOut.examOpen': 'Your exam is not finished, and signing out loses the test.',
+  'signIn.confirmTitle': 'Sign in anyway?',
+  'signIn.examOpen': 'Your exam is not finished, and signing in now loses the test.',
   'signIn.button': 'Sign in',
   'anotoki.topbar.sections': 'The app’s sections',
   'anotoki.topbar.phoneMenu': 'Menu',
@@ -59,13 +67,20 @@ const SLOVAK: Record<string, string> = {
   'topbar.phoneMenuDue.one': 'Ponuka: {count} opakovanie čaká',
   'topbar.phoneMenuDue.few': 'Ponuka: {count} opakovania čakajú',
   'topbar.phoneMenuDue.other': 'Ponuka: {count} opakovaní čaká',
+  'topbar.kanjiDue.one': '{count} opakovanie čaká',
+  'topbar.kanjiDue.few': '{count} opakovania čakajú',
+  'topbar.kanjiDue.other': '{count} opakovaní čaká',
+  'anotoki.topbar.linkCount': 'nové: {count}',
   'anotoki.topbar.roleAdmin': 'Administrátor',
   'anotoki.topbar.roleEditor': 'Editor',
   'topbar.admin': 'Administrátorský panel',
   'account.noName': 'Účet',
   'anotoki.topbar.account': 'Tvoj účet anotoki',
-  'signOut.notSaved': 'Niektoré tvoje odpovede alebo poznámky sa nepodarilo uložiť a odhlásením sa stratia. Chceš sa aj tak odhlásiť?',
-  'signOut.examOpen': 'Tvoja skúška nie je dokončená a odhlásením sa test stratí. Chceš sa aj tak odhlásiť?',
+  'signOut.confirmTitle': 'Chceš sa aj tak odhlásiť?',
+  'signOut.notSaved': 'Niektoré tvoje odpovede alebo poznámky sa nepodarilo uložiť a odhlásením sa stratia.',
+  'signOut.examOpen': 'Tvoja skúška nie je dokončená a odhlásením sa test stratí.',
+  'signIn.confirmTitle': 'Chceš sa aj tak prihlásiť?',
+  'signIn.examOpen': 'Tvoja skúška nie je dokončená a prihlásením sa teraz test stratí.',
   'signIn.button': 'Prihlásiť sa',
   'anotoki.topbar.sections': 'Časti aplikácie',
   'anotoki.topbar.phoneMenu': 'Ponuka',
@@ -288,7 +303,15 @@ describe('TopBarComponent', () => {
     due.set(125);
     await fixture.whenStable();
     expect(words(host.querySelector('nav.anotoki-top-bar__nav .anotoki-top-bar__badge'))).toBe('125');
-    expect(links().map(words)).toEqual(['Kanji 125', 'Skúška']);
+    // The number is seen; what it counts is heard after the name ("Kanji, 125 reviews due"), in the page's language
+    // inside a link that says it is English.
+    expect(links().map(words)).toEqual(['Kanji 125, 125 opakovaní čaká', 'Skúška']);
+    const heard = links()[0].querySelector('.anotoki-visually-hidden')!;
+    expect([words(heard), heard.getAttribute('lang'), links()[0].getAttribute('lang')]).toEqual([', 125 opakovaní čaká', 'sk', 'en']);
+    expect(host.querySelector('nav.anotoki-top-bar__nav .anotoki-top-bar__badge')?.getAttribute('aria-hidden')).toBe('true');
+    due.set(3);
+    await fixture.whenStable();
+    expect(words(links()[0])).toBe('Kanji 3, 3 opakovania čakajú');
   });
 
   it('in the admin panel: its sections, English, for whom they are; no language; the brand "anotoki Japanese · admin panel" to the panel, by its name', async () => {
@@ -340,7 +363,8 @@ describe('TopBarComponent', () => {
     asked.forEach((request) => request.flush({ unread: 3 }));
     await new Promise((done) => setTimeout(done));
     await fixture.whenStable();
-    expect(links().map(words)).toContain('Feedback 3');
+    // the kit's own words for what it counts, English as the whole panel
+    expect(links().map(words)).toContain('Feedback 3, 3 new');
     expect(words(host.querySelector('nav.anotoki-top-bar__nav a[href="/admin/feedback"] .anotoki-top-bar__badge'))).toBe('3');
   });
 
@@ -554,7 +578,7 @@ describe('TopBarComponent', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     due.set(3);
     await draw(provideTestTranslations({}));
-    expect(links().map(words)).toEqual(['Kanji 3', 'Exam']);
+    expect(links().map(words)).toEqual(['Kanji 3, 3 reviews due', 'Exam']);
     expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese: home');
     expect(host.querySelector('nav.anotoki-top-bar__nav')?.getAttribute('aria-label')).toBe('The app’s sections');
     expect(personButton().getAttribute('aria-label')).toBe('Your menu: hana');
@@ -627,13 +651,17 @@ describe('TopBarComponent', () => {
     user.set(null);
     roles.set([]);
     await draw();
-    const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const box = vi.spyOn(window, 'confirm');
+    const question = TestBed.inject(ConfirmService);
     TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
     signInButton()!.click();
     await new Promise((done) => setTimeout(done));
-    expect(asked).toHaveBeenCalledWith('signIn.examOpen');
+    expect(question.pending()).toMatchObject({ title: SLOVAK['signIn.confirmTitle'], message: SLOVAK['signIn.examOpen'], confirmLabel: 'Prihlásiť sa' });
+    question.settle(false);
+    await new Promise((done) => setTimeout(done));
     expect(auth.login).not.toHaveBeenCalled();
-    asked.mockRestore();
+    expect(box, 'never the browser’s own box').not.toHaveBeenCalled();
+    box.mockRestore();
   });
 
   it('on the way to the IAM, and while the copy is not set up: the brand, the language and the theme — nothing to follow, nobody', async () => {
@@ -776,7 +804,7 @@ describe('TopBarComponent', () => {
       await openMenu();
       expect(phoneButton().getAttribute('aria-expanded')).toBe('true');
       expect(menu()?.getAttribute('aria-label')).toBe('Ponuka: 125 opakovaní čaká');
-      expect(items().map(words)).toEqual(['Kanji 125', 'Skúška', 'Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
+      expect(items().map(words)).toEqual(['Kanji 125, 125 opakovaní čaká', 'Skúška', 'Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
       expect(items()[0].getAttribute('aria-current')).toBe('page');
       expect(parts('[role="menu"] .anotoki-top-bar__menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
       expect(document.activeElement).toBe(items()[0]);
@@ -877,17 +905,18 @@ describe('TopBarComponent', () => {
       roles.set([]);
       windowOf(390);
       await draw();
-      const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const question = TestBed.inject(ConfirmService);
       TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
       await openMenu();
       host.querySelector<HTMLButtonElement>('.anotoki-top-bar__sign-in-item')!.click();
       await new Promise((done) => setTimeout(done));
+      expect(question.pending()?.message).toBe(SLOVAK['signIn.examOpen']);
+      question.settle(false);
+      await new Promise((done) => setTimeout(done));
       await fixture.whenStable();
-      expect(asked).toHaveBeenCalledWith('signIn.examOpen');
       expect(auth.login).not.toHaveBeenCalled();
       expect(items()).toEqual([]);
       expect(document.activeElement).toBe(phoneButton());
-      asked.mockRestore();
     });
 
     it('while the copy is not set up there is nothing to hold, and no menu button', async () => {
@@ -987,18 +1016,27 @@ describe('TopBarComponent', () => {
 
     it('asks first, in the reader’s language, when an exam paper is open — and stays when told to', async () => {
       await draw();
-      const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const question = TestBed.inject(ConfirmService);
       TestBed.inject(SavesInFlight).watch(() => 'signOut.examOpen');
       await chooseSignOut();
       await new Promise((done) => setTimeout(done));
-      expect(asked).toHaveBeenCalledWith('Tvoja skúška nie je dokončená a odhlásením sa test stratí. Chceš sa aj tak odhlásiť?');
+      // the kit's question: the title asks, the sentence says what goes, its yes the bar's Sign out
+      expect(question.pending()).toMatchObject({
+        title: 'Chceš sa aj tak odhlásiť?',
+        message: 'Tvoja skúška nie je dokončená a odhlásením sa test stratí.',
+        confirmLabel: 'Odhlásiť sa',
+        tone: 'danger',
+      });
+      question.settle(false);
+      await new Promise((done) => setTimeout(done));
       expect(auth.logout).not.toHaveBeenCalled();
       await fixture.whenStable();
       expect(items(), 'told to stay: the menu closes, the focus on its button').toEqual([]);
       expect(document.activeElement).toBe(personButton());
 
-      asked.mockReturnValue(true);
       await chooseSignOut();
+      await new Promise((done) => setTimeout(done));
+      question.settle(true);
       await new Promise((done) => setTimeout(done));
       expect(auth.logout).toHaveBeenCalledTimes(1);
     });

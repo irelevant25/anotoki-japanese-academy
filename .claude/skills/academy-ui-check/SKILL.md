@@ -26,7 +26,8 @@ area is shot too; the library's failure screen is a refused sign-in's. It then d
 Edge and writes `frontend/e2e/shots/screen-<name>-<variant>.png`, the
 variants `light`, `dark` (1280 px), `phone`, `phone-dark` (390 px, English)
 and `sk-phone`, `sk-phone-dark` (390 px, a Slovak browser: the Slovak pass;
-the admin panel stays English).
+the admin panel stays English) - and for the legal pages `sk-light`,
+`sk-dark` (1280 px in Slovak) as well.
 
 | Screen | Name |
 |---|---|
@@ -41,7 +42,9 @@ the admin panel stays English).
 | item page (大) | `kanji-item` |
 | exam setup | `exam` |
 | an exam question | `exam-question` |
+| "Finish now" with questions unanswered: the kit's question | `exam-finish-question` |
 | an exam result | `exam-result` |
+| a paper that could not be scored: the app's notice, the paper behind it | `exam-score-failed` |
 | what's new (the changelog) | `changelog` |
 | Your data's question before a file replaces the data | `your-data-question` |
 | the bar's menu open over the kanji dashboard (the person's; on a phone the one menu) | `bar-menu` |
@@ -52,12 +55,13 @@ the admin panel stays English).
 | the admin panel's Languages page (English) | `admin-languages` |
 | the admin panel's People page (English, the anotoki library's): the list, the visitors' line, the IAM's deleted accounts, Delete their data | `admin-people` |
 | the admin panel's Feedback page (the library's), and a message open in it | `admin-feedback`, `admin-feedback-message` |
-| the admin panel's Errors page (the library's) | `admin-errors` |
+| the admin panel's Errors page (the library's), a page's error listed in it | `admin-errors` |
 | the admin panel's Audit log page (the library's) | `admin-audit` |
 | the admin panel's Backups page (the library's) | `admin-backups` |
 | the admin panel's Migrations page (English, the anotoki library's): pending and applied, Apply | `admin-migrations` |
 | a database update waiting, as a learner reads it: the anotoki library's "The site is being updated" | `update-waiting` |
 | a database update waiting, as the site's ADMIN reads it: "A database update is waiting", Open Migrations | `update-waiting-admin` |
+| Terms, Privacy and Contact signed out (the family's pages, the app's facts; Sign in in the bar), and Privacy signed in | `legal-terms`, `legal-privacy`, `legal-contact`, `legal-privacy-signed-in` |
 
 Then **the room**: the top bar at 360, 390, 760, 761, 960, 961 and 1280 px
 (the admin panel's at 360, 390, 1170, 1171, 1351 and 1530, its eight links
@@ -87,7 +91,8 @@ It fails on horizontal overflow, a page error, an error or warning the app
 logged (a key with no string warns) or a failed request; on text that looks
 like a key anywhere (`yourData.title`); on a Slovak page that is not `<html
 lang="sk">`, or leaves an English string of the app outside `[lang=en]` /
-`[lang=ja]`; on a kanji tab strip that scrolls; on what the reviews found by
+`[lang=ja]`; on a kanji tab strip whose page's tab is out of view (the
+kit's link tabs scroll sideways in their strip on a phone, by design); on what the reviews found by
 eye (`looks()`): a Delete their data of the People page (the library's) off
 the screen, at 390 px too, the What's new dot not beside its words or touching the
 '·' before Send feedback, Your data's question
@@ -111,11 +116,12 @@ variants. Always include the phone shots. Go through this list:
 
 - **Layout.** Nothing overlaps, is cut off or is misaligned. Spacing matches the
   neighbouring elements. Cards and grids wrap cleanly; the rows of choices
-  (the kit's small buttons) wrap, and a segmented choice stays whole inside
+  (the kit's chips and choice chips) wrap, and a segmented choice stays whole inside
   its card at 390 px in Slovak.
 - **Phone (390 px).** No sideways scroll. Buttons are at least ~34 px tall
-  (the kit's small ones; the rest 44), a segment 30 and the kit's small
-  link buttons 24 (the exam's all / none, the result's ▶ listen). Long
+  (the kit's small ones; the rest 44), a segment 30, a chip 32 with a mouse (44 to a finger) and the kit's small
+  link buttons 24 with a mouse, 44 to a finger (the exam's all / none, the
+  result's ▶ listen, What's new, Send feedback). Long
   English meanings, long Japanese words and a long answer the learner
   added (an item's page: up to 80 characters) wrap instead of clipping. The nav still fits. (A full-page
   shot switches Edge's touch emulation off, so the phone shots of taller
@@ -143,8 +149,9 @@ variants. Always include the phone shots. Go through this list:
   Slovak reads as informal "ty". Spaces between words that sit in different
   elements are there (Angular drops whitespace-only text between elements; a
   template keeps one with `&ngsp;`). The browser's own controls (a file
-  picker's "Choose File", the OK of a native dialog) follow the browser's
-  language: the app cannot word them.
+  picker's "Choose File") follow the browser's language: the app cannot word
+  them - which is why no native dialog is raised any more: the kit's
+  question and the app's notice say their buttons in the page's language.
 - **States.** Empty states say what to do next. Counts on the dashboard agree
   with the seeded data: 5 learned, 2 due.
 - **Sign-in.** A signed-out page goes straight to the IAM; a sign-in that
@@ -164,7 +171,17 @@ variants. Always include the phone shots. Go through this list:
   room of its own under it (16 px above a kanji page's tab strip).
 - **The foot.** The version and **What's new** at the foot of every page, its
   dot while the news is unread; the dialog is readable in both themes and at
-  390 px, in both languages (its entries stay English).
+  390 px, in both languages (its entries stay English). Under them Terms ·
+  Privacy · Contact, the open one marked.
+- **The legal pages.** Terms, Privacy and Contact in the app's column, under
+  the bar (signed out: Sign in in it, no card), readable in both themes and
+  both languages at 1280 and 390 px; Privacy's parts are the app's (no key),
+  its stored items by name in code, the hosting company "(to be named)" and
+  Cloudflare; Contact's Send feedback first.
+- **Questions and notices.** The kit's question (the title asks, the sentence
+  under it, the app's two buttons - the yes red where it loses something) and
+  the app's notice (one OK) in the kit's dialog, whole at 390 px, in both
+  languages and themes.
 - **The top bar** (the anotoki family's, the library's `<anotoki-top-bar>`:
   `docs/kb/architecture.md`, *The top bar*). One row: the mark, "anotoki"
   and "Japanese" (on a phone "Japanese" alone), Kanji (the reviews due, in
@@ -182,7 +199,9 @@ variants. Always include the phone shots. Go through this list:
   Nothing overlaps, leaves the screen or is cut at 360, 390, 760, 761, 960,
   961 and 1280 px (the admin panel's 1170, 1171, 1351, 1530), in English and
   Slovak, with a three-digit due count.
-  The five kanji tabs fit 390 px in Slovak.
+  The five kanji tabs are the kit's link tabs: on a phone they scroll
+  sideways in their strip (a fade and a small arrow at the edge with more),
+  never the page, the page's tab in view.
 - **The setup page.** Stands alone (its own small stylesheet, the app's
   colours, light and dark): the database and the IAM only, the fields in two columns on
   wide screens and one on a phone, the Test connection results in green or
@@ -194,11 +213,11 @@ variants. Always include the phone shots. Go through this list:
   data in view; the bar's Feedback count beside its link.
 - **Consistency.** Same buttons, colours and headings as the other screens:
   buttons, dialogs, fields, menus, page headers, cards, alerts, badges,
-  choices and the past attempts' table are the anotoki library's kit (its
+  choices, chips, disclosures, tabs and the past attempts' table are the anotoki library's kit (its
   fields' and controls' edges and the secondary button's at 3:1, 44 px
-  targets - 34 for a small one, 30 for a segment, 24 for a small link -,
+  targets - 34 for a small one, 30 for a segment, a chip 32 and a small link 24 with a mouse, both 44 to a finger -,
   Manrope), never one of the app's own drawn beside them; a chosen choice
-  is primary (a row's button) or raised on the surface's colour (a
+  is a chip filled with its check mark, or raised on the surface's colour (a
   segment: white in light, the card's grey in dark). Use only colour tokens from
   `frontend/src/styles/_tokens.scss` (Japanese's palette, given to the
   library's tokens there - the alerts' and badges' grounds too).

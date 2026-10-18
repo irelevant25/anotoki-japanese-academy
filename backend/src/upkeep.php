@@ -86,7 +86,7 @@ function upkeep_copy_before(array $ready, string $stamp): ?string
         return null;
     }
     $backup = backup_write_raw('before-migration');
-    file_put_atomic($note, json_text($now + ['backup' => basename($backup)]) . "\n");
+    file_put_atomic($note, json_text($now + ['backup' => basename($backup)]) . "\n", true);
     return $backup;
 }
 

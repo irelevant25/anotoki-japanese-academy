@@ -224,6 +224,23 @@ page never asks for, writes or shows it, the build never carries it): from then 
 print it; without the file the site works as before (`docs/kb/hosting.md`,
 *The origin secret*).
 
+**The update that brings anotoki-lib 0.6.2** (both halves): not before the
+owner has accepted migration 011 (its last line written: the build refuses
+a draft). Upload `backend/vendor/` first, then the rest; one Apply on the
+Migrations page right after it - 011 (the legal pages' words, the questions'
+and notices' titles and buttons, rewordings only where nobody changed a
+string) and the library's `anotoki_translations/005_…` to `011_…` -, or
+Terms, Privacy and Contact show the app's parts as keys until it is
+applied. Tell the owner: Terms · Privacy · Contact are at the foot of every
+page, anybody's - the hosting company stands there as "to be named" until
+they name it (`legal/legal-facts.ts`, `processors`); every settings file is
+read cleanly or not at all now - a file saved with a byte-order mark or a
+line before its `<?php` makes the site "not set up" (a required one) instead
+of printing what it holds, and a `cloudflare.local.php` that cannot be read
+cleanly counts as a secret nobody carries (every request from Cloudflare its
+edge) until mended; PHP's error log names the file once a day, never its
+text (`docs/kb/hosting.md`).
+
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing
 at start), after a raw copy of every table — or `manage.php --sync`, or the

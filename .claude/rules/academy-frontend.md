@@ -19,7 +19,7 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   `.table-scroll`)), then this app's, global, in `frontend/src/styles/`
   (`_tokens.scss`: Japanese's palette given to `anotoki.root()` and the study
   colours; `_base.scss`, loaded after the family's: the reading size, 16 px,
-  the frame `.wrap`, a choice's name `.choice-label`, `kbd`, the stand-in
+  the frame `.wrap`, `kbd`, the stand-in
   pages; `_items.scss`: the study's); a component's own styles in its
   `.scss`. Never a copy of what the family's base or utilities give (a
   heading's margins, a link's colour, the focus ring, `.muted`). Colours come only from the tokens,
@@ -30,28 +30,46 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   Check contrast in dark mode.
 - A page's building blocks are the library's kit: buttons, dialogs and
   questions, form fields, the spinner, menus, page headers, cards, alerts,
-  badges, empty states, segmented choices, the table (`anotokiButton` with
+  badges, empty states, segmented choices, choice chips and chips, labelled
+  groups, disclosures, link tabs, the table (`anotokiButton` with
   `variant` / `size` / `[loading]`, `<anotoki-dialog>`, `ConfirmService` - its
   host is in `app.component.html` -, `anotoki-text-field`, `anotoki-textarea`,
   `anotoki-checkbox`, `<anotoki-spinner>`, `<anotoki-page-header>`,
-  `<anotoki-card>`, `<anotoki-alert>`, `<anotoki-badge>`,
-  `<anotoki-empty-state>`, `<anotoki-segmented>`, `table.table`): never a
+  `<anotoki-card>`, `<anotoki-alert>`, `<anotoki-badge>` (`wrap` where its
+  words may not fit, the paper's section tag), `<anotoki-empty-state>`,
+  `<anotoki-segmented>`, `<anotoki-chip-group>`, `button[anotokiChip]`,
+  `<anotoki-labelled-group>`, `<anotoki-disclosure>`, `<anotoki-link-tabs>`,
+  `table.table`): never a
   style of the app's own for one of them, never a restyling of one (a page
   lays them out - a margin, a flex - and gives the tokens). A choice: the
   kit's segmented choice where its few short options fit 390 px in both
-  languages (the batch size, how many, the review's filter, Browse's type),
-  else a row of the kit's `size="sm"` buttons (`.cluster`), the chosen ones
-  `variant="primary"` and `aria-pressed="true"`, the row `role="group"`
-  named by its `.choice-label` (`aria-labelledby`; over a segmented choice,
-  which names itself, the `.choice-label` is `aria-hidden`; Browse's
-  choices, with no words over them, an `aria-label`); a button whose words
-  mix languages keeps them in one `<span>` (the button is a flex row), and
-  words that may be long (an answer the learner added: 80 characters)
-  stand beside a kit button, never in it - its words stay on one line. The
+  languages (the batch size, how many, the review's filter, Browse's type) -
+  where its name is shown over it (the batch size, how many) inside the kit's
+  labelled group with `selfNamed` (said once: the segmented choice names
+  itself); one of
+  several otherwise the kit's choice chips (`<anotoki-chip-group>`: a radio
+  group named by its label - Browse's for a screen reader alone,
+  `hideLabel`; a count the chip's `note`; a name that holds more than the
+  words shown, `name`, beginning with them); several at once the kit's chips
+  (`button[anotokiChip]` with `[pressed]`) in the kit's labelled group, where
+  a chip needs a tooltip or a part in another language (the exam's parts,
+  lessons and sections, practice's lessons with All). A chip whose words
+  mix languages keeps them in one `<span>`; a choice chip's label is said in
+  one language (`lang`, where a stage's own name stands alone). Words that
+  may be long (an answer the learner added: 80 characters)
+  stand beside a kit button, never in it - its words stay on one line. A
+  quiet word-button (all and none, What's new, Send feedback, the review's
+  listen) is the kit's `variant="link" size="sm"` button, 44 px to a finger
+  by itself. **The browser's own boxes are never raised**: a question is the
+  kit's (`ConfirmService.ask()` - a title that asks, the sentence under it
+  saying what goes, the yes in the words of the button that asked, a danger
+  one `tone: 'danger'`), something to tell is the app's notice
+  (`NoticeService.tell()`, `core/notice/`: one button, OK), each worded the
+  moment it is raised; both hosts keep their keys from `document`. The
   study's own pieces (tiles, the session, the lesson batch, the exam's paper)
   stay the app's, drawn with the tokens. Each
   piece comes from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
-  `ui/forms`, `ui/card`, `ui/config` …), never the `@anotoki/lib/ui` barrel (it would put
+  `ui/forms`, `ui/card`, `ui/chips`, `ui/config` …), never the `@anotoki/lib/ui` barrel (it would put
   every piece in the first load); its class names are its own
   (`anotoki-<piece>__<part>`: a spec or a style reads them so). Its words are
   the anotoki library's keys in this app's database (`anotoki.topbar.*`,
@@ -74,7 +92,7 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   "today" is comes in the server's answers.
 - Sign-in is the IAM's alone, through the anotoki library's
   `@anotoki/lib/auth` (`docs/kb/sign-in.md`; `AuthService` is this app's view
-  of it): every page is behind
+  of it): every page but the legal pages is behind
   `personOrVisitorGuard` (`canActivateChild` on the learner's routes; `staffGuard`
   on `/admin`, which a visitor never passes, and `adminGuard` on its ADMIN
   pages), which sends a signed-out visitor to the IAM and back to the
@@ -196,9 +214,22 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
     through the translation service (`effectiveLanguage`), never through a
     case in the bar. The language button's
     name holds the code it shows (`{code}`).
+- Terms, Privacy and Contact (`/terms`, `/privacy`, `/contact`) are the
+  family's pages (`@anotoki/lib/legal/pages`, lazy) with this app's facts
+  (`legal/legal-facts.ts`, given by their frame `legal/legal-frame`, out of
+  the first load; the root configuration `core/legal.config.ts`), anybody's:
+  no guard, drawn by `AppComponent` whatever the sign-in says. Each is a route
+  of its own whose parent is the frame, before the learner's `**` - never one
+  parent with an empty path holding the three, which would take `/` with no
+  guard (`app.routes.spec.ts` holds `/` and an unknown address). The facts
+  must stay true of the code: a change to what the app keeps, or for how
+  long, changes their `legal.*` strings (a migration) and
+  `ACADEMY_LEGAL_UPDATED`; every address they link to is the code's, never a
+  string. The foot has the family's links to them (`<anotoki-legal-links>`).
 - Switching the language changes words only: a session or a paper goes on
-  where it was. The five kanji tabs fit 390 px in Slovak (360 px in
-  English).
+  where it was. The five kanji tabs are the kit's link tabs: where they do
+  not fit (a phone) they scroll sideways in the kit's strip, never the page,
+  and the page's tab is brought into view (`screens.js` checks it).
 - `frontend/public/changelog.json`: an entry, in plain words, for every
   release the owner will notice; its version has three numbers,
   MAJOR.MINOR.PATCH (big changes, new features, bug fixes), and the newest is

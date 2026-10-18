@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import { ApiError } from '../core/api/api.service';
+import { KanjiScreenService } from './kanji-screen.service';
 import { freshKanji, KanjiShellComponent } from './kanji-shell.component';
 import { KanjiStateService } from './kanji-state.service';
 
@@ -69,16 +70,28 @@ describe('the kanji section’s shell', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('names its tabs from keys, each with its address', async () => {
+  it('names its tabs from keys, each with its address: the kit’s link tabs, in a navigation named Kanji, the page’s marked', async () => {
     const el = await open();
-    expect(Array.from(el.querySelectorAll('.subnav a')).map((a) => [clean(a.textContent), a.getAttribute('href'), a.getAttribute('data-route')])).toEqual([
-      ['Dashboard', '/kanji', ''],
-      ['Lessons', '/kanji/lessons', 'lessons'],
-      ['Reviews', '/kanji/reviews', 'reviews'],
-      ['Practice', '/kanji/practice', 'practice'],
-      ['Browse', '/kanji/browse', 'browse'],
+    expect(el.querySelector('.subnav anotoki-link-tabs nav')?.getAttribute('aria-label')).toBe('Kanji');
+    const links = Array.from(el.querySelectorAll('.subnav a'));
+    expect(links.map((a) => [clean(a.textContent), a.getAttribute('href'), a.getAttribute('aria-current')])).toEqual([
+      ['Dashboard', '/kanji', 'page'],
+      ['Lessons', '/kanji/lessons', null],
+      ['Reviews', '/kanji/reviews', null],
+      ['Practice', '/kanji/practice', null],
+      ['Browse', '/kanji/browse', null],
     ]);
-    expect(el.querySelector('.subnav a[aria-current="page"]')?.getAttribute('data-route')).toBe('');
+    expect(links.every((a) => a.classList.contains('anotoki-link-tabs__link'))).toBe(true);
+
+    // The tab marked is the one the screen says, whatever the address (a session drawn over the dashboard marks its
+    // own); an item's page is none of them, and none is marked.
+    const screen = TestBed.inject(KanjiScreenService);
+    screen.routeTab.set('practice');
+    await harness.fixture.whenStable();
+    expect(links.map((a) => a.getAttribute('aria-current'))).toEqual([null, null, null, 'page', null]);
+    screen.routeTab.set('item');
+    await harness.fixture.whenStable();
+    expect(el.querySelector('.subnav a[aria-current]')).toBeNull();
     expect(el.querySelector('#kanjiLoadError')).toBeNull();
     expect(load).toHaveBeenCalledTimes(1);
     expect(warn, 'no key of the shell is without a string').not.toHaveBeenCalled();

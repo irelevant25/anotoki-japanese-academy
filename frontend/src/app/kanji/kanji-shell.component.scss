@@ -1,6 +1,8 @@
 :host {
   display: block;
 }
+// The band under the app's bar that holds the section's tabs - the kit's link tabs, which draw themselves (and
+// scroll sideways in their own strip where the five do not fit, the edge with more beyond it faded under an arrow).
 .subnav {
   background: var(--card);
   border-bottom: 1px solid var(--line);
@@ -9,42 +11,9 @@
   max-width: 1040px;
   margin: 0 auto;
   padding: 0 16px;
-  display: flex;
-  gap: 2px;
-  overflow-x: auto;
 }
-.subnav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 14px;
-  padding: 10px 12px;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-.subnav a:hover {
-  color: var(--ink);
-}
-.subnav a[aria-current] {
-  color: var(--ink);
-  border-bottom-color: var(--kanji);
-  font-weight: 600;
-}
-@media (max-width: 560px) {
-  .subnav a {
-    padding: 10px 8px;
-  }
-}
-// All five tabs fit a 390 px screen in Slovak too (its words are about 50 px
-// wider than the English); in English they fit 360 px. Measured in Manrope,
-// the family's font since anotoki-lib 0.2.0, which is wider than the system
-// font they were measured in before (5 px a tab and 10 at the sides left the
-// Slovak 6 px short).
 @media (max-width: 440px) {
   .subnav .in {
     padding: 0 6px;
-    gap: 0;
-  }
-  .subnav a {
-    padding: 10px 4px;
   }
 }

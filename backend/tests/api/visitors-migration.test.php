@@ -9,6 +9,11 @@ declare(strict_types=1);
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
 
 const MIGRATION_007 = '007_visitors.sql';
+/**
+ * Rewords 007's words (Sign in's questions) and checks they are there: on a real database it never runs before 007,
+ * so this file - which runs every other file before 007 - leaves it out, recorded as applied, never run.
+ */
+const MIGRATION_011 = '011_legal_pages_and_questions.sql';
 
 /** Every row of every table of somebody's data, as JSON, in a stable order. */
 function rows_now(): array
@@ -25,7 +30,7 @@ function rows_now(): array
 before(function (): void {
     test_db_empty();
     db_migrations_table();
-    db_exec('INSERT INTO migrations (name) VALUES (?)', [MIGRATION_007]); // up to 006 only
+    db_exec('INSERT INTO migrations (name) VALUES (?), (?)', [MIGRATION_007, MIGRATION_011]); // up to 006 only (and 011 never: above)
     db_migrate();
     db_exec('DELETE FROM migrations WHERE name = ?', [MIGRATION_007]);
     // two people with study data

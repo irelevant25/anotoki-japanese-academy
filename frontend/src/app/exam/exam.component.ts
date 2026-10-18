@@ -16,9 +16,14 @@ import {
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { AlertComponent } from '@anotoki/lib/ui/alert';
+import { BadgeComponent } from '@anotoki/lib/ui/badge';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CardComponent } from '@anotoki/lib/ui/card';
+import { ChipComponent, ChipGroupComponent, ChipOption } from '@anotoki/lib/ui/chips';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
+import { DisclosureComponent } from '@anotoki/lib/ui/disclosure';
 import { CheckboxComponent, TextFieldComponent } from '@anotoki/lib/ui/forms';
+import { LabelledGroupComponent } from '@anotoki/lib/ui/labelled-group';
 import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
 import { ApiError, ApiService, toApiError } from '../core/api/api.service';
 import { Attempt, Breakdown, ExamMeta, ExamPaper, ExamQuestion, ExamResult } from '../core/api/api.types';
@@ -29,9 +34,11 @@ import { fmtClockSince, fmtDuration } from '../core/format';
 import { errorKey, errorParams } from '../core/i18n/error-text';
 import { LocalDatePipe } from '../core/i18n/local-date.pipe';
 import { TimeWording } from '../core/i18n/time-wording';
+import { NoticeService } from '../core/notice/notice.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
 import { readTabStorage, writeTabStorage } from '../core/storage';
 import { materialLang } from '../kanji/answer';
+import { KEPT_PAPER_KEY } from './kept-paper-key';
 
 type Screen = 'setup' | 'test' | 'result';
 
@@ -75,9 +82,6 @@ const COURSE = { kanji: 317, a: 1, b: 12, c: 13, d: 23 };
 
 /** A key of the keyboard: a–d or 1–4 choose an option. */
 const KEYS: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
-
-/** sessionStorage: the paper that was open when the site stopped for an update (ExamComponent.keepPaper()). */
-export const KEPT_PAPER_KEY = 'academy-exam-kept-paper';
 
 /** An open paper as this tab keeps it while the site is being updated: everything the page needs to put it back. */
 export interface KeptPaper {
@@ -136,7 +140,10 @@ function keptPaperOf(raw: string | null): KeptPaper | null {
  *
  * Nothing worded is kept: state holds keys, kinds and ApiErrors, and the
  * wording happens in the template or in a computed(), so it follows the
- * language. The two native dialogs are worded at the moment they are raised.
+ * language. Its question (Finish now with questions unanswered: the kit's
+ * ConfirmService) and its notice (a paper that could not be scored: the app's
+ * NoticeService) are worded at the moment they are raised; no key pressed in
+ * either reaches the paper (their hosts keep them, app.component.html).
  *
  * A paper open while the site stops for an update stays the person's: the
  * anotoki library's gate takes the page down (it makes the pages only while
@@ -148,14 +155,31 @@ function keptPaperOf(raw: string | null): KeptPaper | null {
  * no dialog (the library's page says what is going on).
  *
  * The setup and the result are drawn with the kit (cards, its text fields,
- * rows of its buttons for the choices - the chosen ones pressed -, an alert
- * for what went wrong, the table, a segmented choice for the review); the
- * paper itself is the app's own (the question, its options, the player, the
- * grid of questions), with the kit's buttons and tick box under it.
+ * its chips for the choices - toggles in a labelled group where several may
+ * be chosen, its choice chips for the length -, its disclosure around the
+ * narrowing, an alert for what went wrong, the table, a segmented choice for
+ * the review); the paper itself is the app's own (the question, its options,
+ * the player, the grid of questions), with the kit's badge for its section,
+ * its buttons and its tick box.
  */
 @Component({
   selector: 'app-exam',
-  imports: [AlertComponent, ButtonComponent, CardComponent, CheckboxComponent, LocalDatePipe, NgTemplateOutlet, SegmentedComponent, TextFieldComponent, TranslatePipe],
+  imports: [
+    AlertComponent,
+    BadgeComponent,
+    ButtonComponent,
+    CardComponent,
+    CheckboxComponent,
+    ChipComponent,
+    ChipGroupComponent,
+    DisclosureComponent,
+    LabelledGroupComponent,
+    LocalDatePipe,
+    NgTemplateOutlet,
+    SegmentedComponent,
+    TextFieldComponent,
+    TranslatePipe,
+  ],
   templateUrl: './exam.component.html',
   styleUrl: './exam.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -175,10 +199,13 @@ export class ExamComponent implements OnInit, OnDestroy {
   /** Where the site stands (the anotoki library's): while it is not ready, an open paper is kept for when it is back. */
   private readonly site = inject(SiteStatus);
   private readonly injector = inject(Injector);
+  private readonly confirm = inject(ConfirmService);
+  private readonly notice = inject(NoticeService);
 
   private readonly audioRef = viewChild.required<ElementRef<HTMLAudioElement>>('audio');
 
-  readonly sizes = SIZES;
+  /** The paper lengths, as the kit's choice chips offer them: "Quick check · 40", each its number's value. */
+  readonly sizeOptions = computed<ChipOption[]>(() => SIZES.map(([n, key]) => ({ value: String(n), label: this.i18n.t(key, { n }) })));
   readonly course = COURSE;
   /** Which language a piece of the material is in: Japanese when it holds kana or kanji, else English. */
   readonly materialLang = materialLang;
@@ -589,13 +616,30 @@ export class ExamComponent implements OnInit, OnDestroy {
     return [a && a.choice !== null ? 'done' : '', this.flags().has(q.id) ? 'flag' : '', i === this.idx() ? 'cur' : ''].filter(Boolean).join(' ');
   }
 
-  quit(): void {
+  /** The length chosen on the kit's choice chips (a radio group: always one of SIZES). */
+  setSize(value: string | null): void {
+    const n = Number(value);
+    if (SIZES.some(([size]) => size === n)) {
+      this.size.set(n);
+    }
+  }
+
+  async quit(): Promise<void> {
     const done = Object.values(this.answers()).filter((a) => a.choice !== null).length;
     const left = this.total() - done;
-    // The browser's own dialog: worded now, in the language on the page (its OK and Cancel are the browser's).
-    if (!left || confirm(this.i18n.plural('exam.confirmFinish', left))) {
-      void this.finish();
+    // The kit's question, worded now, in the language on the page: Finish, or back to the paper.
+    if (left) {
+      const go = await this.confirm.ask({
+        title: this.i18n.t('exam.finishTitle'),
+        message: this.i18n.plural('exam.confirmFinish', left),
+        confirmLabel: this.i18n.t('exam.finish'),
+        cancelLabel: this.i18n.t('exam.backToPaper'),
+      });
+      if (!go || this.gone || this.screen() !== 'test') {
+        return;
+      }
     }
+    void this.finish();
   }
 
   /* ------------------------------------------------------------- audio */
@@ -699,9 +743,13 @@ export class ExamComponent implements OnInit, OnDestroy {
         // the site is back (ngOnDestroy()).
         return;
       }
-      // The browser's own dialog: worded now, from the failure's code. The
-      // reason the server gives the owner's own computer follows, as it came.
-      alert(this.i18n.t('exam.error.score', { reason: this.reason(error) }) + (error.body.detail ? `\n\n${error.body.detail}` : ''));
+      // The app's notice: worded now, from the failure's code. The reason the
+      // server gives the owner's own computer follows, as it came.
+      void this.notice.tell({
+        title: this.i18n.t('exam.error.scoreTitle'),
+        message: this.i18n.t('exam.error.score', { reason: this.reason(error) }),
+        detail: error.body.detail || null,
+      });
       return;
     }
     // Scored: nothing of it is kept any more (a copy kept while the answer was on its way).

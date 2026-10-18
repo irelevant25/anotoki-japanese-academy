@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ANOTOKI_FEEDBACK_CONFIG, feedbackWords } from '@anotoki/lib/feedback';
 import { FeedbackFormComponent } from '@anotoki/lib/feedback/form';
 import { SiteStatus } from '@anotoki/lib/migrations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { DialogComponent } from '@anotoki/lib/ui/dialog';
 import { AuthService } from '../auth/auth.service';
 
@@ -18,7 +19,9 @@ import { AuthService } from '../auth/auth.service';
  * it (@defer): no first load carries it.
  *
  * Its words are the library's (anotoki.feedback.*: "Send feedback"), which the
- * owner rewords on the Translations page, in the language on the page.
+ * owner rewords on the Translations page, in the language on the page. The
+ * button is the kit's quiet link button (`variant="link" size="sm"`: 44 px to a
+ * finger), as What's new beside it.
  *
  * Like the version's button beside it, it keeps every key pressed in it - in
  * the open form too - from `document`, where the reviews and the exam listen:
@@ -26,7 +29,7 @@ import { AuthService } from '../auth/auth.service';
  */
 @Component({
   selector: 'app-feedback-button',
-  imports: [DialogComponent, FeedbackFormComponent],
+  imports: [ButtonComponent, DialogComponent, FeedbackFormComponent],
   templateUrl: './feedback-button.component.html',
   styleUrl: './feedback-button.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

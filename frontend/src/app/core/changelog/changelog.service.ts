@@ -11,8 +11,8 @@ export interface ChangelogEntry {
   };
 }
 
-/** Which version this browser last opened the changelog of (per browser: it is the one that knows). */
-const SEEN_KEY = 'academy-changelog-seen';
+/** Which version this browser last opened the changelog of (per browser: it is the one that knows; the Privacy page names it). */
+export const CHANGELOG_SEEN_KEY = 'academy-changelog-seen';
 
 /** A version's numbers ("0.4.0": [0, 4, 0]), or null for anything that is not numbers between dots. */
 function versionParts(version: string): number[] | null {
@@ -75,7 +75,7 @@ export class ChangelogService {
     const v = this.version();
     this.seen.set(v);
     try {
-      localStorage.setItem(SEEN_KEY, v);
+      localStorage.setItem(CHANGELOG_SEEN_KEY, v);
     } catch {
       // not remembered: the dot shows again next time
     }
@@ -84,7 +84,7 @@ export class ChangelogService {
 
 function readSeen(): string | null {
   try {
-    return localStorage.getItem(SEEN_KEY);
+    return localStorage.getItem(CHANGELOG_SEEN_KEY);
   } catch {
     return null;
   }

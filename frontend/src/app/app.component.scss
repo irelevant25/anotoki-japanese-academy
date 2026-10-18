@@ -1,7 +1,7 @@
 // The bar's looks are its own (top-bar/); the page's pieces are global
 // (styles/_base.scss). The foot stays at the bottom of a short page: the
 // version, What's new and Send feedback in one line, which wraps on a narrow
-// screen.
+// screen, and the family's Terms · Privacy · Contact under it.
 :host {
   display: flex;
   flex-direction: column;
@@ -11,6 +11,13 @@
 .foot {
   margin-top: auto;
   padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.foot-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

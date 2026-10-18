@@ -1,4 +1,5 @@
-// The foot of every page: the version, and the way to what is new in it.
+// The foot of every page: the version, and the way to what is new in it - the kit's quiet link button, which is
+// 24 px high to a mouse and 44 to a finger by itself (anotoki-lib 0.6.0; the app drew its own until then).
 :host {
   display: block;
 }
@@ -12,27 +13,6 @@
 }
 .version {
   font-variant-numeric: tabular-nums;
-}
-.whats-new {
-  background: none;
-  border: 0;
-  padding: 2px 0;
-  font: inherit;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.whats-new:hover {
-  color: var(--ink);
-}
-// A finger needs more than a line of small text is: the button grows to 44
-// px high, the line around it with it.
-@media (pointer: coarse) {
-  .whats-new {
-    min-height: 44px;
-    padding: 0 4px;
-  }
 }
 // The dot is tied to the words, not to the button: on a touch screen the button is 44 px high, and a
 // dot at its top edge floated well above the words.

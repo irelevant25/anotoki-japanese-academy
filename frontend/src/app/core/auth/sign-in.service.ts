@@ -1,5 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { TranslationService } from '@anotoki/lib/translations';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { AuthService } from './auth.service';
 
@@ -27,14 +28,16 @@ const ASKED_ON_SIGN_IN: Record<string, string> = {
  * first save, whose answer brings the visitor's key, is not cut off as the
  * browser leaves (its study would stay behind on the server, out of reach of
  * the move); and when one failed, or an exam paper is open and not handed in,
- * the visitor is asked first, in the language on the page. Then the sign-in,
- * and on the way back the move (core/auth/visitor-key.ts).
+ * the visitor is asked first, in the language on the page - the kit's question
+ * ("Sign in anyway?", the sentence under it, Cancel or Sign in). Then the
+ * sign-in, and on the way back the move (core/auth/visitor-key.ts).
  */
 @Injectable({ providedIn: 'root' })
 export class SignInService {
   private readonly auth = inject(AuthService);
   private readonly saves = inject(SavesInFlight);
   private readonly i18n = inject(TranslationService);
+  private readonly confirm = inject(ConfirmService);
 
   private readonly waitingSignal = signal(false);
   /** Waiting for the saves on their way: the button that signs in shows it. */
@@ -81,7 +84,14 @@ export class SignInService {
     // Each question once: a session's failed answer can be both one that failed meanwhile and one it reports.
     const lost = [...new Set([...(failed > 0 ? ['signOut.notSaved'] : []), ...this.saves.losses()])];
     for (const key of lost) {
-      if (!confirm(this.i18n.t(ASKED_ON_SIGN_IN[key] ?? key))) {
+      // Each loss its own question, as signing out asks it: its yes is the bar's Sign in.
+      const go = await this.confirm.ask({
+        title: this.i18n.t('signIn.confirmTitle'),
+        message: this.i18n.t(ASKED_ON_SIGN_IN[key] ?? key),
+        confirmLabel: this.i18n.t('anotoki.topbar.signIn'),
+        tone: 'danger',
+      });
+      if (!go) {
         return false;
       }
     }

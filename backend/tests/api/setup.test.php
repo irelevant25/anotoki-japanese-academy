@@ -284,6 +284,74 @@ test('run again, asked as a website is: the token, and nothing of what is saved'
     unlink(site()['dir'] . '/backend/config/setup-token.local.php');
 });
 
+test('a database.local.php saved by hand with a byte-order mark and without its <?php line - its password in it - prints nothing to anybody: not where the site stands, not an address of the API, not the pages, not the setup page; the copy is not set up until it is mended, said by the file\'s fault alone', function (): void {
+    $config = site()['dir'] . '/backend/config';
+    $file = "$config/database.local.php";
+    $kept = (string) file_get_contents($file);
+    $password = site()['password'];
+    $settings = var_export(require $file, true);
+    assert_true(str_contains($settings, $password), 'the file holds the password');
+    // As an editor might save it: a byte-order mark, and no <?php line - required as it is, PHP prints every byte of
+    // it ahead of the answer, the password with it.
+    $written = "\xEF\xBB\xBF// Japanese Academy's database\nreturn $settings;\n";
+    file_put_contents($file, $written);
+    try {
+        $status = call(site()['base'], 'GET', '/api/site-status', null, no_token());
+        assert_same([200, ['state' => 'not_set_up', 'installed' => false]], [$status['status'], $status['body']], 'not set up: ' . $status['raw']);
+        foreach ([
+            'where the site stands' => $status,
+            'an address of the API' => call(site()['base'], 'GET', '/api/kanji/summary'),
+            'the health check' => call(site()['base'], 'GET', '/api/health', null, no_token()),
+            'the words' => call(site()['base'], 'GET', '/api/translations/en', null, no_token()),
+            'a page' => test_page(site()['base'], '/kanji'),
+            'the setup page' => test_page(site()['base'], '/setup.php', [], jar()),
+        ] as $what => $r) {
+            assert_false(str_contains($r['raw'], $password), "$what: never the password");
+            assert_false(str_contains($r['raw'], "Japanese Academy's database"), "$what: nor anything else of the file");
+            assert_true(str_starts_with($r['raw'], '{') || stripos($r['raw'], '<!doctype html>') === 0, "$what: the answer starts as its own, nothing printed ahead of it: " . substr($r['raw'], 0, 80));
+        }
+        $api = call(site()['base'], 'GET', '/api/kanji/summary');
+        assert_same([503, 'not_set_up', '/setup.php'], [$api['status'], $api['body']['code'] ?? null, $api['body']['setup'] ?? null], 'the anotoki library\'s answer, with the way to the setup page');
+        $page = test_page(site()['base'], '/setup.php', [], jar());
+        $bytes = strlen($written);
+        assert_match('/backend\/config\/database\.local\.php prints ' . $bytes . ' bytes of its own .*Save writes it again/', $page['raw'], 'this computer\'s setup page names the file and its fault, never its text');
+        assert_no_match('/This copy is set up already|\(saved: leave empty/', $page['raw'], 'and offers nothing of it as saved: its password neither');
+        $log = (string) file_get_contents(site()['log']);
+        assert_match('/\[config\] backend\/config\/database\.local\.php prints ' . $bytes . ' bytes of its own .*: this copy is not set up until it is mended\./', $log, 'said in PHP\'s log');
+        assert_same(1, substr_count($log, 'database.local.php prints ' . $bytes . ' bytes'), 'once, for all those requests (once a day)');
+        assert_false(str_contains($log, $password), 'never the password');
+    } finally {
+        file_put_contents($file, $kept);
+    }
+    assert_same(200, call(site()['base'], 'GET', '/api/kanji/summary')['status'], 'mended: set up again');
+
+    // The other required file the same, PHP's own failure said by its kind and line; and the optional
+    // app.local.php only means its defaults - the copy stays set up.
+    file_put_contents("$config/auth.local.php", "<?php\nreturn ['issuer' => 'https://iam.test' 'client_id' => 'japanese-academy'];\n");
+    $original = "<?php\n// Written by the setup page.\n\nreturn " . var_export(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], true) . ";\n";
+    try {
+        $r = call(site()['base'], 'GET', '/api/kanji/summary');
+        assert_same([503, 'not_set_up'], [$r['status'], $r['body']['code'] ?? null], 'auth.local.php PHP cannot parse: not set up');
+        assert_match('/\[config\] backend\/config\/auth\.local\.php cannot be read \(ParseError on line 2\): this copy is not set up until it is mended\./', (string) file_get_contents(site()['log']));
+    } finally {
+        file_put_contents("$config/auth.local.php", $original);
+    }
+    $appKept = is_file("$config/app.local.php") ? (string) file_get_contents("$config/app.local.php") : null;
+    file_put_contents("$config/app.local.php", "\xEF\xBB\xBF<?php\nreturn ['visitors' => ['keep_days' => 7]];\n");
+    try {
+        $r = call(site()['base'], 'GET', '/api/auth/config', null, no_token());
+        assert_same([200, 30], [$r['status'], $r['body']['visitor_keep_days'] ?? null], 'app.local.php that prints: its defaults hold, the copy set up (30 days, not its 7)');
+        assert_false(str_starts_with($r['raw'], "\xEF\xBB\xBF"), 'and nothing of it printed');
+        assert_match('/\[config\] backend\/config\/app\.local\.php prints 3 bytes of its own .*: its defaults hold until it is mended\./', (string) file_get_contents(site()['log']));
+    } finally {
+        if ($appKept === null) {
+            unlink("$config/app.local.php");
+        } else {
+            file_put_contents("$config/app.local.php", $appKept);
+        }
+    }
+});
+
 after(function (): void {
     if (isset($GLOBALS['jar'])) {
         @unlink($GLOBALS['jar']);

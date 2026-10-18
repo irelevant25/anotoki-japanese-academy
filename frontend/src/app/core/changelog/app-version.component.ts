@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, viewChild } from '@angular/core';
 import { TranslationService } from '@anotoki/lib/translations';
+import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { keptWord } from '../../standin/kept-word';
 import { ChangelogDialogComponent } from './changelog-dialog.component';
 import { ChangelogService } from './changelog.service';
@@ -12,7 +13,8 @@ import { ChangelogService } from './changelog.service';
  * news are at the foot of each (AppComponent draws it).
  *
  * It is drawn in every state — also while the app has no strings — so its
- * words have their English here too (standin/kept-word.ts).
+ * words have their English here too (standin/kept-word.ts). "What's new" is
+ * the kit's quiet link button (`variant="link" size="sm"`: 44 px to a finger).
  *
  * Like the top bar, it keeps every key pressed in it — on "What's new", in
  * the open dialog — from `document`, where the reviews and the exam listen:
@@ -22,7 +24,7 @@ import { ChangelogService } from './changelog.service';
  */
 @Component({
   selector: 'app-version',
-  imports: [ChangelogDialogComponent],
+  imports: [ButtonComponent, ChangelogDialogComponent],
   templateUrl: './app-version.component.html',
   styleUrl: './app-version.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

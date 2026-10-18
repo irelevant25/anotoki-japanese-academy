@@ -22,97 +22,62 @@
           (valueChange)="candidate.set($event)"
         />
 
-        <!-- each choice a row of the kit's buttons, the chosen ones pressed -->
-        <div class="choice" role="group" aria-labelledby="exam-part">
-          <span class="choice-label" id="exam-part">{{ 'exam.partLabel' | translate }}</span>
-          <div class="cluster" id="bookChips">
-            @for (bk of parts(); track bk.id) {
-              <button
-                anotokiButton
-                size="sm"
-                [variant]="books().has(bk.id) ? 'primary' : 'secondary'"
-                [attr.aria-pressed]="books().has(bk.id)"
-                [attr.data-book]="bk.id"
-                [title]="bk.title"
-                (click)="toggleBook(bk.id)"
-              >
-                {{ bk.name }}
-              </button>
-            }
-          </div>
-        </div>
+        <!--
+          The choices are the kit's chips. Several at once - the parts, the lessons, the sections - are toggles
+          (button[anotokiChip], aria-pressed) in a group the kit's labelled group names: each keeps its tooltip, and
+          the greetings' chip its kana marked as Japanese. One of several - the length - is the kit's choice chips, a
+          radio group.
+        -->
+        <anotoki-labelled-group id="bookChips" [label]="'exam.partLabel' | translate">
+          @for (bk of parts(); track bk.id) {
+            <button anotokiChip [pressed]="books().has(bk.id)" [attr.data-book]="bk.id" [title]="bk.title" (click)="toggleBook(bk.id)">{{ bk.name }}</button>
+          }
+        </anotoki-labelled-group>
 
-        <div class="choice" role="group" aria-labelledby="exam-length">
-          <span class="choice-label" id="exam-length">{{ 'exam.length' | translate }}</span>
-          <div class="cluster" id="sizeChips">
-            @for (s of sizes; track s[0]) {
-              <button
-                anotokiButton
-                size="sm"
-                [variant]="size() === s[0] ? 'primary' : 'secondary'"
-                [attr.aria-pressed]="size() === s[0]"
-                [attr.data-size]="s[0]"
-                (click)="size.set(s[0])"
-              >
-                {{ s[1] | translate: { n: s[0] } }}
-              </button>
-            }
-          </div>
-        </div>
+        <anotoki-chip-group id="sizeChips" [label]="'exam.length' | translate" [options]="sizeOptions()" [value]="'' + size()" (valueChange)="setSize($event)" />
 
-        <details class="adv">
-          <summary>{{ 'exam.narrow' | translate }}</summary>
-          <div class="stack">
-            <div class="choice" role="group" aria-labelledby="exam-lessons">
-              <div class="choice-head">
-                <span class="choice-label" id="exam-lessons">{{ 'exam.lessons' | translate }}</span>
+        <anotoki-disclosure plain id="narrow" [heading]="'exam.narrow' | translate">
+          <div class="stack narrow">
+            <anotoki-labelled-group id="lessonChips" [label]="'exam.lessons' | translate">
+              <span class="choice-actions">
                 <button anotokiButton variant="link" size="sm" data-all="lessons" (click)="allLessons(true)">{{ 'exam.all' | translate }}</button>
                 <button anotokiButton variant="link" size="sm" data-none="lessons" (click)="allLessons(false)">{{ 'exam.none' | translate }}</button>
-              </div>
-              <div class="cluster" id="lessonChips">
-                @for (l of lessonChoices(); track l.id) {
-                  <button
-                    anotokiButton
-                    size="sm"
-                    [variant]="lessons().has(l.id) ? 'primary' : 'secondary'"
-                    [attr.aria-pressed]="lessons().has(l.id)"
-                    [attr.data-lesson]="l.id"
-                    [attr.title]="l.id === 0 ? null : lessonLabel(l.id)"
-                    (click)="toggleLesson(l.id)"
-                  >
-                    @if (l.id === 0) {
-                      <!-- one piece of the button's row, so the brackets stay with the kana -->
-                      <span>{{ 'exam.greetings' | translate }} (<span lang="ja">あいさつ</span>)</span>
-                    } @else {
-                      L{{ l.id }}
-                    }
-                  </button>
-                }
-              </div>
-            </div>
+              </span>
+              @for (l of lessonChoices(); track l.id) {
+                <button
+                  anotokiChip
+                  [pressed]="lessons().has(l.id)"
+                  [attr.data-lesson]="l.id"
+                  [attr.title]="l.id === 0 ? null : lessonLabel(l.id)"
+                  (click)="toggleLesson(l.id)"
+                >
+                  @if (l.id === 0) {
+                    <!-- one piece of the chip's row, so the brackets stay with the kana -->
+                    <span>{{ 'exam.greetings' | translate }} (<span lang="ja">あいさつ</span>)</span>
+                  } @else {
+                    L{{ l.id }}
+                  }
+                </button>
+              }
+            </anotoki-labelled-group>
 
-            <div class="choice" role="group" aria-labelledby="exam-sections">
-              <div class="choice-head">
-                <span class="choice-label" id="exam-sections">{{ 'exam.sections' | translate }}</span>
+            <anotoki-labelled-group id="sectionChips" [label]="'exam.sections' | translate">
+              <span class="choice-actions">
                 <button anotokiButton variant="link" size="sm" data-all="sections" (click)="allSections(true)">{{ 'exam.all' | translate }}</button>
                 <button anotokiButton variant="link" size="sm" data-none="sections" (click)="allSections(false)">{{ 'exam.none' | translate }}</button>
-              </div>
-              <div class="cluster" id="sectionChips">
-                @for (s of meta()?.sections ?? []; track s.id) {
-                  <button
-                    anotokiButton
-                    size="sm"
-                    [variant]="sections().has(s.id) ? 'primary' : 'secondary'"
-                    [attr.aria-pressed]="sections().has(s.id)"
-                    [attr.data-section]="s.id"
-                    [title]="'exam.available' | translate: { n: i18n.number(s.available) }"
-                    (click)="toggleSection(s.id)"
-                  >
-                    {{ 'exam.section.' + s.id | translate }}
-                  </button>
-                }
-              </div>
-            </div>
+              </span>
+              @for (s of meta()?.sections ?? []; track s.id) {
+                <button
+                  anotokiChip
+                  [pressed]="sections().has(s.id)"
+                  [attr.data-section]="s.id"
+                  [title]="'exam.available' | translate: { n: i18n.number(s.available) }"
+                  (click)="toggleSection(s.id)"
+                >
+                  {{ 'exam.section.' + s.id | translate }}
+                </button>
+              }
+            </anotoki-labelled-group>
 
             <anotoki-text-field
               id="seed"
@@ -123,7 +88,7 @@
               (valueChange)="seed.set($event)"
             />
           </div>
-        </details>
+        </anotoki-disclosure>
 
         <div class="cluster">
           <button anotokiButton variant="primary" id="startBtn" [disabled]="building()" (click)="start()">
@@ -197,7 +162,8 @@
     <div class="progress"><div id="progressFill" [style.width.%]="progress()"></div></div>
     <div class="topmeta">
       <span id="counter">{{ idx() + 1 }} / {{ total() }}</span>
-      <span class="sect" id="sectionTag">{{ sectionTag() }}</span>
+      <!-- the kit's badge, whose words wrap on a narrow screen (a Slovak section's name is long) -->
+      <anotoki-badge wrap class="sect" id="sectionTag">{{ sectionTag() }}</anotoki-badge>
       <span class="spacer"></span>
       <span id="clock" class="clock">{{ clock() }}</span>
       <button anotokiButton size="sm" id="quitBtn" [disabled]="quitting()" (click)="quit()">{{ 'exam.finishNow' | translate }}</button>
@@ -305,16 +271,17 @@
                   <span class="rn" [attr.lang]="i18n.language()">{{ r.label }}</span>
                   {{ r.question }}
                   @if (r.audio) {
+                    <!-- named for what it shows (WCAG 2.5.3): "listen to question 12" begins with its words; the play mark is drawn, not heard -->
                     <button
                       anotokiButton
                       variant="link"
                       size="sm"
                       class="miniplay"
                       [attr.lang]="i18n.language()"
-                      [attr.aria-label]="'exam.playRecording' | translate"
+                      [attr.aria-label]="'exam.result.listenTo' | translate: { n: r.n }"
                       (click)="listen(r.audio)"
                     >
-                      &#9654; {{ 'exam.result.listen' | translate }}
+                      <span aria-hidden="true">&#9654;</span>&ngsp;{{ 'exam.result.listen' | translate }}
                     </button>
                   }
                 </div>

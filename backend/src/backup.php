@@ -3,8 +3,9 @@
  * The study data outside the database, and back in.
  *
  * Backups, in backend/storage/backups/ (gitignored; on a hosted site the
- * same folder of the upload, outside the document root). Every date and time
- * in a name is UTC, whoever's request wrote it:
+ * same folder of the upload, outside the document root), each file the
+ * site's own user's alone (0600, the folder 0700: file_put_atomic()'s
+ * $private). Every date and time in a name is UTC, whoever's request wrote it:
  *   academy-2026-09-24.json                the day's copy, taken at the day's first page load
  *                                          (the last 14 are kept)
  *   academy-before-reset-user-<id>-<time>.json   before somebody's full reset of their kanji
@@ -133,14 +134,14 @@ function backup_data(?array $only = null): array
  * One of some people alone ($only) names them: academy-before-reset-user-7-….json.
  * The date and the time are UTC's. A name already taken (two copies in the
  * same millisecond) gets -2, -3 …: a copy never replaces another.
- * Written aside first, so a cut-off write never looks like a finished backup.
+ * Written aside first, so a cut-off write never looks like a finished backup,
+ * and the site's own user's alone (0600, its folder 0700): it holds people's
+ * names and study, and a hosted site shares its server with other people's
+ * sites - as the library's backups beside it are.
  */
 function backup_write(string $label, ?array $only = null): string
 {
-    $dir = backup_dir();
-    if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-        throw new RuntimeException("Cannot create the backup folder $dir");
-    }
+    $dir = backup_folder();
     $now = now_ms();
     if ($label === 'daily') {
         $file = "$dir/academy-" . utc_date($now) . '.json';
@@ -151,8 +152,22 @@ function backup_write(string $label, ?array $only = null): string
             $file = "$stem-$n.json";
         }
     }
-    file_put_atomic($file, json_text(backup_data($only)) . "\n");
+    file_put_atomic($file, json_text(backup_data($only)) . "\n", true);
     return $file;
+}
+
+/**
+ * The backup folder (backup_dir()), made the first time - the site's own
+ * user's alone (0700): it holds every copy of people's data, this site's and
+ * the anotoki library's.
+ */
+function backup_folder(): string
+{
+    $dir = backup_dir();
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+        throw new RuntimeException("Cannot create the backup folder $dir");
+    }
+    return $dir;
 }
 
 /**
@@ -189,14 +204,12 @@ function backup_person_copy(string $label, int $uid): string
  * Before a migration: every table as it is, row by row, whatever its columns.
  * The regular backup reads the tables with this version's queries, which a
  * migration that has not run yet may not match. Put back by hand if ever
- * needed (it is plain JSON, one list of rows per table).
+ * needed (it is plain JSON, one list of rows per table). The site's own
+ * user's alone (0600), as every copy.
  */
 function backup_write_raw(string $label): string
 {
-    $dir = backup_dir();
-    if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-        throw new RuntimeException("Cannot create the backup folder $dir");
-    }
+    $dir = backup_folder();
     $tables = [];
     foreach (db_all("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name") as $t) {
         $name = $t['table_name'];
@@ -207,7 +220,7 @@ function backup_write_raw(string $label): string
     }
     $now = now_ms();
     $file = "$dir/academy-$label-" . utc_stamp($now) . '.raw.json';
-    file_put_atomic($file, json_text(['format' => 'japanese-academy-tables', 'takenAt' => iso_time($now), 'database' => db_name(), 'tables' => $tables]) . "\n");
+    file_put_atomic($file, json_text(['format' => 'japanese-academy-tables', 'takenAt' => iso_time($now), 'database' => db_name(), 'tables' => $tables]) . "\n", true);
     return $file;
 }
 
@@ -336,13 +349,32 @@ function backup_restore(array $data): array
  * hold a fresh file for a moment. The file aside has a name of its own: two
  * requests writing the same file (the day's first page loads, say) never
  * write into one half-written copy.
+ *
+ * $private: the site's own user's alone (0600) - every copy of people's data
+ * in the backup folder and the keys and notes in storage, which a hosted
+ * site's neighbours on the same server must not read. The file aside is made
+ * under a umask that keeps everybody else out, so not even it is readable by
+ * them for a moment, and chmod covers a umask a host set otherwise. (Both do
+ * nothing on Windows, where the folder's permissions apply.) The data the
+ * builders write into the repository (backend/data/) stays as git keeps it.
  */
-function file_put_atomic(string $file, string $content): void
+function file_put_atomic(string $file, string $content, bool $private = false): void
 {
     $tmp = $file . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    if (file_put_contents($tmp, $content) !== strlen($content)) {
+    $umask = $private ? umask(0077) : null;
+    try {
+        $written = file_put_contents($tmp, $content);
+    } finally {
+        if ($umask !== null) {
+            umask($umask);
+        }
+    }
+    if ($written !== strlen($content)) {
         @unlink($tmp);
         throw new RuntimeException("Cannot write $tmp");
+    }
+    if ($private) {
+        @chmod($tmp, 0600);
     }
     for ($i = 0; ; $i++) {
         try {

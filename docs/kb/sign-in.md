@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on PHP 0.5.2, Angular 0.5.0) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.6.2, both halves) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -543,7 +543,9 @@ is signed out here, or until the IAM refuses its refresh.
   session from `localStorage` (refreshing the access token when it ran out;
   refresh tokens rotate). Only then does the router's first navigation run
   (`AppComponent`), so no screen asks for data before the sign-in is settled.
-- **Every page is for somebody signed in** — the library's guards
+- **Every page is for somebody signed in** — but Terms, Privacy and Contact,
+  anybody's, with no guard ([architecture.md](architecture.md), *The legal
+  pages*) — the library's guards
   (`app.routes.ts`): `personOrVisitorGuard` as `canActivateChild` on the
   routes around a learner's pages, so each page asks again; `staffGuard` on
   `/admin` (EDITOR or ADMIN; anybody else signed in goes home) and
@@ -667,7 +669,9 @@ is signed out here, or until the IAM refuses its refresh.
   in; each tells `SavesInFlight`, which the top bar can reach where it cannot
   reach them. Sign out sends a note still waiting at once, waits for every
   save on its way (the button: a spinner and "Saving…"), and asks first, in
-  the learner's language (the browser's own dialog, worded as it is raised),
+  the learner's language (the kit's question - "Sign out anyway?", the
+  sentence under it saying what goes, Cancel or Sign out - worded as it is
+  raised; the browser's own dialog until 2026-10-18),
   when one of them failed (`signOut.notSaved`), when a lesson or review still
   holds an answer whose save failed earlier — the session says that only on
   its summary, which is not drawn yet, so it reports it (`watch()`, the same

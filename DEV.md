@@ -174,7 +174,9 @@ insert leaves it alone. To add one:
    took over, and 009, the kit's words moved under the library's keys, since
    2026-10-11; 010, the people's `anonymized_at` and the words of a failed
    sign-in moved under the library's keys, likewise, on the owner's go the
-   same day.)
+   same day. 011, the legal pages' words and the questions' and notices'
+   titles that took the browser's boxes' place, is a draft since
+   2026-10-18: its last line is the owner's to write.)
    `backend/tools/build-dist.php` refuses to build the upload while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in
@@ -212,8 +214,8 @@ The database migrations, the app's words, the sign-in, the people and the
 admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
-release may change one half alone, and then only that half moves: the PHP
-half is 0.5.2, the Angular half 0.5.0 (0.3.0 the translations and the kit a
+release may change one half alone, and then only that half moves: both
+halves are 0.6.2 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
@@ -221,7 +223,13 @@ where a request comes from; 0.5.1 a fix of the PHP half alone - a restore of
 a database that ever had visitors, whose ids count down; 0.5.2 the PHP half
 alone too - the origin secret, `backend/config/cloudflare.local.php`:
 `CF-Connecting-IP` believed only on a request carrying the secret the
-owner's Cloudflare zone adds, `docs/kb/hosting.md`):
+owner's Cloudflare zone adds, `docs/kb/hosting.md`; 0.6 the family's legal
+pages - Terms, Privacy, Contact - and their footer links, the kit's newer
+pieces - choice chips and chips, labelled groups, disclosures, tabs and link
+tabs, a badge that wraps, a link button 44 px to a finger -, the top bar's
+words for the number beside a link, and the backups' answers in fixed
+sentences; 0.6.1 and 0.6.2 five sentences of the Privacy page made true,
+each rewording only a string nobody changed):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -285,14 +293,17 @@ To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.5.0"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.6.0"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);
 2. in `frontend/`: the new release's address in `package.json`
    (`https://github.com/irelevant25/anotoki-lib/releases/download/vX.Y.Z/anotoki-lib-X.Y.Z.tgz`),
-   then `bun install`, and `npm install --package-lock-only` so that
-   `package-lock.json` says the same as `bun.lock`;
+   then `bun install` - never `npm install` -, and give `package-lock.json`'s
+   `node_modules/@anotoki/lib` entry (and the address in its root's
+   dependencies) the version, address and integrity `bun.lock` now has, by
+   hand, so that the two say the same (`ensure-build.mjs` then runs `npm ci`
+   once, from that lock);
 3. the PHP tests, `npm test` and the browser suites (below).
 
 ## Tests
@@ -301,9 +312,9 @@ version is 0.x a new minor version may need changes here: read its
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | the PHP unit and API tests, each file in its own throwaway database (`… run.php backend/tests/api/exam-api.test.php` runs some files) | ~25 s |
 | `npm test` in `frontend/` | the Angular unit tests (Vitest, in jsdom): answer checking against the whole catalog, the session engine, the sign-in as this app sees it, the changelog … | ~15 s |
-| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, Your data, sign-out, the admin panel by role, People, feedback sent from the foot and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held | ~4 min |
+| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, Your data, sign-out, the admin panel by role, People, feedback sent from the foot and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held; the legal pages signed out with no trip to the IAM; the kit's question answered where the app asks, and no browser box ever | ~4 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js` | the setup page in Edge, on a built upload: this computer's way and a website's, each then signing in | ~1 min |
-| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark), then the top bar measured at 360–1280 px and its menus → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, a bar out of its row; look at the shots | ~10 min |
+| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark) - the legal pages in Slovak at 1280 px too -, then the top bar measured at 360–1280 px and its menus → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, a bar out of its row; look at the shots | ~10 min |
 
 `frontend/package.json` runs the same suites as `npm run e2e`, `npm run
 e2e:setup` and `npm run screens` (in `frontend/`), without the build step:

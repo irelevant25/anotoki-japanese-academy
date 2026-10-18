@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CardComponent } from '@anotoki/lib/ui/card';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { IconComponent } from '@anotoki/lib/ui/icon';
 import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
@@ -34,6 +35,7 @@ export class ItemComponent {
   private readonly screen = inject(KanjiScreenService);
   private readonly i18n = inject(TranslationService);
   private readonly wording = inject(TimeWording);
+  private readonly confirm = inject(ConfirmService);
 
   readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   readonly it = computed(() => this.kanji.item(this.id));
@@ -104,8 +106,18 @@ export class ItemComponent {
 
   async reset(): Promise<void> {
     const it = this.it();
-    // The browser's own dialog, worded at the moment it is raised, in the language on the page.
-    if (!it || !confirm(this.i18n.t('item.confirmReset', { chars: it.chars }))) {
+    if (!it) {
+      return;
+    }
+    // The kit's question, worded at the moment it is raised, in the language on the page: "Reset 大?", what it
+    // does, and the page's own button's words for the yes.
+    const go = await this.confirm.ask({
+      title: this.i18n.t('item.resetTitle', { chars: it.chars }),
+      message: this.i18n.t('item.confirmReset'),
+      confirmLabel: this.i18n.t('item.reset'),
+      tone: 'danger',
+    });
+    if (!go) {
       return;
     }
     const r = await this.api.resetItem(it.id);

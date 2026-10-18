@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState, Stage } from '../../core/api/api.types';
 import { AudioService } from '../../core/audio.service';
@@ -40,7 +41,8 @@ const ENGLISH: Record<string, string> = {
   'item.addMeaning': 'Add your own meaning',
   'item.add': 'Add',
   'item.notFound': 'Not found',
-  'item.confirmReset': 'Reset {chars}? It goes back to "not learned"; your notes stay.',
+  'item.resetTitle': 'Reset {chars}?',
+  'item.confirmReset': 'It goes back to "not learned"; your notes stay.',
   'item.synonyms': 'Your synonyms: {synonyms}',
   'item.foundIn': 'Found in vocabulary',
   'item.alsoAccepted': 'Also accepted',
@@ -64,7 +66,9 @@ const SLOVAK: Record<string, string> = {
   'item.kanjiFirst': 'Najprv sa nauč kanji: {need}',
   'item.noMoreReviews': '{stage} – žiadne ďalšie opakovania',
   'item.accuracy': '{pct} % ({right}/{total})',
-  'item.confirmReset': 'Vynulovať „{chars}“? Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.',
+  'item.reset': 'Vynulovať pokrok',
+  'item.resetTitle': 'Vynulovať „{chars}“?',
+  'item.confirmReset': 'Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.',
   'item.synonyms': 'Tvoje synonymá: {synonyms}',
   'time.inHours': 'o {h} h',
 };
@@ -196,25 +200,35 @@ describe('ItemComponent', () => {
     expect(stats()[2]).toBe('Burned — no more reviews');
   });
 
-  it('asks before a reset in the browser’s own dialog, worded when it is raised', async () => {
-    const asked: string[] = [];
-    vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
+  it('asks before a reset with the kit’s question, worded when it is raised — never the browser’s own box', async () => {
+    const box = vi.spyOn(window, 'confirm');
     await open('k:大', { 'k:大': state(1) }, true);
+    const question = TestBed.inject(ConfirmService);
     const reset = (): void => (host.querySelectorAll('#itemActions button')[1] as HTMLButtonElement).click();
     reset();
-    expect(asked).toEqual(['Vynulovať „大“? Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.']);
+    expect(question.pending()).toMatchObject({
+      title: 'Vynulovať „大“?',
+      message: 'Položka sa vráti medzi nenaučené; tvoje poznámky zostanú.',
+      confirmLabel: 'Vynulovať pokrok',
+      tone: 'danger',
+    });
+    question.settle(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.resetItem, 'refused: nothing is reset').not.toHaveBeenCalled();
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     reset();
-    expect(asked[1]).toBe('Reset 大? It goes back to "not learned"; your notes stay.');
+    expect(question.pending()).toMatchObject({ title: 'Reset 大?', message: 'It goes back to "not learned"; your notes stay.', confirmLabel: 'Reset progress' });
+    question.settle(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.resetItem).not.toHaveBeenCalled();
+    expect(box).not.toHaveBeenCalled();
   });
 
   it('resets when the learner agrees', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     await open('k:大', { 'k:大': state(1) });
     (host.querySelectorAll('#itemActions button')[1] as HTMLButtonElement).click();
+    TestBed.inject(ConfirmService).settle(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(api.resetItem).toHaveBeenCalledWith('k:大');
   });

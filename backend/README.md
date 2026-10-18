@@ -6,7 +6,7 @@ PostgreSQL, signing people in through the anotoki IAM (client
 address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
-library (`anotoki/lib` 0.5.2; the frontend's `@anotoki/lib` 0.5.0: the migrations' engine, the site's state and
+library (`anotoki/lib` 0.6.2, as the frontend's `@anotoki/lib`: the migrations' engine, the site's state and
 the gate in front of every route, the app's words - their address, the admin
 panel's, the command line's work -, the sign-in's checks, the people and
 the admin tools, where a request comes from; `../DEV.md`, *The anotoki library*).
@@ -48,7 +48,8 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      users.php (and their time zones), upkeep.php (the start-time work, on requests,
                      and the copy of every table before an apply - a request never applies a migration),
                      srs/ (the kanji SRS), exam.php, generate.php, conjugate.php, score.php, report.php,
-                     content.php, speech.php, backup.php, me.php (a person's own data file),
+                     content.php, speech.php, backup.php (the app's own JSON copies, each written 0600 in
+                     a folder made 0700), me.php (a person's own data file),
                      people.php (the library's people module for this site: each person's row, the
                      scrub of the accounts the IAM deleted and what it blanks here, the People page's
                      columns and delete - the one a restore does again), admin.php (the library's
@@ -56,8 +57,13 @@ src/                 the app, plain functions by area: bootstrap.php, db.php (an
                      backups of the whole database and a restore's hooks),
                      translations.php (the library's Translations for this
                      app: its released languages, the copy before a language goes), util.php, errors.php
-config/              config.php (and the committed default of the trusted proxies: Cloudflare's ranges);
-                     this copy's settings in *.local.php (gitignored, written by setup.php)
+config/              config.php (and the committed default of the trusted proxies: Cloudflare's ranges;
+                     storage_dir(); config_require_cleanly(), through which every settings file is read:
+                     what one prints is caught and never sent, and the file passed over - a required
+                     one leaves the copy not set up, app.local.php its defaults, cloudflare.local.php a
+                     secret no request carries - said once a day in PHP's error log, by its fault and
+                     byte count alone); this copy's settings in *.local.php (gitignored, written by
+                     setup.php but for app.local.php and cloudflare.local.php, the owner's by FTP)
 migrations/          the schema and the app's words, NNN_name.sql (a committed one is never edited; one
                      still being written is a draft without its "-- end of NNN" line, which only the
                      tests' databases get)
@@ -69,7 +75,8 @@ storage/             gitignored: backups/ (the copies of the study data, and the
                      the ADMIN's own until the owner deletes them, none for its age), logs/ (the
                      library's error log, errors-<day>.jsonl, 30 days), cache/ (the IAM's keys and its
                      answer whether sign-in is required, the visitors' address secret and sweep stamp, the
-                     library's stamps and limits), anotoki-lib.key (the library's key for the hashes it
+                     library's stamps and limits, the stamps of what PHP's error log is told once a day -
+                     a settings file passed over, a trusted-proxy range refused), anotoki-lib.key (the library's key for the hashes it
                      keeps; made once), installed.lock (a website's: its setup finished, and nobody is
                      offered the setup page again). Never delete a backup or a log here: the owner does
 public/              index.php and .htaccess: Apache's half of the upload's public/

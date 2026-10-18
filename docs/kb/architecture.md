@@ -9,10 +9,10 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   the migrations' engine, where the site stands and the gate in front of
   every route, since 0.3.0 the app's words, since 0.4.0 the sign-in's
   checks, the people and the admin tools - the error log, the audit log, the
-  feedback, the backups of the whole database -, and since 0.5.0 (the app is
-  on PHP 0.5.2 - 0.5.1 a fix of a restore with visitors, 0.5.2 the origin
-  secret -, Angular 0.5.0) a
-  restore's hooks, the pages' own errors and where a request comes from;
+  feedback, the backups of the whole database -, since 0.5.0 a
+  restore's hooks, the pages' own errors and where a request comes from
+  (0.5.1 a fix of a restore with visitors, 0.5.2 the origin secret), and
+  since 0.6 the family's legal pages (the app is on 0.6.2, both halves);
   Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
@@ -534,6 +534,24 @@ a visitor's address (`client_address`, in the place of the committed
 default, Cloudflare's published ranges: `CLIENT_ADDRESS_DEFAULTS` in
 `config.php`): [hosting.md](hosting.md), *Visitors on the site*.
 
+**Every settings file is read cleanly or not at all** (since 2026-10-18, the
+IAM's rule of 2026-10-13; `config_require_cleanly()`): the two above, the
+optional `app.local.php` and `cloudflare.local.php`, and the setup page's
+token are each required inside an output buffer, by a closure of its own -
+what one prints as PHP reads it (a byte-order mark or a line before its
+`<?php`, no `<?php` line at all, which would print the whole file -
+`database.local.php`'s password among it -, text after a closing tag) is
+caught and never sent, and the file is passed over; so is one PHP cannot
+open, parse or run. PHP's error log says so at most once a day for each
+fault (`config_said()`, a stamp in `storage/cache/`), by the fault and the
+number of bytes printed, never the file's text nor what PHP said of it (an
+error's words can quote it). A required file so passed over leaves the copy
+not set up (`config_file_problems()`, named by `manage.php --check` and the
+setup page, whose Save writes it again), `app.local.php` stands for its
+defaults, `cloudflare.local.php` for a secret no request carries
+([hosting.md](hosting.md), *Visitors on the site*, *The origin secret*); one read cleanly that
+returns no list of settings is a problem of its own ("holds no settings").
+
 `config('db.host')` and the like read them; `config_problem()` says what is
 missing or wrong, and until nothing is, the API answers `not_set_up` (the
 SiteGate, above; the pages show the anotoki library's "This site is not set
@@ -657,12 +675,19 @@ tests run in Vitest with jsdom (`ng test`).
   after a sign-in that came back without one, for a person or a visitor -
   drawn by its `<anotoki-sign-in-failure-route>`, which loads the screen's
   code as it is shown, never in the first load (anotoki-lib 0.5.0); on
-  the way to the IAM, nothing), then the foot: the version and
+  the way to the IAM, nothing; a legal page - Terms, Privacy, Contact - is
+  drawn in every one of those states, *The legal pages* below), then the
+  foot: the version and
   **What's new** (`core/changelog/app-version.component`, which opens the
   changelog dialog), and **Send feedback** (`core/feedback/`, *The foot*
-  below). The bar and the foot are drawn in every state; after
-  the foot, the kit's question host (`<anotoki-confirm-host>`: the one
-  question `ConfirmService` asks - the admin panel's "Delete …?").
+  below), and under them the family's Terms · Privacy · Contact. The bar and
+  the foot are drawn in every state; after the foot, the kit's question
+  host (`<anotoki-confirm-host>`: the one question `ConfirmService` asks -
+  the admin panel's "Delete …?", and every question of the app's own, where
+  the browser's `confirm()` stood until 2026-10-18) and the app's notice
+  host (`<app-notice-host>`, `core/notice/`: what `NoticeService` tells, one
+  button, OK, where `alert()` stood) - both keep every key pressed in them
+  from `document`, as the bar does.
 - `top-bar/` — the bar (*The top bar* below): the anotoki library's
   `<anotoki-top-bar>` (`@anotoki/lib/shell`, with its brand, theme switch,
   language switcher and icons), worded and wired by this app.
@@ -681,22 +706,35 @@ tests run in Vitest with jsdom (`ng test`).
   note) and the languages on offer (`forShell()`). The pages' building
   blocks everywhere are the kit's - buttons, dialogs, questions, fields (text
   fields, the notes' textareas, the exam's tick box), the spinner, menus, page
-  headers, cards, alerts, badges, empty states, segmented choices and the
+  headers, cards, alerts, badges, empty states, segmented choices, choice
+  chips and chips, labelled groups, disclosures, link tabs and the
   family's table (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
-  `anotoki-text-field`, `<anotoki-card>`, `<anotoki-alert>` …), its class
+  `anotoki-text-field`, `<anotoki-card>`, `<anotoki-alert>`,
+  `<anotoki-chip-group>`, `<anotoki-link-tabs>` …), its class
   names its own (`anotoki-<piece>__<part>`). A choice of the lessons, the
-  practice, Browse and the exam (once the app's chips) is the kit's
-  segmented choice where its few short options fit a phone in both languages
-  (the batch size, how many, Browse's type, the result's review), else a row
-  of the kit's small buttons, the chosen ones primary and `aria-pressed`, in
-  a `role="group"` named by the words over it (`.choice-label`, the app's:
-  the kit has no labelled group, and no chips that wrap or that one can
-  choose several of; Browse's choices, with no words over them, are named
-  by an `aria-label`). What is truly the study's stays the app's, drawn with
+  practice, Browse and the exam is the kit's (since anotoki-lib 0.6.0, the
+  owner's brief of 2026-10-18; a row of the kit's small buttons, the chosen
+  ones primary, until then): its segmented choice where its few short
+  options fit a phone in both languages (the batch size, how many, Browse's
+  type, the result's review - the batch size and how many inside the kit's
+  labelled group, `selfNamed`: the name shown over it, said once); one of
+  several otherwise its choice chips (`<anotoki-chip-group>`, a radio group
+  named by its label: the exam's length, the lessons' kinds and From - each
+  lesson's chip heard with how many of its items can be learned now, its
+  `name` -, practice's What - each scope's count its quieter `note`, a
+  stage's own name alone marked English -, Type and Ask, Browse's lesson
+  and stage with their label for a screen reader alone, `hideLabel`);
+  several at once its chips (`button[anotokiChip]`, `pressed`) in its
+  labelled group (`<anotoki-labelled-group>`), where a chip needs what a
+  choice chip cannot hold - a tooltip, the greetings' kana marked Japanese:
+  the exam's parts, lessons and sections, practice's lessons with All. The
+  exam's "Narrow it down" is the kit's disclosure (`plain`), the paper's
+  section tag its badge that wraps, all and none and the review's listen
+  its small link buttons. What is truly the study's stays the app's, drawn with
   the tokens: the tiles, an item's head and details, the session and its
   answer box, the lesson batch (its band and tabs), the exam's paper (the
   question, the options, the player, the grid), the dashboard's section
-  cards, stages and forecast, the kanji tabs, the foot.
+  cards, stages and forecast, the foot's row.
 - `app.routes.ts` — the learner's pages under one parent whose
   `canActivateChild` is the library's `personOrVisitorGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
@@ -705,7 +743,9 @@ tests run in Vitest with jsdom (`ng test`).
   (lazy; all but Translations behind the library's `adminGuard`; every one the library's page in
   the panel's frame, Translations and Languages with the library's question before leaving unsaved
   changes); `/auth/callback` (the library's `AuthCallbackComponent`) and `/sign-in-failed` (its
-  `SignInFailureComponent`, which `AppComponent` draws in the page's place while a failure stands), unguarded.
+  `SignInFailureComponent`, which `AppComponent` draws in the page's place while a failure stands), unguarded;
+  `/terms`, `/privacy` and `/contact` (*The legal pages* below), each a route of its own whose
+  parent is their frame (lazy), unguarded, before the learner's parent and its `**`.
   The old `/translations` and `/languages` lead to their new addresses.
   `/kanji`, `/exam` and the admin panel open only while the app can be used
   (`whenReady`: signed in or visiting), so Back or Forward on a stand-in page loads no data.
@@ -731,7 +771,14 @@ tests run in Vitest with jsdom (`ng test`).
   first); [sign-in.md](sign-in.md), *The browser*), `admin.config.ts` (the
   library's admin tools and People page wired to this app: `provideAdminTools()`),
   `feedback.config.ts` and `feedback/` (the library's feedback form behind
-  Send feedback at the foot: `provideFeedback()`), `saves-in-flight.service.ts`
+  Send feedback at the foot: `provideFeedback()`), `legal.config.ts` (the
+  library's legal pages and the foot's links wired to this app:
+  `provideAnotokiLegal(academyLegalConfig)` - the page's language, the
+  database's words; the facts come with the pages' frame, below), `notice/`
+  (the app's notice: `NoticeService.tell({title, message, detail?})`, drawn
+  by `<app-notice-host>` with the kit's dialog, one button, OK, worded by
+  whoever raises it at that moment; a report that would not open, a paper
+  that could not be scored), `saves-in-flight.service.ts`
   (the saves on their way, which a sign-out — and a visitor's sign-in — waits for), `storage.ts`
   (localStorage and sessionStorage that never throw), `time-zone.ts` (the
   browser's IANA zone), `i18n/` (the app's words, below),
@@ -762,7 +809,10 @@ tests run in Vitest with jsdom (`ng test`).
   the kanji dashboard's) the visitor notice (`visitor-notice/`: kept for this
   browser for the days, Sign in; once, what moved at a sign-in, or that the
   key was no longer known).
-- `kanji/` — the trainer: `kanji-shell` (its tabs, and what is drawn over the
+- `kanji/` — the trainer: `kanji-shell` (its tabs - the kit's link tabs, a
+  nav named Kanji of ordinary links, the one the screen says marked, an
+  item's page none; on a phone they scroll sideways in the kit's strip, never
+  the page, the page's tab brought into view -, and what is drawn over the
   screen: a lesson batch, a session, a summary — `kanji-screen.service.ts`),
   `kanji-state.service.ts` (the catalog, loaded once, and the person's
   progress, fresh on every screen), `answer.ts` (answer checking),
@@ -789,7 +839,7 @@ tests run in Vitest with jsdom (`ng test`).
   `prefers-color-scheme: dark` unless the page is told light, and under
   `[data-theme='dark']`), and after the family's (`meta.load-css`)
   `_base.scss` (the reading size, 16 px where the family's base says 15, the
-  frame `.wrap`, a choice's name `.choice-label`, `kbd`, the stand-in pages)
+  frame `.wrap`, `kbd`, the stand-in pages)
   and `_items.scss` (tiles and an item's details, shared by the kanji
   screens). No rule of the app reaches inside a kit component.
 - `standin/` — the two pages of the app's own that stand in for it, the Sign
@@ -1003,7 +1053,71 @@ MAJOR.MINOR.PATCH (since 2026-10-07; `frontend/package.json`'s `version` the
 same). The version a browser last read is compared with it number by number,
 a missing number counting as 0 (`compareVersions()` in
 `core/changelog/changelog.service.ts`): a browser that read "0.4", as the
-changelog wrote it before, has read "0.4.0".
+changelog wrote it before, has read "0.4.0". What's new and Send feedback
+are the kit's small link buttons (44 px to a finger by themselves), the '·'
+between them the app's. Under that row, in every state, the family's
+**Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav named "Legal",
+the page that is open marked `aria-current`; its words the library's
+`anotoki.legalLinks.*`), *The legal pages* below.
+
+## The legal pages
+
+Terms, Privacy and Contact (since 2026-10-18, anotoki-lib 0.6; the owner's
+brief for every anotoki site) are the anotoki family's pages
+(`@anotoki/lib/legal/pages`) with Japanese Academy's facts, at `/terms`,
+`/privacy` and `/contact` - the library's own paths (`DEFAULT_LEGAL_PATHS`,
+`core/legal.config.ts`'s `LEGAL_PAGE_PATHS`), where the foot's links go.
+
+- **Anybody's.** What an app keeps is said before anybody signs in to it:
+  no guard stands in front of them, nothing on them asks for a sign-in or
+  for anybody's study, and `AppComponent` draws them whatever the sign-in
+  says - signed in, a visitor, nobody signed in with sign-in required (Sign
+  in in the bar, no card, no trip to the IAM), a failed sign-in standing -
+  but a start that could not reach its server at all (the problem page) and
+  the library's page while the site is not ready (as for every page).
+- **The routes.** Each is a lazy route of its own whose parent is their
+  frame (`legal/legal-frame.component`: the page's column, `<main
+  class="wrap" id="legal">`), placed before the learner's parent and its
+  `**`. Never one parent with an empty path holding the three: the router
+  takes an address it has read whole (`/`) for such a parent when none of
+  its children match, and would draw the empty frame at `/` with no guard
+  (the survey's lesson of 2026-10-17). `app.routes.spec.ts` holds `/` and
+  an unknown address (and `/terms-of-use`, `/privacy2`, `/contact/me`) to
+  the home page under the learner's guard, and each legal page to its frame
+  with no guard. Their titles are the library's headings
+  (`anotoki.legal.termsTitle` …).
+- **The facts** (`legal/legal-facts.ts`, given by the frame, so they - and
+  their strings' keys - load with the pages, never in the first load; the
+  root configuration, `academyLegalConfig()`, says only the page's language
+  and the database's words): the site's name, what it is, the day its facts
+  last changed (`ACADEMY_LEGAL_UPDATED`), five parts of its own - the
+  person's record, the study, the app's own JSON copies, the limits' counts,
+  who saved a word -, the visitors for the days the server keeps them
+  (`visitorKeepDays`, `GET /api/auth/config`'s `visitor_keep_days`),
+  feedback (the kind and the section too), the library's error log, audit
+  log and plain backups in the library's words, the browser's storage by
+  name (the sign-in's, the IAM's hint cookie - sent here, never read -, the
+  theme, the language, the visitor's key and the last one moved, What's new
+  read, an exam paper kept through an update, the admin pages' unsaved
+  words), Umami (the family's, already in `index.html`), and who else
+  handles data: the hosting company ("to be named" until the owner names
+  it) and Cloudflare. The operator is the family's (Code Hero s.r.o.,
+  support@anotoki.eu, Slovakia: the library's default). Each must stay true
+  of the code: the comment above `academyLegalFacts()` maps every fact to
+  the code it describes; a change to what the app keeps, or for how long,
+  changes its `legal.*` strings (a migration) and `ACADEMY_LEGAL_UPDATED`.
+- **The anotoki account** is the IAM's: Privacy links its Privacy page and
+  its account page (where an account is deleted), Contact the account page, at the IAM's
+  address the app signs in with - the code's, never a string. Every address
+  the pages link to is so: an administrator's rewording on the Translations
+  page changes words, never where a link goes (`legal-facts.spec.ts` holds
+  it with a rewording that names another address). Contact opens Send
+  feedback's form first (the library's), then the family's address.
+- **The words**: the library's (`anotoki.legal.*`, its migration
+  `anotoki_translations/005_…`, 010 and 011 making five sentences true) - the
+  database's string first, an owner's rewording - around the app's own
+  `legal.*` (migration 011, English and informal Slovak; the library's
+  Slovak addresses nobody, so it reads well beside "ty").
 
 **The mark in dark.** The family's mark is a dark navy picture: in light it
 has the soft shadow the survey's brand gives it; in dark a light halo
@@ -1292,7 +1406,17 @@ there and empty, every other string is as it was (its text, who wrote it,
 when), every reworded string came under the library's key as it was, the
 library's key has no language the app's had not, every such key has English,
 and the three keys are gone (`tests/api/people-migration.test.php` breaks it
-five ways). 007 (`007_visitors.sql`, visitors) since
+five ways). **011** (`011_legal_pages_and_questions.sql`) is a draft since
+2026-10-18, its last line the owner's to write: the legal pages' 40 words of
+the app's own, the titles and buttons of the kit's questions and the app's
+notices that took the browser's boxes' place, the listen button's name and
+what the number on Kanji counts (54 keys in English and Slovak); the
+questions' sentences reworded without the question their title now asks,
+each only where it is still the seeded text and nobody saved it; the
+descriptions that still said "chips" told again. Its check fails it unless
+its keys read in both languages, the reworded keys are there in both, and no
+reworded string nobody saved is still the old text (a database that runs
+every file but 007 never runs it: `visitors-migration.test.php`). 007 (`007_visitors.sql`, visitors) since
 2026-10-05, its last line written once the browser suites had passed: its
 schema (users' `CHECK (id > 0)` replaced by `users_person_or_visitor`,
 `visitor_key_hash`, `visitor_from`, the sequence `visitor_ids`, two

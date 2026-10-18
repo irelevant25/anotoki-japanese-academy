@@ -15,8 +15,10 @@ app. It has a kanji trainer (`/kanji`, with `/kanji/lessons`, `/reviews`,
 the admin panel (`/admin/…`, English), the anotoki family's top bar
 (the anotoki library's, worded in `frontend/src/app/top-bar/`: brand, Kanji
 and Exam, the language, a theme switch, the person's menu; one menu button up
-to 760 px), buttons, dialogs and fields of the library's kit, a foot with the
-version and "What's new", and the setup page (`/setup.php`, plain PHP).
+to 760 px), buttons, dialogs, chips, tabs and fields of the library's kit, a
+foot with the version, "What's new" and the family's Terms · Privacy · Contact
+(`/terms`, `/privacy`, `/contact`: the family's pages, anybody's), and the
+setup page (`/setup.php`, plain PHP).
 Everybody signs in through the anotoki IAM, on a computer as on the website;
 a signed-out page goes straight to the IAM; a sign-in that came back without
 one shows the anotoki library's screen (Try again, Back), and the Sign in

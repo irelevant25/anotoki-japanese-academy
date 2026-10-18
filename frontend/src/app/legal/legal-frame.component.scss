@@ -1,0 +1,5 @@
+// The family's page lays itself out (a measure a person reads comfortably, its sections apart); the column around it
+// is the app's own frame (.wrap, styles/_base.scss).
+:host {
+  display: block;
+}

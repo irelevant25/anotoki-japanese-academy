@@ -1,11 +1,16 @@
-import { ChangeDetectionStrategy, Component, effect, inject, untracked } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { SignInFailureComponent } from '@anotoki/lib/auth';
+import { LegalLinksComponent } from '@anotoki/lib/legal';
 import { SiteGateComponent, SitePagesDirective } from '@anotoki/lib/migrations';
 import { ConfirmHostComponent } from '@anotoki/lib/ui/dialog';
+import { filter, map } from 'rxjs';
 import { AuthService, SIGN_IN_FAILED_PATH } from './core/auth/auth.service';
 import { AppVersionComponent } from './core/changelog/app-version.component';
 import { FeedbackButtonComponent } from './core/feedback/feedback-button.component';
+import { isLegalPage } from './core/legal.config';
+import { NoticeHostComponent } from './core/notice/notice-host.component';
 import { ProblemComponent } from './standin/problem/problem.component';
 import { SignInComponent } from './standin/sign-in/sign-in.component';
 import { TopBarComponent } from './top-bar/top-bar.component';
@@ -24,7 +29,16 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * is drawn under the bar — unless the IAM does not require sign-in here: then
  * the screen is a visitor's (state visiting). At the foot, the version and
  * what is new in it (core/changelog/app-version.component.ts), and Send
- * feedback (core/feedback/feedback-button.component.ts).
+ * feedback (core/feedback/feedback-button.component.ts); under them the
+ * family's Terms · Privacy · Contact (<anotoki-legal-links>,
+ * @anotoki/lib/legal: the legal pages' own paths, the library's words
+ * `anotoki.legalLinks.*`, the open one marked), on every page.
+ *
+ * The legal pages themselves (Terms, Privacy, Contact: legal/) are anybody's:
+ * drawn in the page's place to somebody signed in, a visitor, and anybody
+ * signed out alike - also over a failed sign-in's screen, whose Back is
+ * theirs to press later. Only a start that could not reach its server at all
+ * (the problem page: the router never started) has none to show.
  *
  * All of that is behind the anotoki library's gate (<anotoki-site-gate>,
  * core/site-status.config.ts): while the site is not ready - being updated,
@@ -39,7 +53,11 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  *
  * The bar and the foot are drawn in every state, so their words have their
  * English in the code too (standin/kept-word.ts). The kit's one question
- * (ConfirmService, the admin panel's) is drawn here, over every page.
+ * (ConfirmService: a session's "Stop now?", a sign-out's "Sign out anyway?",
+ * the admin panel's) and the app's one notice (NoticeService, drawn with the
+ * kit's dialog: a report that would not open, a paper not scored) are drawn
+ * here, over every page - where the browser's own confirm() and alert() stood
+ * until anotoki-lib 0.6 - and no key pressed in them reaches `document`.
  */
 @Component({
   selector: 'app-root',
@@ -48,10 +66,12 @@ import { TopBarComponent } from './top-bar/top-bar.component';
     SiteGateComponent,
     SitePagesDirective,
     ConfirmHostComponent,
+    NoticeHostComponent,
     SignInFailureComponent,
     TopBarComponent,
     AppVersionComponent,
     FeedbackButtonComponent,
+    LegalLinksComponent,
     SignInComponent,
     ProblemComponent,
   ],
@@ -62,6 +82,17 @@ import { TopBarComponent } from './top-bar/top-bar.component';
 export class AppComponent {
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+
+  /** The address the router is at, without its query: which page is drawn. */
+  private readonly path = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map(() => this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+  /** The page is one of the legal pages (Terms, Privacy, Contact): anybody's, drawn whatever the sign-in says. */
+  readonly legalPage = computed(() => isLegalPage(this.path()));
 
   constructor() {
     // The router's first navigation, once the start has settled the sign-in:

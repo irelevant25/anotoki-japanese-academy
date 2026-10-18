@@ -95,8 +95,17 @@ describe('PracticeComponent', () => {
 
   const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
   const info = (): string => clean(host.querySelector('#practiceInfo')?.textContent);
-  /** A choice's buttons: the kit's buttons of a row, or the segments of the kit's segmented choice (How many). */
-  const chips = (field: number): HTMLButtonElement[] => Array.from(host.querySelectorAll('.choice')[field].querySelectorAll<HTMLButtonElement>('button'));
+  /**
+   * A row's choices, top to bottom: the kit's choice chips (What, Type, Ask: radios), its chips (Lessons: toggles, in
+   * the kit's labelled group), or the segments of its segmented choice (How many).
+   */
+  const ROWS = ['#practiceScope', '#practiceLessons', '#practiceTypes', '#practiceAsk', '#howMany'];
+  const chips = (field: number): HTMLButtonElement[] => Array.from(host.querySelector(ROWS[field])!.querySelectorAll<HTMLButtonElement>('button'));
+  /** The words of a choice chip's label, and the language it says it is in. */
+  const label = (chip: HTMLElement): (string | null)[] => {
+    const span = chip.querySelector('.anotoki-chip-group__label');
+    return [clean(span?.textContent), span?.getAttribute('lang') ?? null];
+  };
   const startButton = (): HTMLButtonElement => host.querySelector('#startPractice') as HTMLButtonElement;
 
   /** `learned`: the stage of each learned item, by its number. */
@@ -171,64 +180,85 @@ describe('PracticeComponent', () => {
   it('names its scopes in the app’s words, and the three stage scopes by the catalog’s own names, which say they are English', async () => {
     await open({ 0: 1, 1: 1, 2: 5, 3: 9 });
     expect(chips(0).map((chip) => clean(chip.textContent))).toEqual([
-      'Everything learned (4)',
-      'Weakest (0)',
-      'Recent mistakes (0)',
-      'Learned in the last 24 h (0)',
-      'Apprentice (2)',
-      'Guru and above (1)',
-      'Burned (1)',
+      'Everything learned 4',
+      'Weakest 0',
+      'Recent mistakes 0',
+      'Learned in the last 24 h 0',
+      'Apprentice 2',
+      'Guru and above 1',
+      'Burned 1',
     ]);
-    const marked = (chip: HTMLElement): (string | null)[][] => Array.from(chip.querySelectorAll('span[lang]')).map((span) => [span.textContent, span.getAttribute('lang')]);
-    expect(marked(chips(0)[0])).toEqual([]);
-    expect(marked(chips(0)[4])).toEqual([['Apprentice', 'en']]);
-    expect(marked(chips(0)[5])).toEqual([['Guru', 'en']]);
-    expect(marked(chips(0)[6])).toEqual([['Burned', 'en']]);
+    // each count the chip's quieter note, after its name
+    expect(chips(0).map((chip) => clean(chip.querySelector('.anotoki-chip-group__note')?.textContent))).toEqual(['4', '0', '0', '0', '2', '1', '1']);
+    // a stage's own name, alone, says it is English
+    expect(chips(0).map(label)).toEqual([
+      ['Everything learned', null],
+      ['Weakest', null],
+      ['Recent mistakes', null],
+      ['Learned in the last 24 h', null],
+      ['Apprentice', 'en'],
+      ['Guru and above', null],
+      ['Burned', 'en'],
+    ]);
   });
 
-  it('keeps the stage names as they are in Slovak, inside the app’s own phrase', async () => {
+  it('keeps the stage names as they are in Slovak: alone, saying they are English; inside the app’s own phrase, the phrase’s', async () => {
     await open({ 0: 1, 2: 5 }, { slovak: true });
     expect(chips(0).map((chip) => clean(chip.textContent))).toEqual([
-      'Všetko naučené (2)',
-      'Weakest (0)',
-      'Recent mistakes (0)',
-      'Learned in the last 24 h (0)',
-      'Apprentice (1)',
-      'Guru a vyššie (1)',
-      'Burned (0)',
+      'Všetko naučené 2',
+      'Weakest 0',
+      'Recent mistakes 0',
+      'Learned in the last 24 h 0',
+      'Apprentice 1',
+      'Guru a vyššie 1',
+      'Burned 0',
     ]);
-    expect(chips(0)[5].querySelector('span[lang="en"]')?.textContent).toBe('Guru');
+    // A choice chip's label is said in one language: "Guru" inside the Slovak phrase is the phrase's (a word Slovak has too).
+    expect([label(chips(0)[4]), label(chips(0)[5]), label(chips(0)[6])]).toEqual([
+      ['Apprentice', 'en'],
+      ['Guru a vyššie', null],
+      ['Burned', 'en'],
+    ]);
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await fixture.whenStable();
-    expect(clean(chips(0)[5].textContent)).toBe('Guru and above (1)');
+    expect(clean(chips(0)[5].textContent)).toBe('Guru and above 1');
     expect(clean(host.querySelector('h1')?.textContent)).toBe('Practice');
   });
 
   it('has no copy of the stage names: whatever the catalog calls them is what it says', async () => {
     const renamed = GROUPS.map((g) => ({ ...g, name: `${g.name}*` }));
     await open({ 0: 1 }, { groups: renamed });
-    expect(chips(0).slice(4).map((chip) => clean(chip.textContent))).toEqual(['Apprentice* (1)', 'Guru* and above (0)', 'Burned* (0)']);
+    expect(chips(0).slice(4).map((chip) => clean(chip.textContent))).toEqual(['Apprentice* 1', 'Guru* and above 0', 'Burned* 0']);
   });
 
   it('words its other choices from keys', async () => {
     await open({ 0: 1 });
-    expect(Array.from(host.querySelectorAll('.choice-label')).map((el) => clean(el.textContent))).toEqual(['What', 'Lessons', 'Type', 'Ask', 'How many']);
+    // each row's name over it: the choice chips' own, or the kit's labelled group's
+    expect(Array.from(host.querySelectorAll('.anotoki-field__label, .anotoki-labelled-group__label')).map((el) => clean(el.textContent))).toEqual(['What', 'Lessons', 'Type', 'Ask', 'How many']);
     expect(chips(1).map((chip) => clean(chip.textContent))).toEqual(['All lessons', 'L3']);
     expect(chips(2).map((chip) => clean(chip.textContent))).toEqual(['Kanji & vocabulary', 'Kanji', 'Vocabulary']);
     expect(chips(3).map((chip) => clean(chip.textContent))).toEqual(['Meaning + reading', 'Meaning only', 'Reading only']);
     expect(chips(4).map((chip) => clean(chip.textContent))).toEqual(['10', '20', '50', '100', 'All']);
   });
 
-  it('says what is chosen as the kit does: the rows pressed (the chosen ones primary), how many checked; a scope with nothing in it is off unless chosen', async () => {
+  it('says what is chosen as the kit does: one of What, Type and Ask checked, the lessons pressed, how many checked; a scope with nothing in it is off unless chosen', async () => {
     await open({ 0: 1, 1: 1 });
-    const pressed = (field: number): string[] => chips(field).filter((chip) => chip.getAttribute('aria-pressed') === 'true').map((chip) => clean(chip.textContent));
-    expect([pressed(0), pressed(1), pressed(2), pressed(3)]).toEqual([['Everything learned (2)'], ['All lessons'], ['Kanji & vocabulary'], ['Meaning + reading']]);
-    expect(chips(0)[0].classList.contains('anotoki-button--primary')).toBe(true);
-    expect(chips(0)[1].classList.contains('anotoki-button--secondary')).toBe(true);
+    const pressed = (field: number): string[] =>
+      chips(field)
+        .filter((chip) => chip.getAttribute('aria-checked') === 'true' || chip.getAttribute('aria-pressed') === 'true')
+        .map((chip) => clean(chip.textContent));
+    expect([pressed(0), pressed(1), pressed(2), pressed(3)]).toEqual([['Everything learned 2'], ['All lessons'], ['Kanji & vocabulary'], ['Meaning + reading']]);
+    expect([0, 2, 3].map((field) => chips(field).every((chip) => chip.getAttribute('role') === 'radio')), 'one of several: radios').toEqual([true, true, true]);
+    expect(chips(1).map((chip) => chip.getAttribute('aria-pressed')), 'several at once: toggles').toEqual(['true', 'false']);
+    expect(chips(0)[0].classList.contains('anotoki-chip--on')).toBe(true);
+    expect(chips(0)[1].classList.contains('anotoki-chip--on')).toBe(false);
     expect(chips(4).map((chip) => chip.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false', 'false']);
     expect(chips(0)[1].disabled, 'Weakest: nothing missed yet').toBe(true);
-    expect(host.querySelectorAll('[role="group"][aria-labelledby]').length, 'every row of buttons named by the words over it').toBe(4);
+    expect(
+      host.querySelectorAll('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').length,
+      'every row of chips named by the words over it (How many names itself)',
+    ).toBe(4);
 
     chips(1)[1].click(); // L3 alone
     chips(3)[2].click(); // the reading only
@@ -245,7 +275,7 @@ describe('PracticeComponent', () => {
     await open({});
     expect(clean(host.querySelector('anotoki-empty-state .anotoki-empty-state__heading')?.textContent)).toBe('Nothing learned yet.');
     expect(clean(host.querySelector('anotoki-empty-state a')?.textContent)).toBe('Go to lessons');
-    expect(host.querySelector('.choice'), 'nothing to choose from').toBeNull();
+    expect(host.querySelector('anotoki-chip-group, anotoki-labelled-group, anotoki-segmented'), 'nothing to choose from').toBeNull();
   });
 
   it('starts a session with what was chosen', async () => {

@@ -90,7 +90,13 @@ on by themselves, so a long paper stays a flow —, → or Enter the next questi
 (on the last, Enter finishes), ← back, F flags, R or Space plays the recording
 again; a listening question plays its clip when it is shown, and the next
 question's clip is fetched meanwhile. "Finish now" asks first when questions
-are unanswered.
+are unanswered - the kit's question ("Finish and score anyway?", how many are
+unanswered, Back to the test or Finish); a paper that could not be scored is
+said by the app's notice, the answers still on the page to hand in again
+(the browser's own boxes until 2026-10-18). On the result, each listening
+question's small "listen" button is named for what it shows ("listen to
+question 12", WCAG 2.5.3); the setup's choices are the kit's chips and
+choice chips, "Narrow it down" its disclosure.
 
 **A paper open while the site stops for an update** (since 2026-10-07): the
 anotoki library's page takes its place ("The site is being updated"), and its

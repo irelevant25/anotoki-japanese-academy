@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslatePluralPipe, TranslationService } from '@anotoki/lib/translations';
-import { ButtonComponent } from '@anotoki/lib/ui/button';
+import { ChipGroupComponent, ChipOption } from '@anotoki/lib/ui/chips';
 import { TextFieldComponent } from '@anotoki/lib/ui/forms';
 import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
 import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
@@ -20,12 +20,13 @@ interface StatusChoice {
 
 /**
  * Every item, filterable by type, lesson and stage, and searchable by kanji, reading (romaji or kana) or meaning.
- * The filters are the kit's: the type a segmented choice, the lessons and the stages rows of its buttons, the
- * one chosen pressed (a stage group's name is English, and its button says so).
+ * The filters are the kit's: the type a segmented choice, the lessons and the stages its choice chips (one at a
+ * time: a radio group, named for a screen reader alone - nothing is written over them; a stage group's name is
+ * English, and its chip says so).
  */
 @Component({
   selector: 'app-browse',
-  imports: [ButtonComponent, PageHeaderComponent, SegmentedComponent, TextFieldComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
+  imports: [ChipGroupComponent, PageHeaderComponent, SegmentedComponent, TextFieldComponent, TileComponent, TranslatePipe, TranslatePluralPipe],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,6 +54,27 @@ export class BrowseComponent {
     { id: 'new', key: 'item.notLearned', name: '' },
     ...this.kanji.groups().map((g): StatusChoice => ({ id: g.id, key: null, name: g.name })),
   ]);
+  /** The stages as the choice chips offer them: the app's own words, or a stage group's own English name, marked so. */
+  readonly statusOptions = computed<ChipOption[]>(() =>
+    this.statusChoices().map((s) => (s.key !== null ? { value: s.id, label: this.i18n.t(s.key) } : { value: s.id, label: s.name, lang: 'en' })),
+  );
+  /** Any lesson, then each lesson of the course ("L6"), as the choice chips offer them. */
+  readonly lessonOptions = computed<ChipOption[]>(() => [
+    { value: 'any', label: this.i18n.t('browse.anyLesson') },
+    ...this.kanji.lessons().map((L) => ({ value: String(L), label: `L${L}` })),
+  ]);
+
+  /** A lesson chosen on its chips: any lesson, or one. */
+  setLesson(value: string | null): void {
+    this.lesson.set(value === null || value === 'any' ? null : Number(value));
+  }
+
+  /** A stage chosen on its chips: one of their own, or nothing changes. */
+  setStatus(value: string | null): void {
+    if (value !== null && this.statusChoices().some((s) => s.id === value)) {
+      this.status.set(value);
+    }
+  }
 
   readonly list = computed(() => this.kanji.items().filter((it) => this.matches(it, this.type(), this.lesson(), this.status(), this.query())));
   readonly shown = computed(() => this.list().slice(0, 1500));

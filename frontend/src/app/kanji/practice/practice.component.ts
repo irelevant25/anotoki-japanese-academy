@@ -3,7 +3,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CardComponent } from '@anotoki/lib/ui/card';
+import { ChipComponent, ChipGroupComponent, ChipOption } from '@anotoki/lib/ui/chips';
 import { EmptyStateComponent } from '@anotoki/lib/ui/empty-state';
+import { LabelledGroupComponent } from '@anotoki/lib/ui/labelled-group';
 import { PageHeaderComponent } from '@anotoki/lib/ui/page-header';
 import { SegmentedComponent, SegmentedOption } from '@anotoki/lib/ui/segmented';
 import { CatalogItem, ItemState, LessonTypes } from '../../core/api/api.types';
@@ -11,7 +13,6 @@ import { KanjiScreenService } from '../kanji-screen.service';
 import { KanjiStateService } from '../kanji-state.service';
 import { Parts } from '../session/session-engine';
 import { Part, wordedParts } from '../shared/worded/worded-parts';
-import { WordedComponent } from '../shared/worded/worded.component';
 
 type Scope = 'all' | 'weakest' | 'mistakes' | 'recent' | 'apprentice' | 'guru' | 'burned';
 
@@ -41,13 +42,26 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
 
 /**
  * Practice: drill what has been learned, any time, as many rounds as wanted. It never changes the SRS schedule.
- * Drawn with the kit: what, the lessons, the type and what is asked are rows of its buttons, the chosen
- * pressed (a scope's name may hold a stage's English name, marked so: no other piece of the kit can say
- * that), how many a segmented choice.
+ * Drawn with the kit: what, the type and what is asked are its choice chips (one at a time: a radio group, the
+ * arrows move the choice; a scope's count its chip's quieter note, and a scope named by a stage's own name alone
+ * says it is English - "Guru and above" in Slovak reads in the page's language, the stage's name with it), the
+ * lessons its chips as toggles in a group its labelled group names (several at once, All when none), how many a
+ * segmented choice whose name the labelled group shows.
  */
 @Component({
   selector: 'app-practice',
-  imports: [ButtonComponent, CardComponent, EmptyStateComponent, PageHeaderComponent, RouterLink, SegmentedComponent, TranslatePipe, WordedComponent],
+  imports: [
+    ButtonComponent,
+    CardComponent,
+    ChipComponent,
+    ChipGroupComponent,
+    EmptyStateComponent,
+    LabelledGroupComponent,
+    PageHeaderComponent,
+    RouterLink,
+    SegmentedComponent,
+    TranslatePipe,
+  ],
   templateUrl: './practice.component.html',
   styleUrl: './practice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -85,6 +99,22 @@ export class PracticeComponent {
   readonly scopeChoices = computed(() =>
     SCOPES.map((scope) => ({ id: scope.id, name: this.scopeName(scope.key, scope.group), n: this.pool(scope.id, this.lessons(), this.types()).length })),
   );
+  /**
+   * The scopes as the choice chips offer them: the name's words (English, marked so, where it is a stage's own name
+   * alone), how many items each gives as its note, and one with none not to be chosen - unless it is the one chosen.
+   */
+  readonly scopeOptions = computed<ChipOption[]>(() =>
+    this.scopeChoices().map((c) => ({
+      value: c.id,
+      label: c.name.map((part) => part.text).join(''),
+      lang: c.name.length === 1 ? c.name[0].lang : null,
+      note: this.i18n.number(c.n),
+      disabled: !c.n && this.scope() !== c.id,
+    })),
+  );
+  /** The kinds and the halves asked, as the choice chips offer them, in the language on the page. */
+  readonly kindOptions = computed<ChipOption[]>(() => this.kinds.map(([value, key]) => ({ value, label: this.i18n.t(key) })));
+  readonly askOptions = computed<ChipOption[]>(() => this.asks.map(([value, key]) => ({ value, label: this.i18n.t(key) })));
   readonly current = computed(() => this.pool(this.scope(), this.lessons(), this.types()));
   readonly take = computed(() => {
     const n = this.count();
@@ -113,6 +143,28 @@ export class PracticeComponent {
 
   allLessons(): void {
     this.lessons.set(new Set());
+  }
+
+  /** A choice of the chips: one of their own values, or nothing changes. */
+  setScope(value: string | null): void {
+    const scope = SCOPES.find((one) => one.id === value);
+    if (scope) {
+      this.scope.set(scope.id);
+    }
+  }
+
+  setTypes(value: string | null): void {
+    const kind = this.kinds.find(([one]) => one === value);
+    if (kind) {
+      this.types.set(kind[0]);
+    }
+  }
+
+  setParts(value: string | null): void {
+    const ask = this.asks.find(([one]) => one === value);
+    if (ask) {
+      this.parts.set(ask[0]);
+    }
   }
 
   start(): void {

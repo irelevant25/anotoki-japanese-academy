@@ -57,8 +57,24 @@
  *
  * With it, CF-Connecting-IP is believed only on a request that carries that
  * secret (config_origin_secret(), src/client_address.php); without it - or
- * with a value that is not a string with something in it - from the trusted
- * proxies alone, as before. The secret is never shown or logged.
+ * with a file read cleanly whose value is not a string with something in it -
+ * from the trusted proxies alone, as before. A file that is there but cannot
+ * be read cleanly fails closed: it stands for a secret no request carries, so
+ * every request from Cloudflare's ranges counts as the edge it came from until
+ * it is mended (config_read_cloudflare(): the IAM's rule, case for case). The
+ * secret is never shown or logged.
+ *
+ * Every one of these files is read the same careful way (config_require_cleanly()):
+ * a file saved by hand with a byte-order mark, without its <?php line, or with
+ * text after a closing tag would print what it holds - database.local.php
+ * prints its password - ahead of every answer when PHP requires it. Whatever a
+ * file prints is caught and never sent, and the file is passed over: a
+ * required one (database, auth) leaves the copy not set up (config_problem()
+ * names the file and its fault), app.local.php means its defaults, and
+ * cloudflare.local.php the secret nobody carries. A fault is said in PHP's
+ * error log at most once a day (config_said()), by its kind and line or the
+ * bytes the file printed - never its text, nor what PHP said of it, which can
+ * quote it.
  */
 
 declare(strict_types=1);
@@ -140,28 +156,131 @@ function config_is_test_db(string $name): bool
     return (bool) preg_match('/^academy_test_[a-z0-9_]+$/D', $name) && $name !== 'academy_test_template';
 }
 
-/** One settings file as written, or null when it is missing or not a settings file. */
-function config_read_file(string $which): ?array
+/**
+ * The site's own storage: backend/storage/ - or, for a server of the tests,
+ * their own settings folder (ACADEMY_CONFIG_DIR, which counts for an
+ * academy_test_ database alone: config_all() refuses any other), so nothing
+ * a test writes - a log line of a copy that is not set up included - lands in
+ * this copy's storage. Here, beside the settings, because the settings' own
+ * notes (config_said()) are kept there too, before the rest of the app is
+ * loaded.
+ */
+function storage_dir(): string
 {
+    return getenv('ACADEMY_CONFIG_DIR') ? config_dir() : str_replace('\\', '/', BACKEND) . '/storage';
+}
+
+/**
+ * Requires a PHP file of this folder - every settings file, and the setup
+ * page's token (backend/setup.php) - read cleanly, or not at all. A file
+ * saved by hand with a byte-order mark or a line before its <?php, without
+ * that line at all, or with text after a closing tag prints that text when
+ * PHP requires it (all of it, the password or the secret too, where the
+ * <?php line is missing) ahead of whatever answer is on its way: here what
+ * it prints is caught, sent nowhere, and the file is read as no file, its
+ * problem the number of bytes it printed. A file PHP cannot parse or run (a
+ * ParseError, an Error, a warning the app's handler throws: src/bootstrap.php)
+ * or may not open is no file either, said by the kind of error and its line
+ * alone - never the error's message, which can quote the file. It runs in a
+ * function of its own, so the file sees none of the caller's variables.
+ *
+ * ['value' => what the file returned, 'problem' => null], or
+ * ['value' => null, 'problem' => why it was not read]. What a caller makes of
+ * a file not read is its own: the database's or the auth's leaves the copy
+ * not set up (config_problem()), app.local.php's its defaults,
+ * cloudflare.local.php's a secret no request carries, the token's no token.
+ *
+ * @return array{value: mixed, problem: ?string}
+ */
+function config_require_cleanly(string $file): array
+{
+    if (!is_readable($file)) {
+        return ['value' => null, 'problem' => 'cannot be read (PHP may not open it)'];
+    }
+    $level = ob_get_level();
+    $value = null;
+    $failure = null;
+    $printed = 0;
+    ob_start();
+    try {
+        $value = (static function (string $path) {
+            return require $path;
+        })($file);
+    } catch (Throwable $e) {
+        $failure = 'cannot be read (' . get_class($e) . ' on line ' . $e->getLine() . ')';
+    } finally {
+        // Every buffer down to the caller's: one the file opened and left open too.
+        while (ob_get_level() > $level) {
+            $buffer = ob_get_clean();
+            if ($buffer === false) {
+                break;
+            }
+            $printed += strlen($buffer);
+        }
+    }
+    if ($failure !== null) {
+        return ['value' => null, 'problem' => $failure];
+    }
+    if ($printed > 0) {
+        return ['value' => null, 'problem' => "prints $printed bytes of its own (a byte-order mark or a line before its <?php, no <?php line, or text after a closing tag)"];
+    }
+    return ['value' => $value, 'problem' => null];
+}
+
+/**
+ * One settings file as written: the list it returns, or null when it is
+ * missing, cannot be read cleanly (config_require_cleanly()), or returns no
+ * list. $problem says why it is null for a file that is there: its fault -
+ * by its kind and line, or the bytes it printed, never its text - or that it
+ * holds no settings. A fault is said in PHP's error log, at most once a day.
+ */
+function config_read_file(string $which, ?string &$problem = null): ?array
+{
+    $problem = null;
     $file = config_dir() . '/' . CONFIG_FILES[$which];
     if (!is_file($file)) {
         return null;
     }
-    try {
-        $values = require $file;
-    } catch (ParseError $e) {
-        return null; // half written by hand, say: not a settings file
+    $read = config_require_cleanly($file);
+    if ($read['problem'] !== null) {
+        $problem = $read['problem'];
+        config_said('backend/config/' . CONFIG_FILES[$which] . " $problem: "
+            . (in_array($which, CONFIG_REQUIRED, true) ? 'this copy is not set up until it is mended.' : 'its defaults hold until it is mended.'));
+        return null;
     }
-    return is_array($values) ? $values : null;
+    if (!is_array($read['value'])) {
+        $problem = 'holds no settings (it returns no list of them)';
+        return null;
+    }
+    return $read['value'];
 }
 
 /**
- * cloudflare.local.php as written, or null. The owner writes it by hand and it
- * holds a secret, so a file PHP cannot run - a parse error, a word without its
- * quotes - is no settings file, never a reason to stop the site, and is said
- * in PHP's error log by the kind of error and its line alone: what PHP says
- * can quote the file. A file whose origin_secret is no use is said there too
- * (config_origin_secret() takes it for none).
+ * cloudflare.local.php as the site reads it - the IAM's rule, case for case
+ * (its iamOriginSecret(), ../anotoki-iam/backend/config/cloudflare.php; the
+ * owner's decision of 2026-10-13 and its security review,
+ * docs/kb/decisions.md):
+ *
+ *   - no file: null, no secret - CF-Connecting-IP from the trusted proxies
+ *     alone, as before the file;
+ *   - a file read cleanly whose origin_secret is a string with something in
+ *     it: the file's list (config_origin_secret() trims the value: a header's
+ *     value never starts or ends with a space);
+ *   - a file read cleanly that names no secret - blank, missing, no string, no
+ *     list returned: null, no secret, as the IAM reads it, said in PHP's
+ *     error log by the file's name alone;
+ *   - a file that is there but cannot be read cleanly - it prints anything, PHP
+ *     cannot parse or run it, or may not open it: a secret no request carries
+ *     (config_origin_secret_nobody_carries()), so every request from
+ *     Cloudflare's ranges counts as the edge it came from until it is mended.
+ *     Its owner meant a secret, and believing CF-Connecting-IP from
+ *     Cloudflare's ranges alone - from anybody's Worker there - would be the
+ *     looser reading: a slip of the editor never switches the check off. The
+ *     site keeps running all the same: the file is optional, never a reason
+ *     for "not set up".
+ *
+ * Each fault is said in PHP's error log at most once a day, by its kind and
+ * line or the bytes the file printed - never its text, and never the secret.
  */
 function config_read_cloudflare(): ?array
 {
@@ -169,32 +288,80 @@ function config_read_cloudflare(): ?array
     if (!is_file($file)) {
         return null;
     }
-    // A file written by hand without its <?php line, with text after its closing tag, or with a BOM would print what it
-    // holds - the secret - before the answer: what it prints is caught, and the file is no use.
-    ob_start();
-    try {
-        $values = require $file;
-    } catch (Throwable $e) {
-        error_log('[config] backend/config/cloudflare.local.php cannot be read (' . get_class($e) . ' on line ' . $e->getLine() . '): no origin secret.');
-        return null;
-    } finally {
-        $printed = (string) ob_get_clean();
+    $read = config_require_cleanly($file);
+    if ($read['problem'] !== null) {
+        config_said("backend/config/cloudflare.local.php {$read['problem']}: no request carries its secret, so every request from Cloudflare's ranges counts as the edge it came from until it is mended.");
+        return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
-    if ($printed !== '') {
-        error_log('[config] backend/config/cloudflare.local.php prints ' . strlen($printed) . ' bytes of its own (no <?php line, text after ?>, or a BOM): no origin secret.');
-        return null;
-    }
+    $values = $read['value'];
     $secret = is_array($values) ? ($values['origin_secret'] ?? null) : null;
     if (!is_string($secret) || trim($secret) === '') {
-        error_log('[config] backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no origin secret.');
+        config_said('backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): CF-Connecting-IP is believed from the trusted proxies alone.');
+        return null;
     }
-    return is_array($values) ? $values : null;
+    return $values;
+}
+
+/**
+ * A secret no request can carry: 256 random bits, made once a process and
+ * never printed, logged or stored, so no X-Anotoki-Origin matches it - what a
+ * cloudflare.local.php that cannot be read cleanly stands for.
+ */
+function config_origin_secret_nobody_carries(): string
+{
+    static $secret = null;
+    return $secret ??= bin2hex(random_bytes(32));
+}
+
+/**
+ * A line in PHP's error log about a settings file written by hand, or a
+ * setting in one: at most once a day for each thing said - the files are read
+ * on every request, and a fault left in one is the same fault tomorrow. A
+ * stamp in the storage's cache (storage/cache/said-<a hash of the line>.logged)
+ * says when it was said last; where none can be written, once a process.
+ * Never a value of the file: the callers say its name and its fault alone.
+ */
+function config_said(string $what): void
+{
+    static $saidWithoutStamp = [];
+    $stamp = storage_dir() . '/cache/said-' . substr(hash('sha256', $what), 0, 16) . '.logged';
+    clearstatcache(true, $stamp);
+    $last = @filemtime($stamp);
+    if ($last !== false && time() - $last < 86400) {
+        return;
+    }
+    if (!((is_dir(dirname($stamp)) || @mkdir(dirname($stamp), 0700, true)) && @touch($stamp))) {
+        if (isset($saidWithoutStamp[$what])) {
+            return;
+        }
+        $saidWithoutStamp[$what] = true;
+    }
+    error_log("[config] $what");
+}
+
+/**
+ * What the last read of the settings (config_all()) found wrong with each
+ * file that is there: [which => why] - it cannot be read cleanly (its fault),
+ * or it holds no settings. A missing file is no entry: config_problem() says
+ * that. Set by config_all(), read by config_problem().
+ *
+ * @return array<string, string>
+ */
+function config_file_problems(?array $found = null): array
+{
+    static $problems = [];
+    if ($found !== null) {
+        $problems = $found;
+    }
+    return $problems;
 }
 
 /**
  * The settings: ['db' => database.local.php, 'auth' => auth.local.php,
  * 'app' => app.local.php, 'cloudflare' => cloudflare.local.php], each [] when
- * its file is missing. $reload reads the files again (the setup page, after it
+ * its file is missing or cannot be read cleanly (config_file_problems() keeps
+ * why; a cloudflare.local.php that cannot be read cleanly is a secret no
+ * request carries). $reload reads the files again (the setup page, after it
  * wrote them). A test folder of settings (ACADEMY_CONFIG_DIR) that names
  * anything but a test database stops the app.
  */
@@ -204,12 +371,21 @@ function config_all(bool $reload = false): array
     if ($config !== null && !$reload) {
         return $config;
     }
+    $problems = [];
+    $read = static function (string $which) use (&$problems): array {
+        $values = config_read_file($which, $problem);
+        if ($problem !== null) {
+            $problems[$which] = $problem;
+        }
+        return $values ?? [];
+    };
     $config = [
-        'db' => config_read_file('database') ?? [],
-        'auth' => config_read_file('auth') ?? [],
-        'app' => config_read_file('app') ?? [],
+        'db' => $read('database'),
+        'auth' => $read('auth'),
+        'app' => $read('app'),
         'cloudflare' => config_read_cloudflare() ?? [],
     ];
+    config_file_problems($problems);
     $name = (string) ($config['db']['name'] ?? '');
     if (getenv('ACADEMY_CONFIG_DIR') && !config_is_test_db($name)) {
         throw new RuntimeException('ACADEMY_CONFIG_DIR is for the tests\' throwaway databases (academy_test_…) only, not for ' . ($name !== '' ? $name : 'a database without a name') . '.');
@@ -286,8 +462,10 @@ function config(string $key)
  * any other request from Cloudflare counts as the edge it came from - coarser,
  * never looser (src/client_address.php, and the admin tools' context,
  * academy_admin_context()). Only a string with something in it is a secret
- * (trimmed: a header's value never starts or ends with a space); anything else
- * is none, as before the file. Settings that cannot be read at all
+ * (trimmed: a header's value never starts or ends with a space); in a file
+ * read cleanly anything else is none, as before the file - and a file that
+ * cannot be read cleanly is a secret no request carries
+ * (config_read_cloudflare()). Settings that cannot be read at all
  * (config_all() refuses a test's folder of settings that names a real
  * database) are none too: the site's gate says what is wrong.
  */
@@ -303,8 +481,10 @@ function config_origin_secret(): ?string
 
 /**
  * Why this copy is not set up yet, or null when it is: both required settings
- * files there, and each value in them one the app can use. The setup page writes them;
- * nothing else does.
+ * files there, each read cleanly (config_require_cleanly(): one that prints, or
+ * that PHP cannot read, is named with its fault - never its text), and each
+ * value in them one the app can use. The setup page writes them; nothing else
+ * does.
  */
 function config_problem(): ?string
 {
@@ -313,8 +493,12 @@ function config_problem(): ?string
     } catch (RuntimeException $e) {
         return $e->getMessage();
     }
+    $problems = config_file_problems();
     foreach (CONFIG_REQUIRED as $which) {
-        if (config_read_file($which) === null) {
+        if (isset($problems[$which])) {
+            return 'backend/config/' . CONFIG_FILES[$which] . ' ' . $problems[$which];
+        }
+        if (!is_file(config_dir() . '/' . CONFIG_FILES[$which])) {
             return 'backend/config/' . CONFIG_FILES[$which] . ' is missing';
         }
     }

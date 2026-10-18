@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { ApiError, ApiService } from '../../core/api/api.service';
 import { CatalogItem, ItemState } from '../../core/api/api.types';
 import { AuthService } from '../../core/auth/auth.service';
@@ -42,9 +43,11 @@ const ENGLISH: Record<string, string> = {
   'session.saving': 'Saving…',
   'session.itemInfo': 'Item info',
   'session.myAnswerWasRight': 'My answer was right',
-  'session.confirmEnd.one': 'Stop now? 1 half-answered item will not be saved.',
-  'session.confirmEnd.few': 'Stop now? {count} half-answered items will not be saved.',
-  'session.confirmEnd.other': 'Stop now? {count} half-answered items will not be saved.',
+  'session.endTitle': 'Stop now?',
+  'session.goOn': 'Keep going',
+  'session.confirmEnd.one': '1 half-answered item will not be saved.',
+  'session.confirmEnd.few': '{count} half-answered items will not be saved.',
+  'session.confirmEnd.other': '{count} half-answered items will not be saved.',
   'kanji.type.kanji': 'Kanji',
   'kanji.type.vocab': 'Vocabulary',
   'kanji.meaning': 'Meaning',
@@ -58,7 +61,8 @@ const ENGLISH: Record<string, string> = {
   'error.offline': 'The server does not answer.',
   'error.not_learned': 'Only learned items can be practised.',
   'error.unknown': 'Something went wrong.',
-  'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them. Sign out anyway?',
+  'signOut.confirmTitle': 'Sign out anyway?',
+  'signOut.notSaved': 'Some of your answers or notes could not be saved, and signing out loses them.',
 };
 
 const SLOVAK: Record<string, string> = {
@@ -78,9 +82,11 @@ const SLOVAK: Record<string, string> = {
   'session.synonymAdded': 'Pridané medzi tvoje synonymá: „{typed}“ ({chars}).',
   'session.notSaved': 'Nepodarilo sa to uložiť: {reason}',
   'session.saving': 'Ukladá sa…',
-  'session.confirmEnd.one': 'Skončiť teraz? 1 rozpracovaná položka sa neuloží.',
-  'session.confirmEnd.few': 'Skončiť teraz? {count} rozpracované položky sa neuložia.',
-  'session.confirmEnd.other': 'Skončiť teraz? {count} rozpracovaných položiek sa neuloží.',
+  'session.endTitle': 'Skončiť teraz?',
+  'session.goOn': 'Pokračovať',
+  'session.confirmEnd.one': '1 rozpracovaná položka sa neuloží.',
+  'session.confirmEnd.few': '{count} rozpracované položky sa neuložia.',
+  'session.confirmEnd.other': '{count} rozpracovaných položiek sa neuloží.',
   'kanji.type.vocab': 'Slovíčka',
   'kanji.meaning': 'Význam',
   'kanji.reading': 'Čítanie',
@@ -351,7 +357,7 @@ describe('SessionComponent', () => {
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });
-    const asked = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const box = vi.spyOn(window, 'confirm');
     api.review.mockImplementation((id: string) =>
       id === WORD.id ? Promise.reject(new ApiError('the server does not answer', 0, {})) : Promise.resolve({ state: STATE, from: 1, to: 2 }),
     );
@@ -366,8 +372,11 @@ describe('SessionComponent', () => {
 
     // Long after the failure, with nothing on its way: still asked.
     const signOut = TestBed.inject(SignOutService);
-    expect(await signOut.signOut(), 'Cancel: still signed in').toBe(false);
-    expect(asked.mock.calls).toEqual([[ENGLISH['signOut.notSaved']]]);
+    const question = TestBed.inject(ConfirmService);
+    const first = signOut.signOut();
+    await vi.waitFor(() => expect(question.pending()).toMatchObject({ title: ENGLISH['signOut.confirmTitle'], message: ENGLISH['signOut.notSaved'] }));
+    question.settle(false);
+    expect(await first, 'Cancel: still signed in').toBe(false);
     expect(logout).not.toHaveBeenCalled();
 
     // The session ends: its summary says what failed, and a sign-out has nothing more to ask.
@@ -378,10 +387,10 @@ describe('SessionComponent', () => {
     await settle();
     expect(results.length).toBe(1);
     expect(results[0].done.find((entry) => entry.it.id === WORD.id)?.error?.status).toBe(0);
-    asked.mockClear();
     expect(await signOut.signOut()).toBe(true);
-    expect(asked).not.toHaveBeenCalled();
+    expect(question.pending(), 'nothing more to ask').toBeNull();
     expect(logout).toHaveBeenCalledTimes(1);
+    expect(box, 'never the browser’s own box').not.toHaveBeenCalled();
   });
 
   it('a failed answer that fails while Sign out waits, and that the session reports too: asked once', async () => {
@@ -389,7 +398,6 @@ describe('SessionComponent', () => {
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });
-    const asked = vi.spyOn(window, 'confirm').mockReturnValue(true);
     let fail: () => void = () => undefined;
     api.review.mockImplementation((id: string) =>
       id === WORD.id
@@ -401,37 +409,48 @@ describe('SessionComponent', () => {
     await enter();
     await answer('だいがく');
     await enter();
+    const question = TestBed.inject(ConfirmService);
+    const ask = vi.spyOn(question, 'ask');
     const done = TestBed.inject(SignOutService).signOut();
     await Promise.resolve();
     fail();
+    await vi.waitFor(() => expect(question.pending()).not.toBeNull());
+    question.settle(true);
     expect(await done).toBe(true);
-    expect(asked).toHaveBeenCalledTimes(1);
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(logout).toHaveBeenCalledTimes(1);
   });
 
-  it('asks before losing a half-answered item, in the browser’s own dialog, worded when it is raised', async () => {
-    const asked: string[] = [];
-    vi.spyOn(window, 'confirm').mockImplementation((message?: string) => (asked.push(String(message)), false));
+  it('asks before losing a half-answered item with the kit’s question, worded when it is raised — never the browser’s own box', async () => {
+    const box = vi.spyOn(window, 'confirm');
     await start([WORD], { slovak: true });
     await answer('university');
     await enter(); // the meaning is right, the reading not answered: half answered
+    const question = TestBed.inject(ConfirmService);
     q<HTMLButtonElement>('.s-top button:last-of-type').click();
     await fixture.whenStable();
-    expect(asked).toEqual(['Skončiť teraz? 1 rozpracovaná položka sa neuloží.']);
-    expect(results, 'refused: the session goes on').toEqual([]);
+    expect(question.pending()).toMatchObject({ title: 'Skončiť teraz?', message: '1 rozpracovaná položka sa neuloží.', confirmLabel: 'Skončiť', cancelLabel: 'Pokračovať', tone: 'danger' });
+    question.settle(false);
+    await settle();
+    expect(results, 'Keep going: the session goes on').toEqual([]);
 
-    // the same dialog after the language changed: worded anew, not kept from before
+    // the same question after the language changed: worded anew, not kept from before
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     q<HTMLButtonElement>('.s-top button:last-of-type').click();
-    expect(asked[1]).toBe('Stop now? 1 half-answered item will not be saved.');
+    expect(question.pending()).toMatchObject({ title: 'Stop now?', message: '1 half-answered item will not be saved.', confirmLabel: 'End', cancelLabel: 'Keep going' });
+    question.settle(true);
+    await settle();
+    expect(results.length, 'End: the session ends').toBe(1);
+    expect(results[0]).toMatchObject({ early: true });
+    expect(box).not.toHaveBeenCalled();
   });
 
   it('does not ask when nothing is half answered', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     await start([WORD]);
+    const ask = vi.spyOn(TestBed.inject(ConfirmService), 'ask');
     q<HTMLButtonElement>('.s-top button:last-of-type').click();
     await settle();
-    expect(confirm).not.toHaveBeenCalled();
+    expect(ask).not.toHaveBeenCalled();
     expect(results.length).toBe(1);
     expect(results[0]).toMatchObject({ early: true, unfinished: 0 });
   });

@@ -1,0 +1,14 @@
+// The kit's dialog draws the notice; only the sentence and the server's reason under it are laid out here.
+:host {
+  display: contents;
+}
+.message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}

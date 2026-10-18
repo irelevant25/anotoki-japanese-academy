@@ -156,6 +156,30 @@ function focusedOn(page) {
   }, BAR);
 }
 
+/**
+ * The kit's question (<anotoki-confirm-host>, ConfirmService - where the browser's own confirm() stood): waited for,
+ * its words read, answered - the yes (true) or the no (false) - and waited for until it is gone. Null when none came
+ * within `timeout`.
+ */
+async function answerQuestion(page, yes, timeout = 5000) {
+  const open = 'anotoki-confirm-host dialog[open]';
+  const shown = await page.waitForSelector(open, { timeout }).then(() => true, () => false);
+  if (!shown) return null;
+  const words = (selector) => page.$eval(selector, (el) => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
+  const said = {
+    title: await words(`${open} h2`),
+    message: await words(`${open} .anotoki-confirm-host__message`),
+    no: await words(`${open} [data-answer="no"]`),
+    yes: await words(`${open} [data-answer="yes"]`),
+  };
+  await page.click(`${open} [data-answer="${yes ? 'yes' : 'no'}"]`);
+  await page.waitForSelector(open, { state: 'detached', timeout });
+  return said;
+}
+
+/** The app's notice (<app-notice-host>, NoticeService - where the browser's own alert() stood), while one is drawn. */
+const NOTICE = 'app-notice-host dialog[open]';
+
 const SHOTS = path.join(__dirname, 'shots');
 
-module.exports = { launch, newContext, watch, reporter, findBrowser, keyShaped, BAR, barLink, themeChoice, focusedOn, SHOTS };
+module.exports = { launch, newContext, watch, reporter, findBrowser, keyShaped, BAR, barLink, themeChoice, focusedOn, answerQuestion, NOTICE, SHOTS };

@@ -143,17 +143,18 @@ function setup_token_file(): string
  * The token of the first view (a website): 48 hex digits, as setup_token_write()
  * makes it. Null before there is one, and for a file that holds anything else
  * (half of one, written before tokens were written aside): a new one replaces it.
+ * Read as the settings are (config_require_cleanly()): a copy put back by hand
+ * with a byte-order mark or without its <?php line would print the token ahead
+ * of this very page, to whoever opened it - caught, it is no token, and a new
+ * one replaces it.
  */
 function setup_token(): ?string
 {
     if (!is_file(setup_token_file())) {
         return null;
     }
-    try {
-        $data = require setup_token_file();
-    } catch (Throwable $e) {
-        return null;
-    }
+    $read = config_require_cleanly(setup_token_file());
+    $data = $read['problem'] === null ? $read['value'] : null;
     $token = is_array($data) ? ($data['token'] ?? null) : null;
     return is_string($token) && preg_match('/^[0-9a-f]{48}$/D', $token) ? $token : null;
 }
@@ -374,8 +375,11 @@ function setup_proven(?string $token, string $nonce): ?string
 
 // ── What is saved now, what the form says ──────────────────────────────────────
 
-$savedDb = config_read_file('database');
-$savedAuth = config_read_file('auth') ?? [];
+// A saved file that cannot be read cleanly (config_require_cleanly(): one that prints, or that PHP cannot read) is
+// no saved settings: nothing of it is shown or kept - its password neither -, and Save writes it again.
+$savedDb = config_read_file('database', $savedDbProblem);
+$savedAuth = config_read_file('auth', $savedAuthProblem) ?? [];
+$savedProblems = array_filter(['database.local.php' => $savedDbProblem, 'auth.local.php' => $savedAuthProblem]);
 $hasPassword = is_string($savedDb['password'] ?? null) && $savedDb['password'] !== '';
 // What is saved is shown to this computer only. A website's setup page is
 // anybody's to open, and one uploaded again would show its database's name
@@ -561,6 +565,10 @@ $intro = SETUP_LOCAL
     ? '<p>This sets up Japanese Academy on this computer: the database with its tables and the study content, and the anotoki IAM people sign in through.'
         . ' It stays here: open it again any time to change the settings.</p>'
         . ($savedDb !== null ? '<p class="note">This copy is set up already. Change what you need and save again; the password stays as it is unless you type a new one.</p>' : '')
+        // A saved file that cannot be read cleanly, by its fault alone (never its text): Save writes it again.
+        . implode('', array_map(static function (string $file, string $problem): string {
+            return '<p class="err">' . setup_h("backend/config/$file $problem") . ': Save writes it again, with what this form says.</p>';
+        }, array_keys($savedProblems), $savedProblems))
     : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.'
         . ' Make the database in your hosting panel first.</p>'
         . '<p class="note">A token was written to <code>backend/config/setup-token.local.php</code>. Open that file by FTP or SFTP,'

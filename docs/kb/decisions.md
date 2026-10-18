@@ -2126,3 +2126,118 @@ one bucket, never looser.
   the proxy without it), and the setup page leaving the file alone -
   mutation-checked: without the secret in `client_address()`, or in the
   context's last argument, they fail.
+
+**2026-10-18 — anotoki-lib 0.6.2 (both halves): Terms, Privacy and Contact,
+the kit's newer pieces, no browser box, and every settings file read cleanly
+or not at all.** The round-3 site pass (the owner's brief, after the IAM, the
+survey and Piano Academy).
+
+- **The legal pages** are the family's (`@anotoki/lib/legal/pages`), each a
+  lazy route of its own (`/terms`, `/privacy`, `/contact`, the library's
+  paths) whose parent is their frame (`legal/legal-frame`, which gives them
+  this app's facts, out of the first load), placed before the learner's
+  catch-all - never one parent with an empty path holding the three, which
+  would take `/` with no guard (the survey's lesson of 2026-10-17;
+  `app.routes.spec.ts` holds `/` and an unknown address). No guard, and
+  `AppComponent` draws them whatever the sign-in says: what an app keeps is
+  said before anybody signs in. The operator is the library's default (Code
+  Hero s.r.o., support@anotoki.eu, Slovakia); the processors the hosting
+  company "(to be named)" and Cloudflare; the visits the family's Umami
+  (umami.anotoki.eu, in `index.html` since 2026-10-10). The anotoki account's
+  Privacy and account pages are linked at the IAM's address the app signs in
+  with; Contact opens Send feedback's form. Every address is the code's,
+  never a string an administrator can reword (`legal-facts.spec.ts` holds
+  it).
+- **The facts are the code's, and where the code does not settle one, the
+  conservative truth** - for the owner to confirm: the JSON copies made
+  before a migration or by `manage.php` are said to stay until the owner
+  deletes them (nothing deletes them); the visitors' days are the server's
+  (`keep_days`, 30 by default); feedback in the library's keep (spam 30 days,
+  resolved 365, new and read ones until deleted); the error log 30 days with
+  no address; the audit log with no time limit and no address; the
+  library's backups plain and kept by count (14 daily, 5 before an update, 5
+  before a restore, by hand until deleted); the IAM's hint cookie listed,
+  though this app never reads it (the browser sends it); the hosting company
+  unnamed. `ACADEMY_LEGAL_UPDATED` moves with any change to them.
+- **No browser box at all**: the seven `confirm()` / `alert()` of the app
+  (the session's End over half-answered items, the exam's Finish now with
+  questions left, an item's Reset, Sign out and a visitor's Sign in over
+  something unsaved; a report that would not open, a paper that could not be
+  scored) are the kit's question (`ConfirmService`: a title that asks - new
+  keys -, the sentence under it - the old one, its question taken out by 011
+  where nobody had reworded it -, the two buttons in the app's words, the
+  ones that lose something red) and the app's own notice (`NoticeService`,
+  `core/notice/`, one button, OK: the kit has a question, not a notice - a
+  piece for the library if another site needs one). Both hosts keep their
+  keys from `document`, so Enter in them answers no card and hands no paper
+  in. The browser's boxes spoke the browser's language and stopped the page
+  (the exam's clock with it); these speak the page's, and a spec can answer
+  them.
+- **The kit's newer pieces in place of the app's own**: the exam's parts,
+  lessons and sections are the kit's chips (`pressed`) in its labelled
+  group, its length choice chips, "Narrow it down" its disclosure (once a
+  `<details>`), the paper's section tag its badge that wraps; the lessons'
+  kinds and From, practice's What, Type and Ask, and Browse's lesson and
+  stage choice chips (radios), practice's lessons chips in a labelled group;
+  the batch size's and how many's names the labelled group (`selfNamed`);
+  the kanji tabs the kit's link tabs; What's new, Send feedback, all / none
+  and the review's listen the kit's small link buttons (44 px to a finger);
+  `.choice`, `.choice-head` and `.choice-label` gone from `_base.scss` (the
+  exam's all / none row is its own `.choice-actions`). **Kept, and why**: the multi-select rows stay
+  `button[anotokiChip]` toggles, not `<anotoki-chip-group multiple>`, because
+  their chips carry a tooltip (a part's and a section's counts) or a part in
+  another language (the greetings' kana), which a choice chip's option
+  cannot hold; the study's own pieces (tiles, the session, the lesson batch,
+  the paper, the dashboard's cards) stay the app's. A choice chip says its
+  label in one language: practice's "Guru a vyššie" is the phrase's, "Guru"
+  inside it no longer marked English (a word Slovak has; a stage's name
+  alone - Apprentice, Burned - still is).
+- **The kanji tabs scroll sideways on a phone** now (the kit's strip: a fade
+  and a small arrow at the edge with more, the page's tab brought into view)
+  where the app's own five fitted 390 px; the rule "the five fit 390 px" is
+  the kit's now: never the page, the page's tab in view (`screens.js`).
+- **Screen readers**: the review's listen button is named for what it shows
+  ("listen to question 12", `exam.result.listenTo`, WCAG 2.5.3 - it was "Play
+  the recording"); the number on Kanji is heard as the reviews due
+  (`topbar.kanjiDue`, the library's `badgeLabel` - without it the kit says
+  "125 new"). Descriptions that still said "chips" are told again.
+- **The first load**: 519.12 kB raw, 149.66 kB sent before (anotoki-lib
+  0.5.0); 537.55 kB raw, 156.68 kB sent after - the question's and the
+  notice's hosts, the chips, the link tabs, the disclosure and the legal links
+  in it; the legal pages and their facts out of it -, under the 550 kB
+  warning.
+- **Every hand-written settings file is read cleanly or not at all** (the
+  IAM's rule, its round 3 of 2026-10-13): `config_require_cleanly()` requires
+  each - the database's, the IAM's, `app.local.php`, `cloudflare.local.php`,
+  the setup page's token and saved settings - inside an output buffer, by a
+  closure of its own; what it prints (a byte-order mark or a line before its
+  `<?php`, no `<?php` line, text after a closing tag) is caught and never
+  sent, and the file is passed over, as is one PHP cannot open, parse or run.
+  PHP's error log says so at most once a day for each fault, by the fault and
+  the number of bytes, never the file's text nor PHP's words. A required one
+  passed over leaves the copy not set up (the setup page names it on this
+  computer, and its Save writes it again), `app.local.php` its defaults.
+  **`cloudflare.local.php` fails closed**, case for case as the IAM's: one
+  that cannot be read cleanly stands for a random secret no request carries,
+  so every request from Cloudflare's ranges counts as its edge until it is
+  mended - this supersedes 2026-10-13's "passed over", which believed
+  `CF-Connecting-IP` from the ranges alone, the looser way; one read cleanly
+  that names no secret is none, as without the file. The attack held by a
+  test: a `database.local.php` with a byte-order mark, a password and no
+  `<?php` line - no answer carries the password, the status page included;
+  with a plain `require` back, the status answer begins with the whole file.
+- **Smaller**: the app's own JSON copies are written 0600 in a folder made
+  0700 (`backup_folder()`, `file_put_atomic()`); a refused trusted-proxy
+  range is said in PHP's error log once a day, not on every request.
+- **Migration 011** (`011_legal_pages_and_questions.sql`, a draft: its last
+  line is the owner's to write): 54 keys in English and informal Slovak -
+  the legal pages' 40, the questions' and notices' titles and buttons, the
+  listen button's name, the reviews due heard on Kanji -, the rewordings
+  each only of a string still seeded and saved by nobody, the descriptions
+  told again, and its check. The library's `anotoki_translations/005_…` to
+  `011_…` run after it in the same Apply.
+- **Tests**: PHP 269 (on 8.5; 263 before), Angular 451 in 44 files (436
+  in 43), the browser suite's 215 checks (207), the setup page's 42, 218
+  shots of 35 screens (174 of 29) - each passing. The checkpoint agents
+  (academy-code-reviewer, academy-ui-tester) were not run: the brief allowed
+  no helper agent.

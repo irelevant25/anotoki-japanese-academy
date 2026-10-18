@@ -98,7 +98,11 @@ delete it whenever you like.
 These stay on this computer only:
 
 - `backend/config/*.local.php` — your settings: the database, with the
-  password, and the IAM (the setup page writes them).
+  password, and the IAM (the setup page writes them). A settings file is
+  read cleanly or not at all: one saved with a byte-order mark, or a line
+  before its `<?php`, never shows what it holds - the site says it is not
+  set up instead, and the setup page names the file (**Save** writes it
+  again).
 - `backend/storage/backups/` — copies of your study data and backups of the
   whole database (see *Your progress* below). Copy the newest to a new
   computer to bring your progress along.
@@ -292,6 +296,11 @@ clear it and no address is kept ("Only if you would like an answer"); tick
 **Send it without my name** and neither your name nor an address is kept.
 No mail is sent: the messages wait on the admin panel's **Feedback** page.
 
+Under them, **Terms · Privacy · Contact**: the anotoki family's pages, with
+what Japanese Academy keeps, why and for how long, and how to reach us
+(Contact opens the same feedback form). Anybody may read them, signed in or
+not.
+
 ---
 
 ## Languages
@@ -425,7 +434,10 @@ hosting:
     (`return ['origin_secret' => '...'];`, put there by FTP; a long random value, 32+ characters). With it the
     site believes `CF-Connecting-IP` only on a request that carries the secret - anybody's Cloudflare Worker
     can connect from Cloudflare's ranges; without the file it believes `CF-Connecting-IP` from Cloudflare's
-    ranges alone. Set the rule first, then the file.
+    ranges alone. Set the rule first, then the file. A file there that cannot be read cleanly (a byte-order
+    mark, a line before its `<?php`, a typo PHP cannot run) counts as a secret no request carries: every
+    request from Cloudflare then counts as its edge, until the file is mended (PHP's error log says so, once
+    a day).
 - **After an upload**: the private folders (`storage/`, `config/`) answer 403 in a browser; the host check's
   "Who connects" says Cloudflare, not a proxy of the host's (behind one, every visitor would share one
   address); pending database updates are applied on the admin panel's Migrations page.
@@ -471,8 +483,10 @@ backend/                   the server: PHP 8.2+, Slim 4, PostgreSQL (backend/REA
                            php.js (finds a PHP 8.2+), the PDF page tool (pdf/, with its own package.json)
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
   src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, feedback, i18n, the
-                           site's status, the admin tools), admin/ (Translations, Languages, People, Feedback, Errors,
-                           Audit log, Backups, Migrations), standin/ (sign in, a problem)
+                           site's status, the admin tools, the legal pages' settings, the app's notice), legal/
+                           (Terms, Privacy, Contact: the frame and the app's facts), admin/ (Translations,
+                           Languages, People, Feedback, Errors, Audit log, Backups, Migrations), standin/ (sign in, a
+                           problem)
   public/                  favicon, changelog.json
   e2e/                     the browser suites (Edge, playwright-core)
   scripts/                 ensure-build.mjs (builds when the sources changed), the catalog fixture
@@ -494,9 +508,11 @@ the rest.
 The database migrations - applying them, and what the site does while one
 waits -, the app's words (serving them, the Translations and Languages
 pages, the command line), the family's UI kit the pages are drawn with
-(buttons, dialogs, fields, menus, cards, alerts, badges, choices; the study's
+(buttons, dialogs and questions, fields, menus, cards, alerts, badges,
+choices and chips, tabs; the study's
 own pieces - tiles, the sessions, the exam's paper - are the app's), its
 styles and font (Manrope) and the top bar, in this app's own colours, the
+legal pages (Terms, Privacy, Contact, with this app's facts), the
 sign-in (the site's half of it), the
 people (the People page, and blanking who somebody was once the IAM deleted
 their account) and the admin tools (the error log - with the pages' own

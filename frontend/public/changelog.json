@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-10-18",
+    "changes": {
+      "added": [
+        "Terms, Privacy and Contact, linked at the foot of every page: what Japanese Academy keeps, why and for how long, and how to reach us"
+      ],
+      "updated": [
+        "Before you end a session with half-answered items, finish a test with questions left, reset an item or sign out with something not saved, the site asks in its own dialog, in your language, instead of the browser's box",
+        "The exam's choices, the lesson and practice choices and the kanji tabs are the anotoki family's chips and tabs; on a phone the kanji tabs scroll sideways",
+        "A screen reader hears the exam's listen buttons as \"listen to question 12\", and the number beside Kanji at the top as the reviews due"
+      ]
+    }
+  },
+  {
     "version": "0.4.0",
     "date": "2026-10-07",
     "changes": {

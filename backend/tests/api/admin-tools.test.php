@@ -276,9 +276,12 @@ test('backups: made by the ADMIN after a fresh sign-in, downloaded once by a tic
         db_all('SELECT item_id, stage FROM srs_progress WHERE user_id = ? ORDER BY item_id', [A_LEARNER])), 'as the backup had it');
     // The IAM out of reach (no list of its deleted accounts here at all): the scrub after the restore did not finish, and
     // the restore says so - never one that looks complete -; the hour's stamp goes after the answer, so the next request runs it
-    // (the library's People::afterRestore(), on this site's runner).
-    assert_match('/^The accounts the IAM deleted were not checked again \(the IAM could not be reached\)\. Whoever it deleted since this backup was made may be named here/',
+    // (the library's People::afterRestore(), on this site's runner). Since anotoki-lib 0.6.0 the answer says it in the
+    // library's fixed sentence, and why is the error log's (the Backups' onError): never a failure's own words in an answer.
+    assert_same('What this site does after a restore did not all go through. The error log says what.',
         (string) ($restored['body']['after_restore_error'] ?? ''), $restored['raw']);
+    assert_true(str_contains(error_log_text(), 'The accounts the IAM deleted were not checked again (the IAM could not be reached). Whoever it deleted since this backup was made may be named here'),
+        'why, in the error log');
     for ($i = 0; $i < 50 && is_file($stamp); $i++) {
         usleep(100000);
         clearstatcache(true, $stamp);
@@ -382,7 +385,9 @@ test('a backup without this installation\'s seal - every plain one made before a
     $rows = (int) db_value('SELECT count(*) FROM srs_progress');
     $refused = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
     assert_same([422, 'archive_invalid'], [$refused['status'], $refused['body']['code'] ?? null], $refused['raw']);
-    assert_match('/no seal of this site\'s/', (string) ($refused['body']['error'] ?? ''), 'why, in the library\'s words: ' . $refused['raw']);
+    // The answer in the library's fixed sentence (anotoki-lib 0.6.0), which the page shows; why, in the error log.
+    assert_match('/not made here - the error log says which\. One not made here is restored offline/', (string) ($refused['body']['error'] ?? ''), $refused['raw']);
+    assert_true(str_contains(error_log_text(), 'It carries no seal of this site\'s - it was not made here, or it was changed since - so it is not restored here'), 'why, in the library\'s words, in the error log');
     assert_same($rows, (int) db_value('SELECT count(*) FROM srs_progress'), 'nothing restored');
     $ticket = tools_call('POST', "/api/admin/backups/$id/ticket", new stdClass());
     assert_same(200, $ticket['status'], 'downloaded for a restore offline: ' . $ticket['raw']);

@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, NavigationEnd, ResolveFn, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, ResolveFn, Router, RouterOutlet } from '@angular/router';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { AlertComponent } from '@anotoki/lib/ui/alert';
 import { SpinnerComponent } from '@anotoki/lib/ui/spinner';
+import { LinkTabItem, LinkTabsComponent } from '@anotoki/lib/ui/tabs';
 import { filter } from 'rxjs';
 import { ApiError, toApiError } from '../core/api/api.service';
 import { errorKey, errorParams } from '../core/i18n/error-text';
@@ -27,6 +28,9 @@ export const freshKanji: ResolveFn<ApiError | null> = () =>
       (e: unknown) => toApiError(e),
     );
 
+/** The dashboard's tab among the link tabs (its data.nav is ''). */
+const DASHBOARD = 'dashboard';
+
 /** The section's tabs: [address, data.nav, the key of its name]. */
 const TABS: [string, string, string][] = [
   ['/kanji', '', 'kanji.tab.dashboard'],
@@ -40,6 +44,15 @@ const TABS: [string, string, string][] = [
  * The kanji trainer: its tabs, and the screen of the address — or what is
  * drawn over it (a lesson batch, a session, a summary: KanjiScreenService).
  *
+ * The tabs are the kit's link tabs (<anotoki-link-tabs>, anotoki-lib 0.6.0): a
+ * nav named "Kanji" of ordinary links, each its own Tab stop, the page's
+ * aria-current="page" - the one KanjiScreenService says, so a session drawn
+ * over the dashboard marks Reviews or Practice though the address stays, and
+ * an item's page marks none. Where the five do not fit (a phone, in Slovak)
+ * they scroll sideways in the kit's strip, never the page: the edge with more
+ * beyond it fades under a small arrow, and the page's tab is brought into
+ * view.
+ *
  * A click on a link to the address already shown fires no navigation, and a
  * session draws over the screen it started from without changing the address,
  * so such a click is routed by hand here: the screen is drawn again, fresh.
@@ -50,7 +63,7 @@ const TABS: [string, string, string][] = [
  */
 @Component({
   selector: 'app-kanji-shell',
-  imports: [AlertComponent, LessonBatchComponent, RouterLink, RouterOutlet, SessionComponent, SpinnerComponent, SummaryComponent, TranslatePipe],
+  imports: [AlertComponent, LessonBatchComponent, LinkTabsComponent, RouterOutlet, SessionComponent, SpinnerComponent, SummaryComponent, TranslatePipe],
   templateUrl: './kanji-shell.component.html',
   styleUrl: './kanji-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -64,7 +77,12 @@ export class KanjiShellComponent implements OnInit {
   private readonly i18n = inject(TranslationService);
   readonly screen = inject(KanjiScreenService);
 
-  readonly tabs = TABS;
+  /** The tabs as the kit's link tabs take them, worded in the language on the page; the dashboard's its address alone. */
+  readonly tabs = computed<LinkTabItem[]>(() =>
+    TABS.map(([path, nav, key]) => ({ id: nav || DASHBOARD, label: this.i18n.t(key), path, exact: nav === '' })),
+  );
+  /** The tab to mark, whatever the address says (KanjiScreenService); an item's page names no tab, and none is marked. */
+  readonly currentTab = computed(() => this.screen.tab() || DASHBOARD);
   readonly ready = signal(false);
   /** Why the kanji data could not be loaded, or null: the failure, never a sentence. */
   readonly loadError = signal<ApiError | null>(null);

@@ -1,5 +1,6 @@
 import { inject, Injectable, Injector } from '@angular/core';
 import { TranslationService } from '@anotoki/lib/translations';
+import { NoticeService } from '../notice/notice.service';
 import { AuthService } from './auth.service';
 import { VisitorKey } from './visitor-key';
 
@@ -56,8 +57,9 @@ export function failureKey(status: number): string {
  * forgotten. (The data file of Your data is fetched the same way, by its
  * card: home/your-data.)
  *
- * What it says itself — the waiting tab's title, the alert when it fails — is
- * worded at the moment it is raised, in the language on the page; the server's
+ * What it says itself — the waiting tab's title, the notice when it fails (the
+ * app's, drawn with the kit's dialog: NoticeService) — is worded at the moment
+ * it is raised, in the language on the page; the server's
  * own English sentence is never shown. Nothing at all while the site is being
  * updated (or lost its settings): the anotoki library's page takes the app's
  * place and says so (AuthService.fetch() told it), and nobody is to read an
@@ -67,6 +69,7 @@ export function failureKey(status: number): string {
 export class PrivateLinksService {
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(TranslationService);
+  private readonly notice = inject(NoticeService);
   private readonly injector = inject(Injector);
 
   /** For (click) on such a link: fetched with the token instead of followed. */
@@ -117,9 +120,12 @@ export class PrivateLinksService {
     }
   }
 
-  /** The waiting tab closed, and the browser's own dialog, worded now: "Could not open it: {reason}", the reason a sentence of its own. */
+  /**
+   * The waiting tab closed, and the app's notice, worded now: "The report did not open" over "Could not open it:
+   * {reason}", the reason a sentence of its own.
+   */
   private failed(tab: Window | null, reason: string): void {
     tab?.close();
-    alert(this.i18n.t('report.openFailed', { reason: this.i18n.t(reason) }));
+    void this.notice.tell({ title: this.i18n.t('report.openFailedTitle'), message: this.i18n.t('report.openFailed', { reason: this.i18n.t(reason) }) });
   }
 }

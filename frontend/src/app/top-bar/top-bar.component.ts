@@ -9,6 +9,7 @@ import { filter, map } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { SignInService } from '../core/auth/sign-in.service';
 import { SignOutService } from '../core/auth/sign-out.service';
+import { isLegalPage } from '../core/legal.config';
 import { MIGRATIONS_ROUTE, pagesShut } from '../core/site-status';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { keptWord } from '../standin/kept-word';
@@ -32,6 +33,8 @@ const ENGLISH: Record<string, string> = {
   'topbar.exam': 'Exam',
   'topbar.phoneMenuDue.one': 'Menu: {count} review due',
   'topbar.phoneMenuDue.other': 'Menu: {count} reviews due',
+  'topbar.kanjiDue.one': '{count} review due',
+  'topbar.kanjiDue.other': '{count} reviews due',
   'topbar.admin': 'Admin panel',
   'account.noName': 'Account',
 };
@@ -209,11 +212,15 @@ export class TopBarComponent {
   private readonly adminOffered = computed(() => this.auth.isStaff() && !this.site.blocked());
   /**
    * Sign in is offered: signed out with the Sign in card on the page, or the
-   * anotoki library's screen of a sign-in that came back without one (any
-   * other time the browser is on its way to the IAM), or visiting.
+   * anotoki library's screen of a sign-in that came back without one, or a
+   * legal page (Terms, Privacy, Contact: anybody's) - any other time the
+   * browser is on its way to the IAM -, or visiting.
    */
   private readonly signedOut = computed(
-    () => this.auth.showSignIn() || this.auth.visiting() || (this.auth.state() === 'signed-out' && this.auth.signInError() !== null),
+    () =>
+      this.auth.showSignIn() ||
+      this.auth.visiting() ||
+      (this.auth.state() === 'signed-out' && (this.auth.signInError() !== null || isLegalPage(this.here()))),
   );
 
   private readonly shownLinks = computed(() => {
@@ -246,16 +253,24 @@ export class TopBarComponent {
       : { area: 'Japanese', link: '/', label: this.word('topbar.home'), current: this.here() === '/', lang: 'en' },
   );
 
-  /** The sections, worded in the language on the page (English in the admin panel); the reviews due beside Kanji. */
+  /**
+   * The sections, worded in the language on the page (English in the admin panel); the reviews due beside Kanji,
+   * heard as what they are ("Kanji, 125 reviews due": `badgeLabel`, in the page's language - without it the kit
+   * would say "125 new", anotoki-lib 0.6.0); the new feedback beside Feedback, in the kit's words ("Feedback, 3 new").
+   */
   readonly links = computed<TopBarLink[]>(() =>
-    this.shownLinks().map((link) => ({
-      id: link.id,
-      label: link.key ? this.word(link.key) : (link.word ?? ''),
-      path: link.path,
-      under: link.under,
-      lang: link.key ? null : 'en',
-      badge: link.due ? this.kanji.reviewsDue() : link.unread ? this.unread.count() || null : null,
-    })),
+    this.shownLinks().map((link) => {
+      const due = link.due ? this.kanji.reviewsDue() : 0;
+      return {
+        id: link.id,
+        label: link.key ? this.word(link.key) : (link.word ?? ''),
+        path: link.path,
+        under: link.under,
+        lang: link.key ? null : 'en',
+        badge: link.due ? due : link.unread ? this.unread.count() || null : null,
+        badgeLabel: link.due && due ? this.kanjiDueLabel(due) : null,
+      };
+    }),
   );
 
   /** "Menu: 125 reviews due": the phone's menu button carries the reviews due and names them (Label in Name). */
@@ -315,5 +330,13 @@ export class TopBarComponent {
       return this.i18n.plural('topbar.phoneMenuDue', count);
     }
     return keptWord(this.i18n, 'topbar.phoneMenuDue.other', ENGLISH[count === 1 ? 'topbar.phoneMenuDue.one' : 'topbar.phoneMenuDue.other'], { count });
+  }
+
+  /** "125 reviews due": what the number on the Kanji link counts, heard after its name; with no strings, the English kept above. */
+  private kanjiDueLabel(count: number): string {
+    if (this.i18n.has('topbar.kanjiDue.other')) {
+      return this.i18n.plural('topbar.kanjiDue', count);
+    }
+    return keptWord(this.i18n, 'topbar.kanjiDue.other', ENGLISH[count === 1 ? 'topbar.kanjiDue.one' : 'topbar.kanjiDue.other'], { count });
   }
 }

@@ -6,13 +6,18 @@
  * with answers of the learner's own, one as long as a synonym may be). The
  * reader is an ADMIN, so the admin panel's pages are shot too - the anotoki
  * library's People, Feedback, Errors, Audit log and Backups among them, with a
- * message of the reader's own to read; feedback-form is Send feedback's form
+ * message of the reader's own to read and a page's error on the Errors page;
+ * feedback-form is Send feedback's form
  * (the library's) in its dialog; sign-in-failed is the anotoki library's screen
  * of a refused sign-in; home-visitor is the home page of somebody
  * studying without signing in (the stand-in IAM saying sign-in is not
  * required here), with its notice; update-waiting is what a learner reads
  * while a database update waits (the anotoki library's page), and
- * update-waiting-admin what the site's ADMIN reads then. Every screen is checked for horizontal
+ * update-waiting-admin what the site's ADMIN reads then; exam-finish-question
+ * is the kit's question (where the browser's confirm() stood) and
+ * exam-score-failed the app's notice (where its alert() stood); legal-* are
+ * Terms, Privacy and Contact - signed out, and Privacy signed in -, shot in
+ * Slovak at 1280 px too. Every screen is checked for horizontal
  * overflow, key-shaped text (a word with no string shows as its key),
  * errors on the way, and what the reviews found by eye (looks()).
  *
@@ -47,7 +52,7 @@ const fs = require('fs');
 const { isolate, startApp, closeAll, iamState, plant } = require('./helpers');
 isolate('academy-screens'); // before the server starts: a throwaway database
 
-const { launch, newContext, watch, keyShaped, BAR, focusedOn, SHOTS } = require('./browser');
+const { launch, newContext, watch, keyShaped, BAR, focusedOn, answerQuestion, NOTICE, SHOTS } = require('./browser');
 
 const FILTER = process.argv[2] || '';
 
@@ -78,7 +83,7 @@ const UPDATE = '006_admin_panel_words.sql';
 /** A 40-question paper, started. */
 async function startPaper(page) {
   await page.waitForSelector('#bookChips button');
-  await page.click('[data-size="40"]');
+  await page.click('#sizeChips [data-value="40"]');
   await page.click('#startBtn');
   await page.waitForSelector('#test:not([hidden])');
 }
@@ -109,12 +114,27 @@ const SCREENS = [
   ['kanji-item', '/kanji/item/k%3A%E5%A4%A7'],
   ['exam', '/exam'],
   ['exam-question', '/exam', startPaper],
+  // "Finish now" with questions unanswered: the kit's question, Finish or back to the paper
+  ['exam-finish-question', '/exam', async (page) => {
+    await startPaper(page);
+    await page.click('#quitBtn');
+    await page.waitForSelector('anotoki-confirm-host dialog[open]');
+  }],
   ['exam-result', '/exam', async (page) => {
     await startPaper(page);
-    page.once('dialog', (d) => d.accept());
     await page.click('#quitBtn');
+    await answerQuestion(page, true);
     await page.waitForSelector('#result:not([hidden])');
   }],
+  // a paper that could not be scored (no answer from the server: the hand-in cut off): the app's notice, the
+  // answers still on the page
+  ['exam-score-failed', '/exam', async (page) => {
+    await page.route('**/api/submit', (route) => route.abort('failed'));
+    await startPaper(page);
+    await page.click('#quitBtn');
+    await answerQuestion(page, true);
+    await page.waitForSelector(NOTICE);
+  }, { after: (page) => page.unroute('**/api/submit') }],
   ['changelog', '/', async (page) => {
     await page.click('#whatsNew');
     await page.waitForSelector('app-changelog-dialog dialog[open]');
@@ -152,13 +172,19 @@ const SCREENS = [
     await page.click('anotoki-feedback-page [data-messages] [data-message]');
     await page.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
   }, { admin: true }],
-  ['admin-errors', '/admin/errors', async (page) => page.waitForSelector('anotoki-error-log-page [data-counts]'), { admin: true }],
+  // a row: the page's error the run reported first
+  ['admin-errors', '/admin/errors', async (page) => page.waitForSelector('anotoki-error-log-page [data-groups] [data-fingerprint]'), { admin: true }],
   ['admin-audit', '/admin/audit', async (page) => page.waitForSelector('anotoki-audit-log-page [data-entries]'), { admin: true }],
   ['admin-backups', '/admin/backups', async (page) => page.waitForSelector('anotoki-backups-page [data-backups]'), { admin: true }],
   ['admin-migrations', '/admin/migrations', async (page) => page.waitForSelector('[data-applied] .anotoki-migrations-page__file'), { admin: true }],
   // a database update waiting: the anotoki library's page, as a learner reads it, and as the site's ADMIN does
   ['update-waiting', '/', async (page) => page.waitForSelector('anotoki-site-status h1'), { updating: true, learner: true }],
   ['update-waiting-admin', '/', async (page) => page.waitForSelector('anotoki-site-status a'), { updating: true }],
+  // the legal pages, the family's with the app's facts: anybody's - signed out the three, Privacy signed in too
+  ['legal-terms', '/terms', async (page) => page.waitForSelector('anotoki-terms-page h1'), { legal: true, signedOut: true }],
+  ['legal-privacy', '/privacy', async (page) => page.waitForSelector('anotoki-privacy-page [data-stored]'), { legal: true, signedOut: true }],
+  ['legal-contact', '/contact', async (page) => page.waitForSelector('anotoki-contact-page [data-open-feedback]'), { legal: true, signedOut: true }],
+  ['legal-privacy-signed-in', '/privacy', async (page) => page.waitForSelector('anotoki-privacy-page [data-stored]'), { legal: true }],
 ];
 
 /** Slovak chosen in a browser nobody is signed in to (about:blank has no storage). */
@@ -179,6 +205,9 @@ const VARIANTS = [
   // the Slovak pass
   ['sk-phone', { ...PHONE, colorScheme: 'light', locale: 'sk-SK' }],
   ['sk-phone-dark', { ...PHONE, colorScheme: 'dark', locale: 'sk-SK' }],
+  // the legal pages in Slovak at 1280 px too
+  ['sk-light', { viewport: { width: 1280, height: 900 }, colorScheme: 'light', locale: 'sk-SK' }, 'legal'],
+  ['sk-dark', { viewport: { width: 1280, height: 900 }, colorScheme: 'dark', locale: 'sk-SK' }, 'legal'],
 ];
 
 /**
@@ -338,6 +367,9 @@ function measureBar(page) {
   const ownAnswers = await app.api('/api/kanji/item', READER, { method: 'POST', body: { id: 'k:大', addSynonym: longSynonym, addReading: 'おおきい' } });
   if (!ownAnswers.ok) throw new Error(`the learner's own answers were not added: ${ownAnswers.status}`);
   await app.api('/api/feedback', READER, { method: 'POST', body: { kind: 'idea', section: 'Kanji', message: 'The stroke order of 学 would help me a lot.', page: '/kanji' } });
+  // a page's error, as the pages report one (the library's reporter): a row on the Errors page
+  const reported = await app.api('/api/client-errors', READER, { method: 'POST', body: { type: 'TypeError', message: 'screens: a page error for the Errors page to list', page: '/kanji/reviews' } });
+  if (reported.status !== 204) throw new Error(`the page's error was not logged: ${reported.status}`);
   // something in the audit log: a language added (hidden: nobody is offered it)
   await app.api('/api/admin/languages', READER, { method: 'POST', body: { code: 'de', name: 'German', native_name: 'Deutsch', enabled: false } });
   // a backup of the database, made by the reader (an ADMIN signed in just now), for the Backups page to list
@@ -349,15 +381,17 @@ function measureBar(page) {
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await launch();
   const problems = [];
-  for (const [variant, opts] of VARIANTS) {
+  for (const [variant, opts, only] of VARIANTS) {
     const sk = opts.locale === 'sk-SK';
     if (FILTER === 'room') break;
+    if (only && !SCREENS.some(([name, , , how = {}]) => how[only] && (!FILTER || name.includes(FILTER)))) continue;
     const context = await newContext(browser, opts);
     await plant(context, READER, sk ? 'sk' : null);
     const page = await context.newPage();
     const errors = watch(page);
     for (const [name, url, prep, how = {}] of SCREENS) {
       if (FILTER && !name.includes(FILTER)) continue;
+      if (only && !how[only]) continue; // a variant for some screens alone (the legal pages in Slovak at 1280)
       // the Sign in card: a browser of its own, nobody signed in, the IAM refusing
       let shown = page;
       // While a database update waits no page is made behind the library's page (the pages are its gate's
@@ -382,13 +416,17 @@ function measureBar(page) {
       await shown.waitForTimeout(150);
       const overflow = await shown.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (overflow > 0) problems.push(`${variant}/${name}: ${overflow}px horizontal overflow`);
-      // the kanji tabs scroll sideways rather than overflow the page: all five
-      // must still fit a screen of 390 px, in every language
-      const tabs = await shown.evaluate(() => {
-        const strip = document.querySelector('.subnav .in');
-        return strip ? strip.scrollWidth - strip.clientWidth : 0;
+      // the kanji tabs are the kit's link tabs: where the five do not fit (a phone, in Slovak) they scroll sideways in
+      // the kit's strip, never the page (the overflow above) - and the page's tab is brought into view
+      const tab = await shown.evaluate(() => {
+        const strip = document.querySelector('.subnav .anotoki-tab-strip__scroller');
+        const current = document.querySelector('.subnav a[aria-current="page"]');
+        if (!strip || !current) return null;
+        const s = strip.getBoundingClientRect();
+        const c = current.getBoundingClientRect();
+        return c.left >= s.left - 1 && c.right <= s.right + 1 ? null : `the page’s tab "${current.textContent.trim()}" is out of view (${Math.round(c.left)}..${Math.round(c.right)} in ${Math.round(s.left)}..${Math.round(s.right)})`;
       });
-      if (tabs > 0) problems.push(`${variant}/${name}: the kanji tabs scroll by ${tabs}px`);
+      if (tab) problems.push(`${variant}/${name}: ${tab}`);
       problems.push(...(await keyShaped(shown)).map((p) => `${variant}/${name}: ${p}`));
       problems.push(...(await looks(shown, opts.colorScheme === 'dark')).map((p) => `${variant}/${name}: ${p}`));
       if (sk && how.admin) {
@@ -404,6 +442,7 @@ function measureBar(page) {
       const clip = height > limit ? { x: 0, y: 0, width: shown.viewportSize().width, height: limit } : undefined;
       await shown.screenshot({ path: file, fullPage: true, clip });
       console.log(`saved ${path.relative(process.cwd(), file)}${clip ? `  (top ${limit} of ${height} px)` : ''}`);
+      if (how.after) await how.after(shown);
       if (how.signedOut) {
         await shown.context().close();
         await iamState({ deny: false });

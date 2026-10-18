@@ -1,6 +1,6 @@
 {
   "name": "japanese-academy-frontend",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Japanese Academy's frontend: the kanji SRS and the exam, in Angular 21 (standalone, zoneless, signals).",
   "engines": {
@@ -19,7 +19,7 @@
   },
   "packageManager": "npm@10.9.2",
   "dependencies": {
-    "@anotoki/lib": "https://github.com/irelevant25/anotoki-lib/releases/download/v0.5.0/anotoki-lib-0.5.0.tgz",
+    "@anotoki/lib": "https://github.com/irelevant25/anotoki-lib/releases/download/v0.6.2/anotoki-lib-0.6.2.tgz",
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",

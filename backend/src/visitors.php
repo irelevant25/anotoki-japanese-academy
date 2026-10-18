@@ -481,7 +481,6 @@ function visitors_address_secret(): string
     if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException("Cannot make $dir");
     }
-    file_put_atomic($file, bin2hex(random_bytes(32)) . "\n");
-    @chmod($file, 0600);
+    file_put_atomic($file, bin2hex(random_bytes(32)) . "\n", true);
     return trim((string) file_get_contents($file));
 }

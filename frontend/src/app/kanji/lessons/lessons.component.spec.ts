@@ -19,7 +19,7 @@ const ENGLISH: Record<string, string> = {
   'lessons.kanjiOnly': 'Kanji only',
   'lessons.vocabOnly': 'Vocabulary only',
   'lessons.from': 'From',
-  'lessons.fromNote': '(vocabulary opens up once its kanji are learned)',
+  'lessons.fromNote': 'Vocabulary opens up once its kanji are learned.',
   'lessons.courseOrder': 'Course order',
   'lessons.available': '{n} available',
   'lessons.nextUp': 'Next up',
@@ -54,6 +54,8 @@ describe('LessonsComponent', () => {
   const startButton = (): HTMLButtonElement => host.querySelector('#startLessons') as HTMLButtonElement;
   /** The batch sizes: the kit's segmented choice. */
   const sizes = (): HTMLButtonElement[] => Array.from(host.querySelectorAll<HTMLButtonElement>('#batchSize [role="radio"]'));
+  /** The kit's choice chips of a row (the kinds: #lessonTypes; the lessons: #lessonFrom). */
+  const chips = (row: string): HTMLButtonElement[] => Array.from(host.querySelectorAll<HTMLButtonElement>(`${row} [role="radio"]`));
 
   /** The first n items learned. */
   function learn(n: number): void {
@@ -109,40 +111,49 @@ describe('LessonsComponent', () => {
     expect(clean(startButton().textContent)).toBe('Začať 1 lekciu');
     expect(texts('h1')).toEqual(['Lekcie']);
     expect(sizes().map((size) => clean(size.textContent))).toEqual(['3 na dávku', '5 na dávku', '10 na dávku']);
-    expect(host.querySelector('[data-lesson][title]')?.getAttribute('title')).toBe('dostupné: 1');
+    // each lesson heard with how many of its items can be learned now, after the words it shows (WCAG 2.5.3)
+    expect(host.querySelector('#lessonFrom [data-value="3"]')?.getAttribute('aria-label')).toBe('L3, dostupné: 1');
   });
 
   it('words its choices from keys, and keeps what the browser suites find them by', async () => {
     await open();
     expect(texts('h1')).toEqual(['Lessons']);
-    expect(texts('.choice-label')).toEqual(['Batch size', 'Include', 'From (vocabulary opens up once its kanji are learned)', 'Next up']);
+    // each row's name over it (the kit's labelled group, or its choice chips' own); the note under the lessons their hint
+    expect(texts('.anotoki-labelled-group__label, .anotoki-field__label')).toEqual(['Batch size', 'Include', 'From', 'Next up']);
+    expect(texts('#lessonFrom .anotoki-field__hint')).toEqual(['Vocabulary opens up once its kanji are learned.']);
     expect(sizes().map((size) => clean(size.textContent))).toEqual(['3 per batch', '5 per batch', '10 per batch']);
-    expect(Array.from(host.querySelectorAll('[data-types]')).map((el) => [el.getAttribute('data-types'), clean(el.textContent)])).toEqual([
+    expect(chips('#lessonTypes').map((el) => [el.getAttribute('data-value'), clean(el.textContent)])).toEqual([
       ['both', 'Kanji & vocabulary'],
       ['kanji', 'Kanji only'],
       ['vocab', 'Vocabulary only'],
     ]);
-    expect(host.querySelector('[data-lesson][title]')?.getAttribute('title')).toBe('7 available');
-    expect(clean(host.querySelector('[data-lesson][title]')?.textContent)).toBe('L3');
+    expect(chips('#lessonFrom').map((el) => [el.getAttribute('data-value'), clean(el.textContent), el.getAttribute('aria-label')])).toEqual([
+      ['course', 'Course order', null],
+      ['3', 'L3', 'L3, 7 available'],
+    ]);
   });
 
-  it('draws its choices with the kit: the batch size a segmented choice, the kinds and the lessons buttons pressed as chosen', async () => {
+  it('draws its choices with the kit: the batch size a segmented choice, the kinds and the lessons its choice chips, one checked in each', async () => {
     await open();
     const checked = (): string[] => sizes().filter((size) => size.getAttribute('aria-checked') === 'true').map((size) => size.getAttribute('data-value') ?? '');
-    const pressed = (selector: string): string[] => Array.from(host.querySelectorAll(selector)).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => clean(b.textContent));
+    const chosen = (row: string): string[] => chips(row).filter((b) => b.getAttribute('aria-checked') === 'true').map((b) => clean(b.textContent));
     expect(checked(), 'the setting chosen').toEqual(['5']);
-    expect(pressed('[data-types]')).toEqual(['Kanji & vocabulary']);
-    expect(host.querySelector('[data-types="both"]')?.classList.contains('anotoki-button--primary'), 'the chosen one primary').toBe(true);
-    expect(pressed('[role="group"][aria-labelledby="lessons-from"] button')).toEqual(['Course order']);
-    expect(host.querySelector('#lessons-include')?.textContent?.trim(), 'each row named by the words over it').toBe('Include');
+    expect(chosen('#lessonTypes')).toEqual(['Kanji & vocabulary']);
+    expect(host.querySelector('#lessonTypes [data-value="both"]')?.classList.contains('anotoki-chip--on'), 'the chosen one marked').toBe(true);
+    expect(chosen('#lessonFrom')).toEqual(['Course order']);
+    // each row named by the words over it; the batch size's name said once, by the segmented choice itself
+    const group = host.querySelector('#lessonTypes [role="radiogroup"]')!;
+    expect(clean(host.querySelector('#' + group.getAttribute('aria-labelledby'))?.textContent)).toBe('Include');
+    expect(host.querySelector('#batchSize [role="radiogroup"]')?.getAttribute('aria-label')).toBe('Batch size');
+    expect(host.querySelector('#batchSize')?.closest('anotoki-labelled-group')?.getAttribute('role'), 'its group names nothing again').toBeNull();
 
     sizes()[2].click();
-    (host.querySelector('[data-types="kanji"]') as HTMLButtonElement).click();
-    (host.querySelector('[data-lesson="3"]') as HTMLButtonElement).click();
+    (host.querySelector('#lessonTypes [data-value="kanji"]') as HTMLButtonElement).click();
+    (host.querySelector('#lessonFrom [data-value="3"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(checked()).toEqual(['10']);
-    expect(pressed('[data-types]')).toEqual(['Kanji only']);
-    expect(pressed('[role="group"][aria-labelledby="lessons-from"] button')).toEqual(['L3']);
+    expect(chosen('#lessonTypes')).toEqual(['Kanji only']);
+    expect(chosen('#lessonFrom')).toEqual(['L3']);
     expect(clean(startButton().textContent), 'seven kanji, ten to a batch').toBe('Start 7 lessons');
   });
 });

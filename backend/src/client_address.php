@@ -62,8 +62,10 @@ const CLIENT_ADDRESS_WIDEST_IPV6 = 16;
  * app.local.php's client_address.trusted_proxies when it is a list ([]
  * believes nobody), else the committed default, Cloudflare's published
  * ranges. A range of that list that is no proxy's (client_address_range_ok())
- * is left out - refused, never believed - and said in PHP's error log, once
- * for every request that reads the list (loud until the setting is fixed).
+ * is left out - refused, never believed - and said in PHP's error log at most
+ * once a day for each range (config_said(): a stamp in the storage's cache),
+ * not on every request that reads the list: the setting is read on every
+ * request, and a range left in it is the same range tomorrow.
  *
  * @return list<string>
  */
@@ -83,7 +85,7 @@ function client_address_trusted_proxies(): array
         $shown = is_scalar($range) ? auth_log_text((string) $range) : gettype($range);
         if (!isset($said[$shown])) {
             $said[$shown] = true;
-            error_log("[client_address] a trusted proxy in app.local.php refused, never believed (no range, or wider than /8 for IPv4, /16 for IPv6): $shown");
+            config_said("a trusted proxy in app.local.php refused, never believed (no range, or wider than /8 for IPv4, /16 for IPv6): $shown");
         }
     }
     return $trusted;

@@ -92,17 +92,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 /** The places a feedback message may be about: the sections of the app (the form words them, frontend core/feedback.config.ts). */
 const FEEDBACK_SECTIONS = ['Kanji', 'Exam'];
 
-/**
- * The site's own storage: backend/storage/ - or, for a server of the tests,
- * their own settings folder (ACADEMY_CONFIG_DIR, which counts for an
- * academy_test_ database alone: config_all() refuses any other), so nothing
- * a test writes - a log line of a copy that is not set up included - lands in
- * this copy's storage.
- */
-function storage_dir(): string
-{
-    return getenv('ACADEMY_CONFIG_DIR') ? config_dir() : str_replace('\\', '/', BACKEND) . '/storage';
-}
+// The site's own storage, storage_dir(), is config/config.php's: the settings' own notes are kept there too.
 
 /**
  * What the admin tools need to know of this site (the library's

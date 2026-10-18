@@ -32,7 +32,17 @@ For building and uploading, use the `academy-deploy` skill.
   template: without them the app answers `503 not_set_up` (the anotoki
   library's `SiteGate`, `backend/api/app.php`; the setup page offered only
   until `backend/storage/installed.lock` is written). Never print them
-  or copy their values anywhere. The tests' hooks (`ACADEMY_CONFIG_DIR`, a
+  or copy their values anywhere. **Every hand-written settings file is
+  read through `config_require_cleanly()`** (`backend/config/config.php`;
+  the setup page's token and saved settings too) - never a plain `require`:
+  what one prints as PHP reads it (a byte-order mark or a line before its
+  `<?php`, no `<?php` line, text after a closing tag) is caught and never
+  sent, and the file is passed over, as is one PHP cannot open, parse or
+  run; said in PHP's error log once a day (`config_said()`), by its fault
+  and byte count, never its text nor PHP's words. A required file so passed
+  over leaves the copy not set up, `app.local.php` its defaults,
+  `cloudflare.local.php` a secret no request carries (fails closed, the
+  IAM's rule case for case). The tests' hooks (`ACADEMY_CONFIG_DIR`, a
   keys file, `backups_dir`, `frontend_dir`) count only for `academy_test_…`
   databases (`config_is_test_db()`): keep it that way.
 - Sign-in is the IAM, the one way there is (2026-10-04): the issuer and the
@@ -102,10 +112,12 @@ For building and uploading, use the `academy-deploy` skill.
   locks). Where a request comes from is the library's `ClientAddress` over
   the trusted proxies (Cloudflare's ranges by default,
   `CLIENT_ADDRESS_DEFAULTS`; a range wider than /8 for IPv4 or /16 for IPv6
-  refused) with Cloudflare's `CF-Connecting-IP` pinned in the code - never a
+  refused, and said in PHP's error log once a day) with Cloudflare's `CF-Connecting-IP` pinned in the code - never a
   setting, never `X-Real-IP`, `True-Client-IP` or `X-Forwarded-For` - and,
   with the origin secret (`backend/config/cloudflare.local.php`,
-  `config_origin_secret()`: never shown or logged), believed only on a
+  `config_origin_secret()`: never shown or logged; a file that cannot be
+  read cleanly a random secret nobody carries, `config_read_cloudflare()`),
+  believed only on a
   request carrying it in `X-Anotoki-Origin`, for the
   visitors and the admin tools alike (`AdminContext`'s tenth, last
   argument); every per-address limit counts the

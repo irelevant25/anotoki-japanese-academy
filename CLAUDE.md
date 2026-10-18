@@ -16,14 +16,17 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.5: PHP 0.5.2, Angular 0.5.0), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.6.2, both halves), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
 feedback with the visitors' form, the backups of the whole database; no file
-explorer), and since 0.5.0 where a request comes from (`Support\ClientAddress`:
+explorer), since 0.5.0 where a request comes from (`Support\ClientAddress`:
 Cloudflare's header believed from Cloudflare alone - since PHP 0.5.2, given
-the owner's zone's origin secret, only on a request that carries it). It runs two ways:
+the owner's zone's origin secret, only on a request that carries it), and
+since 0.6 the family's legal pages - Terms, Privacy and Contact, with this
+app's facts - and the kit's newer pieces (choice chips, labelled groups,
+disclosures, link tabs). It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -47,7 +50,11 @@ one bar, the library's (`<anotoki-top-bar>`, worded and wired in
 `frontend/src/app/top-bar/`; `docs/kb/architecture.md`, *The top bar*): the
 brand, Kanji and Exam, the language, the light/dark/system switch and the
 person's menu; the version, "What's new" and "Send feedback" are at the foot
-of the page.
+of the page, and under them the family's Terms · Privacy · Contact. Those
+three pages (`/terms`, `/privacy`, `/contact`: the library's, with this app's
+facts, `frontend/src/app/legal/`) are anybody's - signed in or not, a visitor
+or not: no guard, no trip to the IAM (`docs/kb/architecture.md`, *The legal
+pages*).
 
 It replaced the earlier N4 Coach app on 2026-09-23, because the owner found
 N4 Coach's sentences and learning path wrong. N4 Coach lives on only in the git
@@ -139,7 +146,12 @@ count wrong, fix it in the same piece of work.
   the languages (`forShell()`)), `saves-in-flight.service.ts` (the
   saves a sign-out waits for), `time-zone.ts`, `site-status.config.ts` (the
   anotoki library's migrations module wired to this app: the gate around the
-  pages, its page while the site is not ready, the Migrations page) —, `admin/` — the admin panel, in English:
+  pages, its page while the site is not ready, the Migrations page),
+  `legal.config.ts` (the anotoki library's legal pages wired to this app: the
+  page's language and the database's words), `notice/` (the app's notice:
+  something to tell with one button, OK, drawn with the kit's dialog where the
+  browser's `alert()` stood) —, `legal/` (the legal pages' frame and the
+  facts it gives them, `legal-facts.ts`, out of the first load), `admin/` — the admin panel, in English:
   Translations (EDITOR, ADMIN), Languages, People, Feedback, Errors, Audit
   log, Backups and Migrations (ADMIN; every one the library's page, each in
   the panel's frame) —, `standin/`
@@ -154,7 +166,17 @@ count wrong, fix it in the same piece of work.
   `frontend/README.md` maps it.
 - `backend/config/*.local.php` are gitignored and required: `database` (with
   the password) and `auth` (the IAM's issuer and client id). The setup page
-  writes them; there are no defaults to fall back on. What an earlier version
+  writes them; there are no defaults to fall back on. Every hand-written one
+  - those two, the optional `app.local.php` and `cloudflare.local.php`, the
+  setup page's token - is read cleanly or not at all
+  (`config_require_cleanly()`, `backend/config/config.php`, the IAM's rule):
+  what it prints as PHP requires it - a byte-order mark or a line before its
+  `<?php`, no `<?php` line at all, text after a closing tag - is caught and
+  never sent, and the file is passed over, as is one PHP cannot open or run;
+  said in PHP's error log at most once a day, by its fault and byte count,
+  never its text. A required one so passed over leaves the copy not set up
+  (the library's page says so, the setup page names it), `app.local.php` its
+  defaults, `cloudflare.local.php` a secret no request carries (below). What an earlier version
   wrote beside them (`auth`'s `mode` and `local_user_id`, an `app.local.php`
   with a time zone) is ignored. Never print them, copy their values anywhere
   or commit them. On a computer that ran an older version,
@@ -192,13 +214,14 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (263): after every change - on PHP 8.2
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (269): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
-cd frontend && npm test                      the Angular unit tests (436 in 43 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (451 in 44 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (207 checks), signed in through the library's stand-in
-                                             IAM: a deep link signed out, a refused sign-in's screen, lessons →
+                                             Edge end to end (215 checks), signed in through the library's stand-in
+                                             IAM: a deep link signed out, a refused sign-in's screen, the legal pages
+                                             signed out (no trip to the IAM), lessons →
                                              reviews → practice → exam, the bar's keys and menus, Your data,
                                              sign-out, the admin panel by role, People, feedback from the foot to the
                                              Feedback page and its badge, a page's own error reported to the error
@@ -207,12 +230,14 @@ node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              editor, no page made behind it; an open exam paper kept and back after
                                              the library's reload; a signed-out ADMIN signs in from it), failing and applied, two time
                                              zones, a Slovak pass; then visitors (sign-in not required): study,
-                                             an exam, Sign in moving it all, sign-in switched on with a key held
+                                             an exam, Sign in moving it all, sign-in switched on with a key held;
+                                             the kit's question answered where the app asks, and no browser box ever
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js
                                              the setup page in Edge (42 checks): this computer's way and a website's
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
-                                             screenshots → frontend/e2e/shots/: 29 screens light/dark at 1280 px,
-                                             light/dark at 390 px and Slovak at 390 px light/dark, then the top bar
+                                             screenshots → frontend/e2e/shots/: 35 screens light/dark at 1280 px,
+                                             light/dark at 390 px and Slovak at 390 px light/dark (the legal pages
+                                             in Slovak at 1280 px too: 218 shots), then the top bar
                                              measured at 360-1280 px (the admin panel's to 1530) and its menus
                                              (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
@@ -261,7 +286,9 @@ node backend/tools/pdf/pages.js <book> <pages>   page images of the scanned PDFs
   read it; `docs/kb/decisions.md`). Since anotoki-lib 0.5.0 each carries this
   installation's seal and only a sealed one is restored on the site: a plain
   one made before 0.5.0 has none and is restored offline alone
-  (`docs/kb/hosting.md`); its files are the site's own user's alone (0600).
+  (`docs/kb/hosting.md`); its files are the site's own user's alone (0600),
+  and so are the app's own JSON copies (`academy-*.json`, written 0600 in a
+  folder made 0700: `backup_folder()`, `file_put_atomic()`).
   Never delete them, nor the error log's files in
   `backend/storage/logs/`: the owner does; when they have to move, copy
   them, compare each file's hash,
@@ -423,7 +450,8 @@ Tests enforce most of these. Never weaken a test to make it pass.
   held equal to the library's list by a test), which `app.local.php`'s
   `client_address.trusted_proxies` may replace (`[]`: nobody; a range wider
   than any proxy's - an IPv4 prefix shorter than /8, an IPv6 one shorter
-  than /16, `0.0.0.0/0`, `::/0` - refused, never believed) - and then
+  than /16, `0.0.0.0/0`, `::/0` - refused, never believed, and said in PHP's
+  error log once a day, not on every request) - and then
   Cloudflare's `CF-Connecting-IP`, one address. The header is pinned in the
   code, never a setting: `X-Real-IP`, `True-Client-IP`, `X-Forwarded-For`,
   which Cloudflare passes on as the visitor wrote them, are never read. **With
@@ -437,7 +465,13 @@ Tests enforce most of these. Never weaken a test to make it pass.
   setup page, never shown or logged: `config_origin_secret()`) and believes
   `CF-Connecting-IP` only on a request that carries it - any other from
   Cloudflare counts as its edge, coarser, never looser; without the file, as
-  before. Every
+  before. **A file there that cannot be read cleanly fails closed**, as the
+  IAM's does, case for case (`config_read_cloudflare()`): it prints anything,
+  or PHP cannot parse, run or open it - it stands for a secret no request
+  carries (a random one, `config_origin_secret_nobody_carries()`), so every
+  request from Cloudflare's ranges counts as its edge until it is mended;
+  the site keeps running. One read cleanly that names no secret (none, or
+  blank) is no secret: as without the file. Every
   per-address limit counts the address's bucket (`ClientAddress::bucket()`:
   an IPv6 address by its /64). The visitors' limits (`src/client_address.php`)
   and the library's admin tools (the feedback's limits, the error log's
@@ -541,11 +575,22 @@ Tests enforce most of these. Never weaken a test to make it pass.
   has its rows, every other string is as it was and the moved ones came as
   they were) was written as a draft too, and is final since 2026-10-11 (the
   owner's go, "finalize and apply": its last line written last; it goes up
-  with the library's files below). The library's own sets run around this
+  with the library's files below). **011** (`011_legal_pages_and_questions.sql`:
+  the legal pages' 40 words of the app's own - what it keeps, why and for how
+  long, its stored items -, the titles and buttons of the kit's questions and
+  the app's notices that took the browser's boxes' place, the listen
+  button's name, what the number on Kanji counts; the questions' sentences
+  reworded without the question their title now asks, and the descriptions
+  that still said "chips" told again - each rewording only of a string
+  nobody changed) is a draft: its last line is the owner's to write once they
+  accept the change. The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
-  `anotoki_translations/001_…` to `004_…` (its words, written only where a
-  key has none: 003 the sign-in screens', 004 the feedback form's) and
+  `anotoki_translations/001_…` to `011_…` (its words, written only where a
+  key has none: 003 the sign-in screens', 004 the feedback form's, 005 the
+  legal pages', 006 to 009 the top bar's and the kit's newer pieces', 010 and
+  011 rewording five of the Privacy page's sentences - two, then three -
+  where nobody changed them) and
   `anotoki_people/001_…` (the scrub's bookkeeping); they too end with
   `-- end of NNN`. **While one of the app's own files is a draft, every
   library file waits with it** - the `anotoki_admin` ones before it too -
@@ -585,7 +630,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `ErrorHandler`, `core/error-report.config.ts`) posts a page's errors through
   the same HttpClient, so the same interceptors add the same headers; this
   app's own interceptor leaves its answers alone (`ANOTOKI_ERROR_REPORT`). The pages never count days themselves: a
-  learner's days come in the server's answers. Every page is behind the
+  learner's days come in the server's answers. Every page but Terms,
+  Privacy and Contact (anybody's: each a route of its own whose parent is
+  their frame, before the learner's catch-all - `app.routes.spec.ts` holds
+  `/` and an unknown address to the home page) is behind the
   library's `personOrVisitorGuard` (the admin panel `staffGuard`, its
   ADMIN pages `adminGuard`, which a visitor does not
   pass) - which sends nobody to the IAM while the site is not ready
@@ -598,29 +646,44 @@ Tests enforce most of these. Never weaken a test to make it pass.
   (the exam keeps an open paper for the tab as it goes, and puts it back,
   once, when the page is loaded afresh). A save in the background tells `SavesInFlight`, which a
   sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog, Send feedback and its form)
-  keep every key pressed in them from `document` (where the quiz, the
-  reviews and the exam listen), the bar's menus
+  - and the kit's question and the app's notice - keep every key pressed in
+  them from `document` (where the quiz, the reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
   admin panel (the library's `TranslationService.effectiveLanguage`). The
   pages' building blocks are the anotoki library's kit: buttons, dialogs and
   questions, form fields (text fields, textareas, the exam's tick box), the
-  spinner, menus, page headers, cards, alerts, badges, empty states,
-  segmented choices and the family's table (`anotokiButton`,
-  `<anotoki-dialog>`, `ConfirmService`, `anotoki-text-field`,
-  `<anotoki-card>`, `<anotoki-alert>`, `<anotoki-segmented>` …), each piece
+  spinner, menus, page headers, cards, alerts, badges (the paper's section
+  tag wraps, `wrap`), empty states, segmented choices, choice chips and
+  chips, labelled groups, disclosures, link tabs and the family's table
+  (`anotokiButton`, `<anotoki-dialog>`, `ConfirmService`,
+  `anotoki-text-field`, `<anotoki-card>`, `<anotoki-alert>`,
+  `<anotoki-segmented>`, `<anotoki-chip-group>`, `<anotoki-link-tabs>` …), each piece
   imported from its own entry point (`@anotoki/lib/ui/button`, `ui/dialog`,
-  `ui/forms`, `ui/card`, `ui/config` - never the `@anotoki/lib/ui` barrel,
+  `ui/forms`, `ui/card`, `ui/chips`, `ui/config` - never the `@anotoki/lib/ui` barrel,
   which would put every piece in the first load): never a style of the app's
-  own for one of them. A choice is a segmented choice where its few short
-  options fit a phone, else a row of the kit's buttons (`.cluster`), each
-  pressed or not (`aria-pressed`, the chosen ones `primary`) - the kit has no
-  chips; a choice's name over it is the app's `.choice-label`
-  (`styles/_base.scss`; Browse's choices, with none over them, an
-  `aria-label`). Words that may be long (an answer the learner added)
+  own for one of them. A choice is the kit's: a segmented choice where its
+  few short options fit a phone; one of several otherwise the kit's choice
+  chips (`<anotoki-chip-group>`, a radio group with its name over it - over
+  Browse's for a screen reader alone, `hideLabel`); several at once the kit's
+  chips (`button[anotokiChip]`, `pressed`) in the kit's labelled group
+  (`<anotoki-labelled-group>`, which names the row - `selfNamed` over a
+  segmented choice whose name is shown, which names itself), where a chip needs what a choice
+  chip cannot hold (a tooltip, the greetings' kana marked Japanese). The
+  exam's "Narrow it down" is the kit's disclosure, the kanji tabs the kit's
+  link tabs (a nav named Kanji of ordinary links; on a phone they scroll
+  sideways in the kit's strip, never the page, the page's tab brought into
+  view), a quiet word-button (all and none, What's new, Send feedback, the
+  review's listen) the kit's small link button, 44 px to a finger. **No
+  browser box at all**: the kit's question (`ConfirmService`,
+  `<anotoki-confirm-host>` in the root - a title that asks, the sentence
+  under it, the two buttons in the app's words) asks where `confirm()`
+  stood, and the app's notice (`NoticeService`, `<app-notice-host>`, one
+  button, OK) tells where `alert()` stood, each worded at the moment it is
+  raised. Words that may be long (an answer the learner added)
   stand beside a kit button, never in it: its words stay on one line. The
   study components (tiles, readings, the session
   and its answer box, the lesson batch, the exam's paper, the dashboard's
-  section cards, stages and forecast), the kanji tabs, the foot and the
+  section cards, stages and forecast), the foot and the
   changelog's entries are the app's, drawn with the tokens. The kit's class
   names are its own (`anotoki-<piece>__<part>`, since 0.3.0), and the specs
   and browser suites read them so. The kit's words are the anotoki library's keys
@@ -644,7 +707,7 @@ Tests enforce most of these. Never weaken a test to make it pass.
   styles are the family's - `anotoki.base` (the page, the headings, links, the
   focus ring), `anotoki.utilities` (`.page`, `.stack`, `.cluster`, `.muted`,
   `.small`, `.facts` …) and `anotoki.tables` - and the app's own come after
-  them (`_base.scss`: the reading size, 16 px, the frame `.wrap`, `.choice`,
+  them (`_base.scss`: the reading size, 16 px, the frame `.wrap`,
   `kbd`, the stand-in pages; `_items.scss`: the study's); no rule of the app
   reaches inside a kit component. Every screen must work at phone width
   (390 px).

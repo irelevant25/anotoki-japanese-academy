@@ -1,5 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { TranslationService } from '@anotoki/lib/translations';
+import { ConfirmService } from '@anotoki/lib/ui/dialog';
 import { SavesInFlight } from '../saves-in-flight.service';
 import { AuthService } from './auth.service';
 
@@ -16,8 +17,10 @@ import { AuthService } from './auth.service';
  *      an answer whose save failed before and that nothing has shown yet (the
  *      same question: kanji/session watches for it), or an exam paper is open
  *      and not handed in (`signOut.examOpen`), the learner is asked first, in
- *      the language on the page — the browser's own dialog, worded the moment
- *      it is raised (as a session's "End now?" is);
+ *      the language on the page — the kit's question (ConfirmService, drawn in
+ *      the app's root: "Sign out anyway?", the sentence under it, Cancel or
+ *      Sign out), worded the moment it is raised (as a session's "Stop now?"
+ *      is);
  *   3. then the IAM ends the session everywhere and sends the browser back to
  *      the app, which sends it on to the IAM's sign-in.
  *
@@ -31,6 +34,7 @@ export class SignOutService {
   private readonly auth = inject(AuthService);
   private readonly saves = inject(SavesInFlight);
   private readonly i18n = inject(TranslationService);
+  private readonly confirm = inject(ConfirmService);
 
   private readonly waitingSignal = signal(false);
   /** Waiting for the saves on their way: the button that signs out shows it. */
@@ -70,7 +74,14 @@ export class SignOutService {
     // Each question once: a session's failed answer can be both one that failed meanwhile and one it reports.
     const lost = [...new Set([...(failed > 0 ? ['signOut.notSaved'] : []), ...this.saves.losses()])];
     for (const key of lost) {
-      if (!confirm(this.i18n.t(key))) {
+      // Each loss its own question: the title asks, the sentence says what goes; its yes is the bar's Sign out.
+      const go = await this.confirm.ask({
+        title: this.i18n.t('signOut.confirmTitle'),
+        message: this.i18n.t(key),
+        confirmLabel: this.i18n.t('anotoki.topbar.signOut'),
+        tone: 'danger',
+      });
+      if (!go) {
         return false;
       }
     }

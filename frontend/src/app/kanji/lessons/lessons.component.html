@@ -2,52 +2,21 @@
   <anotoki-page-header [heading]="'kanji.tab.lessons' | translate" [lead]="'lessons.intro' | translate" />
   <anotoki-card>
     <div class="stack">
-      <div class="choice">
-        <!-- the segmented choice says its own name to a screen reader (its label), as the library's own pages do -->
-        <span class="choice-label" aria-hidden="true">{{ 'lessons.batchSize' | translate }}</span>
+      <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
+      <anotoki-labelled-group selfNamed [label]="'lessons.batchSize' | translate">
         <anotoki-segmented id="batchSize" [label]="'lessons.batchSize' | translate" [options]="sizeOptions()" [value]="'' + batch()" (valueChange)="setBatch(+$event)" />
-      </div>
-      <div class="choice" role="group" aria-labelledby="lessons-include">
-        <span class="choice-label" id="lessons-include">{{ 'lessons.include' | translate }}</span>
-        <div class="cluster">
-          @for (k of kinds; track k[0]) {
-            <button
-              anotokiButton
-              size="sm"
-              [variant]="types() === k[0] ? 'primary' : 'secondary'"
-              [attr.aria-pressed]="types() === k[0]"
-              [attr.data-types]="k[0]"
-              (click)="setTypes(k[0])"
-            >
-              {{ k[1] | translate }}
-            </button>
-          }
-        </div>
-      </div>
-      <div class="choice" role="group" aria-labelledby="lessons-from">
-        <span class="choice-label" id="lessons-from">{{ 'lessons.from' | translate }} <em>{{ 'lessons.fromNote' | translate }}</em></span>
-        <div class="cluster">
-          <button anotokiButton size="sm" [variant]="lesson() === null ? 'primary' : 'secondary'" [attr.aria-pressed]="lesson() === null" (click)="lesson.set(null)">
-            {{ 'lessons.courseOrder' | translate }}
-          </button>
-          @for (c of lessonChoices(); track c.L) {
-            <button
-              anotokiButton
-              size="sm"
-              [variant]="lesson() === c.L ? 'primary' : 'secondary'"
-              [attr.aria-pressed]="lesson() === c.L"
-              [attr.data-lesson]="c.L"
-              [disabled]="!c.n"
-              [title]="'lessons.available' | translate: { n: c.n }"
-              (click)="lesson.set(c.L)"
-            >
-              L{{ c.L }}
-            </button>
-          }
-        </div>
-      </div>
-      <div class="choice">
-        <span class="choice-label">{{ 'lessons.nextUp' | translate }}</span>
+      </anotoki-labelled-group>
+      <anotoki-chip-group id="lessonTypes" [label]="'lessons.include' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
+      <!-- the course's order, or one lesson: each lesson's chip heard with how many of its items can be learned now ("L6, 12 available") -->
+      <anotoki-chip-group
+        id="lessonFrom"
+        [label]="'lessons.from' | translate"
+        [hint]="'lessons.fromNote' | translate"
+        [options]="lessonOptions()"
+        [value]="lesson() === null ? COURSE_ORDER : '' + lesson()"
+        (valueChange)="setLesson($event)"
+      />
+      <anotoki-labelled-group [label]="'lessons.nextUp' | translate">
         <div class="preview">
           @for (it of next(); track it.id) {
             <app-tile [item]="it" [withMeaning]="true" />
@@ -55,7 +24,7 @@
             <p class="muted small">{{ 'lessons.nothingLeft' | translate }}</p>
           }
         </div>
-      </div>
+      </anotoki-labelled-group>
       <div class="cluster">
         <button anotokiButton variant="primary" id="startLessons" [disabled]="!next().length" (click)="start()">
           @if (next().length) {

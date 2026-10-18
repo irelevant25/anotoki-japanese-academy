@@ -2,6 +2,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter, TitleStrategy, withDisabledInitialNavigation, withInMemoryScrolling } from '@angular/router';
 import { anotokiAuthInterceptor } from '@anotoki/lib/auth';
+import { provideAnotokiLegal } from '@anotoki/lib/legal';
 import { siteStatusInterceptor } from '@anotoki/lib/migrations';
 import { ThemeService } from '@anotoki/lib/shell';
 import { routes } from './app.routes';
@@ -14,6 +15,7 @@ import { provideFeedback } from './core/feedback.config';
 import { AcademyTitleStrategy } from './core/i18n/title.strategy';
 import { provideTranslations } from './core/i18n/translations.config';
 import { provideKit } from './core/kit.config';
+import { academyLegalConfig } from './core/legal.config';
 import { provideSiteStatus } from './core/site-status.config';
 
 export const appConfig: ApplicationConfig = {
@@ -67,5 +69,9 @@ export const appConfig: ApplicationConfig = {
     // (core/feedback.config.ts).
     provideAdminTools(),
     provideFeedback(),
+    // The anotoki family's legal pages - Terms, Privacy, Contact, on lazy routes open to anybody - and the foot's
+    // links to them: the library's words around Japanese Academy's facts, every address the pages link to in the
+    // code (core/legal.config.ts; the facts, which only the pages read, come with their frame: legal/legal-facts.ts).
+    provideAnotokiLegal(academyLegalConfig),
   ],
 };

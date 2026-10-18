@@ -1,9 +1,10 @@
 // This app's own page styles, after the family's (styles.scss: the anotoki
-// library's base, utilities and tables): the page's reading size and frame, a
-// choice with its name over it, the keys a hint names, and the pages that
-// stand in for the app. The kit draws its own pieces - buttons, fields,
-// segmented choices, checkboxes, cards, alerts, badges, dialogs, page headers -
-// in this app's palette (_tokens.scss); the study's own pieces are in
+// library's base, utilities and tables): the page's reading size and frame,
+// the keys a hint names, and the pages that stand in for the app. The kit
+// draws its own pieces - buttons, fields, segmented choices, chips and choice
+// chips, labelled groups (a choice's name over it, since anotoki-lib 0.6.0),
+// disclosures, link tabs, checkboxes, cards, alerts, badges, dialogs, page
+// headers - in this app's palette (_tokens.scss); the study's own pieces are in
 // _items.scss and in their components. Colours only from the tokens.
 
 [hidden] {
@@ -25,42 +26,6 @@ body {
 }
 .wrap.wide {
   max-width: 1040px;
-}
-
-/* ------------------------------------------------------------- choices */
-/*
- * A choice and its name over it: the kit's segmented choice, or a row of the
- * kit's buttons (.cluster) each pressed or not - the one chosen, or each one
- * chosen, primary and aria-pressed. The row is named by the name over it
- * (role="group", aria-labelledby); the segmented choice names itself (its
- * label), and the name over it is aria-hidden, as the library's own pages
- * do. The kit has no labelled group of its own for either, so the name is
- * drawn here, as the kit draws a field's label.
- */
-.choice {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  min-width: 0;
-}
-.choice-label {
-  color: var(--ink);
-  font-size: 0.875rem;
-  font-weight: 650;
-  line-height: 1.55;
-}
-/* a note after the name, in brackets: the Lessons screen's "From" */
-.choice-label em {
-  color: var(--muted);
-  font-style: normal;
-  font-weight: 500;
-}
-/* the name, and the kit's link buttons beside it (the exam's "all", "none") */
-.choice-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 0.5rem;
 }
 
 kbd {

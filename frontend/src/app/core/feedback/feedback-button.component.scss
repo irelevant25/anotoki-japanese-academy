@@ -1,29 +1,9 @@
-// "Send feedback" in the foot's line, worded and drawn as What's new beside it (core/changelog/app-version.component.scss).
+// "Send feedback" in the foot's line, beside What's new (core/changelog/app-version.component.scss): the kit's quiet
+// link button, 44 px to a finger by itself; only the '·' before it is the app's.
 :host {
   display: contents;
 }
 .sep {
   font-size: 13px;
   color: var(--muted);
-}
-.send-feedback {
-  background: none;
-  border: 0;
-  padding: 2px 0;
-  font: inherit;
-  font-size: 13px;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.send-feedback:hover {
-  color: var(--ink);
-}
-// A finger needs more than a line of small text is: the button grows to 44 px high.
-@media (pointer: coarse) {
-  .send-feedback {
-    min-height: 44px;
-    padding: 0 4px;
-  }
 }

@@ -10,31 +10,16 @@
     />
     <div class="bfilters">
       <anotoki-segmented id="browseType" [label]="'practice.type' | translate" [options]="typeOptions()" [value]="type()" (valueChange)="type.set($event)" />
-      <div class="cluster" id="browseLesson" role="group" [attr.aria-label]="'kanji.tab.lessons' | translate">
-        <button anotokiButton size="sm" [variant]="!lesson() ? 'primary' : 'secondary'" [attr.aria-pressed]="!lesson()" (click)="lesson.set(null)">
-          {{ 'browse.anyLesson' | translate }}
-        </button>
-        @for (L of kanji.lessons(); track L) {
-          <button anotokiButton size="sm" [variant]="lesson() === L ? 'primary' : 'secondary'" [attr.aria-pressed]="lesson() === L" [attr.data-lesson]="L" (click)="lesson.set(L)">
-            L{{ L }}
-          </button>
-        }
-      </div>
-      <div class="cluster" id="browseStage" role="group" [attr.aria-label]="'item.stage' | translate">
-        @for (s of statusChoices(); track s.id) {
-          <button
-            anotokiButton
-            size="sm"
-            [variant]="status() === s.id ? 'primary' : 'secondary'"
-            [attr.aria-pressed]="status() === s.id"
-            [attr.data-stage]="s.id"
-            [attr.lang]="s.key === null ? 'en' : null"
-            (click)="status.set(s.id)"
-          >
-            {{ s.key !== null ? (s.key | translate) : s.name }}
-          </button>
-        }
-      </div>
+      <!-- the kit's choice chips, named for a screen reader alone: nothing is written over them -->
+      <anotoki-chip-group
+        id="browseLesson"
+        hideLabel
+        [label]="'kanji.tab.lessons' | translate"
+        [options]="lessonOptions()"
+        [value]="lesson() ? '' + lesson() : 'any'"
+        (valueChange)="setLesson($event)"
+      />
+      <anotoki-chip-group id="browseStage" hideLabel [label]="'item.stage' | translate" [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" />
     </div>
     <p class="small muted">{{ 'browse.count' | translatePlural: list().length }}</p>
     <div class="bgrid">
