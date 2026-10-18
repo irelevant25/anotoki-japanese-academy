@@ -9,12 +9,12 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ## Layout
 
 ```
-src/app/            app.component (the bar, the page - the marked template of the anotoki library's
-                    <anotoki-site-gate>, made only while the site is open; the gate shows its own page
-                    instead while the site is not ready -, the library's screen of a sign-in that came
-                    back without one, the foot - the version, What's new, Send feedback, then the
-                    family's Terms · Privacy · Contact -, the kit's question and the app's notice; a legal
-                    page drawn whatever the sign-in says), app.routes.ts (the library's guards, its
+src/app/            app.component (the anotoki library's <anotoki-site-gate> outermost: its marked template,
+                    made only while the site is open, holds the bar, the page and the family's footer
+                    - <anotoki-site-footer>: "Version X · What's new · Feedback", then Terms · Privacy ·
+                    Contact -, so while the site is not ready the library's page stands alone, with no
+                    bar and no footer; the library's screen of a sign-in that came back without one; the
+                    kit's question and the app's notice; a legal page drawn whatever the sign-in says), app.routes.ts (the library's guards, its
                     callback and failure routes, the legal pages each a route of its own in their frame,
                     before the learner's catch-all), app.config.ts
   top-bar/          the anotoki family's top bar, the library's <anotoki-top-bar> worded and wired: brand,
@@ -40,11 +40,11 @@ src/app/            app.component (the bar, the page - the marked template of th
                     visitor-key.ts (the visitor key, the move at sign-in), SignOutService,
                     SignInService, PrivateLinksService), admin.config.ts (the library's admin tools
                     and People page wired to this app, @anotoki/lib/admin and /people), feedback.config.ts
-                    and feedback/ (the library's feedback form behind Send feedback at the foot),
+                    (the library's feedback form, which the footer's Feedback opens),
                     error-report.config.ts (the library's reporter, @anotoki/lib/error-report: the
                     app's ErrorHandler, every error to the console and, scrubbed, to POST
                     /api/client-errors through the app's HttpClient and its interceptors),
-                    storage.ts (localStorage and sessionStorage that never throw), changelog/ (the foot: the version and What's new), i18n/ (the app's words:
+                    storage.ts (localStorage and sessionStorage that never throw), changelog/ (the version the footer shows, and the What's new dialog it opens), i18n/ (the app's words:
                     translations.config.ts - the anotoki library's translations, @anotoki/lib/translations,
                     wired to this app: the names it keeps them under, the words' address, a refusal read
                     as what the app can show, the account's language, the admin pages' settings -,
@@ -76,8 +76,8 @@ src/styles/         _tokens.scss (Japanese's palette given to the library's toke
                     (the study's tiles and an item's details); the pages' cards, alerts, choices and
                     chips, labelled groups, disclosures, tabs, fields and table are the kit's
 src/testing/        browser-parts.ts (what jsdom lacks for the kit), the catalog fixture
-public/             favicon.svg, anotoki.png (the family's mark), changelog.json (the releases; the version at
-                    the foot); the library's theme-boot.js (the light/dark shown last, before the first
+public/             favicon.svg, anotoki.png (the family's mark), changelog.json (the releases; the version in
+                    the footer); the library's theme-boot.js (the light/dark shown last, before the first
                     paint) is copied into the build by angular.json
 e2e/                the browser suites: run.js, setup.js, screens.js (Edge, playwright-core)
 scripts/            ensure-build.mjs (builds only when the sources changed), catalog-fixture.mjs

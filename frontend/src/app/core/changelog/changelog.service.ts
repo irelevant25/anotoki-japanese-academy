@@ -11,9 +11,6 @@ export interface ChangelogEntry {
   };
 }
 
-/** Which version this browser last opened the changelog of (per browser: it is the one that knows; the Privacy page names it). */
-export const CHANGELOG_SEEN_KEY = 'academy-changelog-seen';
-
 /** A version's numbers ("0.4.0": [0, 4, 0]), or null for anything that is not numbers between dots. */
 function versionParts(version: string): number[] | null {
   return /^\d+(\.\d+)*$/.test(version) ? version.split('.').map(Number) : null;
@@ -24,7 +21,8 @@ function versionParts(version: string): number[] | null {
  * release, above 0 after it. Their numbers are compared one by one, a missing
  * one counting as 0, so "0.4" - how the changelog wrote a version until
  * 2026-10-07 - is "0.4.0" (three numbers since: MAJOR.MINOR.PATCH). Anything
- * that is not a version is compared as text.
+ * that is not a version is compared as text. The changelog's spec holds its
+ * releases newest first with it.
  */
 export function compareVersions(a: string, b: string): number {
   const pa = versionParts(a);
@@ -42,23 +40,20 @@ export function compareVersions(a: string, b: string): number {
 }
 
 /**
- * The app's version and what changed in it (public/changelog.json). The
- * version shows at the foot of every page, and opens the changelog; until it
- * has been opened once for a new version, a small dot says there is news. A
- * version this browser remembers in another form ("0.4" for "0.4.0") counts
- * as read (compareVersions()).
+ * The app's version and what changed in it (public/changelog.json, asked for
+ * once a page load: AppComponent). The version is the newest entry's - the one
+ * source of it, which frontend/package.json's is held to (the spec) - and the
+ * family's footer shows it ("Version 0.5.1"), with What's new beside it, which
+ * opens the changelog (changelog-dialog.component.ts). Nothing of it is kept
+ * in the browser: the footer marks no news unread (the owner's footer, the
+ * build analyzer's, has no dot).
  */
 @Injectable({ providedIn: 'root' })
 export class ChangelogService {
   readonly entries = signal<ChangelogEntry[]>([]);
-  private readonly seen = signal<string | null>(readSeen());
 
+  /** The newest release's version, or '' while there is no changelog (not loaded yet, or none on the server). */
   readonly version = computed(() => this.entries()[0]?.version ?? '');
-  readonly unseen = computed(() => {
-    const version = this.version();
-    const seen = this.seen();
-    return !!version && (seen === null || compareVersions(seen, version) !== 0);
-  });
 
   async load(): Promise<void> {
     try {
@@ -69,23 +64,5 @@ export class ChangelogService {
     } catch {
       // no changelog, no version shown: nothing else depends on it
     }
-  }
-
-  markSeen(): void {
-    const v = this.version();
-    this.seen.set(v);
-    try {
-      localStorage.setItem(CHANGELOG_SEEN_KEY, v);
-    } catch {
-      // not remembered: the dot shows again next time
-    }
-  }
-}
-
-function readSeen(): string | null {
-  try {
-    return localStorage.getItem(CHANGELOG_SEEN_KEY);
-  } catch {
-    return null;
   }
 }

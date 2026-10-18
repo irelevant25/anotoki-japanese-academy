@@ -1,12 +1,15 @@
-<app-top-bar />
-
 <!--
-  The anotoki library's gate: while the site is not ready, its page in the place of all of this (and of the router's outlet).
-  All of this is its marked template (anotokiSitePages), made only while the site is open: no page runs behind the
-  library's page. The @switch stays inside it: a control-flow block is a template too, and only the marked one is the pages.
+  The anotoki library's gate, the outermost of what the app draws: while the site is not ready - an update waiting, the
+  database out of reach, not set up - its page stands alone, in a <main> of its own, with no bar and no footer
+  (anotoki-lib 0.6.3, the owner's rule of 2026-10-18). Everything of the app's is its marked template
+  (anotokiSitePages): the bar, the page and the footer, made only while the site is open - no page runs behind the
+  library's page. The @switch stays inside it: a control-flow block is a template too, and only the marked one is the
+  pages.
 -->
 <anotoki-site-gate>
   <ng-template anotokiSitePages>
+    <app-top-bar />
+
     @switch (auth.state()) {
       @case ('ready') {
         <router-outlet />
@@ -33,22 +36,30 @@
         <app-problem />
       }
     }
+
+    <!--
+      The family's footer (@anotoki/lib/footer), the build analyzer's: its top border, "Version 0.5.1 · What's new ·
+      Feedback", then Terms · Privacy · Contact. The version is the changelog's newest entry; What's new - once the
+      changelog has come - opens the app's own news; Feedback, the library's form in the kit's dialog, only while the
+      app itself is shown. No key pressed in it, nor in the form it opens, reaches the page: the reviews and the exam
+      listen on `document`.
+    -->
+    <anotoki-site-footer
+      [version]="changelog.version()"
+      [whatsNew]="!!changelog.version()"
+      (whatsNew)="news.open()"
+      [feedback]="feedbackOffered()"
+      (keydown)="$event.stopPropagation()"
+    />
+    <app-changelog-dialog #news />
   </ng-template>
 </anotoki-site-gate>
 
-<footer class="foot">
-  <div class="foot-row">
-    <app-version />
-    <app-feedback-button />
-  </div>
-  <!-- Terms · Privacy · Contact: the family's links (@anotoki/lib/legal) to the legal pages' own paths - their words the library's (anotoki.legalLinks.*), the open one marked. -->
-  <anotoki-legal-links class="foot-legal" id="footLegal" />
-</footer>
-
 <!--
   The kit's one question (ConfirmService: "Stop now?", "Sign out anyway?", the admin panel's "Delete…?") and the app's
-  one notice (NoticeService: a report that would not open), drawn over the page. No key pressed in either reaches the
-  page behind: Enter on Cancel never answers a card or hands a paper in.
+  one notice (NoticeService: a report that would not open), drawn over the page - outside the gate, for its page and
+  the app's alike. No key pressed in either reaches the page behind: Enter on Cancel never answers a card or hands a
+  paper in.
 -->
 <anotoki-confirm-host (keydown)="$event.stopPropagation()" />
 <app-notice-host />

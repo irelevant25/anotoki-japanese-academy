@@ -56,13 +56,15 @@
  *   cloudflare.local.php ['origin_secret' => '<a long random value, 32 characters or more>']
  *
  * With it, CF-Connecting-IP is believed only on a request that carries that
- * secret (config_origin_secret(), src/client_address.php); without it - or
- * with a file read cleanly whose value is not a string with something in it -
- * from the trusted proxies alone, as before. A file that is there but cannot
- * be read cleanly fails closed: it stands for a secret no request carries, so
- * every request from Cloudflare's ranges counts as the edge it came from until
- * it is mended (config_read_cloudflare(): the IAM's rule, case for case). The
- * secret is never shown or logged.
+ * secret (config_origin_secret(), src/client_address.php); without the file,
+ * from the trusted proxies alone, as before. A file that is there but yields
+ * no usable secret fails closed - one that cannot be read cleanly, and one
+ * read cleanly that names none (blank, no list, a misspelt or another key, a
+ * value that is not a string; since 2026-10-18): it stands for a secret no
+ * request carries, so every request from Cloudflare's ranges counts as the
+ * edge it came from until it is mended (config_read_cloudflare()). Only
+ * deleting the file switches the secret off. The secret is never shown or
+ * logged.
  *
  * Every one of these files is read the same careful way (config_require_cleanly()):
  * a file saved by hand with a byte-order mark, without its <?php line, or with
@@ -205,6 +207,9 @@ function storage_dir(): string
  */
 function config_require_cleanly(string $file): array
 {
+    if (is_dir($file)) {
+        return ['value' => null, 'problem' => 'cannot be read (a folder stands in its place)'];
+    }
     if (!is_readable($file)) {
         return ['value' => null, 'problem' => 'cannot be read (PHP may not open it)'];
     }
@@ -274,36 +279,40 @@ function config_read_file(string $which, ?string &$problem = null): ?array
 }
 
 /**
- * cloudflare.local.php as the site reads it - the IAM's rule, case for case
- * (its iamOriginSecret(), ../anotoki-iam/backend/config/cloudflare.php; the
- * owner's decision of 2026-10-13 and its security review,
- * docs/kb/decisions.md):
+ * cloudflare.local.php as the site reads it (the owner's decision of
+ * 2026-10-13 and its security review, and his "do as you think is the best"
+ * of 2026-10-18 - the anotoki family's rule on every site, docs/kb/decisions.md):
  *
  *   - no file: null, no secret - CF-Connecting-IP from the trusted proxies
- *     alone, as before the file;
+ *     alone, as before the file. Deleting the file is the one way to switch
+ *     the secret off;
  *   - a file read cleanly whose origin_secret is a string with something in
  *     it: the file's list (config_origin_secret() trims the value: a header's
  *     value never starts or ends with a space);
- *   - a file read cleanly that names no secret - blank, missing, no string, no
- *     list returned: null, no secret, as the IAM reads it, said in PHP's
- *     error log by the file's name alone;
- *   - a file that is there but cannot be read cleanly - it prints anything, PHP
- *     cannot parse or run it, or may not open it: a secret no request carries
- *     (config_origin_secret_nobody_carries()), so every request from
- *     Cloudflare's ranges counts as the edge it came from until it is mended.
- *     Its owner meant a secret, and believing CF-Connecting-IP from
+ *   - a file that is there but yields no such secret: a secret no request
+ *     carries (config_origin_secret_nobody_carries()), so every request from
+ *     Cloudflare's ranges counts as the edge it came from until the file is
+ *     mended. That is a file that cannot be read cleanly - it does not start
+ *     with <?php, it prints anything, PHP cannot parse or run it, or may not
+ *     open it, a folder in its place included -, and one read cleanly that
+ *     names no secret: blank or only spaces, no list (the value alone, or
+ *     nothing returned), a misspelt or another key, a value that is not a
+ *     string (a number, a list, null, true). Each is a slip in a file its
+ *     owner put there to hold a secret, and believing CF-Connecting-IP from
  *     Cloudflare's ranges alone - from anybody's Worker there - would be the
- *     looser reading: a slip of the editor never switches the check off. The
- *     site keeps running all the same: the file is optional, never a reason
- *     for "not set up".
+ *     looser reading: a slip never switches the check off. The site keeps
+ *     running all the same: the file is optional, never a reason for "not
+ *     set up".
  *
  * Each fault is said in PHP's error log at most once a day, by its kind and
- * line or the bytes the file printed - never its text, and never the secret.
+ * line or the bytes the file printed, or that it names no secret - never its
+ * text, and never the secret.
  */
 function config_read_cloudflare(): ?array
 {
     $file = config_dir() . '/' . CONFIG_FILES['cloudflare'];
-    if (!is_file($file)) {
+    // Anything in the file's place counts as the file - a folder too: only deleting it switches the secret off.
+    if (!file_exists($file)) {
         return null;
     }
     $read = config_require_cleanly($file);
@@ -314,8 +323,8 @@ function config_read_cloudflare(): ?array
     $values = $read['value'];
     $secret = is_array($values) ? ($values['origin_secret'] ?? null) : null;
     if (!is_string($secret) || trim($secret) === '') {
-        config_said('backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): CF-Connecting-IP is believed from the trusted proxies alone.');
-        return null;
+        config_said('backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.');
+        return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
     return $values;
 }
@@ -323,7 +332,8 @@ function config_read_cloudflare(): ?array
 /**
  * A secret no request can carry: 256 random bits, made once a process and
  * never printed, logged or stored, so no X-Anotoki-Origin matches it - what a
- * cloudflare.local.php that cannot be read cleanly stands for.
+ * cloudflare.local.php that is there but cannot be read cleanly, or names no
+ * usable secret, stands for.
  */
 function config_origin_secret_nobody_carries(): string
 {
@@ -378,8 +388,8 @@ function config_file_problems(?array $found = null): array
  * The settings: ['db' => database.local.php, 'auth' => auth.local.php,
  * 'app' => app.local.php, 'cloudflare' => cloudflare.local.php], each [] when
  * its file is missing or cannot be read cleanly (config_file_problems() keeps
- * why; a cloudflare.local.php that cannot be read cleanly is a secret no
- * request carries). $reload reads the files again (the setup page, after it
+ * why; a cloudflare.local.php that is there but cannot be read cleanly, or
+ * names no usable secret, is a secret no request carries). $reload reads the files again (the setup page, after it
  * wrote them). A test folder of settings (ACADEMY_CONFIG_DIR) that names
  * anything but a test database stops the app.
  */
@@ -480,10 +490,11 @@ function config(string $key)
  * any other request from Cloudflare counts as the edge it came from - coarser,
  * never looser (src/client_address.php, and the admin tools' context,
  * academy_admin_context()). Only a string with something in it is a secret
- * (trimmed: a header's value never starts or ends with a space); in a file
- * read cleanly anything else is none, as before the file - and a file that
- * cannot be read cleanly is a secret no request carries
- * (config_read_cloudflare()). Settings that cannot be read at all
+ * (trimmed: a header's value never starts or ends with a space). A file that
+ * is there but cannot be read cleanly, or names no such string, is a secret
+ * no request carries (config_read_cloudflare()) - so null means no file at
+ * all, or, in settings set in code (a test tool's config_overrides()), no
+ * such string set. Settings that cannot be read at all
  * (config_all() refuses a test's folder of settings that names a real
  * database) are none too: the site's gate says what is wrong.
  */

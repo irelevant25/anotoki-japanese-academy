@@ -9,13 +9,20 @@ import { ChangelogService } from './changelog.service';
 /**
  * What changed, release by release, over the page: the kit's dialog (Escape,
  * its Close and the backdrop close it; the focus goes in and comes back), made
- * while it is open.
+ * while it is open. The family's footer opens it - its What's new tells the
+ * app (`(whatsNew)`, app.component.html), and What's new is the app's own.
  *
  * Its frame is in the language on the page — the heading, "latest", the three
  * kinds of change, the dates; its Close is the kit's, in the kit's words. The
  * entries themselves are written in English (public/changelog.json) and stay
- * so, marked `lang="en"`. It opens from the foot of the page in every state, so
- * the frame's words have their English here too (standin/kept-word.ts).
+ * so, marked `lang="en"`. It opens wherever the footer is, the problem page
+ * of a start that went wrong included, so the frame's words have their English
+ * here too (standin/kept-word.ts).
+ *
+ * Like the top bar and the footer, it keeps every key pressed in it from
+ * `document`, where the reviews and the exam listen: Enter on its Close never
+ * hands a paper in. (Only the event's way up is stopped: the dialog's Escape
+ * and a button's Enter still do their own work.)
  */
 @Component({
   selector: 'app-changelog-dialog',
@@ -23,6 +30,7 @@ import { ChangelogService } from './changelog.service';
   templateUrl: './changelog-dialog.component.html',
   styleUrl: './changelog-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(keydown)': '$event.stopPropagation()' },
 })
 export class ChangelogDialogComponent {
   readonly changelog = inject(ChangelogService);
@@ -40,7 +48,6 @@ export class ChangelogDialogComponent {
   }));
 
   open(): void {
-    this.changelog.markSeen();
     this.shown.set(true);
   }
 

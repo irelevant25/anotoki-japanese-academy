@@ -1,12 +1,12 @@
 import { ApplicationRef, EnvironmentProviders, Provider, provideZonelessChangeDetection } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
-import { AppVersionComponent } from './app-version.component';
-import { ChangelogEntry, ChangelogService } from './changelog.service';
 import { provideAuth } from '../auth/auth.config';
 import { provideKit } from '../kit.config';
 import { provideKitEnglish } from '../testing/kit-english';
+import { ChangelogDialogComponent } from './changelog-dialog.component';
+import { ChangelogEntry, ChangelogService } from './changelog.service';
 
 const ENTRIES: ChangelogEntry[] = [
   { version: '0.2.0', date: '2026-10-06', changes: { added: ['A setup page'], fixed: ['A missing space'] } },
@@ -16,18 +16,19 @@ const ENTRIES: ChangelogEntry[] = [
 /** The app with these entries for its changelog, and whatever else a test provides (its strings). */
 function setUp(providers: (Provider | EnvironmentProviders)[] = []): void {
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideAuth(), ...providers] });
-  const changelog = TestBed.inject(ChangelogService);
-  changelog.load = () => Promise.resolve(changelog.entries.set(ENTRIES));
+  TestBed.inject(ChangelogService).entries.set(ENTRIES);
 }
 
-/** The foot drawn, and the dialog opened from its "What’s new". */
-async function opened(): Promise<HTMLElement> {
-  const fixture = TestBed.createComponent(AppVersionComponent);
-  await fixture.whenStable();
+/** The dialog, opened as the footer's What's new opens it (AppComponent), and its <dialog>. */
+async function opened(): Promise<{ fixture: ComponentFixture<ChangelogDialogComponent>; el: HTMLElement; dialog: HTMLDialogElement }> {
+  const fixture = TestBed.createComponent(ChangelogDialogComponent);
   const el = fixture.nativeElement as HTMLElement;
-  (el.querySelector('#whatsNew') as HTMLButtonElement).click();
+  document.body.appendChild(el);
   await fixture.whenStable();
-  return el;
+  expect(el.querySelector('dialog'), 'nothing drawn until it is opened').toBeNull();
+  fixture.componentInstance.open();
+  await fixture.whenStable();
+  return { fixture, el, dialog: el.querySelector('dialog') as HTMLDialogElement };
 }
 
 /** A release's date as the language writes it: what the dialog must show, whatever the system's locale is. */
@@ -35,69 +36,27 @@ function written(locale: string, year: number, month: number, day: number): stri
   return new Date(year, month - 1, day, 12).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-describe('AppVersionComponent', () => {
-  beforeEach(() => {
-    try {
-      localStorage.removeItem('academy-changelog-seen');
-    } catch {
-      // no storage: nothing remembered anyway
-    }
-    // jsdom may lack the modal dialog: open is all this needs
-    const proto = HTMLDialogElement.prototype as { showModal?: () => void };
-    if (typeof proto.showModal !== 'function') {
-      proto.showModal = function (this: HTMLDialogElement) {
-        this.setAttribute('open', '');
-      };
-    }
+describe('ChangelogDialogComponent: What’s new, the app’s own - the family’s footer opens it', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
   });
 
-  it('shows the version, and "What’s new" with a dot until its news is read, which opens the news', async () => {
+  it('every release over the page, the newest first and marked so, nothing of it kept in the browser', async () => {
     setUp();
-    const fixture = TestBed.createComponent(AppVersionComponent);
-    await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2.0');
-    const news = el.querySelector('#whatsNew') as HTMLButtonElement;
-    expect(news.textContent?.trim()).toBe('What’s new');
-    expect(el.querySelector('#whatsNew .dot')).not.toBeNull();
-
-    news.click();
-    await fixture.whenStable();
-    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    const before = localStorage.length;
+    const { dialog } = await opened();
     expect(dialog.hasAttribute('open')).toBe(true);
     expect(dialog.textContent).toContain('v0.2.0');
     expect(dialog.textContent).toContain('A setup page');
     expect(dialog.querySelectorAll('.release').length).toBe(2);
-    expect(el.querySelector('#whatsNew .dot'), 'read: the dot is gone').toBeNull();
-    expect(localStorage.getItem('academy-changelog-seen')).toBe('0.2.0');
+    expect(Array.from(dialog.querySelectorAll('anotoki-badge')).length, 'the newest alone is marked').toBe(1);
+    expect(localStorage.length, 'no news is marked read: nothing kept').toBe(before);
   });
 
-  it('news read when its version had two numbers stays read with three: "0.2" read, "0.2.0" has no dot - "0.2.1" has', async () => {
-    localStorage.setItem('academy-changelog-seen', '0.2');
-    setUp();
-    const fixture = TestBed.createComponent(AppVersionComponent);
-    await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#version')?.textContent?.trim()).toBe('v0.2.0');
-    expect(el.querySelector('#whatsNew .dot'), 'its news read already').toBeNull();
-
-    TestBed.inject(ChangelogService).entries.set([{ version: '0.2.1', date: '2026-10-08', changes: { fixed: ['A fault put right'] } }, ...ENTRIES]);
-    await fixture.whenStable();
-    expect(el.querySelector('#whatsNew .dot'), 'a newer version: news').not.toBeNull();
-  });
-
-  it('with no strings (the foot is drawn whatever became of them): its frame in the English it keeps, word for word, and no key', async () => {
+  it('with no strings (it opens wherever the footer is, the problem page too): its frame in the English it keeps, word for word, and no key', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     setUp();
-    const fixture = TestBed.createComponent(AppVersionComponent);
-    await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#whatsNew')?.textContent?.trim()).toBe('What’s new');
-    expect(el.querySelector('#whatsNew .dot')?.getAttribute('title')).toBe('Something new');
-
-    (el.querySelector('#whatsNew') as HTMLButtonElement).click();
-    await fixture.whenStable();
-    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    const { dialog } = await opened();
     expect(dialog.querySelector('.anotoki-dialog__title')?.textContent).toBe('What’s new');
     expect(dialog.querySelector('.anotoki-dialog__close')?.getAttribute('aria-label'), 'the kit’s Close, in the kit’s words').toBe('Close');
     expect(Array.from(dialog.querySelectorAll('anotoki-badge')).map((tag) => tag.textContent)).toEqual(['latest']);
@@ -107,14 +66,13 @@ describe('AppVersionComponent', () => {
       ['updated', 'Changed'],
     ]);
     expect(Array.from(dialog.querySelectorAll('.vdate')).map((date) => date.textContent)).toEqual([written('en-GB', 2026, 10, 6), written('en-GB', 2026, 9, 29)]);
-    expect(warn, 'a foot without strings asks for none').not.toHaveBeenCalled();
+    expect(warn, 'a dialog without strings asks for none').not.toHaveBeenCalled();
     warn.mockRestore();
   });
 
   it('in the language on the page: the frame and the dates are, the entries stay English and say so', async () => {
     const ENGLISH = {
       'whatsNew.title': 'What’s new',
-      'whatsNew.unseen': 'Something new',
       'whatsNew.latest': 'latest',
       'whatsNew.added': 'Added',
       'whatsNew.changed': 'Changed',
@@ -123,7 +81,6 @@ describe('AppVersionComponent', () => {
     };
     const SLOVAK = {
       'whatsNew.title': 'Čo je nové',
-      'whatsNew.unseen': 'Niečo nové',
       'whatsNew.latest': 'najnovšie',
       'whatsNew.added': 'Pridané',
       'whatsNew.changed': 'Zmenené',
@@ -132,21 +89,13 @@ describe('AppVersionComponent', () => {
     };
     // the kit wired as the app wires it (core/kit.config.ts): its Close in the database's words, anotoki.ui.close
     setUp([provideTestTranslations(SLOVAK, { language: 'sk', english: ENGLISH }), provideKitEnglish(), provideKit()]);
-    const fixture = TestBed.createComponent(AppVersionComponent);
-    await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('#whatsNew')?.textContent?.trim()).toBe('Čo je nové');
-    expect(el.querySelector('#whatsNew .dot')?.getAttribute('title')).toBe('Niečo nové');
-    expect(el.querySelector('#version')?.textContent?.trim(), 'the version itself is the same everywhere').toBe('v0.2.0');
-
-    (el.querySelector('#whatsNew') as HTMLButtonElement).click();
-    await fixture.whenStable();
-    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    const { dialog } = await opened();
     expect(dialog.querySelector('.anotoki-dialog__title')?.textContent).toBe('Čo je nové');
     const close = dialog.querySelector('.anotoki-dialog__close') as HTMLButtonElement;
     expect([close.getAttribute('aria-label'), close.title, close.getAttribute('lang')], 'the kit’s Close, in the language on the page').toEqual(['Zavrieť', 'Zavrieť', null]);
     expect(dialog.querySelector('anotoki-badge')?.textContent).toBe('najnovšie');
     expect(Array.from(dialog.querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['Pridané', 'Opravené', 'Zmenené']);
+    expect(Array.from(dialog.querySelectorAll('.vnum')).map((version) => version.firstChild?.textContent), 'the version itself is the same everywhere').toEqual(['v0.2.0', 'v0.1.0']);
     expect(Array.from(dialog.querySelectorAll('.vdate')).map((date) => date.textContent)).toEqual([written('sk-SK', 2026, 10, 6), written('sk-SK', 2026, 9, 29)]);
     expect(written('sk-SK', 2026, 10, 6), 'Slovak writes a date otherwise than English').not.toBe(written('en-GB', 2026, 10, 6));
 
@@ -164,19 +113,30 @@ describe('AppVersionComponent', () => {
   });
 
   it('closes on its button', async () => {
-    const proto = HTMLDialogElement.prototype as { close?: () => void };
-    if (typeof proto.close !== 'function') {
-      proto.close = function (this: HTMLDialogElement) {
-        this.removeAttribute('open');
-      };
-    }
     setUp();
-    const el = await opened();
-    const dialog = el.querySelector('app-changelog-dialog dialog') as HTMLDialogElement;
+    const { el, dialog } = await opened();
     expect(dialog.hasAttribute('open')).toBe(true);
     (dialog.querySelector('.anotoki-dialog__close') as HTMLButtonElement).click();
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(el.querySelector('app-changelog-dialog dialog'), 'closed: the kit’s dialog is gone').toBeNull();
+    expect(el.querySelector('dialog'), 'closed: the kit’s dialog is gone').toBeNull();
     expect(dialog.hasAttribute('open')).toBe(false);
+  });
+
+  it('keeps every key pressed in it from the page - where the reviews and the exam listen: Enter on its Close hands no paper in', async () => {
+    setUp();
+    const { dialog } = await opened();
+    const reached: string[] = [];
+    const onDocument = (event: KeyboardEvent): void => void reached.push(event.key);
+    document.addEventListener('keydown', onDocument);
+    try {
+      for (const target of [dialog, dialog.querySelector('.anotoki-dialog__close'), dialog.querySelector('li')]) {
+        for (const key of ['Enter', ' ', '1', 'f', 'ArrowRight']) {
+          target!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        }
+      }
+      expect(reached).toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', onDocument);
+    }
   });
 });

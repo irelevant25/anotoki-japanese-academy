@@ -60,8 +60,6 @@ const WORDS: Record<string, string> = {
   'legal.storage.visitorKey.kept': 'Until you sign in.',
   'legal.storage.visitorMoved.purpose': 'The key last moved.',
   'legal.storage.visitorMoved.kept': 'Until the next sign-in.',
-  'legal.storage.whatsNew.purpose': 'What’s new, read.',
-  'legal.storage.whatsNew.kept': 'Until the next version.',
   'legal.storage.examPaper.purpose': 'A paper kept through an update.',
   'legal.storage.examPaper.kept': 'Until the tab is closed or the paper is back.',
   'legal.storage.wordDrafts.purpose': 'Unsaved words.',
@@ -157,7 +155,7 @@ describe('the legal pages, as Japanese Academy fills them in', () => {
     expect(facts.account).toEqual({ deleteUrl: `${IAM}/account`, privacyUrl: `${IAM}/privacy` });
     expect(facts.data.map((part) => part.name)).toEqual(['Your record', 'Your study', 'Copies of the data', 'Limits against floods', 'If you keep the site’s words']);
     expect(facts.visitors).toEqual({ what: WORDS['legal.visitors.what'], why: WORDS['legal.visitors.why'], kept: 'Until a sign-in, or 30 days after the last visit.' });
-    // Japanese Academy takes feedback (Send feedback at the foot of every page): its own words for what a message holds.
+    // Japanese Academy takes feedback (Feedback, in the family's footer of every page): its own words for what a message holds.
     expect(facts.feedback).toEqual({ what: WORDS['legal.feedback.what'], kept: WORDS['legal.feedback.kept'] });
     // The error log, the audit log and the backups are the library's, as the library words them (its days, its
     // counts, plain backups); Umami is the family's.
@@ -171,7 +169,6 @@ describe('the legal pages, as Japanese Academy fills them in', () => {
       ['academy-language', 'session', null],
       ['japanese-academy-visitor', null, 'visitorKey'],
       ['japanese-academy-visitor-moved', 'local', null],
-      ['academy-changelog-seen', 'local', null],
       ['academy-exam-kept-paper', 'session', null],
       ['academy-admin-drafts', 'session', null],
     ]);
@@ -217,7 +214,6 @@ describe('the legal pages, as Japanese Academy fills them in', () => {
       'academy-language',
       'japanese-academy-visitor',
       'japanese-academy-visitor-moved',
-      'academy-changelog-seen',
       'academy-exam-kept-paper',
       'academy-admin-drafts',
     ]);

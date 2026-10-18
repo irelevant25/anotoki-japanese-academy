@@ -12,8 +12,9 @@ export const FEEDBACK_SECTIONS = ['Kanji', 'Exam'] as const;
 
 /**
  * The anotoki library's feedback form (@anotoki/lib/feedback/form, every
- * anotoki site's) wired to this app: the form behind "Send feedback" at the
- * foot of every page (core/feedback/feedback-button.component.ts), sent to
+ * anotoki site's) wired to this app: the form behind Feedback in the family's
+ * footer of every page (<anotoki-site-footer>, app.component.html: the footer
+ * opens it in the kit's dialog itself, its code loaded with the press), sent to
  * POST /api/feedback (backend/api/routes/admin.php) - by a person signed in,
  * or, while the IAM does not require signing in here, by a visitor or
  * anybody. No mail is sent: the admin panel's Feedback link counts the new

@@ -784,6 +784,61 @@ test('migration 011 in 004\'s form: keys and strings written, rewords only of th
     assert_no_match('/\bresult\b|"listen"/', $described['exam.playRecording'] ?? '', 'the round play button\'s name alone, no longer the result\'s small "listen" button\'s');
 });
 
+/** The keys migration 012 deletes, every one of them: the words of the app's own foot, which the family's footer took over. */
+const MIGRATION_012_DELETED_KEYS = ['whatsNew.unseen', 'legal.storage.whatsNew.purpose', 'legal.storage.whatsNew.kept'];
+
+test('migration 012 in 008\'s form: the listed keys deleted, the What\'s new dialog\'s heading described again, nothing else touched, a check at its end', function (): void {
+    $file = '012_family_footer.sql';
+    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+    assert_match('/^-- 012 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+    $lines = preg_split('/\R/', rtrim($sql));
+    if (end($lines) !== '-- end of 012') {
+        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 012"/', $sql, 'and says so at its top');
+    } else {
+        assert_no_match('/THIS FILE IS A DRAFT/', $sql, 'final: its top says so no more');
+    }
+
+    // What it does, statement by statement (the strings emptied, the check taken out): the deletes, then one description.
+    $code = sql_code($sql);
+    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+    $forms = [];
+    foreach ($statements as $statement) {
+        $statement = (string) preg_replace('/\s+/', ' ', $statement);
+        if (preg_match('/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/', $statement)) {
+            $forms[] = 'delete';
+        } elseif (preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement)) {
+            $forms[] = 'description';
+        } else {
+            assert_true(false, "not in 008's form: $statement");
+        }
+    }
+    assert_same(['delete', 'description'], $forms, 'the keys deleted, then one description told again - and nothing else');
+
+    // The keys it deletes are exactly the list (their strings go with them), the description is the dialog's heading's,
+    // and its check looks for each key gone.
+    $text = (string) preg_replace('/--[^\n]*/', '', $sql);
+    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', $text, $deletes);
+    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+    assert_same(in_order(MIGRATION_012_DELETED_KEYS), in_order($names[1]), 'the keys it deletes');
+    assert_match("/^UPDATE translation_keys SET description = '(?:[^']|'')*' WHERE name = 'whatsNew\\.title';$/m", $sql, 'the one description: the What\'s new dialog\'s heading');
+    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $text, $check);
+    foreach (MIGRATION_012_DELETED_KEYS as $key) {
+        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it");
+    }
+    assert_match("/RAISE EXCEPTION '012_family_footer: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+
+    // On the database it was applied to: gone, strings and all; the dialog's heading stays, described as the dialog's.
+    assert_same([], array_values(array_intersect(MIGRATION_012_DELETED_KEYS, database_keys())), 'gone from the database it was applied to');
+    assert_same(0, (int) db_value("SELECT count(*) FROM translations WHERE key_name IN ('whatsNew.unseen', 'legal.storage.whatsNew.purpose', 'legal.storage.whatsNew.kept')"), 'and their strings with them');
+    $described = (string) db_value("SELECT description FROM translation_keys WHERE name = 'whatsNew.title'");
+    assert_true(str_contains($described, 'anotoki.footer.whatsNew') && !str_contains($described, 'after the version'), 'whatsNew.title: the dialog\'s heading alone, the footer\'s button the library\'s words - ' . $described);
+    assert_same(['What’s new', 'Čo je nové'], [translations_of('en')['whatsNew.title'] ?? null, translations_of('sk')['whatsNew.title'] ?? null]);
+});
+
 /* --------------------------------------------------------------- the scan */
 
 test('the scan of this frontend: every .ts and .html of src/app but the specs and core/testing/; comments are no keys', function (): void {

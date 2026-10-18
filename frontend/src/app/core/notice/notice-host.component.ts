@@ -21,7 +21,7 @@ const ENGLISH: Record<string, string> = {
  * stray Enter only closes it. Put once in the app's root, beside the kit's
  * <anotoki-confirm-host>.
  *
- * Like the foot and the top bar, it keeps every key pressed in it from
+ * Like the footer and the top bar, it keeps every key pressed in it from
  * `document`, where the reviews and the exam listen: Enter on OK closes the
  * notice, and never hands a paper in. It is drawn in every state, so its word
  * has its English here too (keptWord()).

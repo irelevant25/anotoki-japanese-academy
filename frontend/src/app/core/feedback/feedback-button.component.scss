@@ -1,9 +1,0 @@
-// "Send feedback" in the foot's line, beside What's new (core/changelog/app-version.component.scss): the kit's quiet
-// link button, 44 px to a finger by itself; only the '·' before it is the app's.
-:host {
-  display: contents;
-}
-.sep {
-  font-size: 13px;
-  color: var(--muted);
-}

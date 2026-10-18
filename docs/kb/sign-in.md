@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.6.2, both halves) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.6.3, both halves) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -921,7 +921,7 @@ No test asks an IAM. The tests have one of their own - the anotoki library's
   refused sign-in (the library's screen, Try again), the token and the zone
   going only to this site, sign-out through the IAM's logout, and other tabs
   - the admin panel by role with the library's pages (People and its delete,
-  feedback sent from the foot and read, the error log, the audit log, a
+  feedback sent from the footer and read, the error log, the audit log, a
   backup made) - and, with sign-in not required, the visitors from end to
   end: no trip to the IAM, the notice, `/admin` still through the IAM
   (refused there: the library's screen in the visitor's page, and its Back),

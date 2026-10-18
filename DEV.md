@@ -129,19 +129,20 @@ The data of each person is their own (`docs/kb/sign-in.md`).
 
 `frontend/public/changelog.json` lists the releases, newest first, each with
 `added`, `updated` and `fixed` lines in plain words, for the person using the
-app (they stay English in every language). The version at the foot of every
-page is the newest entry's, and **What's new** beside it opens the list. Add an
-entry with every release the owner will notice, and keep `version` in
-`frontend/package.json` in step.
+app (they stay English in every language). The version in the family's
+footer of every page ("Version 0.5.1") is the newest entry's, and **What's
+new** beside it opens the list. Add an entry with every release the owner will
+notice, and keep `version` in `frontend/package.json` in step.
 
 A version has three numbers, MAJOR.MINOR.PATCH (the owner's decision of
 2026-10-07): the first for big changes, the second for new features, the
 third for bug fixes — `0.4.0`, then `0.4.1` for a fix or `0.5.0` for a
-feature. A browser that read a version's news is not shown the dot again for
-the same version written otherwise (`0.4` is `0.4.0`: the numbers are
-compared one by one, a missing one 0), and `npm test` fails when an entry's
-version has fewer or more than three numbers, the entries are not newest
-first, or the newest is not `frontend/package.json`'s.
+feature. Versions are compared number by number (`0.4` is `0.4.0`, a missing
+one 0), and `npm test` fails when an entry's version has fewer or more than
+three numbers, the entries are not newest first, or the newest is not
+`frontend/package.json`'s. (Until 0.5.1 a dot beside What's new marked news a
+browser had not opened; the family's footer has none, and nothing of it is
+kept in the browser.)
 
 ### The app's words
 
@@ -215,7 +216,7 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both
-halves are 0.6.2 (0.3.0 the translations and the kit a
+halves are 0.6.3 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
@@ -229,7 +230,10 @@ pieces - choice chips and chips, labelled groups, disclosures, tabs and link
 tabs, a badge that wraps, a link button 44 px to a finger -, the top bar's
 words for the number beside a link, and the backups' answers in fixed
 sentences; 0.6.1 and 0.6.2 five sentences of the Privacy page made true,
-each rewording only a string nobody changed):
+each rewording only a string nobody changed; 0.6.3 the family's footer -
+`<anotoki-site-footer>`, the build analyzer's, under every page and in the
+admin panel, its words written by the library's `anotoki_translations/012` -
+and its status page drawn alone, with no bar and no footer around it):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -268,11 +272,14 @@ each rewording only a string nobody changed):
   `core/admin.config.ts` -, the visitors' feedback form
   (`@anotoki/lib/feedback/form`) - wired in `core/feedback.config.ts` - and
   the reporter of the pages' own errors (`@anotoki/lib/error-report`) - wired
-  in `core/error-report.config.ts`. The pages are
-  the gate's marked template
+  in `core/error-report.config.ts`. The family's footer
+  (`@anotoki/lib/footer`: the version, What's new and Feedback, Terms ·
+  Privacy · Contact; it opens the feedback form itself, What's new is the
+  app's own dialog) - in `app.component.html`. The pages, and the frame
+  around them - the bar and the footer -, are the gate's marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
   in `app.component.html`): made only while the site is open, so none runs
-  behind the library's page. The words (`@anotoki/lib/translations`: the
+  behind the library's page, which stands alone. The words (`@anotoki/lib/translations`: the
   translation service, its pipes, the kit's words from the database; the
   admin panel's Translations and Languages pages from
   `@anotoki/lib/translations/admin`) - wired in
@@ -312,7 +319,7 @@ version is 0.x a new minor version may need changes here: read its
 |---|---|---|
 | `node backend/tools/php.js backend/tests/run.php` | the PHP unit and API tests, each file in its own throwaway database (`… run.php backend/tests/api/exam-api.test.php` runs some files) | ~25 s |
 | `npm test` in `frontend/` | the Angular unit tests (Vitest, in jsdom): answer checking against the whole catalog, the session engine, the sign-in as this app sees it, the changelog … | ~15 s |
-| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, Your data, sign-out, the admin panel by role, People, feedback sent from the foot and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held; the legal pages signed out with no trip to the IAM; the kit's question answered where the app asks, and no browser box ever | ~4 min |
+| `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, the family's footer, Your data, sign-out, the admin panel by role, People, feedback sent from the footer and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held; the legal pages signed out with no trip to the IAM; the kit's question answered where the app asks, and no browser box ever | ~4 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js` | the setup page in Edge, on a built upload: this computer's way and a website's, each then signing in | ~1 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark) - the legal pages in Slovak at 1280 px too -, then the top bar measured at 360–1280 px and its menus → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, a bar out of its row; look at the shots | ~10 min |
 

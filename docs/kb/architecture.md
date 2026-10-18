@@ -12,7 +12,8 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   feedback, the backups of the whole database -, since 0.5.0 a
   restore's hooks, the pages' own errors and where a request comes from
   (0.5.1 a fix of a restore with visitors, 0.5.2 the origin secret), and
-  since 0.6 the family's legal pages (the app is on 0.6.2, both halves);
+  since 0.6 the family's legal pages, since 0.6.3 its footer (the app is on
+  0.6.3, both halves);
   Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
@@ -557,7 +558,10 @@ and the setup page, whose Save writes it again), `app.local.php` stands for
 its defaults - but for its trusted proxies, which then believe nobody (it
 may be the very file that said `[]` for a host not behind Cloudflare:
 coarser, never looser; `client_address_trusted_proxies()`) -,
-`cloudflare.local.php` for a secret no request carries
+`cloudflare.local.php` for a secret no request carries - and so does one
+read cleanly that names no usable secret (blank, no list, a misspelt or
+another key, a value that is not a string; since 2026-10-18): only deleting
+the file switches the secret off
 ([hosting.md](hosting.md), *Visitors on the site*, *The origin secret*); one read cleanly that
 returns no list of settings is a problem of its own ("holds no settings").
 
@@ -669,16 +673,21 @@ tests run in Vitest with jsdom (`ng test`).
   without making the pages first);
   not set up: "This site is not set up yet" and
   the setup page, only while the copy was never installed; unavailable: "not
-  available right now". Everything under the bar is the gate's marked
-  template
+  available right now". The gate is the outermost of what the app draws,
+  and everything of the app's - the bar, the page and the footer - is its
+  marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`,
-  `SitePagesDirective`; anotoki-lib 0.1.1, marked since 0.2.0): it is made
-  only while the site is open, so nothing of
-  the pages runs behind the library's page — no page asks for its data,
-  hears a key or ticks a clock there — and a page open when the site stops is
-  taken down (an open exam paper is kept for the tab as it goes:
-  [exam.md](exam.md), *In the browser*). Behind the gate, the screen of the
-  address, or what stands in for the app
+  `SitePagesDirective`; anotoki-lib 0.1.1, marked since 0.2.0; the bar and
+  the footer inside it since 0.6.3): it is made only while the site is
+  open, so the library's page stands alone - in a `<main>` of the gate's
+  own, with no bar and no footer around it (the owner's rule of 2026-10-18:
+  they could be under the update too) - and nothing of the pages runs behind
+  it — no page asks for its data, hears a key or ticks a clock there — and a
+  page open when the site stops is taken down (an open exam paper is kept for
+  the tab as it goes: [exam.md](exam.md), *In the browser*). The site's
+  `ADMIN` on the Migrations page while an update waits has the app's frame
+  with it: the bar, its Migrations link alone, and the footer. Behind the
+  gate, under the bar, the screen of the address, or what stands in for the app
   (`standin/`: the Sign in card after a session that ended, a problem page;
   the anotoki library's `<anotoki-sign-in-failure>` in `#signInFailure`
   after a sign-in that came back without one, for a person or a visitor -
@@ -686,11 +695,13 @@ tests run in Vitest with jsdom (`ng test`).
   code as it is shown, never in the first load (anotoki-lib 0.5.0); on
   the way to the IAM, nothing; a legal page - Terms, Privacy, Contact - is
   drawn in every one of those states, *The legal pages* below), then the
-  foot: the version and
-  **What's new** (`core/changelog/app-version.component`, which opens the
-  changelog dialog), and **Send feedback** (`core/feedback/`, *The foot*
-  below), and under them the family's Terms · Privacy · Contact. The bar and
-  the foot are drawn in every state; after the foot, the kit's question
+  family's footer (`<anotoki-site-footer>`, *The foot* below): the version,
+  **What's new** (which opens the app's changelog dialog,
+  `core/changelog/changelog-dialog.component`) and **Feedback** (the
+  library's form), and under them Terms · Privacy · Contact. The bar and
+  the footer are drawn in every state of the app's own - the Sign in card,
+  a failed sign-in's screen and the problem page too -, never around the
+  library's page; after the gate, the kit's question
   host (`<anotoki-confirm-host>`: the one question `ConfirmService` asks -
   the admin panel's "Delete …?", and every question of the app's own, where
   the browser's `confirm()` stood until 2026-10-18) and the app's notice
@@ -743,7 +754,8 @@ tests run in Vitest with jsdom (`ng test`).
   the tokens: the tiles, an item's head and details, the session and its
   answer box, the lesson batch (its band and tabs), the exam's paper (the
   question, the options, the player, the grid), the dashboard's section
-  cards, stages and forecast, the foot's row.
+  cards, stages and forecast. (The foot's row went for the family's footer
+  with anotoki-lib 0.6.3.)
 - `app.routes.ts` — the learner's pages under one parent whose
   `canActivateChild` is the library's `personOrVisitorGuard`: `/` home, `/kanji/…` (lazy:
   `kanji/kanji.routes.ts`), `/exam` (lazy); the admin panel `/admin/…`
@@ -779,9 +791,9 @@ tests run in Vitest with jsdom (`ng test`).
   `SignOutService`, `SignInService` (a visitor's Sign in waits for the saves
   first); [sign-in.md](sign-in.md), *The browser*), `admin.config.ts` (the
   library's admin tools and People page wired to this app: `provideAdminTools()`),
-  `feedback.config.ts` and `feedback/` (the library's feedback form behind
-  Send feedback at the foot: `provideFeedback()`), `legal.config.ts` (the
-  library's legal pages and the foot's links wired to this app:
+  `feedback.config.ts` (the library's feedback form, which the family's
+  footer opens behind its Feedback: `provideFeedback()`), `legal.config.ts` (the
+  library's legal pages and the footer's links wired to this app:
   `provideAnotokiLegal(academyLegalConfig)` - the page's language, the
   database's words; the facts come with the pages' frame, below), `notice/`
   (the app's notice: `NoticeService.tell({title, message, detail?})`, drawn
@@ -792,7 +804,8 @@ tests run in Vitest with jsdom (`ng test`).
   (localStorage and sessionStorage that never throw), `time-zone.ts` (the
   browser's IANA zone), `i18n/` (the app's words, below),
   `kit.config.ts` (above),
-  `changelog/` (the foot's version and "What's new", the dialog),
+  `changelog/` (the version the footer shows - the changelog's newest
+  entry - and the What's new dialog it opens),
   `audio.service.ts` (the two voices take turns),
   `format.ts` (times, dates and percentages in the language on the page, or
   in the date order and clock of a signed-in person's account),
@@ -856,7 +869,8 @@ tests run in Vitest with jsdom (`ng test`).
   screen since 2026-10-11, and a site not set up, being updated or out of
   reach the library's page since 2026-10-07, each in its own words),
   and `keptWord()`: what is drawn outside the router's screens (these pages,
-  the top bar, the foot, the "What's new" frame) may be drawn with no strings
+  the top bar, the "What's new" frame; the family's footer says the
+  library's own words then) may be drawn with no strings
   at all, so it falls back to the seeded English written in the code (a
   `const ENGLISH` map in each; `backend/tests/unit/translations.test.php`
   holds it to the seeded English), never a key.
@@ -990,12 +1004,15 @@ hands a paper in, Space plays a word, 1-4 and A-D choose), and Enter or Space
 on a button of the bar would do that instead of pressing it. So the library's
 bar stops every key (`isolateKeys`, on by default) and handles Escape itself,
 which no document listener would hear; what the key does on the control is
-the browser's and stays so. The foot does the same on its own
-(`app-version`: What's new and the changelog dialog it opens — Enter there
-opens or closes the news, never hands a paper in). Specs prove it with the
-real exam (a spoken last question: nothing chosen, played or handed in) and
-the real review session (nothing checked), for the bar's controls and the
-foot's (`core/testing/foot-controls.ts`).
+the browser's and stays so. The footer is kept the same way: the app stops
+every key pressed in it - What's new, Feedback and the form it opens - on
+the way up (`(keydown)` on `<anotoki-site-footer>`, `app.component.html`),
+and the What's new dialog keeps its own (Enter there opens or closes the
+news, never hands a paper in). Specs prove it with the real exam (a spoken
+last question: nothing chosen, played or handed in) and the real review
+session (nothing checked), for the bar's controls and the news
+(`core/testing/news-controls.ts`), and `app.component.spec.ts` for the
+footer's own.
 
 **The menus** are the library's (`@anotoki/lib/ui/menu`), with the family's
 rules: a menu button (`aria-haspopup`, `aria-expanded`, `aria-controls`); the
@@ -1034,40 +1051,54 @@ bundle's English (`effectiveLanguage`; `<html lang>` follows), and so does the
 kit's `language`. The reader's own language stays (`language()`): the IAM's
 pages still open in it.
 
-**The foot** of every page: the version and **What's new**, which opens the
-changelog dialog (the kit's `<anotoki-dialog>`, made while it is open: its
-Close and Escape and the backdrop close it; the newest release marked by
-the kit's badge), with a dot beside the words until this version's news has
-been opened (`whatsNew.title`, `whatsNew.unseen`; the dot sits on the words'
-span, not the button, which is 44 px high on a touch screen; while it shows
-the button keeps 10 px of room after it, so the '·' before Send feedback
-never touches it). Beside them,
-while the app itself is shown (to a person or a visitor; not on the way to
-the IAM, on the Sign in card, or while the library's page stands in),
-**Send feedback** (`core/feedback/feedback-button.component`): the anotoki
-library's form (`@anotoki/lib/feedback/form`, loaded when it opens) in the
-kit's dialog - what kind ("Something does not work", "An idea", "Something else"), the place (the
-app's two sections, Kanji and Exam), a subject, the message, an address for
-an answer (a signed-in person's account address written in, which they may
-change or clear: the server keeps what is sent, never their account's in its
-place) and, for a person, "Send it without my name" - sent to
-`POST /api/feedback` with the page's address without its query. Its words
-are the library's `anotoki.feedback.*`, in the language on the page, from
-this app's database (the library's `anotoki_translations/004`). Like the
-bar, it keeps every key pressed in it from `document` (Enter in the message
-never hands a paper in). No mail is sent: the admin panel's Feedback link
-counts the new ones (*The admin tools*, above). The version is
-the newest entry's of `frontend/public/changelog.json`: three numbers,
-MAJOR.MINOR.PATCH (since 2026-10-07; `frontend/package.json`'s `version` the
-same). The version a browser last read is compared with it number by number,
-a missing number counting as 0 (`compareVersions()` in
-`core/changelog/changelog.service.ts`): a browser that read "0.4", as the
-changelog wrote it before, has read "0.4.0". What's new and Send feedback
-are the kit's small link buttons (44 px to a finger by themselves), the '·'
-between them the app's. Under that row, in every state, the family's
-**Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav named "Legal",
-the page that is open marked `aria-current`; its words the library's
-`anotoki.legalLinks.*`), *The legal pages* below.
+**The foot** of every page, and of the admin panel, is the anotoki family's
+footer (`<anotoki-site-footer>`, `@anotoki/lib/footer`, since anotoki-lib
+0.6.3 - the build analyzer's, the owner's choice of 2026-10-18: its order,
+its words and its top border): a thin line across the top, then, centred in
+the muted ink, the row "Version 0.5.1 · What's new · Feedback" (a dot drawn
+between two parts and never read; a part left out takes its dot with it),
+and under it **Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav
+named "Legal", the page that is open marked `aria-current`), in a
+`<footer>` landmark of its own; it wraps at 390 px and is not printed. Its
+words are the library's (`anotoki.footer.*`, written into this app's
+database by the library's `anotoki_translations/012`; `anotoki.legalLinks.*`),
+the database's string first, read through the kit's lookup (`forKit()`), in
+the language on the page - English in the admin panel -, the library's own
+English and Slovak while there are none. What the app gives it
+(`app.component.html`):
+
+- the version: the newest entry's of `frontend/public/changelog.json` (three
+  numbers, MAJOR.MINOR.PATCH since 2026-10-07; `frontend/package.json`'s
+  `version` the same - the one source, the spec holds the two together),
+  asked for once a page load; with no changelog (not come yet, or none on
+  the server) neither the version nor What's new is drawn;
+- **What's new**: the app's own changelog dialog (the kit's
+  `<anotoki-dialog>`, made while it is open: its Close and Escape and the
+  backdrop close it; the newest release marked by the kit's badge; its
+  heading `whatsNew.title`), opened on the footer's `(whatsNew)`. Until 0.5.1
+  a dot beside it marked news a browser had not opened (`whatsNew.unseen`,
+  `academy-changelog-seen` in localStorage); the family's footer has none,
+  and the dot, its word and its stored item went (migration 012);
+- **Feedback**, while the app itself is shown (to a person or a visitor;
+  not on the way to the IAM, on the Sign in card, on a legal page signed
+  out, on the problem page, nor to the `ADMIN` on the Migrations page while
+  an update waits - the server would refuse the message): the footer opens
+  the library's form (`@anotoki/lib/feedback/form`, configured by
+  `core/feedback.config.ts`) in the kit's dialog itself, its code loaded
+  with the first press (`@anotoki/lib/footer/feedback`), named by the
+  button's words, the focus back on the button after - what kind
+  ("Something does not work", "An idea", "Something else"), the place (the
+  app's two sections, Kanji and Exam), a subject, the message, an address
+  for an answer (a signed-in person's account address written in, which
+  they may change or clear: the server keeps what is sent, never their
+  account's in its place) and, for a person, "Send it without my name" -
+  sent to `POST /api/feedback` with the page's address without its query.
+  The form's words are the library's `anotoki.feedback.*` (the library's
+  `anotoki_translations/004`). No mail is sent: the admin panel's Feedback
+  link counts the new ones (*The admin tools*, above).
+
+Like the bar, no key pressed in the footer, the news or the form reaches
+`document` (Enter in the message never hands a paper in).
 
 ## The legal pages
 
@@ -1075,7 +1106,7 @@ Terms, Privacy and Contact (since 2026-10-18, anotoki-lib 0.6; the owner's
 brief for every anotoki site) are the anotoki family's pages
 (`@anotoki/lib/legal/pages`) with Japanese Academy's facts, at `/terms`,
 `/privacy` and `/contact` - the library's own paths (`DEFAULT_LEGAL_PATHS`,
-`core/legal.config.ts`'s `LEGAL_PAGE_PATHS`), where the foot's links go.
+`core/legal.config.ts`'s `LEGAL_PAGE_PATHS`), where the footer's links go.
 
 - **Anybody's.** What an app keeps is said before anybody signs in to it:
   no guard stands in front of them, nothing on them asks for a sign-in or
@@ -1106,9 +1137,10 @@ brief for every anotoki site) are the anotoki family's pages
   feedback (the kind and the section too), the library's error log, audit
   log and plain backups in the library's words, the browser's storage by
   name (the sign-in's, the IAM's hint cookie - sent here, never read -, the
-  theme, the language, the visitor's key and the last one moved, What's new
-  read, an exam paper kept through an update, the admin pages' unsaved
-  words), Umami (the family's, already in `index.html`), and who else
+  theme, the language, the visitor's key and the last one moved, an exam
+  paper kept through an update, the admin pages' unsaved words - What's new
+  read no more since 0.5.1: the family's footer marks no news unread),
+  Umami (the family's, already in `index.html`), and who else
   handles data: the hosting company (WebSupport s.r.o., named by the owner
   on 2026-10-18) and Cloudflare. The operator is the family's (Code Hero s.r.o.,
   support@anotoki.eu, Slovakia: the library's default). Each must stay true
@@ -1120,8 +1152,8 @@ brief for every anotoki site) are the anotoki family's pages
   address the app signs in with - the code's, never a string. Every address
   the pages link to is so: an administrator's rewording on the Translations
   page changes words, never where a link goes (`legal-facts.spec.ts` holds
-  it with a rewording that names another address). Contact opens Send
-  feedback's form first (the library's), then the family's address.
+  it with a rewording that names another address). Contact opens the
+  feedback form first (the library's), then the family's address.
 - **The words**: the library's (`anotoki.legal.*`, its migration
   `anotoki_translations/005_…`, 010 and 011 making five sentences true) - the
   database's string first, an owner's rewording - around the app's own
@@ -1335,13 +1367,14 @@ updated, else the problem page while the app starts or has no words).
   this app says its own way (`KIT_ENGLISH`: "The app’s sections", "System"),
   else the library's own. The note under the theme switch when the account
   refuses a theme is the library's word (`anotoki.theme.notSaved`).
-- The admin panel reads in English (`effectiveLanguage`): the bar, the foot
+- The admin panel reads in English (`effectiveLanguage`): the bar, the footer
   and the dialog answer from the bundle's English under `/admin`; the
   reader's own choice (`language()`) stays.
-- A start that cannot get its strings still draws: the stand-in pages, the
-  top bar and the foot fall back to the seeded English written in the code
-  (`keptWord()`), and the next navigation asks again (the start itself asks
-  once more after half a second).
+- A start that cannot get its strings still draws: the stand-in pages and
+  the top bar fall back to the seeded English written in the code
+  (`keptWord()`), the footer to the library's own words, and the next
+  navigation asks again (the start itself asks once more after half a
+  second).
 
 **The admin panel** (`frontend/src/app/admin/`, English, `/admin/translations`,
 `/admin/languages`, `/admin/people` and `/admin/migrations`; **Admin panel** in the person's menu of the
@@ -1425,7 +1458,20 @@ each only where it is still the seeded text and nobody saved it; the
 descriptions that still said "chips" told again. Its check fails it unless
 its keys read in both languages, the reworded keys are there in both, and no
 reworded string nobody saved is still the old text (a database that runs
-every file but 007 never runs it: `visitors-migration.test.php`). 007 (`007_visitors.sql`, visitors) since
+every file but 007 never runs it: `visitors-migration.test.php`). **012**
+(`012_family_footer.sql`, 2026-10-18) is a **draft** - its last line waits
+for the owner's word, and until then every file of the library's waits
+with it on every database but the tests' (its `anotoki_translations/012`,
+the footer's four words, among them: the footer says the library's built-in
+words meanwhile, the same English and Slovak): the app's own foot went for
+the family's footer (anotoki-lib 0.6.3), and with it the dot beside What's
+new, so the three keys nothing reads now go - `whatsNew.unseen` (the dot's
+tooltip) and the Privacy page's `legal.storage.whatsNew.purpose` and
+`.kept` (the stored item the dot needed, `academy-changelog-seen`) -, and
+`whatsNew.title`'s description says it is the dialog's heading alone (the
+footer's button has the library's words). Its check fails it unless the
+three keys are gone, strings and all, and the dialog's heading still has its
+English and Slovak (`unit/translations.test.php` holds its form, 008's). 007 (`007_visitors.sql`, visitors) since
 2026-10-05, its last line written once the browser suites had passed: its
 schema (users' `CHECK (id > 0)` replaced by `users_person_or_visitor`,
 `visitor_key_hash`, `visitor_from`, the sequence `visitor_ids`, two

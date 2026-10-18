@@ -16,7 +16,7 @@ import { TimeWording } from '../core/i18n/time-wording';
 import { provideKit } from '../core/kit.config';
 import { NoticeService } from '../core/notice/notice.service';
 import { SavesInFlight } from '../core/saves-in-flight.service';
-import { drawnFoot } from '../core/testing/foot-controls';
+import { drawnNews } from '../core/testing/news-controls';
 import { provideTestSiteStatus } from '../core/testing/site-status';
 import { KanjiStateService } from '../kanji/kanji-state.service';
 import { TopBarComponent } from '../top-bar/top-bar.component';
@@ -1192,7 +1192,7 @@ describe('ExamComponent', () => {
   /* -------------------------------------------------------------- keys */
 
   describe('the keys', () => {
-    it('Enter and Space on every control of the top bar and the foot never reach the paper: nothing chosen, nothing played, nothing handed in', async () => {
+    it('Enter and Space on every control of the top bar and of the news the footer opens never reach the paper: nothing chosen, nothing played, nothing handed in', async () => {
       // The bar as the app draws it over the exam: somebody signed in, Kanji and Exam, the language, the theme, the person's menu.
       TestBed.configureTestingModule({
         providers: [
@@ -1238,10 +1238,11 @@ describe('ExamComponent', () => {
           press(item, key);
         }
       }
-      // The foot under the paper: What's new, and the news it opens (its Close, its lines) - Enter there hands nothing in.
-      const foot = await drawnFoot();
+      // The news the footer's What's new opens over the paper (its Close, its lines) - Enter there hands nothing in. (The
+      // footer's own buttons, Feedback and its form keep their keys too: app.component.spec.ts, where the app draws them.)
+      const news = await drawnNews();
       document.body.appendChild(host);
-      for (const control of foot.controls) {
+      for (const control of news.controls) {
         for (const key of keys) {
           press(control, key);
         }
@@ -1263,7 +1264,7 @@ describe('ExamComponent', () => {
       await settle();
       expect(api.submit).toHaveBeenCalledTimes(1);
 
-      foot.remove();
+      news.remove();
       bar.destroy();
       (bar.nativeElement as HTMLElement).remove();
     });

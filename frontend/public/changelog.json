@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.5.1",
+    "date": "2026-10-18",
+    "changes": {
+      "updated": [
+        "The foot of every page is the anotoki family's footer, the same on every anotoki site: the version, What's new and Feedback in one line, Terms, Privacy and Contact under it, and a line above it",
+        "While Japanese Academy is being updated or cannot be reached, its page stands alone, without the bar at the top or the footer"
+      ]
+    }
+  },
+  {
     "version": "0.5.0",
     "date": "2026-10-18",
     "changes": {

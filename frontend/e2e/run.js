@@ -7,7 +7,7 @@
  *             refused sign-in shows the anotoki library's screen (why, Try
  *             again, Back), and Try again signs in
  *   legal     Terms, Privacy and Contact signed out: the family's pages with
- *             the app's facts, the foot's links between them, no trip to the
+ *             the app's facts, the footer's links between them, no trip to the
  *             IAM - which any other page still makes first
  *   kanji     lessons → quiz (romaji typed, one miss on purpose) → reviews
  *             (clock moved) → practice (+ "My answer was right") → item page →
@@ -18,9 +18,11 @@
  *             last question the chooser and the bar's keys hand nothing in,
  *             and Sign out asks first - the kit's question: no browser box is
  *             ever raised
- *   the app   moving between its sections loads no page; What's new at the
- *             foot; the bar's menus by keys, a real Tab landing on their
- *             button, on a desktop and on a phone
+ *   the app   moving between its sections loads no page; the family's footer
+ *             (its top border, "Version X · What's new · Feedback", Terms ·
+ *             Privacy · Contact) and What's new from it; the bar's menus by
+ *             keys, a real Tab landing on their button, on a desktop and on a
+ *             phone
  *   your data download, bring back (asked first; "keep mine" changes
  *             nothing; "replace" puts the file's data back), a file that is
  *             not one refused before anything is sent
@@ -32,7 +34,8 @@
  *             Translations refuses a string beside its key and asks before
  *             unsaved strings are left; a language added comes in hidden;
  *             People (the library's page): an ADMIN deletes a person's data (a
- *             copy first, nobody else's touched); Send feedback from the foot
+ *             copy first, nobody else's touched); the footer in the panel too,
+ *             in English; Feedback from the footer
  *             reaches the panel - the count on its Feedback link, the message on
  *             the library's Feedback page -; an error thrown in a learner's page
  *             is reported (her token on it, the address scrubbed out) and the
@@ -41,10 +44,11 @@
  *             learner has no admin area
  *   update    a database update waiting (the anotoki library's gate): a
  *             visitor, a learner and an editor read that the site is being
- *             updated - no error, no button but a visitor's quiet Sign in,
- *             no trip to the IAM, no page made behind it (none asks for its
- *             data); a signed-out ADMIN signs in from that page,
- *             comes back to it, and reaches the Migrations page: Apply fails
+ *             updated - the library's page alone, no bar and no footer, no
+ *             error, no button but a visitor's quiet Sign in, no trip to the
+ *             IAM, no page made behind it (none asks for its data); a
+ *             signed-out ADMIN signs in from that page, comes back to it, and
+ *             reaches the Migrations page, in the app's frame: Apply fails
  *             (PostgreSQL's words), then applies; the app back, in words; a
  *             paper open as the update lands: its hand-in refused without an
  *             error, kept for the tab, back once the library's page loads it
@@ -100,6 +104,17 @@ const FAILURE = {
 /** As the stand-in IAM's state names whom it signs in. */
 const asUser = (p) => ({ id: p.sub, username: p.name, roles: p.roles });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** The newest release of public/changelog.json: its version is the one the footer shows. */
+const [LATEST] = JSON.parse(fs.readFileSync(path.join(FRONTEND, 'public', 'changelog.json'), 'utf8'));
+/** The family's footer as a tab shows it: its row's parts (the dots left out), its legal links, and its top border. */
+const footerOf = (pg) =>
+  pg.$eval('anotoki-site-footer', (el) => ({
+    row: [...el.querySelectorAll('.anotoki-site-footer__row > :not(.anotoki-site-footer__dot)')].map((part) => part.textContent.trim()),
+    links: [...el.querySelectorAll('anotoki-legal-links a')].map((a) => a.textContent.trim()),
+    border: getComputedStyle(el.querySelector('footer')).borderTopStyle,
+  }));
+/** The library's status page drawn bare: in the gate's own <main>, with no bar, no footer - no header, navigation or footer landmark at all. */
+const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki-site-status')) !== null && (await pg.$$('app-top-bar, anotoki-site-footer, header, nav, footer')).length === 0;
 
 (async () => {
   // the IAM's answer whether sign-in is required kept a second, not a minute: the visitors' part switches it
@@ -205,7 +220,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ---------------------------------------------- the legal pages */
   // Terms, Privacy and Contact are anybody's: signed out - sign-in required here - each opens with no trip to the
-  // IAM, the family's page with Japanese Academy's facts in the app's frame, and the foot's links go from one to
+  // IAM, the family's page with Japanese Academy's facts in the app's frame, and the footer's links go from one to
   // another. Any other page still goes to the IAM first.
   console.log('the legal pages, signed out');
   const legalContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
@@ -216,19 +231,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const toTheIam = () => legalSent.some((url) => url.startsWith(`${IAM.issuer}/api/oidc/authorize`));
   await legal.goto(app.base + '/privacy');
   await legal.waitForSelector('anotoki-privacy-page h1', { timeout: 15000 });
-  ck('signed out, /privacy: the family’s page in the app’s frame - no trip to the IAM, Sign in in the bar, the foot’s links',
+  const legalFoot = await footerOf(legal);
+  ck('signed out, /privacy: the family’s page in the app’s frame - no trip to the IAM, Sign in in the bar, the footer: no Feedback signed out, its links',
     (await legal.textContent('anotoki-privacy-page h1')).trim() === 'Privacy policy' && !toTheIam()
-      && (await legal.isVisible(BAR.signInButton)) && (await legal.$('footer anotoki-legal-links')) !== null);
+      && (await legal.isVisible(BAR.signInButton)) && legalFoot.row.join('|') === `Version ${LATEST.version}|What's new` && legalFoot.links.join('|') === 'Terms|Privacy|Contact',
+    JSON.stringify(legalFoot));
   const storedNames = await legal.$$eval('[data-stored] code', (els) => els.map((el) => el.textContent.trim()));
   ck('its facts are Japanese Academy’s: its stored items by name, the anotoki account’s Privacy page at the IAM it signs in with',
     storedNames.includes('academy-exam-kept-paper') && storedNames.includes('japanese-academy-visitor')
       && (await legal.getAttribute('[data-account-privacy]', 'href')) === `${IAM.issuer}/privacy`, storedNames.join(', '));
-  await legal.click('footer anotoki-legal-links a[href="/terms"]');
+  await legal.click('anotoki-site-footer anotoki-legal-links a[href="/terms"]');
   await legal.waitForSelector('anotoki-terms-page h1');
-  await legal.click('footer anotoki-legal-links a[href="/contact"]');
+  await legal.click('anotoki-site-footer anotoki-legal-links a[href="/contact"]');
   await legal.waitForSelector('anotoki-contact-page [data-open-feedback]');
-  ck('the foot’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
-    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(), legal.url());
+  ck('the footer’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
+    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('anotoki-site-footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(), legal.url());
   await legal.click(BAR.brand);
   await legal.waitForSelector(BAR.userButton, { timeout: 15000 });
   ck('the home page from there is a learner’s: to the IAM first, and back signed in', toTheIam() && new URL(legal.url()).pathname === '/', legal.url());
@@ -580,10 +597,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.waitForSelector('.homecards');
   ck('moving between the sections, the brand home: no page loads', await page.evaluate(() => window.stayed === true));
 
-  const [latest] = JSON.parse(fs.readFileSync(path.join(FRONTEND, 'public', 'changelog.json'), 'utf8'));
-  ck('the version at the foot, and What’s new with a dot while its news is unread',
-    (await page.textContent('#version')).trim() === `v${latest.version}` && (await page.isVisible('#whatsNew .dot')));
-  await page.click('#whatsNew');
+  const latest = LATEST;
+  const foot = await footerOf(page);
+  ck('the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, Terms · Privacy · Contact under them',
+    foot.border === 'solid' && foot.row.join('|') === `Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact', JSON.stringify(foot));
+  await page.click('anotoki-site-footer [data-whats-new]');
   await page.waitForSelector('app-changelog-dialog dialog[open]');
   const news = await page.textContent('app-changelog-dialog dialog');
   // The release's first line, of whatever kind: one may have no "added" line (0.4.0 has "updated" ones alone).
@@ -591,11 +609,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck("it opens what's new", news.includes(`v${latest.version}`) && !!firstLine && news.includes(firstLine), firstLine);
   await shot('changelog');
   await page.keyboard.press('Escape');
-  // What Angular draws after the key, waited for (a busy computer may take a frame or two): the dialog and the dot gone.
+  // What Angular draws after the key, waited for (a busy computer may take a frame or two): the dialog gone.
   const newsClosed = await page
-    .waitForFunction(() => !document.querySelector('app-changelog-dialog dialog') && !document.querySelector('#whatsNew .dot'), null, { timeout: 5000 })
+    .waitForFunction(() => !document.querySelector('app-changelog-dialog dialog'), null, { timeout: 5000 })
     .then(() => true, () => false);
-  ck('Escape closes it, and the dot is gone', newsClosed);
+  ck('Escape closes it, and the focus is back on What’s new', newsClosed && (await page.evaluate(() => document.activeElement?.hasAttribute('data-whats-new') ?? false)));
 
   /* ------------------------------------------- the bar's menus by keys */
   console.log('the bar: its menus by keys');
@@ -863,6 +881,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck('the bar holds the panel’s sections: Translations, Languages, People, Feedback, Errors, Audit log, Backups, Migrations; beside the mark its name',
     adminLinks.join(',') === 'Translations,Languages,People,Feedback,Errors,Audit log,Backups,Migrations'
       && (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel', adminLinks.join(','));
+  const adminFoot = await footerOf(admin);
+  ck('the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, Terms · Privacy · Contact',
+    adminFoot.border === 'solid' && adminFoot.row.join('|') === `Version ${LATEST.version}|What's new|Feedback` && adminFoot.links.join('|') === 'Terms|Privacy|Contact',
+    JSON.stringify(adminFoot));
   await admin.click(BAR.userButton);
   ck('and her menu says it in English, with the way back', (await admin.textContent(BAR.accountLink)).trim() === 'Your anotoki account' && (await admin.textContent(BAR.backLink)).trim() === 'Back to Japanese Academy');
   await admin.keyboard.press('Escape');
@@ -939,7 +961,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) === leaBefore
       && Number(app.sql("SELECT count(*) AS n FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", String(MAX.sub))[0].n) === 1);
 
-  // Send feedback, from the foot of a learner's page: it reaches the panel - the count beside its Feedback
+  // Feedback, from the family's footer of a learner's page: it reaches the panel - the count beside its Feedback
   // link (no mail is sent), the message on the library's Feedback page.
   console.log('feedback, and the admin tools');
   const fbContext = await newContext(browser, { viewport: { width: 1100, height: 860 } });
@@ -947,10 +969,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const fb = await fbContext.newPage();
   const fbErrors = watch(fb);
   await fb.goto(app.base + '/kanji');
-  await fb.waitForSelector('#sendFeedback');
-  ck('Send feedback at the foot of the page, in the library’s words', (await fb.textContent('#sendFeedback')).trim() === 'Send feedback');
-  await fb.click('#sendFeedback');
-  await fb.waitForSelector('anotoki-feedback-form form');
+  await fb.waitForSelector('anotoki-site-footer [data-open-feedback]');
+  ck('Feedback in the footer of the page, in the library’s words', (await fb.textContent('anotoki-site-footer [data-open-feedback]')).trim() === 'Feedback');
+  await fb.click('anotoki-site-footer [data-open-feedback]');
+  await fb.waitForSelector('[data-feedback-dialog] anotoki-feedback-form form');
+  ck('its form in the kit’s dialog, named by the button', (await fb.textContent('[data-feedback-dialog] .anotoki-dialog__title')).trim() === 'Feedback');
   ck('its form in a dialog: her account’s address written in to answer her, "without my name" offered',
     (await fb.inputValue('anotoki-feedback-form [data-email] input')) === 'noa@example.test' && (await fb.$('anotoki-feedback-form [data-anonymous]')) !== null);
   await fb.fill('anotoki-feedback-form [data-message] textarea', 'The stroke order of 学 would help me a lot.');
@@ -972,7 +995,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const oops = await oopsContext.newPage();
   const oopsErrors = watch(oops);
   await oops.goto(app.base + '/kanji');
-  await oops.waitForSelector('#sendFeedback');
+  await oops.waitForSelector('anotoki-site-footer [data-open-feedback]');
   const reportSent = oops.waitForRequest((r) => r.url() === app.base + '/api/client-errors' && r.method() === 'POST', { timeout: 10000 }).catch(() => null);
   await oops.evaluate(() => {
     setTimeout(() => {
@@ -1160,8 +1183,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await waitingVisitor.goto(app.base + '/kanji/reviews');
   await waitingVisitor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByVisitor = await libraryPage(waitingVisitor);
-  ck('a visitor: “The site is being updated” - no error, no code, no setup or migrations button; a quiet Sign in, and no trip to the IAM',
-    seenByVisitor.title === 'The site is being updated' && seenByVisitor.actions.join(',') === 'Sign in'
+  ck('a visitor: “The site is being updated” - the library’s page alone (no bar, no footer), no error, no code, no setup or migrations button; a quiet Sign in, and no trip to the IAM',
+    seenByVisitor.title === 'The site is being updated' && seenByVisitor.actions.join(',') === 'Sign in' && (await bare(waitingVisitor))
       && !/error|update_pending|503|setup|Migrations/i.test(seenByVisitor.text) && !visitorSent.some((url) => url.startsWith(IAM.issuer)),
     JSON.stringify(seenByVisitor));
   await waitingVisitor.screenshot({ path: path.join(SHOTS, 'waiting-visitor.png') });
@@ -1178,8 +1201,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await waitingLearner.goto(app.base + '/');
   await waitingLearner.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByLearner = await libraryPage(waitingLearner);
-  ck('a signed-in learner: the same page, no error, and no button at all',
-    seenByLearner.title === 'The site is being updated' && seenByLearner.actions.length === 0 && !/error|update_pending|setup|Migrations/i.test(seenByLearner.text),
+  ck('a signed-in learner: the same page alone, no error, and no button at all',
+    seenByLearner.title === 'The site is being updated' && seenByLearner.actions.length === 0 && (await bare(waitingLearner)) && !/error|update_pending|setup|Migrations/i.test(seenByLearner.text),
     JSON.stringify(seenByLearner));
   await waitingLearner.screenshot({ path: path.join(SHOTS, 'waiting-learner.png') });
   ck('nothing of the pages behind it is made: the home page asks for no data, and no answer fails',
@@ -1198,8 +1221,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await waitingEditor.goto(app.base + where);
     await waitingEditor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
     const seen = await libraryPage(waitingEditor);
-    ck(`an EDITOR at ${where} while it waits: the same page, and no way to the Migrations page`,
-      seen.title === 'The site is being updated' && seen.actions.length === 0 && (await waitingEditor.$('main.admin')) === null,
+    ck(`an EDITOR at ${where} while it waits: the same page alone, and no way to the Migrations page`,
+      seen.title === 'The site is being updated' && seen.actions.length === 0 && (await waitingEditor.$('main.admin')) === null && (await bare(waitingEditor)),
       `${new URL(waitingEditor.url()).pathname}: ${JSON.stringify(seen)}`);
   }
   ck('and no page behind it asks for data (Translations would), nor does an answer fail',
@@ -1215,23 +1238,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const migrationErrors = watch(migrations);
   await migrations.goto(app.base + '/');
   await migrations.waitForSelector('anotoki-site-status button', { timeout: 15000 });
-  ck('a signed-out administrator: the visitors’ page, its quiet Sign in the way in', (await libraryPage(migrations)).actions.join(',') === 'Sign in');
+  ck('a signed-out administrator: the visitors’ page alone, its quiet Sign in the way in', (await libraryPage(migrations)).actions.join(',') === 'Sign in' && (await bare(migrations)));
   const iamBefore = (await iamLog()).length;
   await migrations.click('anotoki-site-status button');
   await migrations.waitForSelector('anotoki-site-status a', { timeout: 15000 });
   const seenByAdmin = await libraryPage(migrations);
-  ck('its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page',
+  // Signed in now - the page says so, the ADMIN's own (its way to the Migrations page) - and still alone: no bar.
+  ck('its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page, and still no bar or footer',
     (await iamLog()).slice(iamBefore).includes('GET /api/oidc/authorize') && new URL(migrations.url()).pathname === '/'
       && seenByAdmin.title === 'A database update is waiting' && seenByAdmin.actions.join(',') === 'Open Migrations'
-      && (await migrations.textContent(BAR.userName)).trim() === 'ada', `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
+      && (await bare(migrations)), `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'waiting-admin.png') });
   await migrations.click('anotoki-site-status a');
   await migrations.waitForSelector('[data-pending] .anotoki-migrations-page__file', { timeout: 15000 });
   const pendingFiles = await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()));
-  ck('the Migrations page opens while it waits: the file pending, the rest applied, Apply on',
+  const waitingFoot = await footerOf(migrations);
+  ck('the Migrations page opens while it waits, in the admin panel’s frame - the bar (Migrations its one link, her menu), the footer without Feedback -: the file pending, the rest applied, Apply on',
     new URL(migrations.url()).pathname === '/admin/migrations' && pendingFiles.join(',') === WAITS
       && (await migrations.$$('[data-applied] .anotoki-migrations-page__file')).length >= 5 && !(await migrations.isDisabled('[data-apply]'))
-      && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy', `${pendingFiles.join(',')} ${await migrations.title()}`);
+      && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy'
+      && (await migrations.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()))).join(',') === 'Migrations' && (await migrations.$(BAR.userButton)) !== null
+      && waitingFoot.row.join('|') === `Version ${LATEST.version}|What's new`, `${pendingFiles.join(',')} ${await migrations.title()} ${JSON.stringify(waitingFoot)}`);
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
   await migrations.click('[data-apply]');
   await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');

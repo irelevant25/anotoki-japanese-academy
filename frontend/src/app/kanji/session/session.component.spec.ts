@@ -10,7 +10,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { SignOutService } from '../../core/auth/sign-out.service';
 import { AudioService } from '../../core/audio.service';
 import { provideKit } from '../../core/kit.config';
-import { drawnFoot } from '../../core/testing/foot-controls';
+import { drawnNews } from '../../core/testing/news-controls';
 import { provideTestSiteStatus } from '../../core/testing/site-status';
 import { KanjiStateService } from '../kanji-state.service';
 import { SessionResult } from './session-engine';
@@ -464,7 +464,7 @@ describe('SessionComponent', () => {
     expect(marked()).toEqual([['on: いち、いつ  ·  kun: ひと', 'ja']]);
     expect(text('.s-type')).toBe('Kanji');
   });
-  it('Enter, Space and F on every control of the top bar and the foot never reach the review: nothing checked, nothing answered', async () => {
+  it('Enter, Space and F on every control of the top bar and of the news the footer opens never reach the review: nothing checked, nothing answered', async () => {
     // The bar as the app draws it over a review: somebody signed in, Kanji and Exam, the language, the theme, the person's menu.
     const user = { sub: '7', preferred_username: 'hana', email: null, email_verified: false, locale: null, roles: ['EDITOR'] };
     TestBed.configureTestingModule({
@@ -508,11 +508,12 @@ describe('SessionComponent', () => {
     ];
     expect(controls).toHaveLength(8);
     expect(controls.every((control) => control !== null)).toBe(true);
-    // The foot under the page: What's new, and the news it opens (its Close, its lines).
-    const foot = await drawnFoot();
+    // The news the footer's What's new opens over the page (its Close, its lines). (The footer's own buttons, Feedback and
+    // its form keep their keys too: app.component.spec.ts, where the app draws them.)
+    const news = await drawnNews();
     document.body.appendChild(host);
 
-    for (const control of [...controls, ...foot.controls]) {
+    for (const control of [...controls, ...news.controls]) {
       for (const key of ['Enter', ' ', 'f', 'F', 'ArrowRight']) {
         control.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
       }
@@ -529,7 +530,7 @@ describe('SessionComponent', () => {
     await fixture.whenStable();
     expect(q('.session').classList.contains('is-correct'), 'checked').toBe(true);
 
-    foot.remove();
+    news.remove();
     bar.destroy();
     (bar.nativeElement as HTMLElement).remove();
   });

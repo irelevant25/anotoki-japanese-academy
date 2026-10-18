@@ -1,32 +1,14 @@
-// The bar's looks are its own (top-bar/); the page's pieces are global
-// (styles/_base.scss). The foot stays at the bottom of a short page: the
-// version, What's new and Send feedback in one line, which wraps on a narrow
-// screen, and the family's Terms · Privacy · Contact under it.
+// The bar's looks are its own (top-bar/), the footer's the family's (@anotoki/lib/footer: its border, its row, its
+// links); the page's pieces are global (styles/_base.scss). The gate adds no box of its own (display: contents), so
+// the bar, the page and the footer - or, while the site is not ready, the library's page in its <main> - stand in
+// this column, and the footer stays at the bottom of a short page. A printed page has no footer (the footer's own
+// rule), as it has no bar.
 :host {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-.foot {
+anotoki-site-footer {
   margin-top: auto;
-  padding: 0 16px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.foot-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0 8px;
-}
-
-@media print {
-  .foot {
-    display: none;
-  }
 }

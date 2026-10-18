@@ -7,13 +7,14 @@
  * reader is an ADMIN, so the admin panel's pages are shot too - the anotoki
  * library's People, Feedback, Errors, Audit log and Backups among them, with a
  * message of the reader's own to read and a page's error on the Errors page;
- * feedback-form is Send feedback's form
+ * feedback-form is the form of the footer's Feedback
  * (the library's) in its dialog; sign-in-failed is the anotoki library's screen
  * of a refused sign-in; home-visitor is the home page of somebody
  * studying without signing in (the stand-in IAM saying sign-in is not
  * required here), with its notice; update-waiting is what a learner reads
- * while a database update waits (the anotoki library's page), and
- * update-waiting-admin what the site's ADMIN reads then; exam-finish-question
+ * while a database update waits (the anotoki library's page, alone: no bar,
+ * no footer), and update-waiting-admin what the site's ADMIN reads then;
+ * every other screen has the family's footer at its foot; exam-finish-question
  * is the kit's question (where the browser's confirm() stood) and
  * exam-score-failed the app's notice (where its alert() stood); legal-* are
  * Terms, Privacy and Contact - signed out, and Privacy signed in -, shot in
@@ -136,7 +137,7 @@ const SCREENS = [
     await page.waitForSelector(NOTICE);
   }, { after: (page) => page.unroute('**/api/submit') }],
   ['changelog', '/', async (page) => {
-    await page.click('#whatsNew');
+    await page.click('anotoki-site-footer [data-whats-new]');
     await page.waitForSelector('app-changelog-dialog dialog[open]');
   }],
   ['your-data-question', '/', async (page, app) => {
@@ -152,11 +153,11 @@ const SCREENS = [
     await page.click(phone ? BAR.menuButton : BAR.userButton);
     await page.waitForSelector(BAR.menu);
   }],
-  // Send feedback, from the foot: the anotoki library's form in the kit's dialog
+  // Feedback, from the family's footer: the anotoki library's form in the kit's dialog
   ['feedback-form', '/', async (page) => {
     await page.waitForSelector('.homecards');
-    await page.click('#sendFeedback');
-    await page.waitForSelector('anotoki-feedback-form form');
+    await page.click('anotoki-site-footer [data-open-feedback]');
+    await page.waitForSelector('[data-feedback-dialog] anotoki-feedback-form form');
   }],
   // a refused sign-in: the anotoki library's screen, in the app's frame
   ['sign-in-failed', '/', async (page) => page.waitForSelector('#signInFailure [data-retry]'), { signedOut: true }],
@@ -248,9 +249,9 @@ function slovakProblems(page, bundle) {
 /**
  * What the reviews found by eye, measured on every screen where it is: every
  * Delete their data of the People page (the library's) in view, at 390 px
- * too; the What's new dot beside its words, not floating above them on a
- * touch screen, and clear of the '·' before Send feedback after it; the Your
- * data question's focus on Keep mine with the accent's
+ * too; the library's status page alone - no bar, no footer around it - and
+ * on every other screen the family's footer with its top border, nothing of
+ * it off the screen; the Your data question's focus on Keep mine with the accent's
  * ring, never on the dialog; in dark, the anotoki mark with its light halo;
  * every segmented choice of the kit's (it never wraps) whole inside its card
  * or the page's frame, on a phone in Slovak too.
@@ -266,27 +267,22 @@ function looks(page, dark) {
         if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`"${button.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
       }
     }
-    const dot = document.querySelector('#whatsNew .dot');
-    if (dot) {
-      const button = document.querySelector('#whatsNew');
-      const range = document.createRange();
-      const text = [...button.querySelectorAll('*'), button].flatMap((el) => [...el.childNodes]).find((n) => n.nodeType === 3 && n.textContent.trim());
-      if (text) {
-        range.selectNodeContents(text);
-        const words = range.getBoundingClientRect();
-        const d = dot.getBoundingClientRect();
-        const middle = (d.top + d.bottom) / 2;
-        if (middle < words.top - 2 || middle > words.bottom || d.left < words.right - 2 || d.left > words.right + 12) {
-          out.push(`the What's new dot is not beside its words (dot ${Math.round(d.left)},${Math.round(middle)}; words ${Math.round(words.left)}..${Math.round(words.right)}, ${Math.round(words.top)}..${Math.round(words.bottom)})`);
-        }
+    // The status page is a page of its own (the owner's rule of 2026-10-18): nothing of the app's frame around it.
+    if (document.querySelector('anotoki-site-status')) {
+      for (const part of document.querySelectorAll('app-top-bar, anotoki-site-footer, header, nav, footer')) {
+        out.push(`the status page has <${part.tagName.toLowerCase()}> around it`);
       }
-      // What follows it in the foot's line - the '·' before Send feedback - keeps clear of it (on the same line).
-      const sep = document.querySelector('app-feedback-button .sep');
-      if (sep) {
-        const d = dot.getBoundingClientRect();
-        const s = sep.getBoundingClientRect();
-        if (s.width && Math.abs((s.top + s.bottom) / 2 - (d.top + d.bottom) / 2) < 16 && s.left < d.right + 4) {
-          out.push(`the What's new dot touches the '·' before Send feedback (the dot ends at ${Math.round(d.right)}, the '·' starts at ${Math.round(s.left)})`);
+    } else {
+      // Every other screen: the family's footer, its top border drawn, each of its parts on the screen.
+      const footer = document.querySelector('anotoki-site-footer footer');
+      if (!footer) {
+        out.push('no footer under the page');
+      } else {
+        if (getComputedStyle(footer).borderTopStyle !== 'solid') out.push(`the footer has no top border (${getComputedStyle(footer).borderTopStyle})`);
+        const right = document.documentElement.clientWidth;
+        for (const part of footer.querySelectorAll('.anotoki-site-footer__row > *, anotoki-legal-links a')) {
+          const r = part.getBoundingClientRect();
+          if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`the footer's "${part.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
         }
       }
     }

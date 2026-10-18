@@ -4,7 +4,6 @@ import { ANOTOKI_LEGAL_CONFIG, AnotokiLegalConfig, LegalFacts } from '@anotoki/l
 import { TranslationService } from '@anotoki/lib/translations';
 import { AuthService } from '../core/auth/auth.service';
 import { VISITOR_MOVED_KEY, VISITOR_STORAGE_KEY } from '../core/auth/visitor-key';
-import { CHANGELOG_SEEN_KEY } from '../core/changelog/changelog.service';
 import { BRAND } from '../core/i18n/title.strategy';
 import { ADMIN_DRAFTS_KEY, LANGUAGE_CACHE_KEY, LANGUAGE_KEY } from '../core/i18n/translations.config';
 import { THEME_KEY } from '../core/kit.config';
@@ -105,9 +104,11 @@ export function academyLegalPagesConfig(): AnotokiLegalConfig {
  *   read), the theme (THEME_KEY), the language and its cached strings
  *   (LANGUAGE_KEY, LANGUAGE_CACHE_KEY; a `?lang=` held for the tab under
  *   LANGUAGE_KEY in sessionStorage), the visitor's key (VISITOR_STORAGE_KEY)
- *   and the last one moved (VISITOR_MOVED_KEY), What's new read
- *   (CHANGELOG_SEEN_KEY), an exam paper kept while the site is being updated
- *   (KEPT_PAPER_KEY), the admin pages' unsaved words (ADMIN_DRAFTS_KEY);
+ *   and the last one moved (VISITOR_MOVED_KEY), an exam paper kept while the
+ *   site is being updated (KEPT_PAPER_KEY), the admin pages' unsaved words
+ *   (ADMIN_DRAFTS_KEY) - and no more What's new read: the family's footer
+ *   (anotoki-lib 0.6.3) marks no news unread, so nothing of it is kept (the
+ *   item and its words went with migration 012);
  * - counting visits: the family's Umami (src/index.html: umami.anotoki.eu, the
  *   query and the fragment left out) - the library's words;
  * - who else handles data: the hosting company (WebSupport s.r.o., named by
@@ -158,7 +159,6 @@ export function academyLegalFacts(i18n: TranslationService, auth: AnotokiAuth, v
       { name: LANGUAGE_KEY, kind: 'session', purpose: i18n.t('legal.storage.tabLanguage.purpose'), kept: i18n.t('legal.storage.untilTabClosed') },
       { preset: 'visitorKey', name: VISITOR_STORAGE_KEY, kept: i18n.t('legal.storage.visitorKey.kept') },
       { name: VISITOR_MOVED_KEY, kind: 'local', purpose: i18n.t('legal.storage.visitorMoved.purpose'), kept: i18n.t('legal.storage.visitorMoved.kept') },
-      { name: CHANGELOG_SEEN_KEY, kind: 'local', purpose: i18n.t('legal.storage.whatsNew.purpose'), kept: i18n.t('legal.storage.whatsNew.kept') },
       { name: KEPT_PAPER_KEY, kind: 'session', purpose: i18n.t('legal.storage.examPaper.purpose'), kept: i18n.t('legal.storage.examPaper.kept') },
       { name: ADMIN_DRAFTS_KEY, kind: 'session', purpose: i18n.t('legal.storage.wordDrafts.purpose'), kept: i18n.t('legal.storage.untilTabClosed') },
     ],

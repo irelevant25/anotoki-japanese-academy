@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { AnotokiLegalConfig, DEFAULT_LEGAL_PATHS } from '@anotoki/lib/legal';
 import { TranslationService } from '@anotoki/lib/translations';
 
-/** The legal pages' addresses: the library's own paths (app.routes.ts puts each page there, the foot's links go there). */
+/** The legal pages' addresses: the library's own paths (app.routes.ts puts each page there, the footer's links go there). */
 export const LEGAL_PAGE_PATHS: readonly string[] = [DEFAULT_LEGAL_PATHS.terms, DEFAULT_LEGAL_PATHS.privacy, DEFAULT_LEGAL_PATHS.contact];
 
 /** Whether an address (its path, without a query or fragment) is one of the legal pages - anybody's, signed in or not. */
@@ -13,8 +13,8 @@ export function isLegalPage(path: string): boolean {
 /**
  * How Japanese Academy plugs into the anotoki family's legal pages
  * (@anotoki/lib/legal, anotoki-lib 0.6: Terms, Privacy and Contact on the
- * lazy routes /terms, /privacy and /contact - app.routes.ts - and the foot's
- * links to them, app.component.html). provideAnotokiLegal() runs it in an
+ * lazy routes /terms, /privacy and /contact - app.routes.ts - and the links
+ * to them in the family's footer, app.component.html). provideAnotokiLegal() runs it in an
  * injection context.
  *
  * - The language: the one on the page (English in the admin panel, as the
@@ -30,7 +30,7 @@ export function isLegalPage(path: string): boolean {
  *   browser storage, who else handles data, the anotoki account's pages - are
  *   read by the pages alone, and their frame gives them (legal/legal-facts.ts,
  *   legal/legal-frame.component.ts): none of it is in the first load, which
- *   the foot's links share with every page.
+ *   the footer's links share with every page.
  */
 export function academyLegalConfig(): AnotokiLegalConfig {
   const i18n = inject(TranslationService);

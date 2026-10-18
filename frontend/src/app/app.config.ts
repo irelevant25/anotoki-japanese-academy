@@ -65,11 +65,11 @@ export const appConfig: ApplicationConfig = {
     provideKit(),
     // The admin panel's People, Errors, Audit log, Feedback and Backups pages
     // (the anotoki library's, each loaded with its route; core/admin.config.ts),
-    // and the visitors' feedback form behind Send feedback at the foot
-    // (core/feedback.config.ts).
+    // and the visitors' feedback form behind the family's footer's Feedback
+    // (core/feedback.config.ts; the footer opens it itself, app.component.html).
     provideAdminTools(),
     provideFeedback(),
-    // The anotoki family's legal pages - Terms, Privacy, Contact, on lazy routes open to anybody - and the foot's
+    // The anotoki family's legal pages - Terms, Privacy, Contact, on lazy routes open to anybody - and the footer's
     // links to them: the library's words around Japanese Academy's facts, every address the pages link to in the
     // code (core/legal.config.ts; the facts, which only the pages read, come with their frame: legal/legal-facts.ts).
     provideAnotokiLegal(academyLegalConfig),

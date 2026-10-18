@@ -2,8 +2,9 @@ import { TranslationParams, TranslationService, fillPlaceholders } from '@anotok
 
 /**
  * A string for what is drawn outside the router's screens — the three stand-in
- * pages, the top bar, the foot (the version and "What's new") and the frame
- * of the "What's new" dialog — and so may be drawn while the app has no strings at all: they live
+ * pages, the top bar and the frame of the "What's new" dialog (the family's
+ * footer under them has the library's words, never a key) — and so may be
+ * drawn while the app has no strings at all: they live
  * in the database, which a copy that is not set up, or a server that does not
  * answer, cannot give. The string of the language on the page when there is
  * one (from the server, or kept by the browser from an earlier visit); the

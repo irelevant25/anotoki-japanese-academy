@@ -7,8 +7,10 @@
 // visitor's data and nothing else; a token always wins over a key; the caps;
 // the move at sign-in and its rules; the sweep after the answer; no visitor in
 // a backup or on the People page; with the origin secret (cloudflare.local.php),
-// CF-Connecting-IP believed only on a request that carries it. Visitor ids are
-// never assumed: they are found by the hash of their key.
+// CF-Connecting-IP believed only on a request that carries it - and a file there
+// that cannot be read cleanly, or names no usable secret, failing closed (only
+// deleting it switches the secret off). Visitor ids are never assumed: they are
+// found by the hash of their key.
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
@@ -738,12 +740,14 @@ test('in this process, the origin secret: from a Cloudflare address, CF-Connecti
         assert_same([visitors_address_hash(from_address($edge))], array_values($hashes), 'twenty made-up visitors from one edge: one hash, the edge\'s');
 
         // Only a string with something in it is a secret; spaces around it are no part of it (a header's value never has them).
+        // (Settings set in code - a test tool's overrides, never a file: a file that names no such string fails closed,
+        // the test below.)
         config_overrides(['cloudflare' => ['origin_secret' => " \t" . ORIGIN_SECRET . "\n"]]);
         assert_same(ORIGIN_SECRET, config_origin_secret());
         foreach (['an empty value' => '', 'only spaces' => '   ', 'a number' => 123456789012345678, 'a list' => ['a', 'b'], 'nothing' => null] as $case => $value) {
             config_overrides(['cloudflare' => ['origin_secret' => $value]]);
             assert_same(null, config_origin_secret(), "$case: no secret");
-            assert_same('198.51.100.7', client_address(from_address($edge, $visitor)), "$case: CF-Connecting-IP from the trusted proxies alone, as before");
+            assert_same('198.51.100.7', client_address(from_address($edge, $visitor)), "$case: CF-Connecting-IP from the trusted proxies alone, as with no file");
         }
     } finally {
         config_overrides([]);
@@ -757,22 +761,30 @@ function forget_said(): void
     array_map('unlink', glob(storage_dir() . '/cache/said-*.logged') ?: []);
 }
 
-test('in this process, cloudflare.local.php read cleanly but naming no secret - an empty value, a number, another key, no list, nothing returned - is none, as the IAM reads it: said in PHP\'s log by the file\'s name alone, never "not set up", never the value', function (): void {
+test('the attack it stops, in this process: a cloudflare.local.php read cleanly that names no usable secret - blank, only spaces, no list, nothing returned, a misspelt or another key, the key in capitals, a number, a list, null, true - fails closed, a secret no request carries: a Worker\'s made-up CF-Connecting-IP from Cloudflare\'s ranges is the edge, with the file\'s own value or an empty X-Anotoki-Origin too; a folder in its place the same; only deleting the file switches the secret off; said by the file\'s name, never "not set up", never the value', function (): void {
     $file = $GLOBALS['TEST_CONFIG']['dir'] . '/cloudflare.local.php';
+    $edge = '173.245.48.1';
     $log = (string) tempnam(sys_get_temp_dir(), 'academy-cloudflare-');
     $logBefore = ini_set('error_log', $log);
     try {
         file_put_contents($file, "<?php\nreturn " . var_export(['origin_secret' => ORIGIN_SECRET], true) . ";\n");
         config_all(true);
         assert_same(ORIGIN_SECRET, config_origin_secret(), 'the file\'s secret');
-        assert_same('173.245.48.1', client_address(from_address('173.245.48.1', ['CF-Connecting-IP' => '198.51.100.7'])), 'and with it, no X-Anotoki-Origin: the edge');
+        assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), 'and with it, no X-Anotoki-Origin: the edge');
+        // Read cleanly, and still no secret a request could be held to (2026-10-18): each the owner's slip in a file put
+        // there for a secret - never a way to switch the secret off, which "no secret" would be.
         foreach ([
             'an empty value' => "<?php return ['origin_secret' => ''];\n",
             'only spaces' => "<?php return ['origin_secret' => '   '];\n",
-            'a number' => "<?php return ['origin_secret' => 123456789012345678];\n",
+            'no list: the value alone' => "<?php return '" . ORIGIN_SECRET . "';\n",
+            'no list: nothing returned (PHP reads 1)' => "<?php ['origin_secret' => '" . ORIGIN_SECRET . "'];\n",
+            'a misspelt key' => "<?php return ['origin_secrets' => '" . ORIGIN_SECRET . "'];\n",
             'another key' => "<?php return ['secret' => '" . ORIGIN_SECRET . "'];\n",
-            'no list returned' => "<?php return '" . ORIGIN_SECRET . "';\n",
-            'nothing returned' => "<?php ['origin_secret' => '" . ORIGIN_SECRET . "'];\n",
+            'the key in capitals' => "<?php return ['ORIGIN_SECRET' => '" . ORIGIN_SECRET . "'];\n",
+            'a number' => "<?php return ['origin_secret' => 123456789012345678];\n",
+            'a list' => "<?php return ['origin_secret' => ['" . ORIGIN_SECRET . "']];\n",
+            'null' => "<?php return ['origin_secret' => null];\n",
+            'true' => "<?php return ['origin_secret' => true];\n",
         ] as $case => $contents) {
             file_put_contents($log, '');
             file_put_contents($file, $contents);
@@ -780,20 +792,64 @@ test('in this process, cloudflare.local.php read cleanly but naming no secret - 
             ob_start();
             try {
                 config_all(true);
-                assert_same(null, config_origin_secret(), "$case: no secret");
-                assert_same(null, config_problem(), "$case: the copy is set up all the same");
-                assert_same('198.51.100.7', client_address(from_address('173.245.48.1', ['CF-Connecting-IP' => '198.51.100.7'])), "$case: CF-Connecting-IP from the trusted proxies alone, as before the file");
+                $secret = config_origin_secret();
+                assert_true(is_string($secret) && preg_match('/^[0-9a-f]{64}$/D', $secret) === 1 && $secret !== ORIGIN_SECRET, "$case: a secret no request carries, never the file's");
+                config_all(true);
+                assert_same($secret, config_origin_secret(), "$case: the same one all through the process");
+                assert_same(null, config_problem(), "$case: the file is optional - the copy is set up all the same");
+                // The attack: anybody's Worker connects from Cloudflare's ranges and writes the CF-Connecting-IP it likes.
+                foreach ([
+                    'without X-Anotoki-Origin' => [],
+                    'with the file\'s own value' => ['X-Anotoki-Origin' => ORIGIN_SECRET],
+                    'with an empty X-Anotoki-Origin' => ['X-Anotoki-Origin' => ''],
+                ] as $how => $origin) {
+                    assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'] + $origin)), "$case, $how: the edge, never the address it claims");
+                }
+                assert_same('2400:cb00::1', client_address(from_address('2400:cb00::1', ['CF-Connecting-IP' => '2001:db8:1:2::5'])), "$case: an IPv6 edge the same");
+                assert_same('192.0.2.1', client_address(from_address('192.0.2.1', ['CF-Connecting-IP' => '198.51.100.7'])), "$case: from anywhere else, the connection, as ever");
+                $hashes = array_unique(array_map(static function (int $i) use ($edge): string {
+                    return visitors_address_hash(from_address($edge, ['CF-Connecting-IP' => "198.51.100.$i", 'X-Anotoki-Origin' => '']));
+                }, range(1, 10)));
+                assert_same([visitors_address_hash(from_address($edge))], array_values($hashes), "$case: ten made-up visitors from one edge are one sender to the visitors' limit");
             } finally {
                 $printed = (string) ob_get_clean();
             }
             assert_same('', $printed, "$case: nothing of the file printed");
             $text = (string) file_get_contents($log);
-            assert_true(str_contains($text, '[config] backend/config/cloudflare.local.php holds no origin_secret'), "$case: said - $text");
+            assert_true(str_contains($text, '[config] backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from'),
+                "$case: said by the file's name, and that it fails closed - $text");
             assert_false(str_contains($text, ORIGIN_SECRET), "$case: the log never holds the value");
         }
+
+        // Anything in the file's place counts as the file: a folder fails closed too (PHP may not open it, or reads nothing).
+        unlink($file);
+        mkdir($file);
+        file_put_contents($log, '');
+        forget_said();
+        config_all(true);
+        $secret = config_origin_secret();
+        assert_true(is_string($secret) && preg_match('/^[0-9a-f]{64}$/D', $secret) === 1, 'a folder in its place: a secret no request carries');
+        assert_same($edge, client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), 'a folder in its place: the edge');
+        assert_same(null, config_problem(), 'a folder in its place: the copy is set up all the same');
+        $text = (string) file_get_contents($log);
+        assert_true(str_contains($text, '[config] backend/config/cloudflare.local.php cannot be read (a folder stands in its place): no request carries its secret'), "a folder in its place: said - $text");
+        rmdir($file);
+
+        // Switched off the one way there is: the file deleted - CF-Connecting-IP from Cloudflare's ranges alone, as before
+        // the secret, and nothing said of it.
+        file_put_contents($log, '');
+        forget_said();
+        config_all(true);
+        assert_same(null, config_origin_secret(), 'no file: no secret');
+        assert_same('198.51.100.7', client_address(from_address($edge, ['CF-Connecting-IP' => '198.51.100.7'])), 'no file: the visitor Cloudflare names');
+        assert_false(str_contains((string) file_get_contents($log), 'cloudflare'), 'no file: nothing said of it');
     } finally {
+        if (is_dir($file)) {
+            @rmdir($file);
+        }
         @unlink($file);
         config_all(true);
+        forget_said();
         ini_set('error_log', (string) $logBefore);
         @unlink($log);
     }
@@ -911,6 +967,35 @@ test('a cloudflare.local.php that cannot be read cleanly fails closed through th
     assert_same(1, substr_count($log, 'backend/config/cloudflare.local.php does not start with <?php'), 'said once in the server\'s log, for all those requests');
     assert_false(str_contains($log, 'strict_types'), 'never compiled: no fatal error');
     assert_false(str_contains($log, $secret), 'never the secret');
+});
+
+test('a cloudflare.local.php read cleanly that names no secret fails closed through the server too: with its origin_secret left blank, made-up CF-Connecting-IP addresses from Cloudflare\'s ranges are one sender - the proxy - for the visitors\' limit and the pages\' reports, never each the visitor it claims; the site keeps answering', function (): void {
+    db_exec("UPDATE users SET created_at = now() - interval '2 hours' WHERE id < 0"); // what earlier tests made counts no more this hour
+    // This computer standing in for Cloudflare's edge, as above - and the owner's file with its value left blank, which
+    // until 2026-10-18 meant "no secret": every Worker's CF-Connecting-IP believed.
+    $app = start_app([
+        'app' => ['client_address' => ['trusted_proxies' => ['127.0.0.1', '::1']], 'visitors' => ['new_per_hour_per_address' => 2, 'new_per_hour' => 100, 'max' => 100]],
+        'cloudflare' => ['origin_secret' => ''],
+    ]);
+    $base = $app['base'];
+    $claiming = static fn (string $address): array => ["CF-Connecting-IP: $address"];
+    $first = call($base, 'POST', '/api/kanji/learn', ['id' => 'k:大'], nobody($claiming('198.51.100.61')));
+    assert_same(200, $first['status'], $first['raw']);
+    new_visitor($base, 'k:大', $claiming('198.51.100.62'));
+    $r = call($base, 'POST', '/api/kanji/learn', ['id' => 'k:大'], nobody($claiming('198.51.100.63')));
+    assert_same([429, 'too_many_visitors'], [$r['status'], $r['body']['code'] ?? null], 'the third, from an address never seen: the proxy\'s limit is spent - none of the addresses was believed');
+
+    for ($i = 1; $i <= 20; $i++) {
+        $report = call($base, 'POST', '/api/client-errors', ['message' => "a page's error, $i"], nobody($claiming("203.0.113.$i")));
+        assert_same(204, $report['status'], "report $i: {$report['raw']}");
+    }
+    $over = call($base, 'POST', '/api/client-errors', ['message' => 'one more'], nobody($claiming('203.0.113.21')));
+    assert_same([429, 'too_many'], [$over['status'], $over['body']['code'] ?? null], 'the 21st: one budget, the proxy\'s');
+
+    $status = call($base, 'GET', '/api/site-status', null, no_token());
+    assert_same([200, 'ready'], [$status['status'], $status['body']['state'] ?? null], 'the site keeps running: the file is optional');
+    $log = (string) file_get_contents($app['log']);
+    assert_same(1, substr_count($log, 'backend/config/cloudflare.local.php holds no origin_secret'), 'said once in the server\'s log, for all those requests: ' . $log);
 });
 
 test('a refused range in app.local.php is said in PHP\'s log once a day, not on every request that reads it', function (): void {

@@ -16,8 +16,10 @@ import { keptWord } from '../standin/kept-word';
 
 /**
  * The bar's own words in English, for a bar drawn with no strings (keptWord()):
- * it is drawn in every state — a copy not set up, a server that does not
- * answer — so it never shows a key. The same text as the seeded English
+ * it is drawn on every screen of the app — the problem page of a server that
+ * does not answer as it should too — so it never shows a key. (While the site
+ * is not ready - not set up, its database out of reach, an update waiting -
+ * the library's page stands alone, and no bar is drawn: AppComponent.) The same text as the seeded English
  * (backend/tests/unit/translations.test.php holds the two together). The kit's
  * words of the bar (its sections' name, Sign in and out, the theme, the
  * language, and the person's role and the link to their anotoki account,
@@ -154,10 +156,11 @@ export const ADMIN_NAME_BAR_MIN = 1530;
  * a paper in, and Space play a word.
  *
  * While the site is not ready (the anotoki library's SiteStatus: being
- * updated, not set up, out of reach) its page stands in for the app's under
- * the bar, and the bar offers no section and no way into the admin panel -
- * each would lead to that same page. The site's ADMIN on the Migrations page,
- * the one page that works while an update waits, has that link alone.
+ * updated, not set up, out of reach) its page stands alone - the bar is part
+ * of the gate's pages (app.component.html), and is not drawn then (the owner's
+ * rule of 2026-10-18). The site's ADMIN on the Migrations page, the one page
+ * that works while an update waits, has the bar with that link alone, and no
+ * way into the rest of the admin panel - each would lead to the library's page.
  *
  * Sign out goes through SignOutService: it waits for the answers and notes
  * still on their way, and asks first when something would be lost; a

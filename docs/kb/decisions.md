@@ -2223,7 +2223,8 @@ survey and Piano Academy).
   so every request from Cloudflare's ranges counts as its edge until it is
   mended - this supersedes 2026-10-13's "passed over", which believed
   `CF-Connecting-IP` from the ranges alone, the looser way; one read cleanly
-  that names no secret is none, as without the file. The attack held by a
+  that names no secret is none, as without the file (since the 0.6.3 entry
+  below, it fails closed too). The attack held by a
   test: a `database.local.php` with a byte-order mark, a password and no
   `<?php` line - no answer carries the password, the status page included;
   with a plain `require` back, the status answer begins with the whole file.
@@ -2287,3 +2288,70 @@ were written on).
   characters too, and the key's description says it may name them.
 - **Tests**: PHP 271 (269), Angular 452 (451); the browser suite and the
   setup page's suite again.
+
+**2026-10-18 — anotoki-lib 0.6.3 (both halves): the family's footer, the
+status page alone, and a `cloudflare.local.php` that names no usable secret
+failing closed** (round 3c, the owner's words after the deploy; the app's
+0.5.1).
+
+- **The family's footer** (the owner: "I like the footer of builder the
+  most. The order, texts and the top border."): `<anotoki-site-footer>`
+  (`@anotoki/lib/footer`) in place of the app's own foot, under every page
+  and in the admin panel - one place, `app.component.html`: a line across
+  the top; "Version 0.5.1 · What's new · Feedback" - the version the
+  changelog's newest entry (its one source; `package.json`'s held to it),
+  What's new the app's own dialog (opened on `(whatsNew)`), both only once
+  the changelog has come; Feedback the library's form, which the footer opens
+  itself (its code with the first press), offered when Send feedback was -
+  while the app itself is shown, and not while an update waits, the
+  `ADMIN`'s Migrations page included (the message would be refused) -; then
+  Terms · Privacy · Contact. "Send feedback" is "Feedback" now (the build
+  analyzer's word, the library's `anotoki.footer.feedback`), "v0.5.0"
+  "Version 0.5.1". The app's `app-version` and `feedback-button` components
+  and their specs went; no key pressed in the footer, the news or the form
+  reaches `document` (`(keydown)` on the footer, the dialog's own host
+  listener; `app.component.spec.ts`, and the exam's and the review's specs
+  for the news). The first load did not grow: 537.49 kB raw, 156.50 kB
+  transfer (537.55 and 156.66 before).
+- **What's new's dot went with it**: the family's footer marks no news
+  unread (the build analyzer's has no dot), and the app keeps nothing of a
+  piece of the library it may not reach into - so the dot, its tooltip
+  (`whatsNew.unseen`), the browser's `academy-changelog-seen` and the
+  Privacy page's item for it (`legal.storage.whatsNew.*`) went: the page
+  names only what the app keeps. Migration 012 deletes the three keys and
+  describes `whatsNew.title` as the dialog's heading alone - written as a
+  **draft** (the rule above: the owner says when a migration is final):
+  while it is one, the library's files wait with it on every database but
+  the tests' (its `anotoki_translations/012`, the footer's words, among
+  them: the footer says the library's built-in words meanwhile, the same),
+  and `build-dist.php` refuses to build the upload. A browser that kept the
+  item keeps a version string nothing reads; no transition for it - the
+  sites are not public yet (the owner's word of 2026-10-11).
+- **The status page alone** (the owner: "I prefer nor header nor footer to
+  be there because they can be under the update as well."): the gate is the
+  outermost of what the app draws, and the bar and the footer are inside its
+  marked template with the page - while an update waits, the database is out
+  of reach or the site is not set up, the library's page stands alone, in the
+  gate's own `<main>` (anotoki-lib 0.6.3). The `ADMIN` on the Migrations page
+  while an update waits has the frame (the bar with its one link, the footer
+  without Feedback). The kit's question and the app's notice stay outside
+  the gate, for both. The bar keeps its English for a page with no strings:
+  the problem page of a start that went wrong still has the bar.
+- **A present `cloudflare.local.php` without a usable secret fails closed**
+  (the owner's "do as you think is the best" of 2026-10-18, for every anotoki
+  site; this changes the entry of the 0.6.2 pass above): one read cleanly
+  that names no secret - blank or only spaces, no list (the value alone, or
+  nothing returned), a misspelt or another key, a value that is not a string
+  - is a secret no request carries now, as one that cannot be read cleanly
+  is, never "no secret": each is a slip in a file put there for a secret, and
+  "no secret" believes `CF-Connecting-IP` from every Cloudflare customer's
+  Worker. Anything in the file's place counts, a folder too
+  (`config_require_cleanly()`: "a folder stands in its place"); deleting the
+  file is the one way to switch the secret off. Said in PHP's error log once
+  a day by the file's name, never its value. `api/visitors.test.php` runs the
+  attack on every case - a Worker's made-up address from Cloudflare's ranges,
+  with the file's own value or an empty `X-Anotoki-Origin`: the edge - in
+  this process and, with a blank value, through the server (the visitors'
+  limit and the pages' reports count the proxy), and the file deleted.
+- **Tests**: PHP 273 (271), Angular 454 in 43 files (452 in 44), the browser
+  suite 217 checks (215).

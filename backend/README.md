@@ -6,7 +6,7 @@ PostgreSQL, signing people in through the anotoki IAM (client
 address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
-library (`anotoki/lib` 0.6.2, as the frontend's `@anotoki/lib`: the migrations' engine, the site's state and
+library (`anotoki/lib` 0.6.3, as the frontend's `@anotoki/lib`: the migrations' engine, the site's state and
 the gate in front of every route, the app's words - their address, the admin
 panel's, the command line's work -, the sign-in's checks, the people and
 the admin tools, where a request comes from; `../DEV.md`, *The anotoki library*).
@@ -63,8 +63,9 @@ config/              config.php (and the committed default of the trusted proxie
                      one that does not start with <?php is passed over uncompiled, what one prints is
                      caught and never sent, and the file passed over - a required one leaves the copy
                      not set up, app.local.php its defaults (its trusted proxies then nobody),
-                     cloudflare.local.php a secret no request carries - said once a day in PHP's error
-                     log, by its fault alone); this copy's settings in *.local.php (gitignored, written by
+                     cloudflare.local.php a secret no request carries - as it is when one read cleanly
+                     names no usable secret: only deleting it switches the secret off - said once a day
+                     in PHP's error log, by its fault alone); this copy's settings in *.local.php (gitignored, written by
                      setup.php but for app.local.php and cloudflare.local.php, the owner's by FTP)
 migrations/          the schema and the app's words, NNN_name.sql (a committed one is never edited; one
                      still being written is a draft without its "-- end of NNN" line, which only the

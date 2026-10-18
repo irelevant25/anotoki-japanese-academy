@@ -321,6 +321,26 @@ perhaps), and the backup folder is the site's user's alone - closed (0700)
 at the next copy whoever made it, every copy already in it, this app's and
 the library's, made 0600 then; each new JSON copy written 0600.
 
+**The update that brings anotoki-lib 0.6.3** (both halves; 2026-10-18; the
+app's 0.5.1) brings the library's `anotoki_translations/012_…` (the family's
+footer's four words) and this app's migration **012**
+(`012_family_footer.sql`: the three words only the app's own foot read go,
+and the What's new dialog's heading is described anew). 012 is a **draft**
+until the owner's word: `build-dist.php` refuses to build the upload while
+it is one, so its last line is written first. Both go up in one Apply on
+the Migrations page after the upload - `backend/vendor/` first, as ever.
+Until it is applied the footer says the library's built-in words (the same
+English and Slovak), and nothing shows as a key. With it: the foot of every
+page, the admin panel's too, is the family's footer ("Version 0.5.1 · What's
+new · Feedback", Terms · Privacy · Contact, a line above); the status page -
+an update waiting, so right after the upload, the database out of reach,
+not set up - stands alone, with no bar and no footer; and a
+`cloudflare.local.php` that names no usable secret (a blank value, a
+misspelt key, a value that is not a string) fails closed like one that
+cannot be read cleanly (*The origin secret*, below): if the site's file
+does not name its secret, PHP's error log says so once a day ("holds no
+origin_secret").
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`
@@ -486,23 +506,27 @@ characters or more:
 
 Set the rule first - a site without the file pays the header no heed - then
 the file: the other way round, every visitor counts as their edge until the
-rule is there; changing the secret, likewise. Without the file, or with one
-read cleanly whose value is not a string with something in it, the site
-believes `CF-Connecting-IP` from the trusted proxies alone, as before. **A
-file there that cannot be read cleanly fails closed** (since 2026-10-18, the
-IAM's rule case for case): one that does not start with `<?php` - a
-byte-order mark or a blank line before it, or no such line: never compiled,
-for with `declare(strict_types=1)` after such a start PHP could not even
-compile it, a fatal error no handler catches -, one that prints anything as
-PHP reads it (text after a closing tag), or one that PHP cannot open, parse
-or run stands for a secret no
-request carries, so every request from Cloudflare's ranges counts as the
-edge it came from until it is mended; the site keeps running, and it is
-never a reason for "not set up". PHP's error log says so at most once a day
-(`[config] backend/config/cloudflare.local.php does not start with <?php
-(…): no request carries its secret …`, `prints N bytes of its own (…)` or
-`cannot be read (…)`: its fault, its byte count or its error's kind and
-line, never its contents). The
+rule is there; changing the secret, likewise. Without the file the site
+believes `CF-Connecting-IP` from the trusted proxies alone, as before:
+deleting the file is the one way to switch the secret off. **A file there
+that yields no usable secret fails closed** (since 2026-10-18): one that
+cannot be read cleanly - one that does not start with `<?php` (a byte-order
+mark or a blank line before it, or no such line: never compiled, for with
+`declare(strict_types=1)` after such a start PHP could not even compile it,
+a fatal error no handler catches), one that prints anything as PHP reads it
+(text after a closing tag), one that PHP cannot open, parse or run, a folder
+in its place - and one read cleanly that names no secret - a blank value or
+only spaces, no list (the value alone, or nothing returned), a misspelt or
+another key, a value that is not a string (since the owner's "do as you
+think is the best" of 2026-10-18: each is a slip in a file put there for a
+secret, and "no secret" would believe every Cloudflare customer's Worker)
+- stands for a secret no request carries, so every request from
+Cloudflare's ranges counts as the edge it came from until it is mended; the
+site keeps running, and it is never a reason for "not set up". PHP's error
+log says so at most once a day (`[config] backend/config/cloudflare.local.php
+does not start with <?php (…): no request carries its secret …`, `prints N
+bytes of its own (…)`, `cannot be read (…)` or `holds no origin_secret (…)`:
+its fault, its byte count or its error's kind and line, never its contents). The
 secret is never shown or logged; keep a copy off the server, with the other
 settings.
 
@@ -615,8 +639,8 @@ tools, the same on every anotoki site and the site's `ADMIN`'s alone
   on beside it.
 - **The audit log** (the table `anotoki_audit_log`): who did what in the
   admin panel; read on **Audit log**; kept.
-- **Feedback** (the table `anotoki_feedback`): the messages sent with **Send
-  feedback** at the foot of every page; read on **Feedback**. No mail is
+- **Feedback** (the table `anotoki_feedback`): the messages sent with
+  **Feedback** in the footer of every page; read on **Feedback**. No mail is
   sent: the admin panel's bar counts the new ones beside the link.
 - **The library's backups of the whole database**:
   `backend/storage/backups/<id>.anotoki-backup` with its `.json` beside, beside

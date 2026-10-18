@@ -283,13 +283,14 @@ recording again, **Enter** on the last question finishes.
 
 ## What's new
 
-The foot of every page shows the version and **What's new**, which opens the
-list of what changed, release by release (`frontend/public/changelog.json`). A
-small dot beside it means there is news you haven't opened yet. The version
-has three numbers: the first changes with big changes, the second with new
-features, the third with bug fixes (0.4.0, then 0.4.1 or 0.5.0).
+The foot of every page, the admin panel's too, is the anotoki family's
+footer - the same on every anotoki site (anotoki-lib 0.6.3), under a thin
+line: "Version 0.5.1 · What's new · Feedback". **What's new** opens the list
+of what changed, release by release (`frontend/public/changelog.json`). The
+version has three numbers: the first changes with big changes, the second
+with new features, the third with bug fixes (0.4.0, then 0.4.1 or 0.5.0).
 
-Beside it, **Send feedback** opens a short form: a mistake you found, an
+**Feedback** opens a short form: a mistake you found, an
 idea, or anything else, about Kanji, the exam or the site. Signed in, the
 form writes your anotoki account's address in for an answer: change it, or
 clear it and no address is kept ("Only if you would like an answer"); tick
@@ -358,7 +359,8 @@ pending (a file still being written or uploaded as a "draft", which waits),
 each one's SQL, and **Apply pending**. A new version that brings one does not
 apply it by itself: until an `ADMIN` presses **Apply pending** there (the
 server keeps a copy of every table first, and says which), everybody else
-reads, in their language, that the site is being updated - a calm page that
+reads, in their language, that the site is being updated - a calm page of
+its own, with no bar and no footer around it (anotoki-lib 0.6.3), that
 asks again by itself and comes back once it is done, with only a quiet
 **Sign in** while nobody is signed in (an exam paper they were in the middle
 of is kept for that tab, and is back with the site). Signed in as an `ADMIN`,
@@ -434,10 +436,11 @@ hosting:
     (`return ['origin_secret' => '...'];`, put there by FTP; a long random value, 32+ characters). With it the
     site believes `CF-Connecting-IP` only on a request that carries the secret - anybody's Cloudflare Worker
     can connect from Cloudflare's ranges; without the file it believes `CF-Connecting-IP` from Cloudflare's
-    ranges alone. Set the rule first, then the file. A file there that cannot be read cleanly (a byte-order
-    mark, a line before its `<?php`, a typo PHP cannot run) counts as a secret no request carries: every
-    request from Cloudflare then counts as its edge, until the file is mended (PHP's error log says so, once
-    a day).
+    ranges alone. Set the rule first, then the file. A file there that yields no usable secret - one that
+    cannot be read cleanly (a byte-order mark, a line before its `<?php`, a typo PHP cannot run), or one that
+    names none (a blank value, a misspelt key, a value that is not a string) - counts as a secret no request
+    carries: every request from Cloudflare then counts as its edge, until the file is mended (PHP's error log
+    says so, once a day). Deleting the file is the one way to switch the secret off.
 - **After an upload**: the private folders (`storage/`, `config/`) answer 403 in a browser; the host check's
   "Who connects" says Cloudflare, not a proxy of the host's (behind one, every visitor would share one
   address); pending database updates are applied on the admin panel's Migrations page.

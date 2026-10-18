@@ -26,7 +26,7 @@ const legalFrame = () => import('./legal/legal-frame.component').then((m) => m.L
  *   /admin/translations     EDITOR, ADMIN: the app's words in every language (English): the anotoki library's page
  *   /admin/languages        ADMIN: the languages readers are offered (English): the anotoki library's page
  *   /admin/people           ADMIN: everybody the site has, and deleting a person's data (English): the library's page
- *   /admin/feedback         ADMIN: the messages of Send feedback (English): the library's page
+ *   /admin/feedback         ADMIN: the messages of the footer's Feedback (English): the library's page
  *   /admin/errors           ADMIN: what went wrong on the server (English): the library's page
  *   /admin/audit            ADMIN: who did what in the admin panel (English): the library's page
  *   /admin/backups          ADMIN: the whole database's backups (English): the library's page
@@ -45,7 +45,7 @@ const legalFrame = () => import('./legal/legal-frame.component').then((m) => m.L
  * for such a parent when none of its children match, and would draw the
  * empty frame at "/" with no guard (the survey's lesson, 2026-10-17;
  * app.routes.spec.ts). They come before the learner's pages, whose "**" would
- * take them. Their paths are the library's (DEFAULT_LEGAL_PATHS, the foot's
+ * take them. Their paths are the library's (DEFAULT_LEGAL_PATHS, the footer's
  * links go there), their titles the library's own headings.
  *
  * Every page but those is for somebody signed in: the anotoki library's
