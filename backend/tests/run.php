@@ -46,7 +46,7 @@ $run = static function (int $i) use (&$running, $queue, $env, $root, $tmp, $null
         [0 => ['file', $null, 'r'], 1 => ['file', $out, 'w'], 2 => ['redirect', 1]],
         $pipes,
         $root,
-        ['ACADEMY_DB_NAME' => 'academy_test_' . getmypid() . "_$i", 'ACADEMY_BACKUPS_DIR' => "$tmp/academy-test-" . getmypid() . "-$i"] + $env
+        ['ACADEMY_DB_NAME' => 'academy_test_' . getmypid() . "_$i", 'ACADEMY_BACKUPS_DIR' => "$tmp/academy-test-" . getmypid() . "-$i"] + $env,
     );
     $running[$i] = [$proc, $out];
 };

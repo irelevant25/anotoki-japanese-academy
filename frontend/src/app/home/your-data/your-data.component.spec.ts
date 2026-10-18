@@ -30,7 +30,10 @@ describe('readDataFile: what a file holds, read before anything is sent', () => 
   });
 
   it('a backup of several: the caller’s part, as the server takes it — or several_people when none is theirs', () => {
-    const several = dataFile([{ id: 1, attempts: 1 }, { id: 7, attempts: 4 }]);
+    const several = dataFile([
+      { id: 1, attempts: 1 },
+      { id: 7, attempts: 4 },
+    ]);
     expect(readDataFile('all.json', several, 7).attempts).toBe(4);
     expect(() => readDataFile('all.json', several, 8)).toThrow(ApiError);
     try {
@@ -41,7 +44,13 @@ describe('readDataFile: what a file holds, read before anything is sent', () => 
   });
 
   it('anything else is not a data file: not JSON, another format or version, nobody in it', () => {
-    for (const text of ['', 'not json', '{"format":"something-else","version":2,"users":[{}]}', dataFile([{ id: 1 }]).replace('"version":2', '"version":1'), '{"format":"japanese-academy-backup","version":2,"users":[]}']) {
+    for (const text of [
+      '',
+      'not json',
+      '{"format":"something-else","version":2,"users":[{}]}',
+      dataFile([{ id: 1 }]).replace('"version":2', '"version":1'),
+      '{"format":"japanese-academy-backup","version":2,"users":[]}',
+    ]) {
       let code = '';
       try {
         readDataFile('x.json', text, 7);

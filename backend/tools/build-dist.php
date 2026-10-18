@@ -43,24 +43,26 @@ declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
-    exit;
+    exit();
 }
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 const DIST_MARK = '.academy-dist';
 
-const DIST_DENY = "# Read by PHP from disk, never sent over HTTP.\n"
-    . "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n"
-    . "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n";
+const DIST_DENY =
+    "# Read by PHP from disk, never sent over HTTP.\n" .
+    "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n" .
+    "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n";
 
 /** The folders that get a deny-all .htaccess (every one outside the document root). */
 const DIST_DENIED = ['backend', 'backend/storage'];
 
 /** Never in an upload, whatever the lists below say: settings, secrets, anything beside public/ and backend/, the backups, the tools. */
-const DIST_NEVER = '~(^|/)(\.env|[^/]*\.local\.php)$'
-    . '|^(?!(public|backend)/)'
-    . '|^backend/(tests|tools|public|node_modules|data/source)/|^backend/storage/(?!\.htaccess$)|^backend/(router|manage|translations)\.php$~';
+const DIST_NEVER =
+    '~(^|/)(\.env|[^/]*\.local\.php)$' .
+    '|^(?!(public|backend)/)' .
+    '|^backend/(tests|tools|public|node_modules|data/source)/|^backend/storage/(?!\.htaccess$)|^backend/(router|manage|translations)\.php$~';
 
 /** The files under a folder, as paths relative to $base. */
 function dist_tree(string $base, string $dir): array
@@ -178,7 +180,7 @@ function dist_files(string $frontend, bool $audio): array
         }
     }
     // a settings file, a token: never; the setup page makes them on the server
-    $files = array_filter($files, static fn (string $to): bool => !preg_match(DIST_NEVER, $to), ARRAY_FILTER_USE_KEY);
+    $files = array_filter($files, static fn(string $to): bool => !preg_match(DIST_NEVER, $to), ARRAY_FILTER_USE_KEY);
     ksort($files);
     return $files;
 }
@@ -191,13 +193,17 @@ try {
     $allowed = array_filter(array_map('trim', explode(',', (string) ($opts['allow-draft'] ?? ''))));
     $drafts = array_values(array_diff(dist_drafts(), $allowed));
     if ($drafts) {
-        throw new RuntimeException('backend/migrations/' . implode(', ', $drafts) . (count($drafts) === 1 ? ' is a draft' : ' are drafts')
-            . ' (no last line "-- end of NNN"): an upload with a draft would never apply it, nor rebuild the study content. Finish it first.');
+        throw new RuntimeException(
+            'backend/migrations/' .
+                implode(', ', $drafts) .
+                (count($drafts) === 1 ? ' is a draft' : ' are drafts') .
+                ' (no last line "-- end of NNN"): an upload with a draft would never apply it, nor rebuild the study content. Finish it first.',
+        );
     }
     $frontend = dist_frontend(isset($opts['frontend']) ? (string) $opts['frontend'] : null, !isset($opts['list']));
     $files = dist_files($frontend, !isset($opts['no-audio']));
     if (isset($opts['list'])) {
-        echo json_text(array_merge(array_keys($files), array_map(static fn (string $d): string => "$d/.htaccess", DIST_DENIED))), "\n";
+        echo json_text(array_merge(array_keys($files), array_map(static fn(string $d): string => "$d/.htaccess", DIST_DENIED))), "\n";
         exit(0);
     }
     dist_clear($out);
@@ -220,12 +226,24 @@ try {
         }
     }
     sort($built);
-    $wrong = array_values(array_filter($built, static fn (string $f): bool => (bool) preg_match(DIST_NEVER, $f)));
+    $wrong = array_values(array_filter($built, static fn(string $f): bool => (bool) preg_match(DIST_NEVER, $f)));
     if ($wrong) {
         throw new RuntimeException('These must not be uploaded: ' . implode(', ', $wrong));
     }
-    $needed = ['public/index.html', 'public/index.php', 'public/.htaccess', 'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php',
-        'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php', 'backend/config/config.php', 'backend/vendor/autoload.php', 'backend/data/vocab.json'];
+    $needed = [
+        'public/index.html',
+        'public/index.php',
+        'public/.htaccess',
+        'backend/setup.php',
+        'backend/api/app.php',
+        'backend/api/front.php',
+        'backend/src/bootstrap.php',
+        'backend/src/auth.php',
+        'backend/src/admin.php',
+        'backend/config/config.php',
+        'backend/vendor/autoload.php',
+        'backend/data/vocab.json',
+    ];
     foreach ($needed as $file) {
         if (!in_array($file, $built, true)) {
             throw new RuntimeException("$file is missing from the build.");
@@ -250,21 +268,21 @@ try {
     $seconds = number_format(microtime(true) - $started, 1);
     echo <<<TXT
 
-  Built $out
-  $mb MB in $count files ($seconds s)
+      Built $out
+      $mb MB in $count files ($seconds s)
 
-  Upload the whole folder to the site's folder on the host, by FTP or SFTP:
-    public/     the site's document root: point the (sub)domain here
-    backend/    beside public/, outside the document root (with data/, the study
-                content and the clips, and storage/, the backups)
-  The first time, open https://<the site>/setup.php (docs/kb/hosting.md).
-  Later uploads leave backend/config/*.local.php and backend/storage/ as they
-  are on the server; a new migration waits until an ADMIN applies it on the
-  admin panel's Migrations page (/admin/migrations), and the first request
-  after that rebuilds the study content.
+      Upload the whole folder to the site's folder on the host, by FTP or SFTP:
+        public/     the site's document root: point the (sub)domain here
+        backend/    beside public/, outside the document root (with data/, the study
+                    content and the clips, and storage/, the backups)
+      The first time, open https://<the site>/setup.php (docs/kb/hosting.md).
+      Later uploads leave backend/config/*.local.php and backend/storage/ as they
+      are on the server; a new migration waits until an ADMIN applies it on the
+      admin panel's Migrations page (/admin/migrations), and the first request
+      after that rebuilds the study content.
 
 
-TXT;
+    TXT;
 } catch (Throwable $e) {
     fwrite(STDERR, "\n  build-dist: {$e->getMessage()}\n\n");
     exit(1);

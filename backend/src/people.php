@@ -82,7 +82,7 @@ function academy_people(): People
                 static function (PDO $pdo, int $sub, ?array $former): void {
                     people_scrub_copies($pdo, $sub);
                 },
-            ]
+            ],
         );
     }
     return $people;
@@ -105,7 +105,9 @@ function academy_people(): People
 function people_seen(Person $person, ?string $zone): ?string
 {
     $kept = users_time_zone_ready();
-    academy_people()->recorder()->seen(db(), $person, $kept ? ['time_zone' => $zone] : []);
+    academy_people()
+        ->recorder()
+        ->seen(db(), $person, $kept ? ['time_zone' => $zone] : []);
     if ($zone !== null || !$kept) {
         return $zone;
     }

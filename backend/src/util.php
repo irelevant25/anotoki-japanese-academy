@@ -28,9 +28,7 @@ function local_time(int $ms): DateTimeImmutable
 {
     $sec = intdiv($ms, 1000) - ($ms % 1000 < 0 ? 1 : 0);
     $micro = ($ms - $sec * 1000) * 1000;
-    return (new DateTimeImmutable('@' . $sec))
-        ->setTimezone(new DateTimeZone(date_default_timezone_get()))
-        ->modify('+' . $micro . ' microseconds');
+    return (new DateTimeImmutable('@' . $sec))->setTimezone(new DateTimeZone(date_default_timezone_get()))->modify('+' . $micro . ' microseconds');
 }
 
 /** Milliseconds of a DateTime. */
@@ -60,7 +58,9 @@ function local_date(?int $ms = null): string
 /** 2026-09-24: the day in UTC, whoever's request it is: the site's own housekeeping (the day of the daily backup). */
 function utc_date(?int $ms = null): string
 {
-    return local_time($ms ?? now_ms())->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d');
+    return local_time($ms ?? now_ms())
+        ->setTimezone(new DateTimeZone('UTC'))
+        ->format('Y-m-d');
 }
 
 /** 20260924-143512-123: a moment in UTC, for the names of the backups. */
@@ -136,7 +136,7 @@ function json_pretty($value, int $indent = 1): string
     $json = json_encode($value, JSON_FLAGS | JSON_PRETTY_PRINT);
     // PHP indents by four spaces; strings can't hold a raw newline, so every
     // line starts with its indentation only.
-    return preg_replace_callback('/^( {4})+/m', static fn (array $m): string => str_repeat(' ', intdiv(strlen($m[0]), 4) * $indent), $json);
+    return preg_replace_callback('/^( {4})+/m', static fn(array $m): string => str_repeat(' ', intdiv(strlen($m[0]), 4) * $indent), $json);
 }
 
 /** A JSON file as arrays; throws, naming the file, on anything that isn't valid JSON. */
@@ -206,7 +206,7 @@ function js_string($v): string
         return is_finite($v) ? json_encode($v) : (is_nan($v) ? 'NaN' : ($v > 0 ? 'Infinity' : '-Infinity'));
     }
     if (is_array($v)) {
-        return array_is_list($v) ? implode(',', array_map(static fn ($x): string => $x === null ? '' : js_string($x), $v)) : '[object Object]';
+        return array_is_list($v) ? implode(',', array_map(static fn($x): string => $x === null ? '' : js_string($x), $v)) : '[object Object]';
     }
     return (string) $v;
 }
@@ -324,22 +324,22 @@ function unique_list(array $list): array
 /** ToInt32: wrap to a signed 32-bit integer. */
 function int32(int $x): int
 {
-    $x &= 0xFFFFFFFF;
+    $x &= 0xffffffff;
     return $x >= 0x80000000 ? $x - 0x100000000 : $x;
 }
 
 /** x >>> n: unsigned 32-bit shift right. */
 function urshift(int $x, int $n): int
 {
-    return ($x & 0xFFFFFFFF) >> $n;
+    return ($x & 0xffffffff) >> $n;
 }
 
 /** Math.imul: the low 32 bits of a 32-bit product, signed. */
 function imul(int $a, int $b): int
 {
-    $a &= 0xFFFFFFFF;
-    $b &= 0xFFFFFFFF;
-    $lo = ($a & 0xFFFF) * ($b & 0xFFFF);
-    $mid = ((($a >> 16) * ($b & 0xFFFF) + ($a & 0xFFFF) * ($b >> 16)) & 0xFFFF) << 16;
+    $a &= 0xffffffff;
+    $b &= 0xffffffff;
+    $lo = ($a & 0xffff) * ($b & 0xffff);
+    $mid = ((($a >> 16) * ($b & 0xffff) + ($a & 0xffff) * ($b >> 16)) & 0xffff) << 16;
     return int32($lo + $mid);
 }

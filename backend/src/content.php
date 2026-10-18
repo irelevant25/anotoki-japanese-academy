@@ -80,7 +80,7 @@ function content_sync(bool $force = false, ?string $stamp = null): ?array
             "INSERT INTO srs_items (id, ord, type, lesson, kanji, data)
              SELECT e->>'id', (e->>'order')::int, e->>'type', (e->>'lesson')::smallint, coalesce((e->'kanji')::jsonb, '[]'), e
              FROM json_array_elements(?::json) AS e",
-            [json_text($catalog['items'])]
+            [json_text($catalog['items'])],
         );
         db_exec('DELETE FROM exam_questions');
         db_exec(
@@ -88,13 +88,13 @@ function content_sync(bool $force = false, ?string $stamp = null): ?array
              SELECT n - 1, e->>'id', e->>'section', (e->>'lesson')::smallint, (e->>'book')::smallint, e->>'question',
                     e->>'hint', e->>'reading', e->>'audio', e->>'correct', e->'distractors', e->>'explain', e->>'ref'
              FROM json_array_elements(?::json) WITH ORDINALITY AS t(e, n)",
-            [json_text($bank)]
+            [json_text($bank)],
         );
         db_exec(
             'INSERT INTO content_state (id, hash, synced_at, lessons, audio_words, audio_voices, stamp) VALUES (1, ?, now(), ?::jsonb, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET hash = EXCLUDED.hash, synced_at = EXCLUDED.synced_at, lessons = EXCLUDED.lessons,
                 audio_words = EXCLUDED.audio_words, audio_voices = EXCLUDED.audio_voices, stamp = EXCLUDED.stamp',
-            [$hash, json_text($catalog['lessons']), count($content['audio']['clips']), count($content['audio']['voices']), $stamp]
+            [$hash, json_text($catalog['lessons']), count($content['audio']['clips']), count($content['audio']['voices']), $stamp],
         );
     });
 

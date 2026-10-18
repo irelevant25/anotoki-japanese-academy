@@ -50,11 +50,16 @@ function sandbox(): object
         $sb->sent[] = $req;
         return 'mp3 ' . json_text($req['input']) . ' ' . $req['voice']['name'];
     };
-    $sb->run = static fn (array $words, array $opts = []): array => audio_build($opts + [
-        'words' => $words, 'dir' => $sb->dir, 'indexFile' => $sb->indexFile, 'synth' => $sb->synth, 'log' => static function (): void {
-        },
-    ]);
-    $sb->index = static fn (): array => read_json($sb->indexFile);
+    $sb->run = static fn(array $words, array $opts = []): array => audio_build(
+        $opts + [
+            'words' => $words,
+            'dir' => $sb->dir,
+            'indexFile' => $sb->indexFile,
+            'synth' => $sb->synth,
+            'log' => static function (): void {},
+        ],
+    );
+    $sb->index = static fn(): array => read_json($sb->indexFile);
     $sb->files = static function () use ($sb): array {
         $f = array_values(array_diff(scandir($sb->dir) ?: [], ['.', '..']));
         sort($f);
@@ -139,7 +144,7 @@ test('build: a failed request keeps every clip made so far and deletes nothing',
         }
         return 'mp3 ' . $req['voice']['name'];
     };
-    assert_throws(static fn () => ($sb->run)([W('ねこ'), W('いぬ'), W('とり'), W('さかな')], ['synth' => $flaky]), '/quota/');
+    assert_throws(static fn() => ($sb->run)([W('ねこ'), W('いぬ'), W('とり'), W('さかな')], ['synth' => $flaky]), '/quota/');
     $listed = listed(($sb->index)());
     assert_same(2 + 3, count($listed), 'the old word, plus the three clips made before the failure');
     assert_same(($sb->files)(), $listed, 'every file is listed, every listed file exists');
@@ -168,7 +173,7 @@ test('build: an unreadable index stops the build and deletes nothing', function 
     $sb = sandbox();
     ($sb->run)([W('ねこ')]);
     file_put_contents($sb->indexFile, '<<<<<<< a merge conflict');
-    assert_throws(static fn () => ($sb->run)([W('ねこ')]), '/unreadable/');
+    assert_throws(static fn() => ($sb->run)([W('ねこ')]), '/unreadable/');
     assert_same(2, count(($sb->files)()), 'the clips are still there');
     assert_same(2, count($sb->sent), 'nothing more was sent');
 });
@@ -190,7 +195,7 @@ test('build: a word Google refuses is skipped, and the others are still made', f
 test('build: a stop request ends the run cleanly, with every clip made so far listed', function (): void {
     $sb = sandbox();
     $words = array_map('W', ['ねこ', 'いぬ', 'とり', 'うま', 'さる']);
-    $r = ($sb->run)($words, ['shouldStop' => static fn (): bool => count($sb->sent) >= 3]);
+    $r = ($sb->run)($words, ['shouldStop' => static fn(): bool => count($sb->sent) >= 3]);
     assert_same(true, $r['stopped']);
     assert_same(3, $r['made']);
     assert_same(0, $r['removed']);

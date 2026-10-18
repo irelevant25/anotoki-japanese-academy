@@ -78,7 +78,7 @@ function catalog_build(array $content): array
         $accept = array_merge($k['on'], $k['kun']);
         foreach ($k['compounds'] as $c) {
             $w = chars(explode('/', $c['word'])[0]);
-            if (($w[0] ?? null) === $k['kanji'] && !array_filter(array_slice($w, 1), static fn (string $ch): bool => !preg_match('/[぀-ゟ]/u', $ch))) {
+            if (($w[0] ?? null) === $k['kanji'] && !array_filter(array_slice($w, 1), static fn(string $ch): bool => !preg_match('/[぀-ゟ]/u', $ch))) {
                 foreach (explode('/', $c['reading']) as $r) {
                     $accept[] = js_trim($r);
                 }
@@ -140,7 +140,7 @@ function catalog_build(array $content): array
         }
         foreach ($meanings as $m) {
             $lower = mb_strtolower($m);
-            if (!array_filter($v['meanings'], static fn (string $x): bool => mb_strtolower($x) === $lower)) {
+            if (!array_filter($v['meanings'], static fn(string $x): bool => mb_strtolower($x) === $lower)) {
                 $v['meanings'][] = $m;
             }
         }
@@ -169,7 +169,7 @@ function catalog_build(array $content): array
         }
         // "言う(文句を)" is a phrase marker, not an optional suffix — skip those.
         preg_match_all('/\(([^)]*)\)/u', $kanji, $parens);
-        if (array_filter($parens[0], static fn (string $p): bool => (bool) preg_match('/[一-龯をにが]/u', $p))) {
+        if (array_filter($parens[0], static fn(string $p): bool => (bool) preg_match('/[一-龯をにが]/u', $p))) {
             continue;
         }
         $kanji = preg_replace(OPTIONAL_PAREN, '', $kanji);
@@ -178,16 +178,13 @@ function catalog_build(array $content): array
             continue;
         }
 
-        $readings = array_map(static fn (string $r): string => preg_replace('/\s+/u', '', $r), cat_split($kana, '/\//u'));
+        $readings = array_map(static fn(string $r): string => preg_replace('/\s+/u', '', $r), cat_split($kana, '/\//u'));
         foreach (cat_split($kanji, '/\//u') as $word) {
-            $addVocab(
-                $word,
-                $readings,
-                cat_split(cat_clean_gloss(js_truthy($e['gloss'] ?? null) ? $e['gloss'] : $e['english']), '/;/u'),
-                $e['lesson'],
-                'vocab-list',
-                ['verbClass' => $e['verbClass'] ?? null, 'adjClass' => $e['adjClass'] ?? null, 'pos' => $e['pos'] ?? null]
-            );
+            $addVocab($word, $readings, cat_split(cat_clean_gloss(js_truthy($e['gloss'] ?? null) ? $e['gloss'] : $e['english']), '/;/u'), $e['lesson'], 'vocab-list', [
+                'verbClass' => $e['verbClass'] ?? null,
+                'adjClass' => $e['adjClass'] ?? null,
+                'pos' => $e['pos'] ?? null,
+            ]);
         }
     }
 
@@ -202,14 +199,9 @@ function catalog_build(array $content): array
                 $rs = $readings;
                 // 親切な(しんせつな) is listed with its な; the vocabulary list has 親切.
                 $last = array_slice(chars($word), -2);
-                if (
-                    str_ends_with($word, 'な')
-                    && count($last) === 2
-                    && cat_is_kanji($last[0])
-                    && !array_filter($rs, static fn (string $r): bool => !str_ends_with($r, 'な'))
-                ) {
+                if (str_ends_with($word, 'な') && count($last) === 2 && cat_is_kanji($last[0]) && !array_filter($rs, static fn(string $r): bool => !str_ends_with($r, 'な'))) {
                     $word = mb_substr($word, 0, -1);
-                    $rs = array_map(static fn (string $r): string => mb_substr($r, 0, -1), $rs);
+                    $rs = array_map(static fn(string $r): string => mb_substr($r, 0, -1), $rs);
                 }
                 $addVocab($word, $rs, cat_split($c['english'], '/[;,]/u'), $k['lesson'], 'kanji-list');
             }
@@ -224,8 +216,8 @@ function catalog_build(array $content): array
         return implode('', unique_list(array_values(array_filter(chars($v['chars']), 'cat_is_kanji')))) . '|' . implode('/', $readings);
     };
     $order = array_keys($vocab);
-    $fromList = static fn (string $w): int => in_array('vocab-list', $vocab[$w]['sources'], true) ? 1 : 0;
-    usort($order, static fn (string $a, string $b): int => $fromList($b) - $fromList($a));
+    $fromList = static fn(string $w): int => in_array('vocab-list', $vocab[$w]['sources'], true) ? 1 : 0;
+    usort($order, static fn(string $a, string $b): int => $fromList($b) - $fromList($a));
     $seenVariant = [];
     foreach ($order as $word) {
         $word = (string) $word;
@@ -248,7 +240,7 @@ function catalog_build(array $content): array
     // nothing to type. Resolve each to the plain verb's meaning, so 下さる accepts
     // "to give (me)" — the gloss stays, the plain meaning is added after it.
     $byLesson = $vocabData;
-    usort($byLesson, static fn (array $a, array $b): int => $a['lesson'] <=> $b['lesson']);
+    usort($byLesson, static fn(array $a, array $b): int => $a['lesson'] <=> $b['lesson']);
     $plainByKana = [];
     foreach ($byLesson as $e) {
         $k = js_trim(preg_replace('/\(.*?\)/u', '', $e['kana']));
@@ -265,7 +257,7 @@ function catalog_build(array $content): array
             // "and" as a word, as JavaScript's ASCII \b saw it (PHP's \b under /u is Unicode-aware)
             foreach (preg_split('/,|(?<![A-Za-z0-9_])and(?![A-Za-z0-9_])/u', $km[2]) as $target) {
                 $target = js_trim($target);
-                $plain = $target === '' ? null : ($plainByKana[$target] ?? null);
+                $plain = $target === '' ? null : $plainByKana[$target] ?? null;
                 if (js_truthy($plain)) {
                     $add[] = cat_split($plain, '/;/u')[0] . ' (' . mb_strtolower($km[1]) . ')';
                 }
@@ -280,7 +272,7 @@ function catalog_build(array $content): array
 
     foreach ($vocab as $v) {
         $v['kanji'] = unique_list(array_values(array_filter(chars($v['chars']), 'cat_is_kanji')));
-        $v['lesson'] = max(array_map(static fn (string $c): int => $kanjiByChar[$c]['lesson'], $v['kanji']));
+        $v['lesson'] = max(array_map(static fn(string $c): int => $kanjiByChar[$c]['lesson'], $v['kanji']));
         // one clip per voice, spoken with the first reading
         $v['audio'] = speech_clips_for(speech_spoken($v['readings'][0], $v['chars']), $audio);
         $items[] = $v;
@@ -288,15 +280,13 @@ function catalog_build(array $content): array
 
     /* ------------------------------------------------- examples & order */
 
-    $vocabItems = array_values(array_filter($items, static fn (array $it): bool => $it['type'] === 'vocab'));
+    $vocabItems = array_values(array_filter($items, static fn(array $it): bool => $it['type'] === 'vocab'));
     foreach ($items as &$it) {
         if ($it['type'] !== 'kanji') {
             continue;
         }
-        $ex = array_values(array_filter($vocabItems, static fn (array $v): bool => str_contains($v['chars'], $it['chars'])));
-        usort($ex, static fn (array $a, array $b): int => ($b['audio'] ? 1 : 0) - ($a['audio'] ? 1 : 0)
-            ?: $a['lesson'] - $b['lesson']
-            ?: js_len($a['chars']) - js_len($b['chars']));
+        $ex = array_values(array_filter($vocabItems, static fn(array $v): bool => str_contains($v['chars'], $it['chars'])));
+        usort($ex, static fn(array $a, array $b): int => ($b['audio'] ? 1 : 0) - ($a['audio'] ? 1 : 0) ?: $a['lesson'] - $b['lesson'] ?: js_len($a['chars']) - js_len($b['chars']));
         $it['examples'] = array_column($ex, 'id');
     }
     unset($it);
@@ -305,13 +295,13 @@ function catalog_build(array $content): array
     // vocabulary those kanji unlock.
     $collator = new Collator('ja');
     usort($items, static function (array $a, array $b) use ($collator): int {
-        return $a['lesson'] - $b['lesson']
-            ?: ($a['type'] === 'kanji' ? 0 : 1) - ($b['type'] === 'kanji' ? 0 : 1)
-            ?: ($a['type'] === 'kanji'
+        return $a['lesson'] - $b['lesson'] ?:
+            ($a['type'] === 'kanji' ? 0 : 1) - ($b['type'] === 'kanji' ? 0 : 1) ?:
+            ($a['type'] === 'kanji'
                 ? $a['no'] - $b['no']
-                : ($a['courseLesson'] - $b['courseLesson']
-                    ?: js_len($a['chars']) - js_len($b['chars'])
-                    ?: (int) $collator->compare($a['chars'], $b['chars'])));
+                : ($a['courseLesson'] - $b['courseLesson'] ?:
+                    js_len($a['chars']) - js_len($b['chars']) ?:
+                    (int) $collator->compare($a['chars'], $b['chars'])));
     });
     foreach ($items as $i => &$it) {
         $it['order'] = $i;

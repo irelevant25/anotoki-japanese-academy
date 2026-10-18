@@ -50,7 +50,7 @@ function kanji_ids(): array
 /** A person's day counts: day => lessons. */
 function lessons_by_day(int $user): array
 {
-    return array_map(static fn (array $d): int => $d['lessons'], store_daily($user));
+    return array_map(static fn(array $d): int => $d['lessons'], store_daily($user));
 }
 
 function zone_of(int $user): ?string
@@ -96,7 +96,7 @@ test('the same moment is two days in two zones: the day an answer counts on, tod
 });
 
 test('the forecast days are named by the person\'s dates, right next to a change of summer time too', function (): void {
-    $at = static fn (string $iso): int => ms_of(new DateTimeImmutable($iso));
+    $at = static fn(string $iso): int => ms_of(new DateTimeImmutable($iso));
     users_ensure(703);
     try {
         date_default_timezone_set('Europe/Bratislava');
@@ -116,7 +116,7 @@ test('the forecast days are named by the person\'s dates, right next to a change
 
 test('a review time is rounded down to the hour of the person\'s zone: a half-hour zone gives :30 in UTC', function (): void {
     $t = ms_of(new DateTimeImmutable('2026-10-04T10:47:00Z'));
-    $at = static fn (string $iso): int => ms_of(new DateTimeImmutable($iso));
+    $at = static fn(string $iso): int => ms_of(new DateTimeImmutable($iso));
     try {
         date_default_timezone_set('Asia/Kolkata'); // UTC+05:30: 16:17 there
         assert_same($at('2026-10-04T10:30:00Z'), srs_floor_hour($t), '16:00 in Kolkata');
@@ -145,7 +145,7 @@ test('a zone is an IANA name PHP knows, written exactly so; anything else is no 
 /** The zones this PHP knows and its ICU (intl) does not: each comes with its own zone data (none, when they agree). */
 function zones_only_php_knows(): array
 {
-    return array_values(array_filter(DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), static fn (string $z): bool => !time_zone_icu_knows($z)));
+    return array_values(array_filter(DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), static fn(string $z): bool => !time_zone_icu_knows($z)));
 }
 
 test('a zone ICU does not know is no zone, and a report is dated whatever the zone in force: never a failure', function (): void {
@@ -202,8 +202,7 @@ test('two people far apart: the same moment\'s answers count on different days, 
 
     $summary = in_zone(FAR_EAST, KIRITIMATI, 'GET', '/api/kanji/summary')['body'];
     assert_same(1, $summary['today']['lessons'], 'and it is their today');
-    assert_same(0, in_zone(FAR_WEST, KIRITIMATI, 'GET', '/api/kanji/summary')['body']['today']['lessons'],
-        'the west’s lesson seen from Kiritimati’s day: another day');
+    assert_same(0, in_zone(FAR_WEST, KIRITIMATI, 'GET', '/api/kanji/summary')['body']['today']['lessons'], 'the west’s lesson seen from Kiritimati’s day: another day');
 });
 
 test('somebody whose browser never names a zone is counted in UTC, and nothing is kept for them', function (): void {
@@ -225,7 +224,7 @@ test('a review time is rounded to the hour of the person’s zone, on the server
 });
 
 test('the zone is kept when it changes, and only then; a request without one uses the kept one; a bad one is no zone', function (): void {
-    $xmin = static fn (): string => (string) db_value('SELECT xmin::text FROM users WHERE id = ?', [FAR_EAST]);
+    $xmin = static fn(): string => (string) db_value('SELECT xmin::text FROM users WHERE id = ?', [FAR_EAST]);
     $before = $xmin();
     assert_same(200, in_zone(FAR_EAST, KIRITIMATI, 'GET', '/api/kanji/summary')['status']);
     assert_same($before, $xmin(), 'the same zone again: the row is not written');
@@ -254,7 +253,7 @@ test('a learner who travels: each answer counts on the day of the zone they were
     assert_same(1, $days[$westDay] ?? null, 'the third on Pago Pago’s');
     assert_same(PAGO_PAGO, zone_of(TRAVELLER));
 
-    $today = static fn (?string $zone): int => in_zone(TRAVELLER, $zone, 'GET', '/api/kanji/summary')['body']['today']['lessons'];
+    $today = static fn(?string $zone): int => in_zone(TRAVELLER, $zone, 'GET', '/api/kanji/summary')['body']['today']['lessons'];
     assert_same(1, $today(null), 'no zone named: the kept one, the west’s');
     assert_same(2, $today(KIRITIMATI), 'back east: that day, as it was counted');
     assert_same(2, $today(null), 'and that is the kept zone now');

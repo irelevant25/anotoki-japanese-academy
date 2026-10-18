@@ -50,18 +50,7 @@ export function errorRate(st: ItemState): { wrong: number; rate: number } {
  */
 @Component({
   selector: 'app-practice',
-  imports: [
-    ButtonComponent,
-    CardComponent,
-    ChipComponent,
-    ChipGroupComponent,
-    EmptyStateComponent,
-    LabelledGroupComponent,
-    PageHeaderComponent,
-    RouterLink,
-    SegmentedComponent,
-    TranslatePipe,
-  ],
+  imports: [ButtonComponent, CardComponent, ChipComponent, ChipGroupComponent, EmptyStateComponent, LabelledGroupComponent, PageHeaderComponent, RouterLink, SegmentedComponent, TranslatePipe],
   templateUrl: './practice.component.html',
   styleUrl: './practice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -96,9 +85,7 @@ export class PracticeComponent {
   readonly learned = computed(() => this.kanji.items().filter((it) => this.kanji.isLearned(it.id)));
   readonly learnedLessons = computed(() => [...new Set(this.learned().map((it) => it.lesson))].sort((a, b) => a - b));
   /** The scopes to choose from: each with its name in pieces (a stage name inside it says it is English) and how many items it gives. */
-  readonly scopeChoices = computed(() =>
-    SCOPES.map((scope) => ({ id: scope.id, name: this.scopeName(scope.key, scope.group), n: this.pool(scope.id, this.lessons(), this.types()).length })),
-  );
+  readonly scopeChoices = computed(() => SCOPES.map((scope) => ({ id: scope.id, name: this.scopeName(scope.key, scope.group), n: this.pool(scope.id, this.lessons(), this.types()).length })));
   /**
    * The scopes as the choice chips offer them: the name's words (English, marked so, where it is a stage's own name
    * alone), how many items each gives as its note, and one with none not to be chosen - unless it is the one chosen.
@@ -124,9 +111,7 @@ export class PracticeComponent {
   /** "5 items match; this session will ask 5.": a frame over a plural phrase, because the verb agrees with the count. */
   readonly info = computed(() => {
     const n = this.current().length;
-    return n
-      ? this.i18n.t('practice.info', { matches: this.i18n.plural('practice.matches', n), take: this.i18n.number(this.take()) })
-      : this.i18n.t('practice.noMatch');
+    return n ? this.i18n.t('practice.info', { matches: this.i18n.plural('practice.matches', n), take: this.i18n.number(this.take()) }) : this.i18n.t('practice.noMatch');
   });
 
   toggleLesson(L: number): void {

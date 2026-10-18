@@ -69,16 +69,28 @@ function setup_csp_nonce(): string
 function setup_page(string $heading, string $body, string $tone = 'plain', string $script = ''): void
 {
     $nonce = setup_csp_nonce();
-    header("Content-Security-Policy: default-src 'none'; style-src 'nonce-$nonce'; script-src 'nonce-$nonce'; connect-src 'self'; "
-        . "img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<meta name="robots" content="noindex, nofollow"><title>Set up · Japanese Academy</title>'
-        . '<style nonce="' . $nonce . '">' . SETUP_CSS . '</style></head><body><main class="wrap">'
-        . '<section class="panel ' . setup_h($tone) . '"><h1>' . setup_h($heading) . '</h1>' . $body . '</section></main>'
-        . ($script !== '' ? '<script nonce="' . $nonce . '">' . $script . '</script>' : '')
-        . '</body></html>';
-    exit;
+    header(
+        "Content-Security-Policy: default-src 'none'; style-src 'nonce-$nonce'; script-src 'nonce-$nonce'; connect-src 'self'; " .
+            "img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    );
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8">' .
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' .
+        '<meta name="robots" content="noindex, nofollow"><title>Set up · Japanese Academy</title>' .
+        '<style nonce="' .
+        $nonce .
+        '">' .
+        SETUP_CSS .
+        '</style></head><body><main class="wrap">' .
+        '<section class="panel ' .
+        setup_h($tone) .
+        '"><h1>' .
+        setup_h($heading) .
+        '</h1>' .
+        $body .
+        '</section></main>' .
+        ($script !== '' ? '<script nonce="' . $nonce . '">' . $script . '</script>' : '') .
+        '</body></html>';
+    exit();
 }
 
 /**
@@ -86,30 +98,31 @@ function setup_page(string $heading, string $body, string $tone = 'plain', strin
  * color-scheme lets the browser draw its own parts of the form in the same
  * theme.
  */
-const SETUP_CSS = ':root{color-scheme:light dark;--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--soft:#efede8;--accent:#3a5f8a;'
-    . '--accent-ink:#fff;--good:#2e7d5b;--bad:#b4453c;--kanji-text:#b53b25}'
-    . '@media (prefers-color-scheme:dark){:root{--bg:#16161a;--card:#1e1e23;--ink:#eceaf0;--muted:#9a98a3;--line:#32323a;--soft:#26262c;'
-    . '--accent:#6b9fd8;--accent-ink:#10131a;--good:#5fc094;--bad:#e2786d;--kanji-text:#ec8a70}}'
-    . '*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);'
-    . 'font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}'
-    . '.wrap{max-width:660px;margin:0 auto;padding:28px 16px 64px}'
-    . '.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px}'
-    . 'h1{font-size:24px;margin:0 0 6px;line-height:1.3}h1::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;'
-    . 'margin-right:10px;vertical-align:middle;background:var(--accent)}.good h1::before{background:var(--good)}.bad h1::before{background:var(--bad)}'
-    . 'h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:26px 0 4px}'
-    . 'p,li{color:var(--muted)}li{margin:4px 0}b{color:var(--ink)}code{font-size:.9em;overflow-wrap:anywhere}'
-    . '.row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.field{display:block;margin:12px 0 0}'
-    . '.lbl{display:block;font-size:13px;font-weight:600;margin-bottom:6px}.lbl em{font-weight:400;color:var(--muted);font-style:normal}'
-    . 'input[type=text],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;'
-    . 'background:var(--bg);color:var(--ink);font:inherit;font-size:15px}input:focus{outline:2px solid var(--accent);outline-offset:-1px}'
-    . '.note{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:10px 12px;color:var(--ink)}'
-    . '.err{color:var(--bad);background:var(--soft);border-radius:8px;padding:8px 12px}.ok{color:var(--good)}'
-    . 'button,.btn{font:inherit;cursor:pointer;border-radius:8px}'
-    . '.primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);padding:11px 22px;font-weight:600;font-size:15px;text-decoration:none;display:inline-block}'
-    . '.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:7px 14px;font-size:14px}.ghost:hover{border-color:var(--accent);color:var(--accent)}'
-    . '.test{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}.result{font-size:14px;color:var(--muted)}'
-    . '.result.good{color:var(--good)}.result.bad{color:var(--bad)}.actions{margin-top:24px}'
-    . '@media (max-width:560px){.row{grid-template-columns:1fr}}';
+const SETUP_CSS =
+    ':root{color-scheme:light dark;--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--soft:#efede8;--accent:#3a5f8a;' .
+    '--accent-ink:#fff;--good:#2e7d5b;--bad:#b4453c;--kanji-text:#b53b25}' .
+    '@media (prefers-color-scheme:dark){:root{--bg:#16161a;--card:#1e1e23;--ink:#eceaf0;--muted:#9a98a3;--line:#32323a;--soft:#26262c;' .
+    '--accent:#6b9fd8;--accent-ink:#10131a;--good:#5fc094;--bad:#e2786d;--kanji-text:#ec8a70}}' .
+    '*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);' .
+    'font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}' .
+    '.wrap{max-width:660px;margin:0 auto;padding:28px 16px 64px}' .
+    '.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px}' .
+    'h1{font-size:24px;margin:0 0 6px;line-height:1.3}h1::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;' .
+    'margin-right:10px;vertical-align:middle;background:var(--accent)}.good h1::before{background:var(--good)}.bad h1::before{background:var(--bad)}' .
+    'h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:26px 0 4px}' .
+    'p,li{color:var(--muted)}li{margin:4px 0}b{color:var(--ink)}code{font-size:.9em;overflow-wrap:anywhere}' .
+    '.row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.field{display:block;margin:12px 0 0}' .
+    '.lbl{display:block;font-size:13px;font-weight:600;margin-bottom:6px}.lbl em{font-weight:400;color:var(--muted);font-style:normal}' .
+    'input[type=text],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;' .
+    'background:var(--bg);color:var(--ink);font:inherit;font-size:15px}input:focus{outline:2px solid var(--accent);outline-offset:-1px}' .
+    '.note{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:10px 12px;color:var(--ink)}' .
+    '.err{color:var(--bad);background:var(--soft);border-radius:8px;padding:8px 12px}.ok{color:var(--good)}' .
+    'button,.btn{font:inherit;cursor:pointer;border-radius:8px}' .
+    '.primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);padding:11px 22px;font-weight:600;font-size:15px;text-decoration:none;display:inline-block}' .
+    '.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:7px 14px;font-size:14px}.ghost:hover{border-color:var(--accent);color:var(--accent)}' .
+    '.test{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}.result{font-size:14px;color:var(--muted)}' .
+    '.result.good{color:var(--good)}.result.bad{color:var(--bad)}.actions{margin-top:24px}' .
+    '@media (max-width:560px){.row{grid-template-columns:1fr}}';
 
 // Before the app loads: it needs all of these, and a new host may lack one.
 $lacking = [];
@@ -122,8 +135,11 @@ foreach (['pdo_pgsql', 'mbstring', 'intl', 'openssl'] as $extension) {
     }
 }
 if ($lacking) {
-    setup_page('This server cannot run Japanese Academy yet', '<p>It needs:</p><ul><li>'
-        . implode('</li><li>', array_map('setup_h', $lacking)) . '</li></ul><p>Most hosting panels can switch these on (PHP settings).</p>', 'bad');
+    setup_page(
+        'This server cannot run Japanese Academy yet',
+        '<p>It needs:</p><ul><li>' . implode('</li><li>', array_map('setup_h', $lacking)) . '</li></ul><p>Most hosting panels can switch these on (PHP settings).</p>',
+        'bad',
+    );
 }
 
 require_once __DIR__ . '/src/bootstrap.php';
@@ -155,7 +171,7 @@ function setup_token(): ?string
     }
     $read = config_require_cleanly(setup_token_file());
     $data = $read['problem'] === null ? $read['value'] : null;
-    $token = is_array($data) ? ($data['token'] ?? null) : null;
+    $token = is_array($data) ? $data['token'] ?? null : null;
     return is_string($token) && preg_match('/^[0-9a-f]{48}$/D', $token) ? $token : null;
 }
 
@@ -167,8 +183,10 @@ function setup_token(): ?string
 function setup_token_write(): bool
 {
     try {
-        config_put(setup_token_file(), "<?php\n// The setup page's token (backend/setup.php). It deletes this file when it is done.\n\nreturn "
-            . var_export(['token' => bin2hex(random_bytes(24))], true) . ";\n");
+        config_put(
+            setup_token_file(),
+            "<?php\n// The setup page's token (backend/setup.php). It deletes this file when it is done.\n\nreturn " . var_export(['token' => bin2hex(random_bytes(24))], true) . ";\n",
+        );
         return true;
     } catch (RuntimeException $e) {
         return false;
@@ -187,13 +205,13 @@ function setup_json(bool $ok, string $message): void
 {
     header('Content-Type: application/json; charset=utf-8');
     echo json_text(['ok' => $ok, 'message' => $message]);
-    exit;
+    exit();
 }
 
 /** "1 table", "11,523 exam questions": a count as the app writes one. */
 function setup_count(int $n, string $one, ?string $many = null): string
 {
-    return number_format($n) . ' ' . ($n === 1 ? $one : ($many ?? $one . 's'));
+    return number_format($n) . ' ' . ($n === 1 ? $one : $many ?? $one . 's');
 }
 
 /**
@@ -235,8 +253,11 @@ function setup_try_db(array $db): array
         $tables = (int) $pdo->query("SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")->fetchColumn();
         // what the migrations' engine finds there (it only reads: nothing is made)
         $pending = count(db_migrator($pdo)->status()['pending']);
-        return [true, "Connected to the database \"$name\": "
-            . ($tables === 0 ? 'it is empty - Save makes the tables.' : ($pending > 0 ? "$pending update(s) to apply - Save applies them." : 'it is up to date.'))];
+        return [
+            true,
+            "Connected to the database \"$name\": " .
+            ($tables === 0 ? 'it is empty - Save makes the tables.' : ($pending > 0 ? "$pending update(s) to apply - Save applies them." : 'it is up to date.')),
+        ];
     } catch (PDOException $e) {
         $first = $e;
     }
@@ -259,8 +280,7 @@ function setup_try_db(array $db): array
 /** Is this an address an IAM may have: https://, or http:// on this computer (the development IAM)? */
 function setup_issuer_ok(string $issuer): bool
 {
-    return (bool) filter_var($issuer, FILTER_VALIDATE_URL)
-        && (bool) preg_match('~^(https://[^/\s]+|http://(localhost|127\.0\.0\.1)(:\d+)?)(/[^\s]*)?$~', $issuer);
+    return (bool) filter_var($issuer, FILTER_VALIDATE_URL) && (bool) preg_match('~^(https://[^/\s]+|http://(localhost|127\.0\.0\.1)(:\d+)?)(/[^\s]*)?$~', $issuer);
 }
 
 /**
@@ -287,8 +307,10 @@ function setup_try_iam(string $issuer): array
     }
     $doc = json_decode($body, true);
     if (!is_array($doc) || ($doc['issuer'] ?? null) !== $issuer) {
-        return [false, "Something answers at $issuer, but it is not the IAM at this address"
-            . (is_array($doc) && is_string($doc['issuer'] ?? null) ? ': it calls itself ' . $doc['issuer'] . '.' : '.')];
+        return [
+            false,
+            "Something answers at $issuer, but it is not the IAM at this address" . (is_array($doc) && is_string($doc['issuer'] ?? null) ? ': it calls itself ' . $doc['issuer'] . '.' : '.'),
+        ];
     }
     $jwks = setup_iam_get("$issuer/.well-known/jwks.json", 6);
     $keys = $jwks === null ? [] : \Anotoki\Lib\Auth\Jwks::usable((array) json_decode($jwks, true));
@@ -323,10 +345,15 @@ function setup_connect(array $db): void
 
 if (!SETUP_LOCAL && is_file(SETUP_LOCK)) {
     $gone = setup_cleanup();
-    setup_page('Already set up', '<p>This site is set up. <code>backend/storage/installed.lock</code> stops the setup page from running again.</p>'
-        . ($gone ? '<p class="ok">The setup files have been removed.</p>'
-            : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand: they could not be removed.</p>')
-        . '<p>To run it again on purpose, delete the lock first, and upload <code>backend/setup.php</code> again.</p>', 'good');
+    setup_page(
+        'Already set up',
+        '<p>This site is set up. <code>backend/storage/installed.lock</code> stops the setup page from running again.</p>' .
+            ($gone
+                ? '<p class="ok">The setup files have been removed.</p>'
+                : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand: they could not be removed.</p>') .
+            '<p>To run it again on purpose, delete the lock first, and upload <code>backend/setup.php</code> again.</p>',
+        'good',
+    );
 }
 
 // ── Proof that it is the owner: a token on a website, a nonce here ─────────────
@@ -344,8 +371,12 @@ if (!SETUP_LOCAL) {
     // pass any form that sends none.
     $token = setup_token() ?? (setup_token_write() ? setup_token() : null);
     if ($token === null) {
-        setup_page('Cannot write to backend/config/', '<p>The setup page could not write <code>backend/config/setup-token.local.php</code>:'
-            . ' the web server may not write in <code>backend/config/</code>.</p><p>Give it write permission there, and reload this page.</p>', 'bad');
+        setup_page(
+            'Cannot write to backend/config/',
+            '<p>The setup page could not write <code>backend/config/setup-token.local.php</code>:' .
+                ' the web server may not write in <code>backend/config/</code>.</p><p>Give it write permission there, and reload this page.</p>',
+            'bad',
+        );
     }
 }
 $nonce = (string) ($_COOKIE[SETUP_COOKIE] ?? '');
@@ -362,11 +393,10 @@ function setup_proven(?string $token, string $nonce): ?string
     if (!SETUP_LOCAL) {
         // never a token that is not there: '' would equal a form that sends none
         // (and a space pasted along with the token is not part of it)
-        return $token !== null && $token !== '' && hash_equals($token, trim((string) ($_POST['token'] ?? '')))
-            ? null : 'That is not the token from backend/config/setup-token.local.php.';
+        return $token !== null && $token !== '' && hash_equals($token, trim((string) ($_POST['token'] ?? ''))) ? null : 'That is not the token from backend/config/setup-token.local.php.';
     }
     $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
-    $here = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+    $here = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
     if (($_COOKIE[SETUP_COOKIE] ?? '') === '' || !hash_equals($nonce, (string) ($_POST['nonce'] ?? '')) || ($origin !== '' && $origin !== $here)) {
         return 'This form did not come from this page (or the page is old): reload it and try again.';
     }
@@ -384,24 +414,35 @@ $hasPassword = is_string($savedDb['password'] ?? null) && $savedDb['password'] !
 // What is saved is shown to this computer only. A website's setup page is
 // anybody's to open, and one uploaded again would show its database's name
 // and user and its IAM to whoever came first.
-$fromSaved = SETUP_LOCAL ? array_map('strval', array_filter([
-    'db_host' => $savedDb['host'] ?? null,
-    'db_port' => $savedDb['port'] ?? null,
-    'db_name' => $savedDb['name'] ?? null,
-    'db_user' => $savedDb['user'] ?? null,
-    'issuer' => $savedAuth['issuer'] ?? null,
-    'client_id' => $savedAuth['client_id'] ?? null,
-], 'is_scalar')) : [];
+$fromSaved = SETUP_LOCAL
+    ? array_map(
+        'strval',
+        array_filter(
+            [
+                'db_host' => $savedDb['host'] ?? null,
+                'db_port' => $savedDb['port'] ?? null,
+                'db_name' => $savedDb['name'] ?? null,
+                'db_user' => $savedDb['user'] ?? null,
+                'issuer' => $savedAuth['issuer'] ?? null,
+                'client_id' => $savedAuth['client_id'] ?? null,
+            ],
+            'is_scalar',
+        ),
+    )
+    : [];
 // Only a form proves anything: the token (a website), or this page's nonce (here).
 $refused = $method === 'POST' ? setup_proven($token, $nonce) : 'Nothing was sent.';
-$old = array_replace([
-    'db_host' => 'localhost',
-    'db_port' => '5432',
-    'db_name' => 'anotoki_japanese',
-    'db_user' => SETUP_LOCAL ? 'postgres' : '',
-    'issuer' => SETUP_LOCAL ? 'http://localhost:4300' : '',
-    'client_id' => 'japanese-academy',
-], $fromSaved);
+$old = array_replace(
+    [
+        'db_host' => 'localhost',
+        'db_port' => '5432',
+        'db_name' => 'anotoki_japanese',
+        'db_user' => SETUP_LOCAL ? 'postgres' : '',
+        'issuer' => SETUP_LOCAL ? 'http://localhost:4300' : '',
+        'client_id' => 'japanese-academy',
+    ],
+    $fromSaved,
+);
 $errors = [];
 
 /** The form's database settings, with the saved password when none was typed. */
@@ -469,18 +510,20 @@ if ($method === 'POST') {
     }
 
     if (!$errors) {
-        if (function_exists('set_time_limit')) { // some hosts switch it off
+        if (function_exists('set_time_limit')) {
+            // some hosts switch it off
             @set_time_limit(300); // the study content takes seconds to build
         }
         try {
             $log = setup_run($old, setup_db_from_form($old, $savedDb));
             $result = '<ul><li>' . implode('</li><li>', array_map('setup_h', $log)) . '</li></ul>';
-            $signIn = '<p>Open the app and sign in with your anotoki account at ' . setup_h(rtrim($old['issuer'], '/')) . '.'
-                . ' Your data comes in from the app itself, each person their own.</p>';
+            $signIn = '<p>Open the app and sign in with your anotoki account at ' . setup_h(rtrim($old['issuer'], '/')) . '.' . ' Your data comes in from the app itself, each person their own.</p>';
             if (SETUP_LOCAL) {
-                setup_page('Saved', $result . $signIn
-                    . '<p>This page stays: open it again to change the settings.</p>'
-                    . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>', 'good');
+                setup_page(
+                    'Saved',
+                    $result . $signIn . '<p>This page stays: open it again to change the settings.</p>' . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>',
+                    'good',
+                );
             }
             // A website: the lock first, so the setup page refuses to run again even if the cleanup fails.
             if (!is_dir(dirname(SETUP_LOCK))) {
@@ -488,13 +531,22 @@ if ($method === 'POST') {
             }
             $locked = @file_put_contents(SETUP_LOCK, json_text(['installedAt' => iso_time(now_ms()), 'database' => $old['db_name'], 'issuer' => rtrim($old['issuer'], '/')]) . "\n") !== false;
             $gone = setup_cleanup();
-            setup_page('Set up', $result
-                . ($locked ? '' : '<p class="err"><code>backend/storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>backend/storage/</code> is writable.</p>')
-                . ($gone ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code>.</p>'
-                    : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand:'
-                    . ' they could not be removed.' . ($locked ? ' (The lock stops the setup page meanwhile.)' : '') . '</p>')
-                . $signIn
-                . '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>', 'good');
+            setup_page(
+                'Set up',
+                $result .
+                    ($locked
+                        ? ''
+                        : '<p class="err"><code>backend/storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>backend/storage/</code> is writable.</p>') .
+                    ($gone
+                        ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code>.</p>'
+                        : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand:' .
+                            ' they could not be removed.' .
+                            ($locked ? ' (The lock stops the setup page meanwhile.)' : '') .
+                            '</p>') .
+                    $signIn .
+                    '<div class="actions"><a class="primary btn" href="/">Open Japanese Academy</a></div>',
+                'good',
+            );
         } catch (Throwable $e) {
             $errors[] = $e->getMessage();
         }
@@ -532,13 +584,13 @@ function setup_run(array $in, array $db): array
     }
     $log[] = $migrated['applied'] ? 'Applied the migrations: ' . implode(', ', $migrated['applied']) . '.' : 'The tables were up to date already.';
     if ($waiting = db_first_pending_migration()) {
-        throw new RuntimeException(db_migration_path($waiting) . ' is not whole (its last line, "-- end of ' . substr($waiting['name'], 0, 3) . '", is missing):'
-            . ' upload or copy it again, then send this form again.');
+        throw new RuntimeException(
+            db_migration_path($waiting) . ' is not whole (its last line, "-- end of ' . substr($waiting['name'], 0, 3) . '", is missing):' . ' upload or copy it again, then send this form again.',
+        );
     }
     $synced = content_sync();
     $log[] = $synced
-        ? 'Built the study content: ' . setup_count((int) $synced['items'], 'kanji item') . ' and ' . setup_count((int) $synced['questions'], 'exam question')
-            . " ({$synced['seconds']} s)."
+        ? 'Built the study content: ' . setup_count((int) $synced['items'], 'kanji item') . ' and ' . setup_count((int) $synced['questions'], 'exam question') . " ({$synced['seconds']} s)."
         : 'The study content was up to date already.';
 
     // Sign-in needs the IAM's keys: can this server fetch them?
@@ -547,8 +599,11 @@ function setup_run(array $in, array $db): array
     } elseif (setup_iam_get($issuer . '/.well-known/jwks.json', 5) !== null) {
         $log[] = 'Reached the IAM: its keys are there, so people can sign in.';
     } else {
-        $log[] = 'Warning: this server could not reach ' . $issuer . ' just now, and signing in needs it. '
-            . 'Check the address (and that the IAM runs), or ask the host whether the site may make HTTPS requests.';
+        $log[] =
+            'Warning: this server could not reach ' .
+            $issuer .
+            ' just now, and signing in needs it. ' .
+            'Check the address (and that the IAM runs), or ask the host whether the site may make HTTPS requests.';
     }
     return $log;
 }
@@ -556,63 +611,94 @@ function setup_run(array $in, array $db): array
 // ── The form ──────────────────────────────────────────────────────────────────
 
 $field = static function (string $name, string $label, string $type = 'text', string $extra = '') use ($old): string {
-    return '<label class="field"><span class="lbl">' . $label . '</span><input id="' . $name . '" name="' . $name . '" type="' . $type . '"'
-        . ($type === 'text' ? ' value="' . setup_h($old[$name] ?? '') . '"' : '') . ' ' . $extra . '></label>';
+    return '<label class="field"><span class="lbl">' .
+        $label .
+        '</span><input id="' .
+        $name .
+        '" name="' .
+        $name .
+        '" type="' .
+        $type .
+        '"' .
+        ($type === 'text' ? ' value="' . setup_h($old[$name] ?? '') . '"' : '') .
+        ' ' .
+        $extra .
+        '></label>';
 };
 $passwordSaved = SETUP_LOCAL && $hasPassword;
 
 $intro = SETUP_LOCAL
-    ? '<p>This sets up Japanese Academy on this computer: the database with its tables and the study content, and the anotoki IAM people sign in through.'
-        . ' It stays here: open it again any time to change the settings.</p>'
-        . ($savedDb !== null ? '<p class="note">This copy is set up already. Change what you need and save again; the password stays as it is unless you type a new one.</p>' : '')
+    ? '<p>This sets up Japanese Academy on this computer: the database with its tables and the study content, and the anotoki IAM people sign in through.' .
+        ' It stays here: open it again any time to change the settings.</p>' .
+        ($savedDb !== null ? '<p class="note">This copy is set up already. Change what you need and save again; the password stays as it is unless you type a new one.</p>' : '') .
         // A saved file that cannot be read cleanly, by its fault alone (never its text): Save writes it again.
-        . implode('', array_map(static function (string $file, string $problem): string {
-            return '<p class="err">' . setup_h("backend/config/$file $problem") . ': Save writes it again, with what this form says.</p>';
-        }, array_keys($savedProblems), $savedProblems))
-    : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.'
-        . ' Make the database in your hosting panel first.</p>'
-        . '<p class="note">A token was written to <code>backend/config/setup-token.local.php</code>. Open that file by FTP or SFTP,'
-        . ' copy the token, and paste it below: that is how the setup page knows it is you.</p>';
+        implode(
+            '',
+            array_map(
+                static function (string $file, string $problem): string {
+                    return '<p class="err">' . setup_h("backend/config/$file $problem") . ': Save writes it again, with what this form says.</p>';
+                },
+                array_keys($savedProblems),
+                $savedProblems,
+            ),
+        )
+    : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.' .
+        ' Make the database in your hosting panel first.</p>' .
+        '<p class="note">A token was written to <code>backend/config/setup-token.local.php</code>. Open that file by FTP or SFTP,' .
+        ' copy the token, and paste it below: that is how the setup page knows it is you.</p>';
 
 setup_page(
     'Set up Japanese Academy',
-    $intro
-    . implode('', array_map(static function (string $e): string {
-        return '<p class="err" role="alert">' . setup_h($e) . '</p>';
-    }, $errors))
-    . '<form id="setup" method="post" autocomplete="off">'
-    . (SETUP_LOCAL ? '<input type="hidden" name="nonce" value="' . setup_h($nonce) . '">'
-        : $field('token', 'Token', 'password', 'required placeholder="paste the token here"')
-            . '<div class="test"><button type="button" class="ghost" data-test="token">Check</button><span class="result" id="token-result" role="status"></span></div>')
-    . '<h2>Database (PostgreSQL)</h2>'
-    . '<div class="row"><div>' . $field('db_host', 'Server', 'text', 'required') . '</div><div>' . $field('db_port', 'Port', 'text', 'required inputmode="numeric"') . '</div></div>'
-    . $field('db_name', 'Database', 'text', 'required')
-    . '<div class="row"><div>' . $field('db_user', 'User', 'text', 'required') . '</div><div>'
-    . $field('db_password', 'Password <em>' . ($passwordSaved ? '(saved: leave empty to keep it)' : '') . '</em>', 'password',
-        $passwordSaved ? 'placeholder="unchanged"' : '') . '</div></div>'
-    . '<div class="test"><button type="button" class="ghost" data-test="db">Test connection</button><span class="result" id="db-result" role="status"></span></div>'
-    . '<h2>Sign-in (the anotoki IAM)</h2>'
-    . '<p>Everybody signs in with their anotoki account, and has their own progress. Who may reword the app\'s words, or more, is their role there.</p>'
-    . '<div class="row"><div>' . $field('issuer', 'The IAM\'s address', 'text', 'required' . (SETUP_LOCAL ? '' : ' placeholder="https://iam.anotoki.eu"')) . '</div><div>'
-    . $field('client_id', 'Client id', 'text', 'required') . '</div></div>'
-    . '<div class="test"><button type="button" class="ghost" data-test="iam">Test connection</button><span class="result" id="iam-result" role="status"></span></div>'
-    . '<div class="actions"><button type="submit" class="primary" name="action" value="save">Save</button></div>'
-    . '</form>',
+    $intro .
+        implode(
+            '',
+            array_map(static function (string $e): string {
+                return '<p class="err" role="alert">' . setup_h($e) . '</p>';
+            }, $errors),
+        ) .
+        '<form id="setup" method="post" autocomplete="off">' .
+        (SETUP_LOCAL
+            ? '<input type="hidden" name="nonce" value="' . setup_h($nonce) . '">'
+            : $field('token', 'Token', 'password', 'required placeholder="paste the token here"') .
+                '<div class="test"><button type="button" class="ghost" data-test="token">Check</button><span class="result" id="token-result" role="status"></span></div>') .
+        '<h2>Database (PostgreSQL)</h2>' .
+        '<div class="row"><div>' .
+        $field('db_host', 'Server', 'text', 'required') .
+        '</div><div>' .
+        $field('db_port', 'Port', 'text', 'required inputmode="numeric"') .
+        '</div></div>' .
+        $field('db_name', 'Database', 'text', 'required') .
+        '<div class="row"><div>' .
+        $field('db_user', 'User', 'text', 'required') .
+        '</div><div>' .
+        $field('db_password', 'Password <em>' . ($passwordSaved ? '(saved: leave empty to keep it)' : '') . '</em>', 'password', $passwordSaved ? 'placeholder="unchanged"' : '') .
+        '</div></div>' .
+        '<div class="test"><button type="button" class="ghost" data-test="db">Test connection</button><span class="result" id="db-result" role="status"></span></div>' .
+        '<h2>Sign-in (the anotoki IAM)</h2>' .
+        '<p>Everybody signs in with their anotoki account, and has their own progress. Who may reword the app\'s words, or more, is their role there.</p>' .
+        '<div class="row"><div>' .
+        $field('issuer', 'The IAM\'s address', 'text', 'required' . (SETUP_LOCAL ? '' : ' placeholder="https://iam.anotoki.eu"')) .
+        '</div><div>' .
+        $field('client_id', 'Client id', 'text', 'required') .
+        '</div></div>' .
+        '<div class="test"><button type="button" class="ghost" data-test="iam">Test connection</button><span class="result" id="iam-result" role="status"></span></div>' .
+        '<div class="actions"><button type="submit" class="primary" name="action" value="save">Save</button></div>' .
+        '</form>',
     'plain',
     // The buttons try the settings without sending the form. The token's is
     // pressed by itself once one is pasted (or the field is left), and by Enter
     // in the field, which would otherwise send the whole form.
-    '(function(){var form=document.getElementById("setup");'
-    . 'document.querySelectorAll("[data-test]").forEach(function(button){button.addEventListener("click",function(){'
-    . 'var out=document.getElementById(button.dataset.test+"-result");out.textContent="Trying…";out.className="result";'
-    . 'var data=new FormData(form);data.set("action","test-"+button.dataset.test);button.disabled=true;'
-    . 'fetch(location.pathname,{method:"POST",body:data,credentials:"same-origin"}).then(function(r){return r.json();})'
-    . '.then(function(b){out.textContent=b.message;out.className="result "+(b.ok?"good":"bad");})'
-    . '.catch(function(e){out.textContent="The setup page did not answer: "+e.message;out.className="result bad";})'
-    . '.then(function(){button.disabled=false;});});});'
-    . 'var token=document.getElementById("token");'
-    . 'if(token){var check=function(){if(token.value.trim()){document.querySelector("[data-test=token]").click();}};'
-    . 'token.addEventListener("change",check);token.addEventListener("paste",function(){setTimeout(check,0);});'
-    . 'token.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();check();}});}'
-    . '})();'
+    '(function(){var form=document.getElementById("setup");' .
+        'document.querySelectorAll("[data-test]").forEach(function(button){button.addEventListener("click",function(){' .
+        'var out=document.getElementById(button.dataset.test+"-result");out.textContent="Trying…";out.className="result";' .
+        'var data=new FormData(form);data.set("action","test-"+button.dataset.test);button.disabled=true;' .
+        'fetch(location.pathname,{method:"POST",body:data,credentials:"same-origin"}).then(function(r){return r.json();})' .
+        '.then(function(b){out.textContent=b.message;out.className="result "+(b.ok?"good":"bad");})' .
+        '.catch(function(e){out.textContent="The setup page did not answer: "+e.message;out.className="result bad";})' .
+        '.then(function(){button.disabled=false;});});});' .
+        'var token=document.getElementById("token");' .
+        'if(token){var check=function(){if(token.value.trim()){document.querySelector("[data-test=token]").click();}};' .
+        'token.addEventListener("change",check);token.addEventListener("paste",function(){setTimeout(check,0);});' .
+        'token.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();check();}});}' .
+        '})();',
 );

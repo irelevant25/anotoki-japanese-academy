@@ -28,12 +28,15 @@ declare(strict_types=1);
 /** The catalog, in course order, with what the summary and the lesson checks need. */
 function kanji_items(): array
 {
-    return array_map(static fn (array $r): array => [
-        'id' => $r['id'],
-        'type' => $r['type'],
-        'lesson' => (int) $r['lesson'],
-        'kanji' => json_decode($r['kanji'], true),
-    ], db_all('SELECT id, type, lesson, kanji FROM srs_items ORDER BY ord'));
+    return array_map(
+        static fn(array $r): array => [
+            'id' => $r['id'],
+            'type' => $r['type'],
+            'lesson' => (int) $r['lesson'],
+            'kanji' => json_decode($r['kanji'], true),
+        ],
+        db_all('SELECT id, type, lesson, kanji FROM srs_items ORDER BY ord'),
+    );
 }
 
 /** The catalog item a request names, or null. */
@@ -178,11 +181,13 @@ function kanji_catalog_json(): string
 
 function kanji_progress(int $uid): array
 {
-    return db_tx(static fn (): array => [
-        'settings' => store_settings($uid),
-        'items' => store_items($uid) ?: new stdClass(),
-        'summary' => kanji_summarize($uid),
-    ]);
+    return db_tx(
+        static fn(): array => [
+            'settings' => store_settings($uid),
+            'items' => store_items($uid) ?: new stdClass(),
+            'summary' => kanji_summarize($uid),
+        ],
+    );
 }
 
 /* --------------------------------------------------------------- writes */
@@ -199,7 +204,7 @@ function kanji_learn(int $uid, array $b): array
         if (srs_is_learned($st)) {
             return [409, ['error' => 'Already learned.', 'code' => 'already_learned', 'state' => $st]];
         }
-        if (!kanji_is_available($it, kanji_states($uid, array_map(static fn (string $c): string => "k:$c", $it['kanji'])))) {
+        if (!kanji_is_available($it, kanji_states($uid, array_map(static fn(string $c): string => "k:$c", $it['kanji'])))) {
             return [409, ['error' => 'Learn its kanji first.', 'code' => 'kanji_first']];
         }
         $now = now_ms();
@@ -295,7 +300,7 @@ function kanji_edit_item(int $uid, array $b): array
             }
             return $list;
         };
-        $remove = static fn (array $list, $v): array => array_values(array_filter($list, static fn ($x): bool => $x !== $v));
+        $remove = static fn(array $list, $v): array => array_values(array_filter($list, static fn($x): bool => $x !== $v));
         if (js_truthy($b['addSynonym'] ?? null)) {
             $st['synonyms'] = $addTo($st['synonyms'], $b['addSynonym'], 80);
         }

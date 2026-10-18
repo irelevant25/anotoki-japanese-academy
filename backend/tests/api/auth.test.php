@@ -37,8 +37,11 @@ function ids_of(array $items): array
 
 test('the browser is told how to sign in; the pages, the clips, health and the app’s own words need no sign-in', function (): void {
     $config = as_user(null, 'GET', '/api/auth/config');
-    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], $config['body'],
-        'the IAM, whether sign-in is required here (it is, while the IAM does not say otherwise: tests/api/access.test.php) and is offered at all, in the anotoki library\'s words');
+    assert_same(
+        ['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
+        $config['body'],
+        'the IAM, whether sign-in is required here (it is, while the IAM does not say otherwise: tests/api/access.test.php) and is offered at all, in the anotoki library\'s words',
+    );
     assert_same('no-store', $config['headers']['cache-control'] ?? null, 'never kept by a browser or a proxy');
     assert_same(200, as_user(null, 'GET', '/api/health')['status']);
     // The third address without sign-in: the app's own words, the same for everybody, so the Sign in page reads in the reader's language.
@@ -55,20 +58,48 @@ test('the browser is told how to sign in; the pages, the clips, health and the a
 });
 
 test('without a token every address with somebody’s data answers 401, and asks for one - from this computer too', function (): void {
-    $routes = ['GET /api/meta', 'GET /api/attempts', 'GET /api/kanji/catalog', 'GET /api/kanji/progress', 'GET /api/kanji/summary',
-        'GET /report/some-attempt', 'POST /api/exam', 'POST /api/submit', 'POST /api/kanji/learn',
-        'POST /api/kanji/review', 'POST /api/kanji/practice', 'POST /api/kanji/item', 'POST /api/kanji/settings',
-        'POST /api/kanji/reset-item', 'POST /api/kanji/reset',
+    $routes = [
+        'GET /api/meta',
+        'GET /api/attempts',
+        'GET /api/kanji/catalog',
+        'GET /api/kanji/progress',
+        'GET /api/kanji/summary',
+        'GET /report/some-attempt',
+        'POST /api/exam',
+        'POST /api/submit',
+        'POST /api/kanji/learn',
+        'POST /api/kanji/review',
+        'POST /api/kanji/practice',
+        'POST /api/kanji/item',
+        'POST /api/kanji/settings',
+        'POST /api/kanji/reset-item',
+        'POST /api/kanji/reset',
         // your own data as a file, and back (tests/api/me.test.php)
-        'GET /api/me/data', 'PUT /api/me/data',
+        'GET /api/me/data',
+        'PUT /api/me/data',
         // the admin area: the languages, the app's own words and the people (tests/api/translations.test.php
         // and people.test.php have who may, once signed in)
-        'GET /api/admin/languages', 'POST /api/admin/languages', 'PUT /api/admin/languages/sk', 'DELETE /api/admin/languages/sk',
-        'GET /api/admin/translations', 'PUT /api/admin/translations', 'GET /api/admin/translations/sk/export', 'PUT /api/admin/translations/sk/import',
-        'GET /api/admin/people', 'DELETE /api/admin/people/' . ADA, 'POST /api/admin/people/sync',
+        'GET /api/admin/languages',
+        'POST /api/admin/languages',
+        'PUT /api/admin/languages/sk',
+        'DELETE /api/admin/languages/sk',
+        'GET /api/admin/translations',
+        'PUT /api/admin/translations',
+        'GET /api/admin/translations/sk/export',
+        'PUT /api/admin/translations/sk/import',
+        'GET /api/admin/people',
+        'DELETE /api/admin/people/' . ADA,
+        'POST /api/admin/people/sync',
         // the admin tools (tests/api/admin-tools.test.php)
-        'GET /api/admin/errors', 'DELETE /api/admin/errors', 'GET /api/admin/audit', 'GET /api/admin/feedback', 'GET /api/admin/feedback/unread',
-        'GET /api/admin/backups', 'POST /api/admin/backups', 'GET /api/admin/migrations'];
+        'GET /api/admin/errors',
+        'DELETE /api/admin/errors',
+        'GET /api/admin/audit',
+        'GET /api/admin/feedback',
+        'GET /api/admin/feedback/unread',
+        'GET /api/admin/backups',
+        'POST /api/admin/backups',
+        'GET /api/admin/migrations',
+    ];
     $languages = db_all('SELECT * FROM languages ORDER BY code');
     foreach ($routes as $route) {
         [$method, $url] = explode(' ', $route);
@@ -131,8 +162,16 @@ test('every account studies here: MEMBER (every account holds it) is a learner, 
     }
     // the whole admin panel says no to MEMBER: the words, the languages, the people, the migrations
     $member = test_token(ADA, ['MEMBER']);
-    foreach (['GET /api/admin/languages' => 'staff_only', 'POST /api/admin/languages' => 'staff_only', 'GET /api/admin/translations/sk/export' => 'staff_only',
-        'GET /api/admin/people' => 'staff_only', 'GET /api/admin/migrations' => 'staff_only'] as $route => $code) {
+    foreach (
+        [
+            'GET /api/admin/languages' => 'staff_only',
+            'POST /api/admin/languages' => 'staff_only',
+            'GET /api/admin/translations/sk/export' => 'staff_only',
+            'GET /api/admin/people' => 'staff_only',
+            'GET /api/admin/migrations' => 'staff_only',
+        ]
+        as $route => $code
+    ) {
         [$method, $url] = explode(' ', $route);
         $r = as_user($member, $method, $url, $method === 'POST' ? ['code' => 'xx', 'name' => 'X', 'native_name' => 'X'] : null);
         assert_same([403, $code], [$r['status'], $r['body']['code'] ?? null], "MEMBER: $route");
@@ -143,7 +182,7 @@ test('every account studies here: MEMBER (every account holds it) is a learner, 
 });
 
 test('the roles that count: ADMIN and EDITOR of this application, upper-cased', function (): void {
-    $person = static fn (array $claims): Person => Person::fromClaims(['sub' => '501'] + $claims);
+    $person = static fn(array $claims): Person => Person::fromClaims(['sub' => '501'] + $claims);
     assert_same([], auth_roles($person(['roles' => []])));
     assert_same([], auth_roles($person([])), 'no roles claim at all');
     assert_same([], auth_roles($person(['roles' => ['MEMBER', 'OWNER', '']])));
@@ -154,9 +193,21 @@ test('the roles that count: ADMIN and EDITOR of this application, upper-cased', 
 });
 
 test('only the Bearer scheme claims to be somebody, with or without a token after it', function (): void {
-    $request = static fn (array $server) => (new ServerRequestFactory())->createServerRequest('GET', '/api/kanji/summary', $server);
-    foreach (['Bearer abc' => true, 'Bearer' => true, 'bearer abc' => true, '  BEARER   ' => true, "Bearer\tabc" => true,
-        'Basic YWRhOnNlY3JldA==' => false, 'Bearerabc' => false, 'Token abc' => false, '' => false] as $header => $claims) {
+    $request = static fn(array $server) => (new ServerRequestFactory())->createServerRequest('GET', '/api/kanji/summary', $server);
+    foreach (
+        [
+            'Bearer abc' => true,
+            'Bearer' => true,
+            'bearer abc' => true,
+            '  BEARER   ' => true,
+            "Bearer\tabc" => true,
+            'Basic YWRhOnNlY3JldA==' => false,
+            'Bearerabc' => false,
+            'Token abc' => false,
+            '' => false,
+        ]
+        as $header => $claims
+    ) {
         assert_same($claims, Bearer::sent(Bearer::header($request(['HTTP_AUTHORIZATION' => $header]))), "\"$header\"");
     }
     assert_false(Bearer::sent(Bearer::header($request([]))), 'no header at all');
@@ -198,10 +249,10 @@ test('two people, each with their own progress, settings and resets', function (
 });
 
 test('the users rows: made from the tokens as people arrive, their names kept up to date', function (): void {
-    assert_same([[ADA, 'ada'], [BEN, 'ben']], array_map(
-        static fn (array $r): array => [(int) $r['id'], $r['preferred_username']],
-        db_all('SELECT id, preferred_username FROM users WHERE id IN (?, ?) ORDER BY id', [ADA, BEN])
-    ));
+    assert_same(
+        [[ADA, 'ada'], [BEN, 'ben']],
+        array_map(static fn(array $r): array => [(int) $r['id'], $r['preferred_username']], db_all('SELECT id, preferred_username FROM users WHERE id IN (?, ?) ORDER BY id', [ADA, BEN])),
+    );
     as_user(test_token(ADA, [], ['preferred_username' => 'ada.l']), 'GET', '/api/kanji/summary');
     assert_same('ada.l', db_value('SELECT preferred_username FROM users WHERE id = ?', [ADA]), 'a new name comes with the next token');
     db_exec("UPDATE users SET last_seen_at = now() - interval '1 hour' WHERE id = ?", [ADA]);
@@ -271,19 +322,30 @@ test('this computer is told more, and nothing else: a request straight to its ow
 test('signing in through the stand-in IAM: a code with PKCE, tokens the app takes, a refresh, a refusal, a sign-out', function (): void {
     $iam = stand_in_iam(['user' => ['id' => 640, 'username' => 'cleo', 'roles' => ['MEMBER', 'EDITOR']]]);
     $app = start_app(['issuer' => $iam['base']]);
-    assert_same(['issuer' => $iam['base'], 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
-        call($app['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    assert_same(
+        ['issuer' => $iam['base'], 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
+        call($app['base'], 'GET', '/api/auth/config', null, no_token())['body'],
+    );
     $discovery = call($iam['base'], 'GET', '/.well-known/openid-configuration', null, no_token())['body'];
     assert_same([$iam['base'], $iam['base'] . '/api/oidc/token'], [$discovery['issuer'], $discovery['token_endpoint']]);
 
     $verifier = bin2hex(random_bytes(32));
     $redirect = $app['base'] . '/auth/callback';
     $authorize = static function () use ($iam, $verifier, $redirect): array {
-        $r = test_page($iam['base'], '/api/oidc/authorize?' . http_build_query([
-            'response_type' => 'code', 'client_id' => 'japanese-academy', 'redirect_uri' => $redirect, 'scope' => 'openid profile email',
-            'state' => 'st-1', 'nonce' => 'n-1', 'code_challenge_method' => 'S256',
-            'code_challenge' => rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '='),
-        ]));
+        $r = test_page(
+            $iam['base'],
+            '/api/oidc/authorize?' .
+                http_build_query([
+                    'response_type' => 'code',
+                    'client_id' => 'japanese-academy',
+                    'redirect_uri' => $redirect,
+                    'scope' => 'openid profile email',
+                    'state' => 'st-1',
+                    'nonce' => 'n-1',
+                    'code_challenge_method' => 'S256',
+                    'code_challenge' => rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '='),
+                ]),
+        );
         assert_same(302, $r['status'], 'authorize answers with a redirect');
         $to = (string) ($r['headers']['location'][0] ?? '');
         assert_true(str_starts_with($to, "$redirect?"), "back to the app: $to");
@@ -292,7 +354,7 @@ test('signing in through the stand-in IAM: a code with PKCE, tokens the app take
     };
     $back = $authorize();
     assert_same(['st-1', $iam['base']], [$back['state'] ?? null, $back['iss'] ?? null]);
-    $token = static fn (array $fields): array => test_form($iam['base'], '/api/oidc/token', $fields + ['client_id' => 'japanese-academy']);
+    $token = static fn(array $fields): array => test_form($iam['base'], '/api/oidc/token', $fields + ['client_id' => 'japanese-academy']);
     $wrong = $token(['grant_type' => 'authorization_code', 'code' => $back['code'], 'redirect_uri' => $redirect, 'code_verifier' => 'not-the-verifier']);
     assert_same([400, 'invalid_grant'], [$wrong['status'], $wrong['body']['error'] ?? null], 'PKCE: the verifier must match');
     $back = $authorize();
@@ -300,12 +362,17 @@ test('signing in through the stand-in IAM: a code with PKCE, tokens the app take
     assert_same(200, $tokens['status']);
     $access = (string) $tokens['body']['access_token'];
 
-    $as = static fn (string $method, string $url, $body = null): array => call($app['base'], $method, $url, $body, test_bearer($access));
+    $as = static fn(string $method, string $url, $body = null): array => call($app['base'], $method, $url, $body, test_bearer($access));
     assert_same(200, $as('GET', '/api/kanji/summary')['status'], 'the app takes the stand-in IAM’s token');
     assert_same('cleo', db_value('SELECT preferred_username FROM users WHERE id = 640'), 'and knows the person by it');
     assert_same(200, $as('GET', '/api/admin/translations')['status'], 'an editor rewords the words');
-    assert_refused(403, 'admin_only', 'This is for the site\'s administrators.', $as('POST', '/api/admin/languages', ['code' => 'de', 'name' => 'German', 'native_name' => 'Deutsch']),
-        'and adds no language');
+    assert_refused(
+        403,
+        'admin_only',
+        'This is for the site\'s administrators.',
+        $as('POST', '/api/admin/languages', ['code' => 'de', 'name' => 'German', 'native_name' => 'Deutsch']),
+        'and adds no language',
+    );
 
     $again = $token(['grant_type' => 'refresh_token', 'refresh_token' => $tokens['body']['refresh_token']]);
     assert_same(200, $again['status'], 'a refresh');
@@ -329,12 +396,12 @@ test('a refused token’s reason goes to the log on one line, clipped: the token
     $token = $iam->sign($iam->claims(ADA, []), 'at+jwt', 'RS256', ['kid' => $kid]);
     assert_same(401, as_user($token, 'GET', '/api/kanji/summary')['status']);
     $lines = preg_split('/\R/', (string) file_get_contents($GLOBALS['app']['log']));
-    $refused = array_values(array_filter($lines, static fn (string $l): bool => str_contains($l, 'no published key with kid no-such-key')));
+    $refused = array_values(array_filter($lines, static fn(string $l): bool => str_contains($l, 'no published key with kid no-such-key')));
     assert_same(1, count($refused), 'one line');
     // The library's words, with at most 64 of the token's own characters, each but [A-Za-z0-9._+-] a "?".
     assert_match('/\[auth\] a token was refused: no published key with kid no-such-key\?\?\?auth\?\?a\?token\?was\?accepted\?\?forged\?k{15}\.\.\.$/', $refused[0]);
     assert_true(strlen($refused[0]) < 500, 'clipped: ' . strlen($refused[0]) . ' bytes');
-    assert_same([], array_values(array_filter($lines, static fn (string $l): bool => str_starts_with($l, '[auth] a token was accepted'))), 'no line of its own');
+    assert_same([], array_values(array_filter($lines, static fn(string $l): bool => str_starts_with($l, '[auth] a token was accepted'))), 'no line of its own');
     assert_same('no published key with kid x y', auth_log_text("no published key with kid x\u{2028}\ty"), 'Unicode line breaks too');
     assert_same('bytes that are not UTF-8', auth_log_text("bytes that are\xC3\xA9\xFFnot UTF-8"), 'and text that is not UTF-8');
 });
@@ -366,13 +433,21 @@ test('the settings: required, with no defaults to fall back on; what earlier ver
     };
     $jwks = var_export(test_iam()['jwks_file'], true);
     // what the setup page of an earlier version wrote, on the owner's computer and on the website: still set up
-    assert_same(null, $problem("<?php return ['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1, 'jwks_file' => $jwks];",
-        "<?php return ['timezone' => 'Europe/Bratislava'];"), 'mode iam, an owner id and a time zone: the old keys are ignored');
+    assert_same(
+        null,
+        $problem(
+            "<?php return ['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1, 'jwks_file' => $jwks];",
+            "<?php return ['timezone' => 'Europe/Bratislava'];",
+        ),
+        'mode iam, an owner id and a time zone: the old keys are ignored',
+    );
     assert_same(null, $problem("<?php return ['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'];"), 'and app.local.php is no longer needed');
-    assert_same('sign-in without the IAM is gone: open /setup.php and save', $problem("<?php return ['mode' => 'none', 'local_user_id' => 1];"),
-        'a copy set up without sign-in is set up again');
-    assert_same('sign-in without the IAM is gone: open /setup.php and save',
-        $problem("<?php return ['mode' => 'none', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1];"), 'whatever else it says');
+    assert_same('sign-in without the IAM is gone: open /setup.php and save', $problem("<?php return ['mode' => 'none', 'local_user_id' => 1];"), 'a copy set up without sign-in is set up again');
+    assert_same(
+        'sign-in without the IAM is gone: open /setup.php and save',
+        $problem("<?php return ['mode' => 'none', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1];"),
+        'whatever else it says',
+    );
     assert_same('the IAM\'s address (issuer) in backend/config/auth.local.php is missing', $problem("<?php return ['client_id' => 'japanese-academy'];"));
     assert_same('the client id in backend/config/auth.local.php is missing', $problem("<?php return ['issuer' => 'https://iam.test'];"));
 
@@ -391,7 +466,7 @@ test('the tests’ settings folder and keys file count only for a throwaway data
     file_put_contents("$dir/database.local.php", "<?php return ['name' => 'japanese_academy'] + (require " . var_export(test_config_server_file(), true) . ');');
     putenv("ACADEMY_CONFIG_DIR=$dir");
     try {
-        assert_throws(static fn () => config_all(true), "/ACADEMY_CONFIG_DIR is for the tests' throwaway databases \\(academy_test_…\\) only, not for japanese_academy/");
+        assert_throws(static fn() => config_all(true), "/ACADEMY_CONFIG_DIR is for the tests' throwaway databases \\(academy_test_…\\) only, not for japanese_academy/");
     } finally {
         putenv('ACADEMY_CONFIG_DIR=' . $GLOBALS['TEST_CONFIG']['dir']);
         config_all(true);

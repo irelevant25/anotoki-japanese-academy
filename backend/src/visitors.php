@@ -138,8 +138,12 @@ function visitors_unknown(): HttpError
 function visitors_must_be_ready(): void
 {
     if (!visitors_ready()) {
-        throw new HttpError(503, 'Studying without signing in is not ready yet: an administrator applies the waiting database update on the Migrations page. Sign in to continue.',
-            ['Retry-After: 60'], 'visitors_unavailable');
+        throw new HttpError(
+            503,
+            'Studying without signing in is not ready yet: an administrator applies the waiting database update on the Migrations page. Sign in to continue.',
+            ['Retry-After: 60'],
+            'visitors_unavailable',
+        );
     }
 }
 
@@ -164,9 +168,9 @@ function visitors_find(string $key, ?string $zone): array
     db_exec(
         "UPDATE users SET last_seen_at = now(), time_zone = coalesce(?, time_zone)
           WHERE id = ? AND (last_seen_at < now() - interval '5 minutes' OR time_zone IS DISTINCT FROM coalesce(?, time_zone))",
-        [$zone, $id, $zone]
+        [$zone, $id, $zone],
     );
-    return ['id' => $id, 'timeZone' => $zone ?? time_zone_known($row['time_zone']) ?? 'UTC'];
+    return ['id' => $id, 'timeZone' => $zone ?? (time_zone_known($row['time_zone']) ?? 'UTC')];
 }
 
 /**
@@ -212,19 +216,17 @@ function visitors_make(Request $request, ?string $zone): array
                 count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS this_hour,
                 count(*) FILTER (WHERE created_at > now() - interval '1 hour' AND visitor_from = ?) AS from_here
            FROM users WHERE id < 0",
-        [$from]
+        [$from],
     );
-    if ((int) $counts['everybody'] >= visitors_setting('max')
-        || (int) $counts['from_here'] >= visitors_setting('new_per_hour_per_address')
-        || (int) $counts['this_hour'] >= visitors_setting('new_per_hour')) {
-        throw new HttpError(429, 'Too many people are using the site without signing in just now. Sign in to continue, or try again later.',
-            ['Retry-After: 3600'], 'too_many_visitors');
+    if (
+        (int) $counts['everybody'] >= visitors_setting('max') ||
+        (int) $counts['from_here'] >= visitors_setting('new_per_hour_per_address') ||
+        (int) $counts['this_hour'] >= visitors_setting('new_per_hour')
+    ) {
+        throw new HttpError(429, 'Too many people are using the site without signing in just now. Sign in to continue, or try again later.', ['Retry-After: 3600'], 'too_many_visitors');
     }
     $key = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-    $id = (int) db_value(
-        "INSERT INTO users (id, visitor_key_hash, visitor_from, time_zone) VALUES (nextval('visitor_ids'), ?, ?, ?) RETURNING id",
-        [visitors_hash($key), $from, $zone]
-    );
+    $id = (int) db_value("INSERT INTO users (id, visitor_key_hash, visitor_from, time_zone) VALUES (nextval('visitor_ids'), ?, ?, ?) RETURNING id", [visitors_hash($key), $from, $zone]);
     return [$id, $key];
 }
 
@@ -244,16 +246,14 @@ function visitors_check_caps(int $id, string $limit): void
     if ($limit === 'attempts') {
         $max = visitors_setting('max_attempts');
         if ((int) db_value('SELECT count(*) FROM exam_attempts WHERE user_id = ?', [$id]) >= $max) {
-            throw new HttpError(422, "Without signing in, this browser keeps at most $max exam attempts. Sign in to keep more.", [], 'visitor_limit', null,
-                ['limit' => 'attempts', 'max' => $max]);
+            throw new HttpError(422, "Without signing in, this browser keeps at most $max exam attempts. Sign in to keep more.", [], 'visitor_limit', null, ['limit' => 'attempts', 'max' => $max]);
         }
         return;
     }
     if ($limit === 'answers') {
         $max = visitors_setting('max_answers');
         if ((int) db_value('SELECT count(*) FROM srs_log WHERE user_id = ?', [$id]) >= $max) {
-            throw new HttpError(422, "Without signing in, this browser keeps at most $max answers. Sign in to go on.", [], 'visitor_limit', null,
-                ['limit' => 'answers', 'max' => $max]);
+            throw new HttpError(422, "Without signing in, this browser keeps at most $max answers. Sign in to go on.", [], 'visitor_limit', null, ['limit' => 'answers', 'max' => $max]);
         }
         return;
     }
@@ -308,11 +308,17 @@ function visitors_sweep(): int
     for ($round = 0; $round < 5 && microtime(true) < $until; $round++) {
         $gone = db_tx(static function () use ($days, $batch, $timeout): int {
             db_value("SELECT set_config('statement_timeout', ?, true)", [(string) $timeout]);
-            $ids = array_map('intval', array_column(db_all(
-                'SELECT id FROM users WHERE id < 0 AND last_seen_at < now() - make_interval(days => ?::int)
+            $ids = array_map(
+                'intval',
+                array_column(
+                    db_all(
+                        'SELECT id FROM users WHERE id < 0 AND last_seen_at < now() - make_interval(days => ?::int)
                   ORDER BY last_seen_at LIMIT ?::int FOR UPDATE SKIP LOCKED',
-                [$days, $batch]
-            ), 'id'));
+                        [$days, $batch],
+                    ),
+                    'id',
+                ),
+            );
             if (!$ids) {
                 return 0;
             }
@@ -396,7 +402,7 @@ function visitors_move(int $person, string $key): array
             db_exec(
                 "DELETE FROM srs_log l WHERE l.user_id = ? AND (l.kind = 'reset'
                     OR (l.kind = 'reset-item' AND EXISTS (SELECT 1 FROM srs_progress p WHERE p.user_id = ? AND p.item_id = l.item_id)))",
-                [$visitor, $person]
+                [$visitor, $person],
             );
             $kept = db_exec('DELETE FROM srs_progress v USING srs_progress p WHERE v.user_id = ? AND p.user_id = ? AND p.item_id = v.item_id', [$visitor, $person]);
             $items = db_exec('UPDATE srs_progress SET user_id = ? WHERE user_id = ?', [$person, $visitor]);
@@ -407,7 +413,7 @@ function visitors_move(int $person, string $key): array
                  ON CONFLICT (user_id, day) DO UPDATE SET lessons = srs_daily.lessons + EXCLUDED.lessons,
                     reviews = srs_daily.reviews + EXCLUDED.reviews, reviews_correct = srs_daily.reviews_correct + EXCLUDED.reviews_correct,
                     practice = srs_daily.practice + EXCLUDED.practice, practice_correct = srs_daily.practice_correct + EXCLUDED.practice_correct',
-                [$person, $visitor]
+                [$person, $visitor],
             );
             db_exec('DELETE FROM srs_daily WHERE user_id = ?', [$visitor]);
 
@@ -429,8 +435,7 @@ function visitors_move(int $person, string $key): array
         $state = (string) ($e->errorInfo[0] ?? $e->getCode());
         if (in_array($state, ['23505', '40001', '40P01', '55P03'], true)) {
             error_log("[visitors] a move was interrupted, to be asked again: SQLSTATE $state");
-            throw new HttpError(503, 'Moving what this browser studied into your account did not finish. Try again in a moment.',
-                ['Retry-After: 2'], 'visitor_move_retry');
+            throw new HttpError(503, 'Moving what this browser studied into your account did not finish. Try again in a moment.', ['Retry-After: 2'], 'visitor_move_retry');
         }
         throw $e;
     }

@@ -29,18 +29,32 @@ function php74_problems(string $code): array
             $t[] = [$token, $token, $line];
         }
     }
-    $id = static fn (int $i) => $t[$i][0] ?? null;
-    $named = static fn ($k): bool => in_array($k, array_filter([T_STRING, defined('T_NAME_QUALIFIED') ? T_NAME_QUALIFIED : null,
-        defined('T_NAME_FULLY_QUALIFIED') ? T_NAME_FULLY_QUALIFIED : null, defined('T_NAME_RELATIVE') ? T_NAME_RELATIVE : null, T_ARRAY, T_CALLABLE]), true);
-    $only8 = array_filter([
-        defined('T_MATCH') ? T_MATCH : null => 'match',
-        defined('T_NULLSAFE_OBJECT_OPERATOR') ? T_NULLSAFE_OBJECT_OPERATOR : null => 'the ?-> operator',
-        defined('T_ENUM') ? T_ENUM : null => 'an enum',
-        defined('T_READONLY') ? T_READONLY : null => 'readonly',
-        defined('T_PUBLIC_SET') ? T_PUBLIC_SET : null => 'public(set)',
-        defined('T_PROTECTED_SET') ? T_PROTECTED_SET : null => 'protected(set)',
-        defined('T_PRIVATE_SET') ? T_PRIVATE_SET : null => 'private(set)',
-    ], static fn ($what, $k): bool => $k !== '' && $k !== 0, ARRAY_FILTER_USE_BOTH);
+    $id = static fn(int $i) => $t[$i][0] ?? null;
+    $named = static fn($k): bool => in_array(
+        $k,
+        array_filter([
+            T_STRING,
+            defined('T_NAME_QUALIFIED') ? T_NAME_QUALIFIED : null,
+            defined('T_NAME_FULLY_QUALIFIED') ? T_NAME_FULLY_QUALIFIED : null,
+            defined('T_NAME_RELATIVE') ? T_NAME_RELATIVE : null,
+            T_ARRAY,
+            T_CALLABLE,
+        ]),
+        true,
+    );
+    $only8 = array_filter(
+        [
+            defined('T_MATCH') ? T_MATCH : null => 'match',
+            defined('T_NULLSAFE_OBJECT_OPERATOR') ? T_NULLSAFE_OBJECT_OPERATOR : null => 'the ?-> operator',
+            defined('T_ENUM') ? T_ENUM : null => 'an enum',
+            defined('T_READONLY') ? T_READONLY : null => 'readonly',
+            defined('T_PUBLIC_SET') ? T_PUBLIC_SET : null => 'public(set)',
+            defined('T_PROTECTED_SET') ? T_PROTECTED_SET : null => 'protected(set)',
+            defined('T_PRIVATE_SET') ? T_PRIVATE_SET : null => 'private(set)',
+        ],
+        static fn($what, $k): bool => $k !== '' && $k !== 0,
+        ARRAY_FILTER_USE_BOTH,
+    );
     $found = [];
     $say = static function (int $i, string $what) use (&$found, $t): void {
         $found[] = $t[$i][2] . ": $what";
@@ -200,10 +214,20 @@ test('the check finds each kind, and leaves PHP 7.4 alone', function (): void {
         assert_true((bool) php74_problems("<?php $code"), "not found: $what");
     }
     $seventy_four = [
-        '$x = $a ? B : C;', 'switch ($a) { case X: throw new E(); default: break; }', '$f = static fn (int $uid): array => [$uid];',
-        'function f(int $flags = A | B, array &$out = []): ?string { return null; }', 'function f(): never { exit; }',
-        'f(1, 2,);', '$c = A::class;', 'try {} catch (E $e) {}', 'const X = 1;', 'class A { const X = 1; public $y; }',
-        '$f = function () use ($a, $b) {};', '$x = [1, 2,];', 'label: goto label;', 'if ($a): echo 1; endif;',
+        '$x = $a ? B : C;',
+        'switch ($a) { case X: throw new E(); default: break; }',
+        '$f = static fn (int $uid): array => [$uid];',
+        'function f(int $flags = A | B, array &$out = []): ?string { return null; }',
+        'function f(): never { exit; }',
+        'f(1, 2,);',
+        '$c = A::class;',
+        'try {} catch (E $e) {}',
+        'const X = 1;',
+        'class A { const X = 1; public $y; }',
+        '$f = function () use ($a, $b) {};',
+        '$x = [1, 2,];',
+        'label: goto label;',
+        'if ($a): echo 1; endif;',
     ];
     foreach ($seventy_four as $code) {
         assert_same([], php74_problems("<?php $code"), $code);

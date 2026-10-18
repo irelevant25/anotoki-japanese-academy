@@ -98,17 +98,17 @@ function academy_translations(): Translations
 function academy_translations_config(): TranslationsConfig
 {
     return new TranslationsConfig(
-        TRANSLATION_SEEDED_LANGUAGES,  // releasedLanguages
-        [],                            // serverNamespaces: every key is the pages'
-        [],                            // rules: the library's own
-        null,                          // extraCheck
-        academy_language_usage(),      // usage
+        TRANSLATION_SEEDED_LANGUAGES, // releasedLanguages
+        [], // serverNamespaces: every key is the pages'
+        [], // rules: the library's own
+        null, // extraCheck
+        academy_language_usage(), // usage
         static function (PDO $pdo, ?int $userId): void {
             // beforeWrite, inside the save's transaction: the writer's row held, as an answer holds it
             if ($userId !== null) {
                 users_hold($userId);
             }
-        }
+        },
     );
 }
 
@@ -185,5 +185,5 @@ function translations_backup(): ?array
     foreach (db_all('SELECT language_code, key_name, value FROM translations ORDER BY language_code, key_name COLLATE "C"') as $row) {
         $values[$row['language_code']][$row['key_name']] = $row['value'];
     }
-    return ['languages' => $languages, 'values' => (object) array_map(static fn (array $own): object => (object) $own, $values)];
+    return ['languages' => $languages, 'values' => (object) array_map(static fn(array $own): object => (object) $own, $values)];
 }

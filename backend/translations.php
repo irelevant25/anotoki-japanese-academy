@@ -42,7 +42,7 @@ use Anotoki\Lib\Translations\Translations;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
-    exit;
+    exit();
 }
 
 require __DIR__ . '/src/bootstrap.php';
@@ -88,15 +88,25 @@ try {
     // Nothing is applied from here, nor by a request: an ADMIN's Apply on the Migrations page, the setup page and
     // manage.php do that, after a copy.
     if (!translations_ready()) {
-        translations_cli_stop('The database ' . db_name() . ' does not hold the app\'s words yet (migration 004 is not applied).'
-            . ' Apply it on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,'
-            . ' then try again.');
+        translations_cli_stop(
+            'The database ' .
+                db_name() .
+                ' does not hold the app\'s words yet (migration 004 is not applied).' .
+                ' Apply it on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,' .
+                ' then try again.',
+        );
     }
     $pending = db_pending_migrations();
     if ($pending) {
-        translations_cli_stop('The database ' . db_name() . ' is behind the files (' . implode(', ', $pending) . ').'
-            . ' Apply them on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,'
-            . ' then try again.');
+        translations_cli_stop(
+            'The database ' .
+                db_name() .
+                ' is behind the files (' .
+                implode(', ', $pending) .
+                ').' .
+                ' Apply them on the admin panel\'s Migrations page (/admin/migrations, as an ADMIN) or run php backend/manage.php --sync,' .
+                ' then try again.',
+        );
     }
 } catch (PDOException $e) {
     translations_cli_stop('Database error: ' . $e->getMessage());
@@ -120,7 +130,7 @@ $translations = new TranslationsCommand(
     null,
     static function (string $path, string $code): array {
         return translation_file_strings($path, $code);
-    }
+    },
 );
 try {
     exit($translations->run($argv));

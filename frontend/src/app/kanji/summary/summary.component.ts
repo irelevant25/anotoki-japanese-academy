@@ -65,14 +65,10 @@ export class SummaryComponent {
     const s = this.summary();
     if (r.mode === 'lesson') {
       const learned = this.i18n.plural('summary.learned', r.done.length - this.failed().length);
-      return s?.nextReviewAt
-        ? `${learned} ${this.i18n.t('summary.firstReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) })}`
-        : learned;
+      return s?.nextReviewAt ? `${learned} ${this.i18n.t('summary.firstReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) })}` : learned;
     }
     const clean = this.clean().length;
-    return r.answered
-      ? this.i18n.plural('summary.score', r.done.length, { clean, pct: pct(r.right, r.answered) })
-      : this.i18n.plural('summary.scoreOnly', r.done.length, { clean });
+    return r.answered ? this.i18n.plural('summary.score', r.done.length, { clean, pct: pct(r.right, r.answered) }) : this.i18n.plural('summary.scoreOnly', r.done.length, { clean });
   });
 
   /** The next lessons, as the dashboard would offer them. */

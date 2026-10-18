@@ -31,7 +31,7 @@ declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli-server') {
     http_response_code(404);
-    exit;
+    exit();
 }
 
 require __DIR__ . '/src/bootstrap.php';

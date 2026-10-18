@@ -20,24 +20,27 @@ function exam_pool(array $spec): array
     $params = [json_text(array_column($scope['sections'], 'id'))];
     $lessons = $scope['lessons'];
     // anything else (a NaN from Number('x')) matches no lesson; exam_build_paper() filters those itself
-    if ($lessons !== null && !array_filter($lessons, static fn ($l): bool => !is_int($l))) {
+    if ($lessons !== null && !array_filter($lessons, static fn($l): bool => !is_int($l))) {
         $sql .= ' AND lesson IN (SELECT json_array_elements_text(?::json)::int)';
         $params[] = json_text($lessons);
     }
-    return array_map(static fn (array $r): array => [
-        'id' => $r['id'],
-        'section' => $r['section'],
-        'lesson' => (int) $r['lesson'],
-        'book' => (int) $r['book'],
-        'question' => $r['question'],
-        'hint' => $r['hint'],
-        'reading' => $r['reading'],
-        'audio' => $r['audio'],
-        'correct' => $r['correct'],
-        'distractors' => json_decode($r['distractors'], true),
-        'explain' => $r['explain'],
-        'ref' => $r['ref'],
-    ], db_all($sql . ' ORDER BY seq', $params));
+    return array_map(
+        static fn(array $r): array => [
+            'id' => $r['id'],
+            'section' => $r['section'],
+            'lesson' => (int) $r['lesson'],
+            'book' => (int) $r['book'],
+            'question' => $r['question'],
+            'hint' => $r['hint'],
+            'reading' => $r['reading'],
+            'audio' => $r['audio'],
+            'correct' => $r['correct'],
+            'distractors' => json_decode($r['distractors'], true),
+            'explain' => $r['explain'],
+            'ref' => $r['ref'],
+        ],
+        db_all($sql . ' ORDER BY seq', $params),
+    );
 }
 
 /** The paper a spec gives, laid out from the stored bank. */
@@ -70,19 +73,25 @@ function exam_meta(int $uid): array
         $lessons[] = ['id' => $i, 'name' => "Lesson $i", 'book' => $i <= 12 ? 1 : 2];
     }
     return [
-        'books' => array_map(static fn (array $b): array => [
-            'id' => $b['id'],
-            'name' => $b['name'],
-            'lessons' => $b['lessons'],
-            'available' => $stats['byBook'][$b['id']] ?? 0,
-            'bySection' => $stats['bySectionBook'][$b['id']] ?? new stdClass(),
-        ], BOOKS),
-        'sections' => array_map(static fn (array $s): array => [
-            'id' => $s['id'],
-            'name' => $s['name'],
-            'audio' => !empty($s['audio']),
-            'available' => $stats['bySection'][$s['id']] ?? 0,
-        ], SECTIONS),
+        'books' => array_map(
+            static fn(array $b): array => [
+                'id' => $b['id'],
+                'name' => $b['name'],
+                'lessons' => $b['lessons'],
+                'available' => $stats['byBook'][$b['id']] ?? 0,
+                'bySection' => $stats['bySectionBook'][$b['id']] ?? new stdClass(),
+            ],
+            BOOKS,
+        ),
+        'sections' => array_map(
+            static fn(array $s): array => [
+                'id' => $s['id'],
+                'name' => $s['name'],
+                'audio' => !empty($s['audio']),
+                'available' => $stats['bySection'][$s['id']] ?? 0,
+            ],
+            SECTIONS,
+        ),
         'lessons' => $lessons,
         'bankSize' => $stats['total'],
         'attempts' => (int) db_value('SELECT count(*) FROM exam_attempts WHERE user_id = ?', [$uid]),
@@ -103,19 +112,22 @@ function exam_start(array $body): array
         'lessons' => $exam['lessons'],
         'books' => $exam['books'],
         // The client must not receive the answers.
-        'questions' => array_map(static fn (array $q): array => [
-            'n' => $q['n'],
-            'id' => $q['id'],
-            'section' => $q['section'],
-            'sectionName' => $q['sectionName'],
-            'lesson' => $q['lesson'],
-            'book' => $q['book'],
-            'question' => $q['question'],
-            'hint' => $q['hint'],
-            'reading' => $q['reading'],
-            'audio' => $q['audio'],
-            'options' => $q['options'],
-        ], $exam['questions']),
+        'questions' => array_map(
+            static fn(array $q): array => [
+                'n' => $q['n'],
+                'id' => $q['id'],
+                'section' => $q['section'],
+                'sectionName' => $q['sectionName'],
+                'lesson' => $q['lesson'],
+                'book' => $q['book'],
+                'question' => $q['question'],
+                'hint' => $q['hint'],
+                'reading' => $q['reading'],
+                'audio' => $q['audio'],
+                'options' => $q['options'],
+            ],
+            $exam['questions'],
+        ),
     ];
 }
 
@@ -136,22 +148,21 @@ function exam_submit(int $uid, array $body): array
 
     // Guard against a spec/answer mismatch silently scoring the wrong paper.
     $ids = array_flip(array_column($exam['questions'], 'id'));
-    $stray = array_filter(array_keys($responses), static fn ($id): bool => !isset($ids[(string) $id]));
+    $stray = array_filter(array_keys($responses), static fn($id): bool => !isset($ids[(string) $id]));
     if ($stray) {
-        return [409, [
-            'error' => 'The submitted answers do not belong to this paper (' . count($stray) . ' unknown question id(s)). Nothing was saved.',
-            'code' => 'paper_mismatch',
-        ]];
+        return [
+            409,
+            [
+                'error' => 'The submitted answers do not belong to this paper (' . count($stray) . ' unknown question id(s)). Nothing was saved.',
+                'code' => 'paper_mismatch',
+            ],
+        ];
     }
 
     $result = score_attempt($exam, $responses);
     $now = now_ms();
     $finishedAt = iso_time($now);
-    $id = preg_replace_callback(
-        '/[^A-Za-z0-9_-]/u',
-        static fn (array $m): string => str_repeat('-', js_len($m[0])),
-        str_replace([':', '.'], '-', $finishedAt) . '-' . $exam['seed']
-    );
+    $id = preg_replace_callback('/[^A-Za-z0-9_-]/u', static fn(array $m): string => str_repeat('-', js_len($m[0])), str_replace([':', '.'], '-', $finishedAt) . '-' . $exam['seed']);
     $meta = $body['meta'] ?? null;
     $meta = js_truthy($meta) ? ($meta === [] ? new stdClass() : $meta) : new stdClass();
     $startedAt = $body['startedAt'] ?? null;
@@ -184,19 +195,22 @@ function exam_submit(int $uid, array $body): array
         'bySection' => $result['bySection'],
         'byLesson' => $result['byLesson'],
         'byBook' => $result['byBook'],
-        'responses' => array_map(static fn (array $r): array => [
-            'n' => $r['n'],
-            'id' => $r['id'],
-            'section' => $r['section'],
-            'lesson' => $r['lesson'],
-            'book' => $r['book'],
-            'audio' => $r['audio'],
-            'question' => $r['question'],
-            'chosen' => $r['chosenAnswer'],
-            'correctAnswer' => $r['correctAnswer'],
-            'correct' => $r['correct'],
-            'ms' => $r['ms'],
-        ], $result['rows']),
+        'responses' => array_map(
+            static fn(array $r): array => [
+                'n' => $r['n'],
+                'id' => $r['id'],
+                'section' => $r['section'],
+                'lesson' => $r['lesson'],
+                'book' => $r['book'],
+                'audio' => $r['audio'],
+                'question' => $r['question'],
+                'chosen' => $r['chosenAnswer'],
+                'correctAnswer' => $r['correctAnswer'],
+                'correct' => $r['correct'],
+                'ms' => $r['ms'],
+            ],
+            $result['rows'],
+        ),
     ];
 
     db_tx(static function () use ($uid, $attempt, $result): void {
@@ -204,35 +218,41 @@ function exam_submit(int $uid, array $body): array
         // the report lists every attempt of this person, this one included
         $history = exam_history($uid);
         $history[] = exam_history_row($attempt);
-        usort($history, static fn (array $a, array $b): int => (ms_from_iso($a['finishedAt']) ?? 0) <=> (ms_from_iso($b['finishedAt']) ?? 0));
+        usort($history, static fn(array $a, array $b): int => (ms_from_iso($a['finishedAt']) ?? 0) <=> (ms_from_iso($b['finishedAt']) ?? 0));
         exam_save_attempt($uid, $attempt, report_render($attempt, $result, $history));
     });
 
-    return [200, [
-        'id' => $id,
-        'summary' => $attempt['summary'],
-        'bySection' => $result['bySection'],
-        'byLesson' => $result['byLesson'],
-        'weakSections' => $result['weakSections'],
-        'weakLessons' => $result['weakLessons'],
-        'reportUrl' => "/report/$id",
-        'byBook' => $result['byBook'],
-        // Made here and sent once: an attempt is stored without them (its responses hold the section's id).
-        // The page words a section from sectionId; the name stays for anything that reads it.
-        'review' => array_map(static fn (array $r): array => [
-            'n' => $r['n'],
-            'section' => $r['sectionName'],
-            'sectionId' => $r['section'],
-            'lesson' => $r['lesson'],
-            'audio' => $r['audio'],
-            'question' => $r['question'],
-            'chosen' => $r['chosenAnswer'],
-            'correctAnswer' => $r['correctAnswer'],
-            'correct' => $r['correct'],
-            'explain' => $r['explain'],
-            'ref' => $r['ref'],
-        ], $result['rows']),
-    ]];
+    return [
+        200,
+        [
+            'id' => $id,
+            'summary' => $attempt['summary'],
+            'bySection' => $result['bySection'],
+            'byLesson' => $result['byLesson'],
+            'weakSections' => $result['weakSections'],
+            'weakLessons' => $result['weakLessons'],
+            'reportUrl' => "/report/$id",
+            'byBook' => $result['byBook'],
+            // Made here and sent once: an attempt is stored without them (its responses hold the section's id).
+            // The page words a section from sectionId; the name stays for anything that reads it.
+            'review' => array_map(
+                static fn(array $r): array => [
+                    'n' => $r['n'],
+                    'section' => $r['sectionName'],
+                    'sectionId' => $r['section'],
+                    'lesson' => $r['lesson'],
+                    'audio' => $r['audio'],
+                    'question' => $r['question'],
+                    'chosen' => $r['chosenAnswer'],
+                    'correctAnswer' => $r['correctAnswer'],
+                    'correct' => $r['correct'],
+                    'explain' => $r['explain'],
+                    'ref' => $r['ref'],
+                ],
+                $result['rows'],
+            ),
+        ],
+    ];
 }
 
 /**
@@ -271,7 +291,7 @@ function exam_save_attempt(int $uid, array $attempt, ?string $report): void
             (bool) ($summary['passed'] ?? false),
             json_text($attempt),
             $report,
-        ]
+        ],
     );
 }
 
@@ -294,17 +314,23 @@ function exam_history_row(array $attempt): array
 /** This person's attempts, oldest first. GET /api/attempts sends them newest first. */
 function exam_history(int $uid): array
 {
-    return array_map(static fn (array $r): array => [
-        'id' => $r['id'],
-        'finishedAt' => $r['finished_iso'],
-        'total' => (int) $r['total'],
-        'right' => (int) $r['right_count'],
-        'pct' => js_number((float) $r['pct']),
-        'grade' => $r['grade'],
-        'passed' => (bool) $r['passed'],
-        'candidate' => $r['candidate'],
-    ], db_all("SELECT id, attempt->>'finishedAt' AS finished_iso, total, right_count, pct, grade, passed, candidate
-               FROM exam_attempts WHERE user_id = ? ORDER BY exam_attempts.finished_at, id", [$uid]));
+    return array_map(
+        static fn(array $r): array => [
+            'id' => $r['id'],
+            'finishedAt' => $r['finished_iso'],
+            'total' => (int) $r['total'],
+            'right' => (int) $r['right_count'],
+            'pct' => js_number((float) $r['pct']),
+            'grade' => $r['grade'],
+            'passed' => (bool) $r['passed'],
+            'candidate' => $r['candidate'],
+        ],
+        db_all(
+            "SELECT id, attempt->>'finishedAt' AS finished_iso, total, right_count, pct, grade, passed, candidate
+               FROM exam_attempts WHERE user_id = ? ORDER BY exam_attempts.finished_at, id",
+            [$uid],
+        ),
+    );
 }
 
 /** The HTML report of one of this person's attempts, or null (another person's is not theirs to see). */
@@ -318,7 +344,7 @@ function exam_report(int $uid, string $id): ?string
 function exam_attempts_all(int $uid): array
 {
     return array_map(
-        static fn (array $r): array => ['attempt' => json_decode($r['attempt'], true), 'report' => $r['report']],
-        db_all('SELECT attempt, report FROM exam_attempts WHERE user_id = ? ORDER BY finished_at, id', [$uid])
+        static fn(array $r): array => ['attempt' => json_decode($r['attempt'], true), 'report' => $r['report']],
+        db_all('SELECT attempt, report FROM exam_attempts WHERE user_id = ? ORDER BY finished_at, id', [$uid]),
     );
 }

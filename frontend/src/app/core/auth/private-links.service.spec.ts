@@ -12,9 +12,7 @@ const META = `<meta http-equiv="Content-Security-Policy" content="${REPORT_CSP}"
 
 describe('lockDown: a report opened from memory runs no script', () => {
   it('puts the policy right after the doctype', () => {
-    expect(lockDown('<!doctype html><html><head><title>t</title></head></html>')).toBe(
-      `<!doctype html>${META}<html><head><title>t</title></head></html>`,
-    );
+    expect(lockDown('<!doctype html><html><head><title>t</title></head></html>')).toBe(`<!doctype html>${META}<html><head><title>t</title></head></html>`);
     expect(lockDown('\n  <!DOCTYPE html><p>x</p>')).toBe(`\n  <!DOCTYPE html>${META}<p>x</p>`);
   });
 
@@ -157,7 +155,9 @@ describe('PrivateLinksService: what it says itself, in the language on the page'
 
   it('any other refusal: the general sentence, whatever the server wrote', async () => {
     answer = () =>
-      Promise.resolve(new Response(JSON.stringify({ error: 'Something went wrong on the server. SQLSTATE[08006]', code: 'server_error' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'Something went wrong on the server. SQLSTATE[08006]', code: 'server_error' }), { status: 500, headers: { 'Content-Type': 'application/json' } }),
+      );
     await TestBed.inject(PrivateLinksService).open('/report/12');
     expect(told.map((said) => said.message)).toEqual(['Nepodarilo sa to otvoriť: Niečo sa pokazilo.']);
     expect(JSON.stringify(told)).not.toContain('SQLSTATE');

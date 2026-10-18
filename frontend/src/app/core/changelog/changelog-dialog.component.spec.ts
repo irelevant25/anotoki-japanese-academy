@@ -95,7 +95,10 @@ describe('ChangelogDialogComponent: What’s new, the app’s own - the family�
     expect([close.getAttribute('aria-label'), close.title, close.getAttribute('lang')], 'the kit’s Close, in the language on the page').toEqual(['Zavrieť', 'Zavrieť', null]);
     expect(dialog.querySelector('anotoki-badge')?.textContent).toBe('najnovšie');
     expect(Array.from(dialog.querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['Pridané', 'Opravené', 'Zmenené']);
-    expect(Array.from(dialog.querySelectorAll('.vnum')).map((version) => version.firstChild?.textContent), 'the version itself is the same everywhere').toEqual(['v0.2.0', 'v0.1.0']);
+    expect(
+      Array.from(dialog.querySelectorAll('.vnum')).map((version) => version.firstChild?.textContent),
+      'the version itself is the same everywhere',
+    ).toEqual(['v0.2.0', 'v0.1.0']);
     expect(Array.from(dialog.querySelectorAll('.vdate')).map((date) => date.textContent)).toEqual([written('sk-SK', 2026, 10, 6), written('sk-SK', 2026, 9, 29)]);
     expect(written('sk-SK', 2026, 10, 6), 'Slovak writes a date otherwise than English').not.toBe(written('en-GB', 2026, 10, 6));
 

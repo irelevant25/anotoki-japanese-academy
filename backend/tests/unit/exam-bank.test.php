@@ -57,11 +57,14 @@ test('paper: the answer index points at the correct option', function (): void {
 
 test('paper: the seeded RNG is the first version’s (mulberry32 over UTF-16), so old seeds give old papers', function (): void {
     // the first values the JavaScript version gave for these seeds
-    foreach ([
-        'vocab' => [0.6907778605818748, 0.3155516260303557, 0.7313600182533264],
-        '日本語' => [0.17659905506297946, 0.8051097048446536, 0.04092332278378308],
-        'emoji😀' => [0.15788616705685854, 0.1757496518548578, 0.4077528789639473],
-    ] as $seed => $values) {
+    foreach (
+        [
+            'vocab' => [0.6907778605818748, 0.3155516260303557, 0.7313600182533264],
+            '日本語' => [0.17659905506297946, 0.8051097048446536, 0.04092332278378308],
+            'emoji😀' => [0.15788616705685854, 0.1757496518548578, 0.4077528789639473],
+        ]
+        as $seed => $values
+    ) {
         $r = exam_rng((string) $seed);
         assert_same($values, [$r(), $r(), $r()], (string) $seed);
     }

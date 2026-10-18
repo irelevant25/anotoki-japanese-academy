@@ -68,14 +68,10 @@ test('kanji orthography is kept', function (): void {
 });
 
 test('the five honorific 〜さる verbs take います', function (): void {
-    foreach ([
-        ['くださる', 'くださいます'],
-        ['下さる', '下さいます'],
-        ['いらっしゃる', 'いらっしゃいます'],
-        ['おっしゃる', 'おっしゃいます'],
-        ['なさる', 'なさいます'],
-        ['ござる', 'ございます'],
-    ] as [$d, $m]) {
+    foreach (
+        [['くださる', 'くださいます'], ['下さる', '下さいます'], ['いらっしゃる', 'いらっしゃいます'], ['おっしゃる', 'おっしゃいます'], ['なさる', 'なさいます'], ['ござる', 'ございます']]
+        as [$d, $m]
+    ) {
         assert_same($m, conjugate_verb($d, 'u')['masu']);
         assert_true(in_array(mb_substr($d, 0, -1) . 'ります', wrong_verb_forms($d, 'u', 'masu'), true), "$d: regularised form offered as a distractor");
     }

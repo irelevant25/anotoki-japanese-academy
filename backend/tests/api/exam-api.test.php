@@ -50,7 +50,7 @@ test('scoring: perfect, zero, and the 70% boundary', function (): void {
         }
         return $out;
     };
-    $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn (array $q): int => $q['answerIndex'])]);
+    $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn(array $q): int => $q['answerIndex'])]);
     assert_same(100, $r['body']['summary']['pct']);
     assert_same('A', $r['body']['summary']['grade']);
     assert_same(2, count($r['body']['byBook']));
@@ -73,12 +73,15 @@ test('scoring: perfect, zero, and the 70% boundary', function (): void {
     assert_same(array_column($r['body']['review'], 'sectionId'), array_column($stored['responses'], 'section'), 'its responses hold the ids');
     assert_same([], array_column($stored['responses'], 'sectionId'), 'under the name they always had');
 
-    $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn (array $q): int => ($q['answerIndex'] + 1) % count($q['options']))]);
+    $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn(array $q): int => ($q['answerIndex'] + 1) % count($q['options']))]);
     assert_same(0, $r['body']['summary']['pct']);
     assert_same(false, $r['body']['summary']['passed']);
 
     $need = (int) ceil(count($key['questions']) * 0.7);
-    $r = api('POST', '/api/submit', ['spec' => $ex['spec'], 'responses' => $answer(static fn (array $q, int $i): int => $i < $need ? $q['answerIndex'] : ($q['answerIndex'] + 1) % count($q['options']))]);
+    $r = api('POST', '/api/submit', [
+        'spec' => $ex['spec'],
+        'responses' => $answer(static fn(array $q, int $i): int => $i < $need ? $q['answerIndex'] : ($q['answerIndex'] + 1) % count($q['options'])),
+    ]);
     assert_true($r['body']['summary']['passed'] && $r['body']['summary']['pct'] >= 70);
 });
 
@@ -145,8 +148,21 @@ test('the pages are the built app’s: its files as they are, a page’s address
     assert_same('not_found', api('GET', '/api/nothing')['body']['code'] ?? null);
     assert_same(200, api('GET', '/api/meta/')['status'], 'a trailing slash is the same address');
     // nothing of the backend, and nothing of Apache's, is ever sent
-    foreach (['/router.php', '/backend/router.php', '/backend/config/config.php', '/src/config.local.php', '/index.php', '/.htaccess',
-        '/data/vocab.json', '/backend/data/vocab.json', '/../backend/data/vocab.json', '/backend/storage/backups/academy-2026-10-01.json'] as $url) {
+    foreach (
+        [
+            '/router.php',
+            '/backend/router.php',
+            '/backend/config/config.php',
+            '/src/config.local.php',
+            '/index.php',
+            '/.htaccess',
+            '/data/vocab.json',
+            '/backend/data/vocab.json',
+            '/../backend/data/vocab.json',
+            '/backend/storage/backups/academy-2026-10-01.json',
+        ]
+        as $url
+    ) {
         assert_same(404, api('GET', $url)['status'], $url);
     }
     assert_same([], server_problems($GLOBALS['app']), 'no PHP warnings or errors on the server');
@@ -161,7 +177,10 @@ test('without a built app, the pages say how to build it; the API answers all th
 });
 
 test('the browser is told where to sign in, and health needs no token', function (): void {
-    assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30], call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, no_token())['body']);
+    assert_same(
+        ['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'login_required' => true, 'sign_in_available' => true, 'visitor_keep_days' => 30],
+        call($GLOBALS['app']['base'], 'GET', '/api/auth/config', null, no_token())['body'],
+    );
     $health = call($GLOBALS['app']['base'], 'GET', '/api/health', null, no_token())['body'];
     assert_false(isset($health['auth']), 'there is one way to sign in: health names none');
     assert_same(true, $health['contentCurrent']);

@@ -75,13 +75,7 @@ describe('wordedParts', () => {
       ja('一'),
       words('.'),
     ]);
-    expect(wordedParts(i18n, 'session.synonymAdded', { chars: ja('{typed}'), typed: en('x') }).map((p) => p.text)).toEqual([
-      'Added “',
-      'x',
-      '” as one of your synonyms for ',
-      '{typed}',
-      '.',
-    ]);
+    expect(wordedParts(i18n, 'session.synonymAdded', { chars: ja('{typed}'), typed: en('x') }).map((p) => p.text)).toEqual(['Added “', 'x', '” as one of your synonyms for ', '{typed}', '.']);
   });
 
   it('fills the other placeholders as t() does', () => {

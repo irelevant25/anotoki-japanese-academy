@@ -201,11 +201,10 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
   it('with no strings: the bar’s English and the footer’s - the library’s own -, never a key; the gate outermost, the bar first and the footer last inside it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const el = await draw();
-    expect(Array.from(el.children, (child) => child.tagName.toLowerCase()), 'the gate, then the kit’s question and the app’s notice, drawn only when asked').toEqual([
-      'anotoki-site-gate',
-      'anotoki-confirm-host',
-      'app-notice-host',
-    ]);
+    expect(
+      Array.from(el.children, (child) => child.tagName.toLowerCase()),
+      'the gate, then the kit’s question and the app’s notice, drawn only when asked',
+    ).toEqual(['anotoki-site-gate', 'anotoki-confirm-host', 'app-notice-host']);
     // The frame is the gate's pages (anotokiSitePages): the bar, the page, the footer and the news it opens.
     const framed = Array.from(el.querySelector('anotoki-site-gate')!.children, (child) => child.tagName.toLowerCase());
     expect([framed[0], framed.slice(-2)], framed.join(' ')).toEqual(['app-top-bar', ['anotoki-site-footer', 'app-changelog-dialog']]);
@@ -443,7 +442,10 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     await settle();
     expect(el.querySelector('anotoki-site-status')).toBeNull();
     expect(frameOf(el)).toEqual(expect.objectContaining({ bar: true, footer: true }));
-    expect([links(el), footerRow(el)]).toEqual([['Kanji', 'Exam'], ['Version 0.2.0', '·', "What's new", '·', 'Feedback']]);
+    expect([links(el), footerRow(el)]).toEqual([
+      ['Kanji', 'Exam'],
+      ['Version 0.2.0', '·', "What's new", '·', 'Feedback'],
+    ]);
     expect(el.querySelector('#a-page')).not.toBeNull();
   });
 });
@@ -562,7 +564,10 @@ describe('AppComponent: while a database update waits', () => {
     expect([pages.made, pages.alive], 'the page of the address, made again').toEqual([made + 1, alive]);
     // The frame back with it: the bar with its sections, the footer with its Feedback; the library's page gone.
     expect(el.querySelector('.anotoki-site-gate__status, anotoki-site-status')).toBeNull();
-    expect([links(el), footerRow(el)]).toEqual([['Kanji', 'Exam'], ['Version 0.2.0', '·', "What's new", '·', 'Feedback']]);
+    expect([links(el), footerRow(el)]).toEqual([
+      ['Kanji', 'Exam'],
+      ['Version 0.2.0', '·', "What's new", '·', 'Feedback'],
+    ]);
   });
 });
 
@@ -635,9 +640,9 @@ describe('AppComponent: nobody signed in', () => {
       await router.navigateByUrl(path);
       await settle();
       expect(el.querySelector('#a-page'), path).not.toBeNull();
-      expect(el.querySelector('#signin'), ).toBeNull();
-      expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in'), ).not.toBeNull();
-      expect(links(el), ).toEqual([]);
+      expect(el.querySelector('#signin')).toBeNull();
+      expect(el.querySelector('app-top-bar button.anotoki-top-bar__sign-in')).not.toBeNull();
+      expect(links(el)).toEqual([]);
     }
     await router.navigateByUrl('/kanji');
     await settle();

@@ -140,7 +140,7 @@ function academy_admin_context(): AdminContext
             },
             client_address_trusted_proxies(),
             ClientAddress::CLOUDFLARE_HEADER,
-            config_origin_secret()
+            config_origin_secret(),
         );
     }
     return $context;
@@ -177,14 +177,20 @@ function academy_error_log(?Slim\App $app = null): ErrorLog
 function academy_audit(): AuditLog
 {
     static $audit = null;
-    return $audit ??= new AuditLog(static function (): PDO {
-        return db();
-    }, [
-        'pendingFile' => storage_dir() . '/logs/audit-pending.jsonl',
-        'actorIds' => static function (string $name): array {
-            return array_map('intval', array_column(db_all('SELECT id FROM users WHERE id > 0 AND preferred_username ILIKE ? LIMIT 50', ['%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $name) . '%']), 'id'));
+    return $audit ??= new AuditLog(
+        static function (): PDO {
+            return db();
         },
-    ]);
+        [
+            'pendingFile' => storage_dir() . '/logs/audit-pending.jsonl',
+            'actorIds' => static function (string $name): array {
+                return array_map(
+                    'intval',
+                    array_column(db_all('SELECT id FROM users WHERE id > 0 AND preferred_username ILIKE ? LIMIT 50', ['%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $name) . '%']), 'id'),
+                );
+            },
+        ],
+    );
 }
 
 /**
@@ -215,9 +221,11 @@ function academy_audit_record(?Request $request, string $action, ?string $target
 /** People's names by id, for the audit log's and the feedback's pages: the name of their last token, or the IAM's placeholder. */
 function academy_people_names(array $ids): array
 {
-    $ids = array_values(array_filter(array_map('intval', $ids), static function (int $id): bool {
-        return $id > 0;
-    }));
+    $ids = array_values(
+        array_filter(array_map('intval', $ids), static function (int $id): bool {
+            return $id > 0;
+        }),
+    );
     if ($ids === []) {
         return [];
     }
@@ -242,15 +250,18 @@ function academy_people_names(array $ids): array
 function academy_feedback(): Feedback
 {
     static $feedback = null;
-    return $feedback ??= new Feedback(static function (): PDO {
-        return db();
-    }, [
-        'storage' => storage_dir(),
-        'sections' => FEEDBACK_SECTIONS,
-        'defer' => static function (callable $work): void {
-            after_response_add($work);
+    return $feedback ??= new Feedback(
+        static function (): PDO {
+            return db();
         },
-    ]);
+        [
+            'storage' => storage_dir(),
+            'sections' => FEEDBACK_SECTIONS,
+            'defer' => static function (callable $work): void {
+                after_response_add($work);
+            },
+        ],
+    );
 }
 
 /**
@@ -303,25 +314,30 @@ function academy_feedback(): Feedback
 function academy_backups(): Backups
 {
     static $backups = null;
-    return $backups ??= new Backups(static function (): PDO {
-        $pdo = Copy::connect(db_dsn(), (string) config('db.user'), (string) config('db.password'), [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-        $pdo->exec("SET TIME ZONE 'UTC'");
-        return $pdo;
-    }, backup_dir(), [
-        'site' => 'japanese-academy',
-        'migrator' => static function (PDO $pdo) {
-            return db_migrator($pdo);
+    return $backups ??= new Backups(
+        static function (): PDO {
+            $pdo = Copy::connect(db_dsn(), (string) config('db.user'), (string) config('db.password'), [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+            $pdo->exec("SET TIME ZONE 'UTC'");
+            return $pdo;
         },
-        'lock' => UPKEEP_LOCK,
-        'audit' => academy_audit(),
-        'storage' => storage_dir(),
-        'defer' => static function (callable $work): void {
-            after_response_add($work);
-        },
-        'onError' => static function (Throwable $e): void {
-            academy_error_log()->record($e);
-        },
-    ] + academy_people()->restoreHooks(people_delete_hook(), static function (callable $work): void {
-        after_response_add($work, 'people_scrub_again');
-    }));
+        backup_dir(),
+        [
+            'site' => 'japanese-academy',
+            'migrator' => static function (PDO $pdo) {
+                return db_migrator($pdo);
+            },
+            'lock' => UPKEEP_LOCK,
+            'audit' => academy_audit(),
+            'storage' => storage_dir(),
+            'defer' => static function (callable $work): void {
+                after_response_add($work);
+            },
+            'onError' => static function (Throwable $e): void {
+                academy_error_log()->record($e);
+            },
+        ] +
+            academy_people()->restoreHooks(people_delete_hook(), static function (callable $work): void {
+                after_response_add($work, 'people_scrub_again');
+            }),
+    );
 }

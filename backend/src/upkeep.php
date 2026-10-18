@@ -131,8 +131,7 @@ function upkeep_raw_copy_before_apply(?string &$backup = null): Closure
         } catch (Throwable $e) {
             error_log('[upkeep] the copy before the migrations could not be written: ' . $e->getMessage());
             $reason = error_reason($e);
-            throw new RuntimeException('The copy of every table could not be written, so nothing was applied'
-                . ($reason !== null ? ": $reason" : '. The server\'s error log says more.'));
+            throw new RuntimeException('The copy of every table could not be written, so nothing was applied' . ($reason !== null ? ": $reason" : '. The server\'s error log says more.'));
         }
         return $backup === null ? null : 'A copy of every table from before is in backups/' . basename($backup) . '.';
     };
@@ -173,7 +172,8 @@ function upkeep_stored_stamp(): ?string
     try {
         $stored = db_value("SELECT to_jsonb(c)->>'stamp' FROM content_state c");
     } catch (PDOException $e) {
-        if (($e->errorInfo[0] ?? (string) $e->getCode()) === '42P01') { // undefined_table
+        if (($e->errorInfo[0] ?? (string) $e->getCode()) === '42P01') {
+            // undefined_table
             return null;
         }
         throw $e;

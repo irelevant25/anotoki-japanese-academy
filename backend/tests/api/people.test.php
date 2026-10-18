@@ -12,11 +12,11 @@ declare(strict_types=1);
 
 require __DIR__ . '/../lib.php'; // before the app loads: a throwaway database and backup folder
 
-const BOSS = 8001;     // ADMIN
-const EDITOR = 8002;   // EDITOR: rewords strings, sees no people
-const LEAVER = 8003;   // a learner whose data an administrator deletes
-const STAYER = 8004;   // a learner who stays
-const WAITER = 8005;   // a learner whose request is on its way while their data is deleted
+const BOSS = 8001; // ADMIN
+const EDITOR = 8002; // EDITOR: rewords strings, sees no people
+const LEAVER = 8003; // a learner whose data an administrator deletes
+const STAYER = 8004; // a learner who stays
+const WAITER = 8005; // a learner whose request is on its way while their data is deleted
 
 $GLOBALS['app'] = null;
 before(function (): void {
@@ -34,10 +34,8 @@ before(function (): void {
     person(EDITOR, 'GET', '/api/kanji/summary');
     person(BOSS, 'GET', '/api/kanji/summary');
     // Feedback of the leaver and of the stayer, each with the address to answer at and their browser.
-    assert_same(201, person(LEAVER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the leaver.', 'email' => 'leaver@example.test'],
-        ['User-Agent: LeaverBrowser/1.0'])['status']);
-    assert_same(201, person(STAYER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the stayer.', 'email' => 'stayer@example.test'],
-        ['User-Agent: StayerBrowser/1.0'])['status']);
+    assert_same(201, person(LEAVER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the leaver.', 'email' => 'leaver@example.test'], ['User-Agent: LeaverBrowser/1.0'])['status']);
+    assert_same(201, person(STAYER, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From the stayer.', 'email' => 'stayer@example.test'], ['User-Agent: StayerBrowser/1.0'])['status']);
     // A string the leaver once reworded, as an editor of before.
     db_exec("INSERT INTO translation_keys (name, description) VALUES ('test.people', 'a test''s own') ON CONFLICT DO NOTHING");
     db_exec("INSERT INTO translations (key_name, language_code, value, updated_by) VALUES ('test.people', 'sk', 'Ľudia', ?)", [LEAVER]);
@@ -76,21 +74,37 @@ test('the administrators see everybody the site has data of, the latest seen fir
     foreach ($r['body']['people'] as $p) {
         assert_same(['sub', 'name', 'first_seen_at', 'last_seen_at', 'anonymized_at', 'iam_url', 'time_zone', 'learned', 'attempts'], array_keys($p));
     }
-    assert_same([['key' => 'time_zone', 'label' => 'Time zone', 'kind' => 'text'], ['key' => 'learned', 'label' => 'Learned', 'kind' => 'count'],
-        ['key' => 'attempts', 'label' => 'Exam', 'kind' => 'count']], $r['body']['columns']);
-    assert_same(['sub' => (string) LEAVER, 'name' => 'person-' . LEAVER, 'anonymized_at' => null, 'iam_url' => 'https://iam.test/admin/users/' . LEAVER,
-        'time_zone' => 'Asia/Tokyo', 'learned' => 2, 'attempts' => 1],
-        array_intersect_key($people[(string) LEAVER], array_flip(['sub', 'name', 'anonymized_at', 'iam_url', 'time_zone', 'learned', 'attempts'])));
-    assert_same([1, 0, null], [$people[(string) STAYER]['learned'], $people[(string) STAYER]['attempts'], $people[(string) STAYER]['time_zone']],
-        'none: 0 for a count, nothing for a zone never named');
+    assert_same(
+        [['key' => 'time_zone', 'label' => 'Time zone', 'kind' => 'text'], ['key' => 'learned', 'label' => 'Learned', 'kind' => 'count'], ['key' => 'attempts', 'label' => 'Exam', 'kind' => 'count']],
+        $r['body']['columns'],
+    );
+    assert_same(
+        [
+            'sub' => (string) LEAVER,
+            'name' => 'person-' . LEAVER,
+            'anonymized_at' => null,
+            'iam_url' => 'https://iam.test/admin/users/' . LEAVER,
+            'time_zone' => 'Asia/Tokyo',
+            'learned' => 2,
+            'attempts' => 1,
+        ],
+        array_intersect_key($people[(string) LEAVER], array_flip(['sub', 'name', 'anonymized_at', 'iam_url', 'time_zone', 'learned', 'attempts'])),
+    );
+    assert_same(
+        [1, 0, null],
+        [$people[(string) STAYER]['learned'], $people[(string) STAYER]['attempts'], $people[(string) STAYER]['time_zone']],
+        'none: 0 for a count, nothing for a zone never named',
+    );
     $seen = array_column($r['body']['people'], 'last_seen_at');
     $sorted = $seen;
     rsort($sorted);
     assert_same($sorted, $seen, 'the latest seen first');
     assert_same((string) STAYER, end($r['body']['people'])['sub'], 'the one not seen for ten years, last');
-    assert_same([(int) db_value('SELECT count(*) FROM users WHERE id > 0'), 1, 50, true, []],
+    assert_same(
+        [(int) db_value('SELECT count(*) FROM users WHERE id > 0'), 1, 50, true, []],
         [$r['body']['total'], $r['body']['page'], $r['body']['page_size'], $r['body']['ready'], $r['body']['problems']],
-        'everybody with a row here (the visitors are a line of their own), one page; the database ready for the library');
+        'everybody with a row here (the visitors are a line of their own), one page; the database ready for the library',
+    );
     assert_same(['count' => 0, 'oldest_seen_at' => null, 'keep_days' => 30, 'max' => 300], $r['body']['visitors'], 'and no visitor now');
     $found = person(BOSS, 'GET', '/api/admin/people?q=' . rawurlencode('person-' . LEAVER))['body'];
     assert_same([(string) LEAVER], array_column($found['people'], 'sub'), 'a search by name');
@@ -117,12 +131,18 @@ test('deleting a person’s data: a copy of all of it first, then every row of t
     assert_same(200, $r['status'], $r['raw']);
     // What went, by the page's labels, and the copy named in the note.
     assert_same(['Kanji and words' => $rows['srs_progress'], 'Answers' => $rows['srs_log'], 'Exam attempts' => $rows['exam_attempts']], $r['body']['deleted']);
-    assert_true(preg_match('/^A copy of their data is in backups\/(academy-before-delete-user-' . LEAVER . '-\d{8}-\d{6}-\d{3}(-\d+)?\.json)\.$/D', (string) $r['body']['note'], $named) === 1,
-        'named after whose data it holds: ' . $r['body']['note']);
+    assert_true(
+        preg_match('/^A copy of their data is in backups\/(academy-before-delete-user-' . LEAVER . '-\d{8}-\d{6}-\d{3}(-\d+)?\.json)\.$/D', (string) $r['body']['note'], $named) === 1,
+        'named after whose data it holds: ' . $r['body']['note'],
+    );
     // Recorded in the audit log: who deleted whose data, and how much.
-    assert_same([['actor_id' => BOSS, 'action' => 'person.data_deleted', 'target_type' => 'user', 'target_id' => (string) LEAVER]],
-        array_map(static fn (array $e): array => ['actor_id' => (int) $e['actor_id']] + array_slice($e, 1),
-            db_all("SELECT actor_id, action, target_type, target_id FROM anotoki_audit_log WHERE action = 'person.data_deleted'")));
+    assert_same(
+        [['actor_id' => BOSS, 'action' => 'person.data_deleted', 'target_type' => 'user', 'target_id' => (string) LEAVER]],
+        array_map(
+            static fn(array $e): array => ['actor_id' => (int) $e['actor_id']] + array_slice($e, 1),
+            db_all("SELECT actor_id, action, target_type, target_id FROM anotoki_audit_log WHERE action = 'person.data_deleted'"),
+        ),
+    );
 
     $copy = backup_read(backup_dir() . '/' . $named[1]);
     assert_same([false, [LEAVER]], [$copy['everybody'], array_column($copy['users'], 'id')]);
@@ -131,10 +151,14 @@ test('deleting a person’s data: a copy of all of it first, then every row of t
 
     assert_same(array_fill_keys(array_merge(USER_TABLES, ['users']), 0), rows_of(LEAVER), 'every row of theirs gone, their users row too');
     assert_same(['Ľudia', null], array_values(db_one("SELECT value, updated_by FROM translations WHERE key_name = 'test.people'")), 'the string stays, by nobody now');
-    assert_same([['From the leaver.', LEAVER, null, null], ['From the stayer.', STAYER, 'stayer@example.test', 'StayerBrowser/1.0']],
-        array_map(static fn (array $f): array => [$f['message'], (int) $f['user_id'], $f['contact_email'], $f['user_agent']],
-            db_all('SELECT message, user_id, contact_email, user_agent FROM anotoki_feedback ORDER BY id')),
-        'their feedback keeps its words, but no longer where to answer them nor their browser; nobody else\'s touched');
+    assert_same(
+        [['From the leaver.', LEAVER, null, null], ['From the stayer.', STAYER, 'stayer@example.test', 'StayerBrowser/1.0']],
+        array_map(
+            static fn(array $f): array => [$f['message'], (int) $f['user_id'], $f['contact_email'], $f['user_agent']],
+            db_all('SELECT message, user_id, contact_email, user_agent FROM anotoki_feedback ORDER BY id'),
+        ),
+        'their feedback keeps its words, but no longer where to answer them nor their browser; nobody else\'s touched',
+    );
     assert_same($staying, [everything_of(STAYER), rows_of(BOSS), rows_of(STAYER)], 'nobody else’s touched');
     assert_false(in_array((string) LEAVER, array_column(person(BOSS, 'GET', '/api/admin/people')['body']['people'], 'sub'), true), 'gone from the list');
 
@@ -174,80 +198,106 @@ test('a delete that arrives while an answer of that person is being saved waits 
     assert_same(array_fill_keys(array_merge(USER_TABLES, ['users']), 0), rows_of(STAYER), 'what the answer saved went too');
 });
 
-test('a restore\'s delete (anotoki-lib 0.5.0): ALL of it on the connection it is given - with every table locked there, as a restore holds them, it goes through without the site\'s own -; no copy; inside the library\'s transaction alone', function (): void {
-    [, , , , $e] = $GLOBALS['kanji'];
-    $who = 8006;
-    assert_same(200, person($who, 'POST', '/api/kanji/learn', ['id' => $e])['status']);
-    assert_same(201, person($who, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'Before the restore.', 'email' => 'who@example.test'], ['User-Agent: RestoreBrowser/1.0'])['status']);
-    $copies = glob(backup_dir() . "/academy-before-delete-user-$who-*.json") ?: [];
-    $rows = rows_of($who);
-    assert_true($rows['srs_progress'] > 0 && $rows['users'] === 1, json_encode($rows));
+test(
+    'a restore\'s delete (anotoki-lib 0.5.0): ALL of it on the connection it is given - with every table locked there, as a restore holds them, it goes through without the site\'s own -; no copy; inside the library\'s transaction alone',
+    function (): void {
+        [, , , , $e] = $GLOBALS['kanji'];
+        $who = 8006;
+        assert_same(200, person($who, 'POST', '/api/kanji/learn', ['id' => $e])['status']);
+        assert_same(201, person($who, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'Before the restore.', 'email' => 'who@example.test'], ['User-Agent: RestoreBrowser/1.0'])['status']);
+        $copies = glob(backup_dir() . "/academy-before-delete-user-$who-*.json") ?: [];
+        $rows = rows_of($who);
+        assert_true($rows['srs_progress'] > 0 && $rows['users'] === 1, json_encode($rows));
 
-    // The restore's own connection, holding every table the delete touches as a restore does (ACCESS EXCLUSIVE until it
-    // commits). The site's connection (db()) would wait on those locks: here it would fail in 3 s instead of hanging.
-    $restore = db_connect();
-    $restore->beginTransaction();
-    $restore->exec('LOCK TABLE users, ' . implode(', ', USER_TABLES) . ', anotoki_feedback, anotoki_audit_log IN ACCESS EXCLUSIVE MODE');
-    db()->exec("SET lock_timeout = '3s'");
-    try {
-        $deleted = academy_people()->delete($restore, $who, people_delete_hook()); // its request null: a replay
-        assert_same(['deleted' => ['Kanji and words' => $rows['srs_progress'], 'Answers' => $rows['srs_log'], 'Exam attempts' => $rows['exam_attempts']]], $deleted,
-            'no note: no copy is kept for a replay');
-        $left = $restore->prepare('SELECT count(*) FROM users WHERE id = ?');
-        $left->execute([$who]);
-        assert_same(0, (int) $left->fetchColumn(), 'gone, inside the restore\'s transaction');
-        $restore->commit();
-    } finally {
-        if ($restore->inTransaction()) {
-            $restore->rollBack();
+        // The restore's own connection, holding every table the delete touches as a restore does (ACCESS EXCLUSIVE until it
+        // commits). The site's connection (db()) would wait on those locks: here it would fail in 3 s instead of hanging.
+        $restore = db_connect();
+        $restore->beginTransaction();
+        $restore->exec('LOCK TABLE users, ' . implode(', ', USER_TABLES) . ', anotoki_feedback, anotoki_audit_log IN ACCESS EXCLUSIVE MODE');
+        db()->exec("SET lock_timeout = '3s'");
+        try {
+            $deleted = academy_people()->delete($restore, $who, people_delete_hook()); // its request null: a replay
+            assert_same(
+                ['deleted' => ['Kanji and words' => $rows['srs_progress'], 'Answers' => $rows['srs_log'], 'Exam attempts' => $rows['exam_attempts']]],
+                $deleted,
+                'no note: no copy is kept for a replay',
+            );
+            $left = $restore->prepare('SELECT count(*) FROM users WHERE id = ?');
+            $left->execute([$who]);
+            assert_same(0, (int) $left->fetchColumn(), 'gone, inside the restore\'s transaction');
+            $restore->commit();
+        } finally {
+            if ($restore->inTransaction()) {
+                $restore->rollBack();
+            }
+            db()->exec('RESET lock_timeout');
         }
-        db()->exec('RESET lock_timeout');
-    }
-    assert_same(array_fill_keys(array_merge(USER_TABLES, ['users']), 0), rows_of($who), 'every row of theirs gone');
-    assert_same([['Before the restore.', null, null]], array_map(static fn (array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
-        db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who])), 'their feedback forgotten with it, by the library');
-    assert_same($copies, glob(backup_dir() . "/academy-before-delete-user-$who-*.json") ?: [], 'no copy: what a replay deletes is a backup\'s, which keeps it');
-    assert_same(0, (int) db_value("SELECT count(*) FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", [(string) $who]),
-        'a replay writes no entry of its own: the one it does again by is there already');
+        assert_same(array_fill_keys(array_merge(USER_TABLES, ['users']), 0), rows_of($who), 'every row of theirs gone');
+        assert_same(
+            [['Before the restore.', null, null]],
+            array_map(
+                static fn(array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
+                db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who]),
+            ),
+            'their feedback forgotten with it, by the library',
+        );
+        assert_same($copies, glob(backup_dir() . "/academy-before-delete-user-$who-*.json") ?: [], 'no copy: what a replay deletes is a backup\'s, which keeps it');
+        assert_same(
+            0,
+            (int) db_value("SELECT count(*) FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", [(string) $who]),
+            'a replay writes no entry of its own: the one it does again by is there already',
+        );
 
-    // It never runs on its own: outside the library's transaction, or with a page's request on another connection than
-    // the site's (its copy reads through db()), it refuses before touching anything.
-    $boss = rows_of(BOSS);
-    assert_throws(static fn () => people_delete(db(), BOSS, null), '/inside the library\'s transaction/');
-    $other = db_connect();
-    $other->beginTransaction();
-    try {
-        $page = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('DELETE', '/api/admin/people/' . BOSS);
-        assert_throws(static fn () => people_delete($other, BOSS, $page), '/reads through the site\'s connection/');
-    } finally {
-        $other->rollBack();
-    }
-    assert_same($boss, rows_of(BOSS), 'nothing of theirs touched');
-});
-
-test('a restore\'s delete of somebody the restored backup has no row of still forgets their feedback - sent from a page left open after a delete, which needs no row; the page itself finds nobody', function (): void {
-    $who = 8007;
-    assert_same(201, person($who, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From an open page.', 'email' => 'open@example.test'],
-        ['User-Agent: OpenPage/1.0'])['status']);
-    assert_same(0, rows_of($who)['users'], 'feedback makes no row');
-    assert_refused(404, 'not_found', 'There is nobody with that id here.', person(BOSS, 'DELETE', "/api/admin/people/$who"), 'the page: nobody of that id');
-    assert_same([['open@example.test', 'OpenPage/1.0']], array_map(static fn (array $f): array => [$f['contact_email'], $f['user_agent']],
-        db_all('SELECT contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who])), 'and nothing of theirs forgotten for that');
-
-    $restore = db_connect();
-    $restore->beginTransaction();
-    try {
-        $deleted = academy_people()->delete($restore, $who, people_delete_hook()); // a replay: its request null
-        $restore->commit();
-    } finally {
-        if ($restore->inTransaction()) {
-            $restore->rollBack();
+        // It never runs on its own: outside the library's transaction, or with a page's request on another connection than
+        // the site's (its copy reads through db()), it refuses before touching anything.
+        $boss = rows_of(BOSS);
+        assert_throws(static fn() => people_delete(db(), BOSS, null), '/inside the library\'s transaction/');
+        $other = db_connect();
+        $other->beginTransaction();
+        try {
+            $page = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('DELETE', '/api/admin/people/' . BOSS);
+            assert_throws(static fn() => people_delete($other, BOSS, $page), '/reads through the site\'s connection/');
+        } finally {
+            $other->rollBack();
         }
-    }
-    assert_same(['deleted' => ['Kanji and words' => 0, 'Answers' => 0, 'Exam attempts' => 0]], $deleted, 'nothing of theirs to delete - and yet');
-    assert_same([['From an open page.', null, null]], array_map(static fn (array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
-        db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who])), 'their message forgotten as the delete since did');
-});
+        assert_same($boss, rows_of(BOSS), 'nothing of theirs touched');
+    },
+);
+
+test(
+    'a restore\'s delete of somebody the restored backup has no row of still forgets their feedback - sent from a page left open after a delete, which needs no row; the page itself finds nobody',
+    function (): void {
+        $who = 8007;
+        assert_same(201, person($who, 'POST', '/api/feedback', ['kind' => 'idea', 'message' => 'From an open page.', 'email' => 'open@example.test'], ['User-Agent: OpenPage/1.0'])['status']);
+        assert_same(0, rows_of($who)['users'], 'feedback makes no row');
+        assert_refused(404, 'not_found', 'There is nobody with that id here.', person(BOSS, 'DELETE', "/api/admin/people/$who"), 'the page: nobody of that id');
+        assert_same(
+            [['open@example.test', 'OpenPage/1.0']],
+            array_map(static fn(array $f): array => [$f['contact_email'], $f['user_agent']], db_all('SELECT contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who])),
+            'and nothing of theirs forgotten for that',
+        );
+
+        $restore = db_connect();
+        $restore->beginTransaction();
+        try {
+            $deleted = academy_people()->delete($restore, $who, people_delete_hook()); // a replay: its request null
+            $restore->commit();
+        } finally {
+            if ($restore->inTransaction()) {
+                $restore->rollBack();
+            }
+        }
+        assert_same(['deleted' => ['Kanji and words' => 0, 'Answers' => 0, 'Exam attempts' => 0]], $deleted, 'nothing of theirs to delete - and yet');
+        assert_same(
+            [['From an open page.', null, null]],
+            array_map(
+                static fn(array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
+                db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$who]),
+            ),
+            'their message forgotten as the delete since did',
+        );
+    },
+);
 
 test('an answer of a person whose data is being deleted waits for it, then starts their data afresh: never a failure', function (): void {
     [, , , $d] = $GLOBALS['kanji'];

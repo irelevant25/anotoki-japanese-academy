@@ -63,7 +63,10 @@ describe('the admin panel’s pages that are the anotoki library’s (People, Fe
     for (const [name, component, , base] of PAGES) {
       await draw(component, false);
       const http = TestBed.inject(HttpTestingController);
-      expect(http.match((request) => request.url.startsWith(base)), name).toEqual([]);
+      expect(
+        http.match((request) => request.url.startsWith(base)),
+        name,
+      ).toEqual([]);
       TestBed.resetTestingModule();
     }
   });

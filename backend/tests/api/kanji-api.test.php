@@ -26,7 +26,7 @@ test('fresh start', function (): void {
     $p = api('GET', '/progress')['body'];
     assert_same(0, $p['summary']['learned']);
     assert_same(0, $p['summary']['reviewsDue']);
-    assert_same(count(array_filter($cat['items'], static fn (array $i): bool => $i['type'] === 'kanji')), $p['summary']['lessonsAvailable']);
+    assert_same(count(array_filter($cat['items'], static fn(array $i): bool => $i['type'] === 'kanji')), $p['summary']['lessonsAvailable']);
     assert_same(5, $p['settings']['batchSize']);
     assert_same([], $p['items'], 'no progress yet');
     assert_same('{}', json_encode((object) $p['items']));
@@ -146,8 +146,11 @@ test('persistence: in the database, every answer in the log; a backup on a page 
     assert_true((int) db_value('SELECT count(*) FROM srs_log') > 30, 'log lines');
     assert_same(['lesson', 'practice', 'review'], array_column(db_all('SELECT DISTINCT kind FROM srs_log ORDER BY kind'), 'kind'));
     foreach (['srs_progress', 'srs_daily', 'srs_log'] as $table) {
-        assert_same([TEST_USER], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')),
-            "every row of $table is the signed-in person’s: every request here is TEST_USER’s");
+        assert_same(
+            [TEST_USER],
+            array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')),
+            "every row of $table is the signed-in person’s: every request here is TEST_USER’s",
+        );
     }
     // The first page load with data in the database took the day's backup
     // (for a server left running overnight); answers never take one. The day is UTC's.

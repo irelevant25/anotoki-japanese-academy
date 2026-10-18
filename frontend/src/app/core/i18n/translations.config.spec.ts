@@ -102,7 +102,10 @@ describe('the app’s words through the anotoki library (core/i18n/translations.
     const headers = calls[0][1]?.headers as Record<string, string>;
     expect(calls[0][0]).toBe('/api/translations/sk');
     expect(headers['Accept']).toBe('application/json');
-    expect(Object.keys(headers).some((name) => name.toLowerCase() === 'authorization'), 'the words are the same for everybody').toBe(false);
+    expect(
+      Object.keys(headers).some((name) => name.toLowerCase() === 'authorization'),
+      'the words are the same for everybody',
+    ).toBe(false);
 
     const refused = await fetchBundle('en-gb').catch((error: unknown) => error);
     expect(refused).toBeInstanceOf(BundleRefused);

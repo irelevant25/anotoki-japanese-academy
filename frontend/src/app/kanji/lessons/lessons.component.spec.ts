@@ -39,7 +39,18 @@ const SLOVAK: Record<string, string> = {
 };
 
 function item(i: number): CatalogItem {
-  return { id: `k:${i}`, type: 'kanji', chars: ['一', '二', '三', '四', '五', '六', '七'][i], no: i + 1, lesson: 3, courseLesson: 3, order: i, meanings: [`meaning ${i}`], readings: ['いち'], audio: null };
+  return {
+    id: `k:${i}`,
+    type: 'kanji',
+    chars: ['一', '二', '三', '四', '五', '六', '七'][i],
+    no: i + 1,
+    lesson: 3,
+    courseLesson: 3,
+    order: i,
+    meanings: [`meaning ${i}`],
+    readings: ['いち'],
+    audio: null,
+  };
 }
 const ITEMS = [0, 1, 2, 3, 4, 5, 6].map(item);
 
@@ -135,8 +146,14 @@ describe('LessonsComponent', () => {
 
   it('draws its choices with the kit: the batch size a segmented choice, the kinds and the lessons its choice chips, one checked in each', async () => {
     await open();
-    const checked = (): string[] => sizes().filter((size) => size.getAttribute('aria-checked') === 'true').map((size) => size.getAttribute('data-value') ?? '');
-    const chosen = (row: string): string[] => chips(row).filter((b) => b.getAttribute('aria-checked') === 'true').map((b) => clean(b.textContent));
+    const checked = (): string[] =>
+      sizes()
+        .filter((size) => size.getAttribute('aria-checked') === 'true')
+        .map((size) => size.getAttribute('data-value') ?? '');
+    const chosen = (row: string): string[] =>
+      chips(row)
+        .filter((b) => b.getAttribute('aria-checked') === 'true')
+        .map((b) => clean(b.textContent));
     expect(checked(), 'the setting chosen').toEqual(['5']);
     expect(chosen('#lessonTypes')).toEqual(['Kanji & vocabulary']);
     expect(host.querySelector('#lessonTypes [data-value="both"]')?.classList.contains('anotoki-chip--on'), 'the chosen one marked').toBe(true);

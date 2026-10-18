@@ -58,9 +58,7 @@ export class LessonsComponent {
     const L = this.lesson();
     return this.kanji.nextLessons({ count: this.batch(), lessons: L !== null ? [L] : null, types: this.types() });
   });
-  readonly lessonChoices = computed(() =>
-    this.kanji.lessons().map((L) => ({ L, n: this.kanji.availableLessonCount(L, this.types()) })),
-  );
+  readonly lessonChoices = computed(() => this.kanji.lessons().map((L) => ({ L, n: this.kanji.availableLessonCount(L, this.types()) })));
   /**
    * The course's order, then each lesson: "L6", heard with how many of its items can be learned now ("L6, 12
    * available" - the name holds the words shown, WCAG 2.5.3); a lesson with nothing left shown and not to be chosen.

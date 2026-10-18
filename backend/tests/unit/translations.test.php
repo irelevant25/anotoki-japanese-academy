@@ -51,10 +51,12 @@ function string_migrations(): array
     if ($found === null) {
         $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
         sort($files);
-        $found = array_values(array_filter(
-            $files,
-            static fn (string $file): bool => (bool) preg_match('/INSERT\s+INTO\s+translation_keys\b[^;]*?\bVALUES\b/i', sql_code((string) file_get_contents(MIGRATIONS_DIR . "/$file")))
-        ));
+        $found = array_values(
+            array_filter(
+                $files,
+                static fn(string $file): bool => (bool) preg_match('/INSERT\s+INTO\s+translation_keys\b[^;]*?\bVALUES\b/i', sql_code((string) file_get_contents(MIGRATIONS_DIR . "/$file"))),
+            ),
+        );
     }
     return $found;
 }
@@ -99,19 +101,22 @@ function database_keys(): array
 /** @return string[] the app's own keys: every key but the anotoki library's (anotoki.) */
 function app_keys(): array
 {
-    return array_values(array_filter(database_keys(), static fn (string $key): bool => !LibraryWords::isLibraryKey($key)));
+    return array_values(array_filter(database_keys(), static fn(string $key): bool => !LibraryWords::isLibraryKey($key)));
 }
 
 /** The keys that have no string in a language. */
 function keys_without(string $code): array
 {
     test_db();
-    return array_column(db_all(
-        'SELECT k.name FROM translation_keys k
+    return array_column(
+        db_all(
+            'SELECT k.name FROM translation_keys k
           WHERE NOT EXISTS (SELECT 1 FROM translations t WHERE t.key_name = k.name AND t.language_code = ?)
           ORDER BY k.name COLLATE "C"',
-        [$code]
-    ), 'name');
+            [$code],
+        ),
+        'name',
+    );
 }
 
 /** A list in the order of its values: for two lists that must hold the same, whatever order each was written in. */
@@ -221,10 +226,13 @@ function migration_keys(string $path): array
 
 test('the two languages the app is released in, English first; and the keys, once a migration writes them', function (): void {
     test_db();
-    assert_same([
-        ['code' => 'en', 'name' => 'English', 'native_name' => 'English', 'enabled' => true, 'sort_order' => 1],
-        ['code' => 'sk', 'name' => 'Slovak', 'native_name' => 'Slovenčina', 'enabled' => true, 'sort_order' => 2],
-    ], db_all('SELECT code, name, native_name, enabled, sort_order FROM languages ORDER BY sort_order'));
+    assert_same(
+        [
+            ['code' => 'en', 'name' => 'English', 'native_name' => 'English', 'enabled' => true, 'sort_order' => 1],
+            ['code' => 'sk', 'name' => 'Slovak', 'native_name' => 'Slovenčina', 'enabled' => true, 'sort_order' => 2],
+        ],
+        db_all('SELECT code, name, native_name, enabled, sort_order FROM languages ORDER BY sort_order'),
+    );
 
     if (string_migrations() === []) {
         assert_same([], app_keys(), 'no migration writes strings yet, so there are none');
@@ -233,12 +241,12 @@ test('the two languages the app is released in, English first; and the keys, onc
     }
 
     // the database keeps its own rules
-    assert_throws(static fn () => db_exec("INSERT INTO languages (code, name, native_name) VALUES ('EN', 'x', 'x')"), '/check/i');
-    assert_throws(static fn () => db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('no.such', 'en', 'x')"), '/foreign key/i');
+    assert_throws(static fn() => db_exec("INSERT INTO languages (code, name, native_name) VALUES ('EN', 'x', 'x')"), '/check/i');
+    assert_throws(static fn() => db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('no.such', 'en', 'x')"), '/foreign key/i');
     assert_same(
         'FOREIGN KEY (updated_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL',
         db_value("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'translations'::regclass AND conname = 'translations_updated_by_fkey'"),
-        'who reworded a string follows a moved user id, and nobody\'s leaving takes a string along'
+        'who reworded a string follows a moved user id, and nobody\'s leaving takes a string along',
     );
     // The three tables are the site's, not a person's: no user_id, and no part of anybody's study data.
     assert_same([], array_values(array_intersect(USER_TABLES, ['languages', 'translation_keys', 'translations'])));
@@ -246,14 +254,14 @@ test('the two languages the app is released in, English first; and the keys, onc
 });
 
 test('the anotoki library\'s words: its set runs after this site\'s own, and its keys are in the database, described as it describes them', function (): void {
-    $sets = array_column(array_map(static fn ($set): array => ['name' => $set->name, 'set' => $set], db_migration_sets()), 'set', 'name');
+    $sets = array_column(array_map(static fn($set): array => ['name' => $set->name, 'set' => $set], db_migration_sets()), 'set', 'name');
     $names = array_keys($sets);
     assert_true(array_search(MIGRATION_SET, $names, true) < array_search(Schema::SET, $names, true), 'this site\'s own before the words\': its 004 made the tables');
     assert_true($sets[Schema::SET]->library && !$sets[MIGRATION_SET]->library);
     assert_same(str_replace('\\', '/', Schema::directory()), str_replace('\\', '/', $sets[Schema::SET]->directory));
 
     test_db();
-    $library = array_values(array_filter(database_keys(), static fn (string $key): bool => LibraryWords::isLibraryKey($key)));
+    $library = array_values(array_filter(database_keys(), static fn(string $key): bool => LibraryWords::isLibraryKey($key)));
     assert_same(in_order(LibraryWords::keys()), in_order($library), 'every key of the library, and none of its own beside them');
     $descriptions = array_column(db_all("SELECT name, description FROM translation_keys WHERE name LIKE 'anotoki.%'"), 'description', 'name');
     foreach (LibraryWords::all() as $key => $words) {
@@ -429,55 +437,70 @@ test('a string migration\'s gate checks exactly the keys the migration writes, a
     // The reader itself, on a file written the way 004 is: its gate also lists the languages it needs,
     // and they are not taken for keys.
     $example = temp_dir('migration') . '/999_test_example.sql';
-    file_put_contents($example, str_replace("\n", "\r\n", <<<'SQL'
-        INSERT INTO translation_keys (name, description) VALUES
-            -- home: the first page
-            ('home.title', 'The heading; it''s short'),
-            ('home.due.one', 'A label under a number (not a row of its own)')
-        ON CONFLICT (name) DO NOTHING;
+    file_put_contents(
+        $example,
+        str_replace(
+            "\n",
+            "\r\n",
+            <<<'SQL'
+            INSERT INTO translation_keys (name, description) VALUES
+                -- home: the first page
+                ('home.title', 'The heading; it''s short'),
+                ('home.due.one', 'A label under a number (not a row of its own)')
+            ON CONFLICT (name) DO NOTHING;
 
-        INSERT INTO translations (key_name, language_code, value)
-        SELECT v.key_name, 'en', v.value FROM (VALUES
-            ('home.title', 'Home'),
-            ('home.due.one', 'review due')
-        ) AS v(key_name, value)
-        ON CONFLICT (key_name, language_code) DO NOTHING;
+            INSERT INTO translations (key_name, language_code, value)
+            SELECT v.key_name, 'en', v.value FROM (VALUES
+                ('home.title', 'Home'),
+                ('home.due.one', 'review due')
+            ) AS v(key_name, value)
+            ON CONFLICT (key_name, language_code) DO NOTHING;
 
-        INSERT INTO translations (key_name, language_code, value)
-        SELECT v.key_name, 'sk', v.value FROM (VALUES
-            ('home.title', 'Domov')
-        ) AS v(key_name, value)
-        ON CONFLICT (key_name, language_code) DO NOTHING;
+            INSERT INTO translations (key_name, language_code, value)
+            SELECT v.key_name, 'sk', v.value FROM (VALUES
+                ('home.title', 'Domov')
+            ) AS v(key_name, value)
+            ON CONFLICT (key_name, language_code) DO NOTHING;
 
-        DO $$
-        DECLARE
-            missing text;
-        BEGIN
-            SELECT string_agg(wanted.code, ', ') INTO missing
-              FROM (VALUES ('en'), ('sk')) AS wanted(code)
-             WHERE NOT EXISTS (SELECT 1 FROM languages l WHERE l.code = wanted.code);
-            SELECT string_agg(k.name, ', ' ORDER BY k.name) INTO missing
-              FROM (VALUES
-                  ('home.title'), ('home.due.one')
-              ) AS k(name)
-             WHERE NOT EXISTS (SELECT 1 FROM translation_keys tk WHERE tk.name = k.name);
-        END $$;
+            DO $$
+            DECLARE
+                missing text;
+            BEGIN
+                SELECT string_agg(wanted.code, ', ') INTO missing
+                  FROM (VALUES ('en'), ('sk')) AS wanted(code)
+                 WHERE NOT EXISTS (SELECT 1 FROM languages l WHERE l.code = wanted.code);
+                SELECT string_agg(k.name, ', ' ORDER BY k.name) INTO missing
+                  FROM (VALUES
+                      ('home.title'), ('home.due.one')
+                  ) AS k(name)
+                 WHERE NOT EXISTS (SELECT 1 FROM translation_keys tk WHERE tk.name = k.name);
+            END $$;
 
-        -- end of 999
-        SQL));
+            -- end of 999
+            SQL
+            ,
+        ),
+    );
     assert_same(
         ['keys' => ['home.title', 'home.due.one'], 'strings' => ['en' => ['home.title', 'home.due.one'], 'sk' => ['home.title']], 'gate' => ['home.title', 'home.due.one']],
         migration_keys($example),
-        'the rows it inserts, each language\'s strings, and the gate\'s own list'
+        'the rows it inserts, each language\'s strings, and the gate\'s own list',
     );
 
-    assert_same(['004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
-        array_slice(string_migrations(), 0, 4), 'the migrations in 004\'s form (009 copies, in a form of its own)');
+    assert_same(
+        ['004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
+        array_slice(string_migrations(), 0, 4),
+        'the migrations in 004\'s form (009 copies, in a form of its own)',
+    );
     foreach (string_migrations() as $file) {
         $found = migration_keys(MIGRATIONS_DIR . "/$file");
         assert_true($found['keys'] !== [], "$file: the keys it inserts could not be read");
         assert_same($found['keys'], array_values(array_unique($found['keys'])), "$file: a key is inserted twice");
-        assert_same(in_order($found['keys']), in_order($found['gate']), "$file: the keys its gate checks are not the keys it inserts; a key left out of the gate could lack a string and nothing would say so");
+        assert_same(
+            in_order($found['keys']),
+            in_order($found['gate']),
+            "$file: the keys its gate checks are not the keys it inserts; a key left out of the gate could lack a string and nothing would say so",
+        );
         assert_same(in_order(TRANSLATION_SEEDED_LANGUAGES), in_order(array_keys($found['strings'])), "$file: one block of strings a language");
         foreach ($found['strings'] as $code => $keys) {
             assert_same(in_order($found['keys']), in_order($keys), "$file: the keys with a string in \"$code\" are not the keys it inserts");
@@ -509,49 +532,53 @@ test('migration 004 makes and fills its own three tables, and touches no other',
 /** The keys migration 005 deletes, every one of them: what nothing asks for any more. */
 const MIGRATION_005_DELETED_KEYS = ['error.no_access', 'error.this_computer_only', 'account.signedInAs', 'account.userId'];
 
-test('migration 005 in 004\'s form: one column added to users, the three translation tables written, rewords only of the seeded words, deletes only of the listed keys, a check at its end', function (): void {
-    $file = '005_own_time_zone_and_words.sql';
-    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
-    assert_match('/^-- 005 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
-    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
-    $lines = preg_split('/\R/', rtrim($sql));
-    if (end($lines) !== '-- end of 005') {
-        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
-        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 005"/', $sql, 'and says so at its top');
-    }
-
-    // What it does, statement by statement (the strings emptied, the check taken out).
-    $code = sql_code($sql);
-    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code, $checks), 'one check');
-    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
-    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
-    $added = 0;
-    foreach ($statements as $statement) {
-        $statement = (string) preg_replace('/\s+/', ' ', $statement);
-        if (preg_match('/^ALTER TABLE users ADD COLUMN time_zone varchar\(64\)( CHECK \(time_zone <> \'\'\))?$/', $statement)) {
-            $added++;
-            continue;
+test(
+    'migration 005 in 004\'s form: one column added to users, the three translation tables written, rewords only of the seeded words, deletes only of the listed keys, a check at its end',
+    function (): void {
+        $file = '005_own_time_zone_and_words.sql';
+        $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+        assert_match('/^-- 005 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+        assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+        $lines = preg_split('/\R/', rtrim($sql));
+        if (end($lines) !== '-- end of 005') {
+            assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+            assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 005"/', $sql, 'and says so at its top');
         }
-        $allowed = preg_match('/^COMMENT ON COLUMN users\.time_zone IS \'\'$/', $statement)
-            || preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
-            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement)
-            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement)
-            || preg_match('/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/', $statement);
-        assert_true((bool) $allowed, "not in 005's form: $statement");
-    }
-    assert_same(1, $added, 'users gains its one column, time_zone, and nothing else changes in a table of anybody\'s');
 
-    // The keys it deletes are exactly the list: a rewording the owner made goes with a deleted key.
-    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', (string) preg_replace('/--[^\n]*/', '', $sql), $deletes);
-    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
-    assert_same(in_order(MIGRATION_005_DELETED_KEYS), in_order($names[1]), 'the keys it deletes');
+        // What it does, statement by statement (the strings emptied, the check taken out).
+        $code = sql_code($sql);
+        assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code, $checks), 'one check');
+        assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+        $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+        $added = 0;
+        foreach ($statements as $statement) {
+            $statement = (string) preg_replace('/\s+/', ' ', $statement);
+            if (preg_match('/^ALTER TABLE users ADD COLUMN time_zone varchar\(64\)( CHECK \(time_zone <> \'\'\))?$/', $statement)) {
+                $added++;
+                continue;
+            }
+            $allowed =
+                preg_match('/^COMMENT ON COLUMN users\.time_zone IS \'\'$/', $statement) ||
+                preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement) ||
+                preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement) ||
+                preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement) ||
+                preg_match('/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/', $statement);
+            assert_true((bool) $allowed, "not in 005's form: $statement");
+        }
+        assert_same(1, $added, 'users gains its one column, time_zone, and nothing else changes in a table of anybody\'s');
 
-    // The check: the column, as the app keeps it.
-    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', (string) preg_replace('/--[^\n]*/', '', $sql), $check);
-    assert_match("/table_name = 'users' AND column_name = 'time_zone'/", $check[0] ?? '', 'the check looks at the column');
-    assert_match("/character_maximum_length = 64/", $check[0] ?? '', 'of its size');
-    assert_match("/RAISE EXCEPTION '005_own_time_zone_and_words: /", $check[0] ?? '', 'and fails the migration loudly, by name');
-});
+        // The keys it deletes are exactly the list: a rewording the owner made goes with a deleted key.
+        preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', (string) preg_replace('/--[^\n]*/', '', $sql), $deletes);
+        preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+        assert_same(in_order(MIGRATION_005_DELETED_KEYS), in_order($names[1]), 'the keys it deletes');
+
+        // The check: the column, as the app keeps it.
+        preg_match('/\bDO \$\$.*?\bEND \$\$;/s', (string) preg_replace('/--[^\n]*/', '', $sql), $check);
+        assert_match("/table_name = 'users' AND column_name = 'time_zone'/", $check[0] ?? '', 'the check looks at the column');
+        assert_match('/character_maximum_length = 64/', $check[0] ?? '', 'of its size');
+        assert_match("/RAISE EXCEPTION '005_own_time_zone_and_words: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+    },
+);
 
 test('migration 006 in 004\'s form: keys and strings written, rewords only of the seeded words, no table and no other row touched, a check at its end', function (): void {
     $file = '006_admin_panel_words.sql';
@@ -570,14 +597,20 @@ test('migration 006 in 004\'s form: keys and strings written, rewords only of th
     $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
     foreach ($statements as $statement) {
         $statement = (string) preg_replace('/\s+/', ' ', $statement);
-        $allowed = preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
-            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement)
-            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
+        $allowed =
+            preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement) ||
+            preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\'$/', $statement) ||
+            preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
         assert_true((bool) $allowed, "not in 004's form: $statement");
     }
 
     // Each reword is of the text 004 or 005 wrote, and the check names that text: the owner's own wording stays.
-    preg_match_all("/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)';$/m", $sql, $rewords, PREG_SET_ORDER);
+    preg_match_all(
+        "/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)';$/m",
+        $sql,
+        $rewords,
+        PREG_SET_ORDER,
+    );
     assert_same(4, count($rewords), 'two keys, in English and Slovak');
     preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $sql, $check);
     foreach ($rewords as [, , $key, $language, $old]) {
@@ -653,136 +686,163 @@ const MIGRATION_009_COPIES = [
     'common.close' => ['anotoki.ui.close', false],
 ];
 
-test('migration 009 in a form of its own: a temporary copy of the strings it moves, keys and strings inserted from it, one description, the listed keys deleted, a check at its end that names every one', function (): void {
-    $file = '009_strings_through_the_library.sql';
-    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
-    assert_match('/^-- 009 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
-    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
-    $lines = preg_split('/\R/', rtrim($sql));
-    if (end($lines) !== '-- end of 009') {
-        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
-        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 009"/', $sql, 'and says so at its top');
-    } else {
-        assert_no_match('/THIS FILE IS A DRAFT/', $sql, 'final: its top says so no more');
-    }
-
-    // What it does, statement by statement (the strings emptied, the check taken out): nothing but the three tables
-    // of the words, and in these forms only.
-    $code = sql_code($sql);
-    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
-    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
-    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
-    $forms = [
-        'the copy' => '/^CREATE TEMP TABLE academy_009_words ON COMMIT DROP AS SELECT m\.own_key, m\.library_key, t\.language_code, t\.value, t\.updated_at, t\.updated_by FROM \(VALUES (\(\'\', \'\'\),? ?)+\) AS m\(own_key, library_key\) JOIN translations t ON t\.key_name = m\.own_key$/',
-        'the library\'s keys' => '/^INSERT INTO translation_keys \(name, description\) SELECT DISTINCT library_key, \'\' FROM academy_009_words ON CONFLICT \(name\) DO NOTHING$/',
-        'their strings' => '/^INSERT INTO translations \(key_name, language_code, value, updated_at, updated_by\) SELECT library_key, language_code, value, updated_at, updated_by FROM academy_009_words ON CONFLICT \(key_name, language_code\) DO NOTHING$/',
-        'a description' => '/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/',
-        'the deletes' => '/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/',
-    ];
-    $seen = [];
-    foreach ($statements as $statement) {
-        $statement = (string) preg_replace('/\s+/', ' ', $statement);
-        $form = null;
-        foreach ($forms as $what => $pattern) {
-            if (preg_match($pattern, $statement) === 1) {
-                $form = $what;
-            }
+test(
+    'migration 009 in a form of its own: a temporary copy of the strings it moves, keys and strings inserted from it, one description, the listed keys deleted, a check at its end that names every one',
+    function (): void {
+        $file = '009_strings_through_the_library.sql';
+        $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+        assert_match('/^-- 009 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+        assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+        $lines = preg_split('/\R/', rtrim($sql));
+        if (end($lines) !== '-- end of 009') {
+            assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+            assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 009"/', $sql, 'and says so at its top');
+        } else {
+            assert_no_match('/THIS FILE IS A DRAFT/', $sql, 'final: its top says so no more');
         }
-        assert_true($form !== null, "not in 009's form: $statement");
-        $seen[] = $form;
-    }
-    assert_same(array_keys($forms), $seen, 'each once, in this order: the copies first, the deletes last');
-    assert_no_match('/\bUPDATE\s+translations\b/i', $code, 'no string is reworded: every one goes on as it is');
 
-    // The copies are exactly the list, each to its library key; the deletes the keys that go; the check names every one.
-    $text = (string) preg_replace('/--[^\n]*/', '', $sql);
-    preg_match('/CREATE TEMP TABLE academy_009_words.*?AS m\(own_key, library_key\)/s', $text, $copy);
-    preg_match_all("/\\('([^']+)', '([^']+)'\\)/", $copy[0] ?? '', $pairs, PREG_SET_ORDER);
-    assert_same(array_map(static fn (array $c): string => $c[0], MIGRATION_009_COPIES), array_column($pairs, 2, 1), 'the copies, each to its library key');
-    foreach (MIGRATION_009_COPIES as [$library]) {
-        assert_true(in_array($library, LibraryWords::keys(), true), "$library: a key of the library's");
-    }
-    preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', $text, $deletes);
-    preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
-    $gone = array_keys(array_filter(MIGRATION_009_COPIES, static fn (array $c): bool => $c[1]));
-    assert_same(in_order($gone), in_order($names[1]), 'the keys it deletes: those only the kit read');
-    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $text, $check);
-    foreach ($gone as $key) {
-        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to be gone");
-    }
-    foreach (array_keys(array_filter(MIGRATION_009_COPIES, static fn (array $c): bool => !$c[1])) as $key) {
-        assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to stay");
-    }
-    assert_match("/RAISE EXCEPTION '009_strings_through_the_library: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+        // What it does, statement by statement (the strings emptied, the check taken out): nothing but the three tables
+        // of the words, and in these forms only.
+        $code = sql_code($sql);
+        assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+        assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+        $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+        $forms = [
+            'the copy' =>
+                '/^CREATE TEMP TABLE academy_009_words ON COMMIT DROP AS SELECT m\.own_key, m\.library_key, t\.language_code, t\.value, t\.updated_at, t\.updated_by FROM \(VALUES (\(\'\', \'\'\),? ?)+\) AS m\(own_key, library_key\) JOIN translations t ON t\.key_name = m\.own_key$/',
+            'the library\'s keys' => '/^INSERT INTO translation_keys \(name, description\) SELECT DISTINCT library_key, \'\' FROM academy_009_words ON CONFLICT \(name\) DO NOTHING$/',
+            'their strings' =>
+                '/^INSERT INTO translations \(key_name, language_code, value, updated_at, updated_by\) SELECT library_key, language_code, value, updated_at, updated_by FROM academy_009_words ON CONFLICT \(key_name, language_code\) DO NOTHING$/',
+            'a description' => '/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/',
+            'the deletes' => '/^DELETE FROM translation_keys WHERE name IN \((\'\'(, )?)+\)$/',
+        ];
+        $seen = [];
+        foreach ($statements as $statement) {
+            $statement = (string) preg_replace('/\s+/', ' ', $statement);
+            $form = null;
+            foreach ($forms as $what => $pattern) {
+                if (preg_match($pattern, $statement) === 1) {
+                    $form = $what;
+                }
+            }
+            assert_true($form !== null, "not in 009's form: $statement");
+            $seen[] = $form;
+        }
+        assert_same(array_keys($forms), $seen, 'each once, in this order: the copies first, the deletes last');
+        assert_no_match('/\bUPDATE\s+translations\b/i', $code, 'no string is reworded: every one goes on as it is');
 
-    // On the database it was applied to: the library's keys carry the app's words, the moved keys are gone.
-    test_db();
-    $english = translations_of('en');
-    $slovak = translations_of('sk');
-    foreach (MIGRATION_009_COPIES as $own => [$library, $goes]) {
-        assert_same($goes, !in_array($own, database_keys(), true), "$own: " . ($goes ? 'gone' : 'still the app\'s'));
-    }
-    assert_same(['The app’s sections', 'Časti aplikácie'], [$english['anotoki.topbar.sections'] ?? null, $slovak['anotoki.topbar.sections'] ?? null], 'the app\'s words, not the library\'s "Main navigation"');
-    assert_same(['System', 'Systémový'], [$english['anotoki.theme.auto'] ?? null, $slovak['anotoki.theme.auto'] ?? null]);
-    assert_same(['Cancel', 'Zrušiť'], [$english['anotoki.ui.cancel'] ?? null, $slovak['anotoki.ui.cancel'] ?? null], 'a library key the app had no words for: the library\'s');
-});
+        // The copies are exactly the list, each to its library key; the deletes the keys that go; the check names every one.
+        $text = (string) preg_replace('/--[^\n]*/', '', $sql);
+        preg_match('/CREATE TEMP TABLE academy_009_words.*?AS m\(own_key, library_key\)/s', $text, $copy);
+        preg_match_all("/\\('([^']+)', '([^']+)'\\)/", $copy[0] ?? '', $pairs, PREG_SET_ORDER);
+        assert_same(array_map(static fn(array $c): string => $c[0], MIGRATION_009_COPIES), array_column($pairs, 2, 1), 'the copies, each to its library key');
+        foreach (MIGRATION_009_COPIES as [$library]) {
+            assert_true(in_array($library, LibraryWords::keys(), true), "$library: a key of the library's");
+        }
+        preg_match_all('/DELETE\s+FROM\s+translation_keys\s+WHERE\s+name\s+IN\s+\(([^)]*)\)/i', $text, $deletes);
+        preg_match_all("/'([^']+)'/", implode(',', $deletes[1]), $names);
+        $gone = array_keys(array_filter(MIGRATION_009_COPIES, static fn(array $c): bool => $c[1]));
+        assert_same(in_order($gone), in_order($names[1]), 'the keys it deletes: those only the kit read');
+        preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $text, $check);
+        foreach ($gone as $key) {
+            assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to be gone");
+        }
+        foreach (array_keys(array_filter(MIGRATION_009_COPIES, static fn(array $c): bool => !$c[1])) as $key) {
+            assert_true(str_contains($check[0] ?? '', "('$key')"), "$key: the check looks for it to stay");
+        }
+        assert_match("/RAISE EXCEPTION '009_strings_through_the_library: /", $check[0] ?? '', 'and fails the migration loudly, by name');
 
-test('migration 011 in 004\'s form: keys and strings written, rewords only of the seeded words nobody saved, descriptions, no table and no other row touched, a check at its end; no string holds an address', function (): void {
-    $file = '011_legal_pages_and_questions.sql';
-    $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
-    assert_match('/^-- 011 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
-    assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
-    $lines = preg_split('/\R/', rtrim($sql));
-    if (end($lines) !== '-- end of 011') {
-        assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
-        assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 011"/', $sql, 'and says so at its top');
-    }
+        // On the database it was applied to: the library's keys carry the app's words, the moved keys are gone.
+        test_db();
+        $english = translations_of('en');
+        $slovak = translations_of('sk');
+        foreach (MIGRATION_009_COPIES as $own => [$library, $goes]) {
+            assert_same($goes, !in_array($own, database_keys(), true), "$own: " . ($goes ? 'gone' : 'still the app\'s'));
+        }
+        assert_same(
+            ['The app’s sections', 'Časti aplikácie'],
+            [$english['anotoki.topbar.sections'] ?? null, $slovak['anotoki.topbar.sections'] ?? null],
+            'the app\'s words, not the library\'s "Main navigation"',
+        );
+        assert_same(['System', 'Systémový'], [$english['anotoki.theme.auto'] ?? null, $slovak['anotoki.theme.auto'] ?? null]);
+        assert_same(['Cancel', 'Zrušiť'], [$english['anotoki.ui.cancel'] ?? null, $slovak['anotoki.ui.cancel'] ?? null], 'a library key the app had no words for: the library\'s');
+    },
+);
 
-    $code = sql_code($sql);
-    assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
-    assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
-    $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
-    foreach ($statements as $statement) {
-        $statement = (string) preg_replace('/\s+/', ' ', $statement);
-        $allowed = preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement)
-            || preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\' AND updated_by IS NULL$/', $statement)
-            || preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
-        assert_true((bool) $allowed, "not in 004's form: $statement");
-    }
+test(
+    'migration 011 in 004\'s form: keys and strings written, rewords only of the seeded words nobody saved, descriptions, no table and no other row touched, a check at its end; no string holds an address',
+    function (): void {
+        $file = '011_legal_pages_and_questions.sql';
+        $sql = (string) file_get_contents(MIGRATIONS_DIR . "/$file");
+        assert_match('/^-- 011 — .+ \(\d{4}-\d{2}-\d{2}\)\n/', $sql, 'a header that says what and when');
+        assert_false(str_contains($sql, "\r"), 'its line endings are 004\'s');
+        $lines = preg_split('/\R/', rtrim($sql));
+        if (end($lines) !== '-- end of 011') {
+            assert_same([$file], array_values(array_intersect(test_config_migration_drafts(), [$file])), 'without its last line it is a draft');
+            assert_match('/THIS FILE IS A DRAFT until its last line is "-- end of 011"/', $sql, 'and says so at its top');
+        }
 
-    // Each reword is of the text 004, 005 or 007 wrote, nobody's save, and the check names that text.
-    preg_match_all("/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)' AND updated_by IS NULL;$/m", $sql, $rewords, PREG_SET_ORDER);
-    assert_same(24, count($rewords), 'twelve keys, in English and Slovak');
-    preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $sql, $check);
-    foreach ($rewords as [, $new, $key, $language, $old]) {
-        assert_true(str_contains($check[0] ?? '', "('$key', '$language', '$old')"), "$key ($language): the check looks for the old text");
-        assert_false(str_contains($new, '?') && in_array($key, ['session.confirmEnd.one', 'exam.confirmFinish.one', 'signOut.notSaved', 'signIn.notSaved'], true),
-            "$key ($language): the question is the dialog's title now, not the sentence's");
-    }
-    assert_match('/WHERE t\.updated_by IS NULL;/', $check[0] ?? '', 'the check leaves alone a string somebody saved');
-    assert_match("/RAISE EXCEPTION '011_legal_pages_and_questions: /", $check[0] ?? '', 'and fails the migration loudly, by name');
+        $code = sql_code($sql);
+        assert_same(1, preg_match_all('/\bDO \$\$.*?\bEND \$\$;/s', $code), 'one check');
+        assert_match('/\bDO \$\$.*?\bEND \$\$;\s*$/s', $code, 'and it is the last thing it does');
+        $statements = array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/\bDO \$\$.*?\bEND \$\$;/s', '', $code)))));
+        foreach ($statements as $statement) {
+            $statement = (string) preg_replace('/\s+/', ' ', $statement);
+            $allowed =
+                preg_match('/^INSERT INTO (translation_keys|translations) \(.*\bON CONFLICT \([a-z_, ]+\) DO NOTHING$/', $statement) ||
+                preg_match('/^UPDATE translations SET value = \'\', updated_at = now\(\) WHERE key_name = \'\' AND language_code = \'\' AND value = \'\' AND updated_by IS NULL$/', $statement) ||
+                preg_match('/^UPDATE translation_keys SET description = \'\' WHERE name = \'\'$/', $statement);
+            assert_true((bool) $allowed, "not in 004's form: $statement");
+        }
 
-    // Where a link goes is the code's, never a string an administrator rewords (the library's 0.6.0 review).
-    preg_match_all("/^\\s*\\('(legal\\.[^']+)', '((?:[^']|'')*)'\\)/m", $sql, $strings, PREG_SET_ORDER);
-    assert_true(count($strings) > 100, 'the legal strings, in English and Slovak, and their descriptions');
-    foreach ($strings as [, $key, $text]) {
-        assert_no_match('~https?://|www\.|@[a-z0-9-]+\.[a-z]|\.(eu|sk|com|org)\b~i', $text, "$key: no address in it");
-    }
+        // Each reword is of the text 004, 005 or 007 wrote, nobody's save, and the check names that text.
+        preg_match_all(
+            "/^UPDATE translations SET value = '((?:[^']|'')*)', updated_at = now\\(\\) WHERE key_name = '([^']+)' AND language_code = '([a-z]+)' AND value = '((?:[^']|'')*)' AND updated_by IS NULL;$/m",
+            $sql,
+            $rewords,
+            PREG_SET_ORDER,
+        );
+        assert_same(24, count($rewords), 'twelve keys, in English and Slovak');
+        preg_match('/\bDO \$\$.*?\bEND \$\$;/s', $sql, $check);
+        foreach ($rewords as [, $new, $key, $language, $old]) {
+            assert_true(str_contains($check[0] ?? '', "('$key', '$language', '$old')"), "$key ($language): the check looks for the old text");
+            assert_false(
+                str_contains($new, '?') && in_array($key, ['session.confirmEnd.one', 'exam.confirmFinish.one', 'signOut.notSaved', 'signIn.notSaved'], true),
+                "$key ($language): the question is the dialog's title now, not the sentence's",
+            );
+        }
+        assert_match('/WHERE t\.updated_by IS NULL;/', $check[0] ?? '', 'the check leaves alone a string somebody saved');
+        assert_match("/RAISE EXCEPTION '011_legal_pages_and_questions: /", $check[0] ?? '', 'and fails the migration loudly, by name');
 
-    // On the database it was applied to: the questions' sentences without their questions, the titles beside them.
-    test_db();
-    $english = translations_of('en');
-    $slovak = translations_of('sk');
-    assert_same(['{count} half-answered items will not be saved.', 'Stop now?'], [$english['session.confirmEnd.other'] ?? null, $english['session.endTitle'] ?? null]);
-    assert_same(['{count} rozpracovaných položiek sa neuloží.', 'Skončiť teraz?'], [$slovak['session.confirmEnd.other'] ?? null, $slovak['session.endTitle'] ?? null]);
-    assert_same(['It goes back to "not learned"; your notes stay.', 'Reset {chars}?'], [$english['item.confirmReset'] ?? null, $english['item.resetTitle'] ?? null]);
-    assert_same(['listen to question {n}', 'vypočuť si otázku {n}'], [$english['exam.result.listenTo'] ?? null, $slovak['exam.result.listenTo'] ?? null],
-        'the listen button\'s name begins with the words it shows (exam.result.listen: "listen", "vypočuť si")');
-    assert_true(str_starts_with($english['exam.result.listenTo'], $english['exam.result.listen']) && str_starts_with($slovak['exam.result.listenTo'], $slovak['exam.result.listen']));
-    $described = array_column(db_all("SELECT name, description FROM translation_keys WHERE name IN ('exam.result.missedOnly', 'exam.result.everything', 'exam.playRecording')"), 'description', 'name');
-    assert_no_match('/\bchip\b/', ($described['exam.result.missedOnly'] ?? '') . ($described['exam.result.everything'] ?? ''), 'the result\'s two choices are a segmented control');
-    assert_no_match('/\bresult\b|"listen"/', $described['exam.playRecording'] ?? '', 'the round play button\'s name alone, no longer the result\'s small "listen" button\'s');
-});
+        // Where a link goes is the code's, never a string an administrator rewords (the library's 0.6.0 review).
+        preg_match_all("/^\\s*\\('(legal\\.[^']+)', '((?:[^']|'')*)'\\)/m", $sql, $strings, PREG_SET_ORDER);
+        assert_true(count($strings) > 100, 'the legal strings, in English and Slovak, and their descriptions');
+        foreach ($strings as [, $key, $text]) {
+            assert_no_match('~https?://|www\.|@[a-z0-9-]+\.[a-z]|\.(eu|sk|com|org)\b~i', $text, "$key: no address in it");
+        }
+
+        // On the database it was applied to: the questions' sentences without their questions, the titles beside them.
+        test_db();
+        $english = translations_of('en');
+        $slovak = translations_of('sk');
+        assert_same(['{count} half-answered items will not be saved.', 'Stop now?'], [$english['session.confirmEnd.other'] ?? null, $english['session.endTitle'] ?? null]);
+        assert_same(['{count} rozpracovaných položiek sa neuloží.', 'Skončiť teraz?'], [$slovak['session.confirmEnd.other'] ?? null, $slovak['session.endTitle'] ?? null]);
+        assert_same(['It goes back to "not learned"; your notes stay.', 'Reset {chars}?'], [$english['item.confirmReset'] ?? null, $english['item.resetTitle'] ?? null]);
+        assert_same(
+            ['listen to question {n}', 'vypočuť si otázku {n}'],
+            [$english['exam.result.listenTo'] ?? null, $slovak['exam.result.listenTo'] ?? null],
+            'the listen button\'s name begins with the words it shows (exam.result.listen: "listen", "vypočuť si")',
+        );
+        assert_true(str_starts_with($english['exam.result.listenTo'], $english['exam.result.listen']) && str_starts_with($slovak['exam.result.listenTo'], $slovak['exam.result.listen']));
+        $described = array_column(
+            db_all("SELECT name, description FROM translation_keys WHERE name IN ('exam.result.missedOnly', 'exam.result.everything', 'exam.playRecording')"),
+            'description',
+            'name',
+        );
+        assert_no_match('/\bchip\b/', ($described['exam.result.missedOnly'] ?? '') . ($described['exam.result.everything'] ?? ''), 'the result\'s two choices are a segmented control');
+        assert_no_match('/\bresult\b|"listen"/', $described['exam.playRecording'] ?? '', 'the round play button\'s name alone, no longer the result\'s small "listen" button\'s');
+    },
+);
 
 /** The keys migration 012 deletes, every one of them: the words of the app's own foot, which the family's footer took over. */
 const MIGRATION_012_DELETED_KEYS = ['whatsNew.unseen', 'legal.storage.whatsNew.purpose', 'legal.storage.whatsNew.kept'];
@@ -833,9 +893,16 @@ test('migration 012 in 008\'s form: the listed keys deleted, the What\'s new dia
 
     // On the database it was applied to: gone, strings and all; the dialog's heading stays, described as the dialog's.
     assert_same([], array_values(array_intersect(MIGRATION_012_DELETED_KEYS, database_keys())), 'gone from the database it was applied to');
-    assert_same(0, (int) db_value("SELECT count(*) FROM translations WHERE key_name IN ('whatsNew.unseen', 'legal.storage.whatsNew.purpose', 'legal.storage.whatsNew.kept')"), 'and their strings with them');
+    assert_same(
+        0,
+        (int) db_value("SELECT count(*) FROM translations WHERE key_name IN ('whatsNew.unseen', 'legal.storage.whatsNew.purpose', 'legal.storage.whatsNew.kept')"),
+        'and their strings with them',
+    );
     $described = (string) db_value("SELECT description FROM translation_keys WHERE name = 'whatsNew.title'");
-    assert_true(str_contains($described, 'anotoki.footer.whatsNew') && !str_contains($described, 'after the version'), 'whatsNew.title: the dialog\'s heading alone, the footer\'s button the library\'s words - ' . $described);
+    assert_true(
+        str_contains($described, 'anotoki.footer.whatsNew') && !str_contains($described, 'after the version'),
+        'whatsNew.title: the dialog\'s heading alone, the footer\'s button the library\'s words - ' . $described,
+    );
     assert_same(['What’s new', 'Čo je nové'], [translations_of('en')['whatsNew.title'] ?? null, translations_of('sk')['whatsNew.title'] ?? null]);
 });
 
@@ -852,7 +919,11 @@ test('the scan of this frontend: every .ts and .html of src/app but the specs an
         assert_match('/\.(ts|html)$/', $file);
         assert_no_match('~\.spec\.ts$|^core/testing/~', $file);
     }
-    assert_same("a\n\n\nb 'c/*' \"d//\" `e\n//` f \ng", KeyScanner::sourceText("a\r\n/* x\r\n 'y' */\r\nb 'c/*' \"d//\" `e\n//` f // 'z'\r\ng", false), 'comments out, strings as they are, line for line');
+    assert_same(
+        "a\n\n\nb 'c/*' \"d//\" `e\n//` f \ng",
+        KeyScanner::sourceText("a\r\n/* x\r\n 'y' */\r\nb 'c/*' \"d//\" `e\n//` f // 'z'\r\ng", false),
+        'comments out, strings as they are, line for line',
+    );
     assert_same("a\n\nb", KeyScanner::sourceText("a<!-- 'x'\n -->\nb", true));
 });
 
@@ -886,23 +957,37 @@ test('the strings of a language out of a file: a flat export as it is, or a back
     file_put_contents("$dir/list.json", '["a", "b"]');
     file_put_contents("$dir/broken.json", '{"a": ');
     file_put_contents("$dir/text.json", '"a"');
-    assert_throws(static fn () => translation_file_strings("$dir/list.json", 'sk'), '/one flat object/');
-    assert_throws(static fn () => translation_file_strings("$dir/text.json", 'sk'), '/one flat object/');
-    assert_throws(static fn () => translation_file_strings("$dir/broken.json", 'sk'), '/is not JSON/');
-    assert_throws(static fn () => translation_file_strings("$dir/nothing.json", 'sk'), '/There is no file/');
+    assert_throws(static fn() => translation_file_strings("$dir/list.json", 'sk'), '/one flat object/');
+    assert_throws(static fn() => translation_file_strings("$dir/text.json", 'sk'), '/one flat object/');
+    assert_throws(static fn() => translation_file_strings("$dir/broken.json", 'sk'), '/is not JSON/');
+    assert_throws(static fn() => translation_file_strings("$dir/nothing.json", 'sk'), '/There is no file/');
 
-    $backup = ['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'takenAt' => '2026-09-30T06:00:00.000Z', 'database' => 'academy_test_example', 'everybody' => true,
-        'users' => [['id' => 1, 'username' => null, 'kanji' => ['items' => ['k:大' => ['stage' => 4, 'notes' => ['meaning' => 'big']]]], 'log' => [], 'attempts' => [['attempt' => ['responses' => [['a' => ['b' => ['c' => 1]]]]]]]]],
-        'translations' => ['languages' => [], 'values' => ['en' => ['home.title' => 'Dashboard'], 'sk' => ['home.title' => 'Prehľad'], 'de' => new stdClass()]]];
+    $backup = [
+        'format' => BACKUP_FORMAT,
+        'version' => BACKUP_VERSION,
+        'takenAt' => '2026-09-30T06:00:00.000Z',
+        'database' => 'academy_test_example',
+        'everybody' => true,
+        'users' => [
+            [
+                'id' => 1,
+                'username' => null,
+                'kanji' => ['items' => ['k:大' => ['stage' => 4, 'notes' => ['meaning' => 'big']]]],
+                'log' => [],
+                'attempts' => [['attempt' => ['responses' => [['a' => ['b' => ['c' => 1]]]]]]],
+            ],
+        ],
+        'translations' => ['languages' => [], 'values' => ['en' => ['home.title' => 'Dashboard'], 'sk' => ['home.title' => 'Prehľad'], 'de' => new stdClass()]],
+    ];
     file_put_contents("$dir/academy-2026-09-30.json", json_text($backup) . "\n");
     assert_same(['home.title' => 'Prehľad'], translation_file_strings("$dir/academy-2026-09-30.json", 'sk'), 'a backup nests deeper than a file of strings may');
     assert_same(['home.title' => 'Dashboard'], translation_file_strings("$dir/academy-2026-09-30.json", 'en'));
     assert_same([], translation_file_strings("$dir/academy-2026-09-30.json", 'de'), 'a language with no strings of its own');
-    assert_throws(static fn () => translation_file_strings("$dir/academy-2026-09-30.json", 'fr'), '/is a backup, and holds no strings of the language "fr"/');
+    assert_throws(static fn() => translation_file_strings("$dir/academy-2026-09-30.json", 'fr'), '/is a backup, and holds no strings of the language "fr"/');
 
     // A backup from before the app kept its words in the database, or a copy of one person alone: it holds none.
     file_put_contents("$dir/academy-old.json", json_text(array_diff_key($backup, ['translations' => 0])) . "\n");
-    assert_throws(static fn () => translation_file_strings("$dir/academy-old.json", 'sk'), '/is a backup, and holds no strings of the language "sk"/');
+    assert_throws(static fn() => translation_file_strings("$dir/academy-old.json", 'sk'), '/is a backup, and holds no strings of the language "sk"/');
     file_put_contents("$dir/academy-odd.json", json_text(['translations' => ['values' => ['sk' => ['a', 'b']]]] + $backup) . "\n");
-    assert_throws(static fn () => translation_file_strings("$dir/academy-odd.json", 'sk'), '/holds no strings of the language "sk"/');
+    assert_throws(static fn() => translation_file_strings("$dir/academy-odd.json", 'sk'), '/holds no strings of the language "sk"/');
 });

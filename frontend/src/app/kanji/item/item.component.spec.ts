@@ -80,9 +80,34 @@ const STAGES: Stage[] = [
   { n: 9, name: 'Burned', group: 'burned', hours: null },
 ];
 
-const BIG: CatalogItem = { id: 'k:大', type: 'kanji', chars: '大', no: 7, lesson: 3, courseLesson: 3, order: 1, meanings: ['big', 'large'], readings: ['だい'], on: ['だい'], kun: ['おお'], audio: null, examples: ['v:大学'] };
+const BIG: CatalogItem = {
+  id: 'k:大',
+  type: 'kanji',
+  chars: '大',
+  no: 7,
+  lesson: 3,
+  courseLesson: 3,
+  order: 1,
+  meanings: ['big', 'large'],
+  readings: ['だい'],
+  on: ['だい'],
+  kun: ['おお'],
+  audio: null,
+  examples: ['v:大学'],
+};
 const STUDY: CatalogItem = { id: 'k:学', type: 'kanji', chars: '学', no: 8, lesson: 3, courseLesson: 3, order: 2, meanings: ['learning'], readings: ['がく'], on: ['がく'], kun: [], audio: null };
-const WORD: CatalogItem = { id: 'v:大学', type: 'vocab', chars: '大学', lesson: 4, courseLesson: 1, order: 3, meanings: ['university', 'college'], readings: ['だいがく'], kanji: ['大', '学'], audio: null };
+const WORD: CatalogItem = {
+  id: 'v:大学',
+  type: 'vocab',
+  chars: '大学',
+  lesson: 4,
+  courseLesson: 1,
+  order: 3,
+  meanings: ['university', 'college'],
+  readings: ['だいがく'],
+  kanji: ['大', '学'],
+  audio: null,
+};
 
 function state(stage: number, more: Partial<ItemState> = {}): ItemState {
   const tally = { correct: 0, incorrect: 0 };

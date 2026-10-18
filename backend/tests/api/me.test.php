@@ -69,8 +69,10 @@ test('the file: all of the person’s data and nobody else’s, as a download in
     $r = mine('GET', '/api/me/data', null, ['X-Time-Zone: Pacific/Kiritimati']);
     $days[] = (new DateTimeImmutable('now', new DateTimeZone('Pacific/Kiritimati')))->format('Y-m-d');
     assert_same(200, $r['status']);
-    assert_true(in_array(preg_replace('/^attachment; filename="japanese-academy-(.*)\.json"$/D', '$1', $r['headers']['content-disposition'] ?? ''), $days, true),
-        'japanese-academy-<their day>.json: ' . ($r['headers']['content-disposition'] ?? ''));
+    assert_true(
+        in_array(preg_replace('/^attachment; filename="japanese-academy-(.*)\.json"$/D', '$1', $r['headers']['content-disposition'] ?? ''), $days, true),
+        'japanese-academy-<their day>.json: ' . ($r['headers']['content-disposition'] ?? ''),
+    );
     assert_same('no-store', $r['headers']['cache-control'] ?? null);
     $file = $r['body'];
     assert_same(['format', 'version', 'takenAt', 'everybody', 'users'], array_keys($file), 'no database name, none of the site’s words');
@@ -139,8 +141,11 @@ test('a file of one person under another id (another copy of the app) comes into
     $theirs = everything_of(OTHER);
     $r = as_person(NEWCOMER, 'PUT', '/api/me/data', $file);
     assert_same([200, false], [$r['status'], $r['body']['copy']], 'nothing of theirs to copy');
-    assert_same([$mine[0]['items'], $mine[1], array_column($mine[2], 'report')],
-        [everything_of(NEWCOMER)[0]['items'], everything_of(NEWCOMER)[1], array_column(everything_of(NEWCOMER)[2], 'report')], 'the newcomer has what the file held');
+    assert_same(
+        [$mine[0]['items'], $mine[1], array_column($mine[2], 'report')],
+        [everything_of(NEWCOMER)[0]['items'], everything_of(NEWCOMER)[1], array_column(everything_of(NEWCOMER)[2], 'report')],
+        'the newcomer has what the file held',
+    );
     assert_same($mine, everything_of(TEST_USER), 'the person the file came from: untouched');
     assert_same($theirs, everything_of(OTHER));
     assert_same(null, db_value('SELECT id FROM users WHERE id = 999999'), 'and nobody of the file’s id made');
@@ -162,8 +167,8 @@ test('a file of several people: the caller’s part; when none of them is the ca
 test('not a data file of this app, or a damaged one: 422 not_a_data_file, and nothing changed', function (): void {
     $good = mine('GET', '/api/me/data')['body'];
     $person = $good['users'][0];
-    $with = static fn (array $change): string => json_text(['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'everybody' => false, 'users' => [array_merge($person, $change)]]);
-    $without = static fn (array $person): string => json_text(['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'everybody' => false, 'users' => [$person]]);
+    $with = static fn(array $change): string => json_text(['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'everybody' => false, 'users' => [array_merge($person, $change)]]);
+    $without = static fn(array $person): string => json_text(['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'everybody' => false, 'users' => [$person]]);
     $kanjiWithout = static function (string $part) use ($person, $with): string {
         $kanji = $person['kanji'];
         unset($kanji[$part]);
@@ -181,16 +186,33 @@ test('not a data file of this app, or a damaged one: 422 not_a_data_file, and no
         'That is not a Japanese Academy data file.' => ['[]', '"text"', '{"format": "japanese-academy-tables", "version": 2, "users": []}', json_text(['kanji' => $person['kanji']])],
         'That data file is from another version of Japanese Academy (format 1).' => [json_text(['format' => BACKUP_FORMAT, 'version' => 1] + $person)],
         'That data file is from another version of Japanese Academy (format 9).' => [json_text(['format' => BACKUP_FORMAT, 'version' => 9, 'users' => [$person]])],
-        'That data file holds nobody\'s data.' => [json_text(['format' => BACKUP_FORMAT, 'version' => 2, 'users' => []]), json_text(['format' => BACKUP_FORMAT, 'version' => 2, 'users' => ['x', 3]]), json_text(['format' => BACKUP_FORMAT, 'version' => 2])],
+        'That data file holds nobody\'s data.' => [
+            json_text(['format' => BACKUP_FORMAT, 'version' => 2, 'users' => []]),
+            json_text(['format' => BACKUP_FORMAT, 'version' => 2, 'users' => ['x', 3]]),
+            json_text(['format' => BACKUP_FORMAT, 'version' => 2]),
+        ],
         // A person with nothing in the app's shape would replace everything with nothing: {} or a list for kanji, a part missing.
         'That data file is damaged: its kanji progress is not as this app writes it.' => [
-            $with(['kanji' => 'all of it']), $with(['kanji' => ['items' => 'x']]), $with(['kanji' => null]), $with(['kanji' => [0]]), $with(['kanji' => []]),
-            '{"format":"japanese-academy-backup","version":2,"users":[{}]}', '{"format":"japanese-academy-backup","version":2,"users":[{"kanji":[0]}]}',
-            $personWithout('kanji'), $kanjiWithout('version'), $kanjiWithout('items'), $kanjiWithout('daily'), $kanjiWithout('settings'),
-            $with(['kanji' => array_merge($person['kanji'], ['version' => 2])]), $with(['kanji' => array_merge($person['kanji'], ['items' => ['x', 'y']])]),
+            $with(['kanji' => 'all of it']),
+            $with(['kanji' => ['items' => 'x']]),
+            $with(['kanji' => null]),
+            $with(['kanji' => [0]]),
+            $with(['kanji' => []]),
+            '{"format":"japanese-academy-backup","version":2,"users":[{}]}',
+            '{"format":"japanese-academy-backup","version":2,"users":[{"kanji":[0]}]}',
+            $personWithout('kanji'),
+            $kanjiWithout('version'),
+            $kanjiWithout('items'),
+            $kanjiWithout('daily'),
+            $kanjiWithout('settings'),
+            $with(['kanji' => array_merge($person['kanji'], ['version' => 2])]),
+            $with(['kanji' => array_merge($person['kanji'], ['items' => ['x', 'y']])]),
         ],
         'That data file is damaged: its answer log is missing or not a list.' => [
-            $with(['log' => ['first' => ['t' => 1, 'kind' => 'lesson']]]), $with(['log' => 'x']), $with(['log' => null]), $personWithout('log'),
+            $with(['log' => ['first' => ['t' => 1, 'kind' => 'lesson']]]),
+            $with(['log' => 'x']),
+            $with(['log' => null]),
+            $personWithout('log'),
         ],
         'That data file is damaged: its exam attempts are missing or not a list.' => [$with(['attempts' => 'x']), $with(['attempts' => null]), $personWithout('attempts')],
         'That data file is damaged: an exam attempt is not as this app writes it.' => [

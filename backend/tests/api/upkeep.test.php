@@ -100,44 +100,58 @@ test('while one of this site’s own files is a draft, the anotoki library’s f
         config_overrides(['db' => ['name' => 'japanese_academy']]);
         assert_same($drafts === [] ? null : $drafts[0], db_own_draft('japanese_academy'), 'the draft of this site\'s own that holds them back');
         foreach ($library as $label => [$name, $sql]) {
-            assert_same($drafts === [], db_migration_ready($name, $sql, false),
-                "$label, on a database of anybody's: " . ($drafts === [] ? 'no draft, whole' : 'waits while ' . $drafts[0] . ' is a draft'));
+            assert_same(
+                $drafts === [],
+                db_migration_ready($name, $sql, false),
+                "$label, on a database of anybody's: " . ($drafts === [] ? 'no draft, whole' : 'waits while ' . $drafts[0] . ' is a draft'),
+            );
         }
     } finally {
         config_overrides([]);
     }
 });
 
-test('the engine: this site’s table as it is, four sets - the anotoki library’s admin tools, this site’s, the library’s words and people -, each file whole in one exec, under the upkeep’s lock', function (): void {
-    $status = db_migrator()->status();
-    assert_same(MIGRATION_SETS_IN_ORDER, $status['sets'], 'the library’s admin tools first, this site’s own, then the library’s words and people');
-    // Every file applied (in the order they ran, which is the template's history: a set added later ran later).
-    $applied = array_map('db_migration_label', $status['applied']);
-    $everyFile = all_migration_labels();
-    sort($applied);
-    sort($everyFile);
-    assert_same($everyFile, $applied, 'every file applied');
-    $library = array_merge(library_migrations('anotoki_admin'), library_migrations(), library_migrations('anotoki_people'));
-    $recorded = array_values(array_filter(array_column(db_all('SELECT name FROM migrations'), 'name'), static fn (string $n): bool => str_contains($n, '/')));
-    sort($library);
-    sort($recorded);
-    assert_same($library, $recorded, 'the library’s recorded by their set and name, in the table as it is');
-    assert_same([[], []], [$status['pending'], $status['missing']]);
-    assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $status['applied'][0]['applied_at'], 'when, in UTC');
-    // The bookkeeping table is the one this site has always had: never another shape.
-    assert_same([['name', 'text', 'NO'], ['applied_at', 'timestamp with time zone', 'NO']], array_map(
-        static fn (array $c): array => [$c['column_name'], $c['data_type'], $c['is_nullable']],
-        db_all("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migrations' ORDER BY ordinal_position")
-    ));
-    assert_same((string) file_get_contents(MIGRATIONS_DIR . '/001_init.sql'), db_migrator()->source(MIGRATION_SET, '001_init.sql'), 'a file’s text');
-    assert_same(null, db_migrator()->source(MIGRATION_SET, '../config/database.local.php'), 'and nothing that is no file of the set');
-    assert_same((string) file_get_contents(Anotoki\Lib\Translations\Schema::directory() . '/001_languages_and_strings.sql'),
-        db_migrator()->source('anotoki_translations', '001_languages_and_strings.sql'), 'a library file’s text');
-    assert_same(null, db_migrator()->source(MIGRATION_SET, '001_languages_and_strings.sql'), 'under its own set only');
-    assert_same(['backend/migrations/004_languages_and_translations.sql', 'backend/vendor/anotoki/lib/backend/migrations/translations/002_library_words.sql'],
-        [db_migration_path(['set' => MIGRATION_SET, 'name' => '004_languages_and_translations.sql']), db_migration_path(['set' => 'anotoki_translations', 'name' => '002_library_words.sql'])],
-        'where each is, for what the site says of it');
-});
+test(
+    'the engine: this site’s table as it is, four sets - the anotoki library’s admin tools, this site’s, the library’s words and people -, each file whole in one exec, under the upkeep’s lock',
+    function (): void {
+        $status = db_migrator()->status();
+        assert_same(MIGRATION_SETS_IN_ORDER, $status['sets'], 'the library’s admin tools first, this site’s own, then the library’s words and people');
+        // Every file applied (in the order they ran, which is the template's history: a set added later ran later).
+        $applied = array_map('db_migration_label', $status['applied']);
+        $everyFile = all_migration_labels();
+        sort($applied);
+        sort($everyFile);
+        assert_same($everyFile, $applied, 'every file applied');
+        $library = array_merge(library_migrations('anotoki_admin'), library_migrations(), library_migrations('anotoki_people'));
+        $recorded = array_values(array_filter(array_column(db_all('SELECT name FROM migrations'), 'name'), static fn(string $n): bool => str_contains($n, '/')));
+        sort($library);
+        sort($recorded);
+        assert_same($library, $recorded, 'the library’s recorded by their set and name, in the table as it is');
+        assert_same([[], []], [$status['pending'], $status['missing']]);
+        assert_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $status['applied'][0]['applied_at'], 'when, in UTC');
+        // The bookkeeping table is the one this site has always had: never another shape.
+        assert_same(
+            [['name', 'text', 'NO'], ['applied_at', 'timestamp with time zone', 'NO']],
+            array_map(
+                static fn(array $c): array => [$c['column_name'], $c['data_type'], $c['is_nullable']],
+                db_all("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migrations' ORDER BY ordinal_position"),
+            ),
+        );
+        assert_same((string) file_get_contents(MIGRATIONS_DIR . '/001_init.sql'), db_migrator()->source(MIGRATION_SET, '001_init.sql'), 'a file’s text');
+        assert_same(null, db_migrator()->source(MIGRATION_SET, '../config/database.local.php'), 'and nothing that is no file of the set');
+        assert_same(
+            (string) file_get_contents(Anotoki\Lib\Translations\Schema::directory() . '/001_languages_and_strings.sql'),
+            db_migrator()->source('anotoki_translations', '001_languages_and_strings.sql'),
+            'a library file’s text',
+        );
+        assert_same(null, db_migrator()->source(MIGRATION_SET, '001_languages_and_strings.sql'), 'under its own set only');
+        assert_same(
+            ['backend/migrations/004_languages_and_translations.sql', 'backend/vendor/anotoki/lib/backend/migrations/translations/002_library_words.sql'],
+            [db_migration_path(['set' => MIGRATION_SET, 'name' => '004_languages_and_translations.sql']), db_migration_path(['set' => 'anotoki_translations', 'name' => '002_library_words.sql'])],
+            'where each is, for what the site says of it',
+        );
+    },
+);
 
 test('the stamp stored with the content is the one from before the build: a file that lands during it makes the next request look again', function (): void {
     upkeep_run(); // the template's stamp may be older than the files (a checkout touches them)
@@ -159,9 +173,14 @@ test('the stamp stored with the content is the one from before the build: a file
  */
 function lock_held_elsewhere(float $seconds): void
 {
-    $code = 'require ' . var_export(BACKEND . '/src/bootstrap.php', true) . ';'
-        . ' db_tx(static function (): void { db_value("SELECT pg_advisory_xact_lock(?::bigint)", [UPKEEP_LOCK]);'
-        . ' fwrite(STDOUT, "held\n"); fflush(STDOUT); usleep(' . (int) ($seconds * 1000000) . '); });';
+    $code =
+        'require ' .
+        var_export(BACKEND . '/src/bootstrap.php', true) .
+        ';' .
+        ' db_tx(static function (): void { db_value("SELECT pg_advisory_xact_lock(?::bigint)", [UPKEEP_LOCK]);' .
+        ' fwrite(STDOUT, "held\n"); fflush(STDOUT); usleep(' .
+        (int) ($seconds * 1000000) .
+        '); });';
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
     $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-r', $code], [0 => ['file', $null, 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, ROOT, getenv());
     $said = (string) fgets($pipes[1]);
@@ -196,47 +215,50 @@ function applied_006(array $before): void
     }
 }
 
-test('one apply at a time: while another holds the upkeep’s lock - an Apply, the setup page, manage.php or the content’s rebuild - every way of applying says busy at once, and applies nothing', function (): void {
-    $before = upload_006();
-    try {
-        $appliers = [
-            'the setup page and manage.php' => static fn (): array => upkeep_migrate(),
-            'the tests’ builder' => static fn (): array => ['applied' => db_migrate()],
-        ];
-        $other = db_connect();
-        $other->query('SELECT pg_advisory_lock(' . UPKEEP_LOCK . ')'); // another apply: the engine's own lock, on its connection
+test(
+    'one apply at a time: while another holds the upkeep’s lock - an Apply, the setup page, manage.php or the content’s rebuild - every way of applying says busy at once, and applies nothing',
+    function (): void {
+        $before = upload_006();
         try {
-            foreach ($appliers as $who => $apply) {
-                $started = microtime(true);
-                assert_throws($apply, '/Another database update is running, so nothing was applied/');
-                assert_true(microtime(true) - $started < 2.0, "$who: at once, not after a wait");
-            }
-            $busy = db_migrator(db_connect(), upkeep_before_apply())->apply();
-            assert_same([true, [], null], [$busy['busy'], $busy['applied'], $busy['failed']], 'the Migrations page’s Apply: busy (409)');
-        } finally {
-            $other->query('SELECT pg_advisory_unlock(' . UPKEEP_LOCK . ')');
-        }
-        lock_held_elsewhere(2.0); // the content's rebuild at work
-        assert_throws(static fn (): array => upkeep_migrate(), '/Another database update is running/');
-        assert_same(['006_admin_panel_words.sql'], db_migrations_ready(), 'nothing was applied');
-
-        // Free again: applied, after the copy (this database holds no study data: there is nothing to copy).
-        for ($until = microtime(true) + 5; ; usleep(100000)) {
+            $appliers = [
+                'the setup page and manage.php' => static fn(): array => upkeep_migrate(),
+                'the tests’ builder' => static fn(): array => ['applied' => db_migrate()],
+            ];
+            $other = db_connect();
+            $other->query('SELECT pg_advisory_lock(' . UPKEEP_LOCK . ')'); // another apply: the engine's own lock, on its connection
             try {
-                $done = upkeep_migrate();
-                break;
-            } catch (RuntimeException $e) {
-                if (microtime(true) > $until) {
-                    throw $e;
+                foreach ($appliers as $who => $apply) {
+                    $started = microtime(true);
+                    assert_throws($apply, '/Another database update is running, so nothing was applied/');
+                    assert_true(microtime(true) - $started < 2.0, "$who: at once, not after a wait");
+                }
+                $busy = db_migrator(db_connect(), upkeep_before_apply())->apply();
+                assert_same([true, [], null], [$busy['busy'], $busy['applied'], $busy['failed']], 'the Migrations page’s Apply: busy (409)');
+            } finally {
+                $other->query('SELECT pg_advisory_unlock(' . UPKEEP_LOCK . ')');
+            }
+            lock_held_elsewhere(2.0); // the content's rebuild at work
+            assert_throws(static fn(): array => upkeep_migrate(), '/Another database update is running/');
+            assert_same(['006_admin_panel_words.sql'], db_migrations_ready(), 'nothing was applied');
+
+            // Free again: applied, after the copy (this database holds no study data: there is nothing to copy).
+            for ($until = microtime(true) + 5; ; usleep(100000)) {
+                try {
+                    $done = upkeep_migrate();
+                    break;
+                } catch (RuntimeException $e) {
+                    if (microtime(true) > $until) {
+                        throw $e;
+                    }
                 }
             }
+            assert_same(['backup' => null, 'applied' => ['006_admin_panel_words.sql']], $done);
+            assert_same([], db_migrations_ready());
+        } finally {
+            applied_006($before);
         }
-        assert_same(['backup' => null, 'applied' => ['006_admin_panel_words.sql']], $done);
-        assert_same([], db_migrations_ready());
-    } finally {
-        applied_006($before);
-    }
-});
+    },
+);
 
 test('while a migration waits for its Apply, a request builds nothing and saves no stamp - and does not wait for the lock an Apply holds', function (): void {
     $before = upload_006();
@@ -270,8 +292,7 @@ test('a migration that fails on Apply: its administrator reads PostgreSQL’s ow
     test_iam(); // the settings name its keys: the token below is checked against them
     try {
         // The token on the request itself, as a browser sends it (the anotoki library's Identify reads the request's header).
-        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/api/admin/migrations/apply')
-            ->withHeader('Authorization', 'Bearer ' . test_token(7, ['ADMIN']));
+        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/api/admin/migrations/apply')->withHeader('Authorization', 'Bearer ' . test_token(7, ['ADMIN']));
         $response = academy_app()->handle($request);
     } finally {
         db_exec('INSERT INTO migrations (name, applied_at) VALUES (?, ?) ON CONFLICT (name) DO NOTHING', [$name, $when]);
@@ -281,8 +302,11 @@ test('a migration that fails on Apply: its administrator reads PostgreSQL’s ow
     assert_same(200, $response->getStatusCode(), 'a failed file is still an answer: the page shows it');
     assert_same([[], ['set' => MIGRATION_SET, 'name' => $name]], [$r['applied'], $r['failed']]);
     assert_match('/column "time_zone" of relation "users" already exists/', (string) $r['error'], 'why, in PostgreSQL\'s words');
-    assert_match('/\[upkeep\] a migration failed: backend\/migrations\/' . preg_quote($name, '/') . ': .*column "time_zone" of relation "users" already exists/',
-        (string) file_get_contents($log), 'and the site\'s error log has it as well');
+    assert_match(
+        '/\[upkeep\] a migration failed: backend\/migrations\/' . preg_quote($name, '/') . ': .*column "time_zone" of relation "users" already exists/',
+        (string) file_get_contents($log),
+        'and the site\'s error log has it as well',
+    );
     @unlink($log);
     assert_same([], db_migrations_ready(), 'the database as it was');
 });

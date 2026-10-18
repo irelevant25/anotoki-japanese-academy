@@ -137,8 +137,7 @@ describe('SessionComponent', () => {
   const answerField = (): HTMLInputElement => q<HTMLInputElement>('.s-input');
   const feedback = (): HTMLElement => q('.s-feedback');
   /** The pieces of the feedback that say a language: [text, lang]. */
-  const marked = (): (string | null)[][] =>
-    Array.from(feedback().querySelectorAll('span[lang]')).map((span) => [span.textContent, span.getAttribute('lang')]);
+  const marked = (): (string | null)[][] => Array.from(feedback().querySelectorAll('span[lang]')).map((span) => [span.textContent, span.getAttribute('lang')]);
 
   /** Lets the saves that are out land, and what waits for them run. */
   const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -358,9 +357,7 @@ describe('SessionComponent', () => {
       providers: [{ provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
     });
     const box = vi.spyOn(window, 'confirm');
-    api.review.mockImplementation((id: string) =>
-      id === WORD.id ? Promise.reject(new ApiError('the server does not answer', 0, {})) : Promise.resolve({ state: STATE, from: 1, to: 2 }),
-    );
+    api.review.mockImplementation((id: string) => (id === WORD.id ? Promise.reject(new ApiError('the server does not answer', 0, {})) : Promise.resolve({ state: STATE, from: 1, to: 2 })));
     await start([WORD, ONE], { mode: 'review' });
     await answer('university');
     await enter();
@@ -400,9 +397,7 @@ describe('SessionComponent', () => {
     });
     let fail: () => void = () => undefined;
     api.review.mockImplementation((id: string) =>
-      id === WORD.id
-        ? new Promise((_, reject) => (fail = () => reject(new ApiError('the server does not answer', 0, {}))))
-        : Promise.resolve({ state: STATE, from: 1, to: 2 }),
+      id === WORD.id ? new Promise((_, reject) => (fail = () => reject(new ApiError('the server does not answer', 0, {})))) : Promise.resolve({ state: STATE, from: 1, to: 2 }),
     );
     await start([WORD, ONE], { mode: 'review' });
     await answer('university');

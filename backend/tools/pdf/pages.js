@@ -60,7 +60,13 @@ const BOOKS = {
 
 function usage(msg) {
   if (msg) console.error(`error: ${msg}\n`);
-  console.error(fs.readFileSync(__filename, 'utf8').split('*/')[0].replace(/^#!.*\n\/\*\*?/, '').replace(/^ \* ?/gm, ''));
+  console.error(
+    fs
+      .readFileSync(__filename, 'utf8')
+      .split('*/')[0]
+      .replace(/^#!.*\n\/\*\*?/, '')
+      .replace(/^ \* ?/gm, ''),
+  );
   process.exit(1);
 }
 
@@ -296,8 +302,7 @@ async function sheet(book, indexes) {
   for (let i = 0; i < indexes.length; i++) {
     const src = await page(book, indexes[i], 600);
     const label = Buffer.from(
-      `<svg width="${cellW}" height="40"><rect width="72" height="30" fill="#000"/>` +
-        `<text x="6" y="22" fill="#fff" font-size="22" font-family="sans-serif">${indexes[i]}</text></svg>`
+      `<svg width="${cellW}" height="40"><rect width="72" height="30" fill="#000"/>` + `<text x="6" y="22" fill="#fff" font-size="22" font-family="sans-serif">${indexes[i]}</text></svg>`,
     );
     const tile = await sharp(src)
       .resize({ width: cellW, height: cellH, fit: 'contain', background: '#fff' })

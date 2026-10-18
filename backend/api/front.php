@@ -80,8 +80,7 @@ function front_file(string $frontend, string $method, string $path): void
         return;
     }
     $file = str_contains($path, "\0") ? false : realpath($root . $path);
-    $inside = $file !== false && str_starts_with($file, $root . DIRECTORY_SEPARATOR)
-        ? str_replace('\\', '/', substr($file, strlen($root))) : null;
+    $inside = $file !== false && str_starts_with($file, $root . DIRECTORY_SEPARATOR) ? str_replace('\\', '/', substr($file, strlen($root))) : null;
     if ($inside !== null && is_file((string) $file) && !preg_match('~(^|/)\.|\.php$~i', $inside)) {
         front_send((string) $file, $method);
         return;
@@ -131,10 +130,10 @@ function front_not_built(): void
     http_response_code(503);
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store');
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<title>Japanese Academy</title></head><body style="font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">'
-        . '<h1>Japanese Academy</h1><p>The app has not been built yet: run <code>npm run build</code> in <code>frontend/</code>'
-        . ' (or <code>node frontend/scripts/ensure-build.mjs</code>, which builds only when its sources changed) and reload this page.</p>'
-        . '<p>While you work on it, the development server at <a href="http://localhost:4400">http://localhost:4400</a> shows it instead.</p>'
-        . '</body></html>';
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' .
+        '<title>Japanese Academy</title></head><body style="font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">' .
+        '<h1>Japanese Academy</h1><p>The app has not been built yet: run <code>npm run build</code> in <code>frontend/</code>' .
+        ' (or <code>node frontend/scripts/ensure-build.mjs</code>, which builds only when its sources changed) and reload this page.</p>' .
+        '<p>While you work on it, the development server at <a href="http://localhost:4400">http://localhost:4400</a> shows it instead.</p>' .
+        '</body></html>';
 }

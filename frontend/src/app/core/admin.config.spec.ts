@@ -9,7 +9,17 @@ import { authStandIn, NO_CHOICE, person } from './testing/auth-states';
 
 /** A row of the People page as the server answers it (backend/src/people.php: time zone, learned, attempts). */
 function row(sub: string, name: string | null, learned: number, attempts: number): PeoplePerson {
-  return { sub, name, first_seen_at: '2026-10-01T08:00:00Z', last_seen_at: '2026-10-10T09:30:00Z', anonymized_at: null, iam_url: `https://iam.test/admin/users/${sub}`, time_zone: 'Europe/Bratislava', learned, attempts };
+  return {
+    sub,
+    name,
+    first_seen_at: '2026-10-01T08:00:00Z',
+    last_seen_at: '2026-10-10T09:30:00Z',
+    anonymized_at: null,
+    iam_url: `https://iam.test/admin/users/${sub}`,
+    time_zone: 'Europe/Bratislava',
+    learned,
+    attempts,
+  };
 }
 
 describe('the admin tools and the People page, configured for this app (core/admin.config.ts)', () => {

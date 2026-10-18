@@ -29,11 +29,13 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 function academy_visitor_routes(Slim\App $app): void
 {
-    data_route($app->post('/api/visitor/move', static function (Request $request, Response $response): Response {
-        $key = visitors_key_of($request->getHeaderLine(VISITOR_HEADER));
-        if ($key === null || !visitors_well_formed($key)) {
-            throw new HttpError(422, 'Send the visitor\'s key in the X-Visitor-Key header.', [], 'bad_visitor_key');
-        }
-        return json_response($response, visitors_move(uid($request), $key));
-    }));
+    data_route(
+        $app->post('/api/visitor/move', static function (Request $request, Response $response): Response {
+            $key = visitors_key_of($request->getHeaderLine(VISITOR_HEADER));
+            if ($key === null || !visitors_well_formed($key)) {
+                throw new HttpError(422, 'Send the visitor\'s key in the X-Visitor-Key header.', [], 'bad_visitor_key');
+            }
+            return json_response($response, visitors_move(uid($request), $key));
+        }),
+    );
 }

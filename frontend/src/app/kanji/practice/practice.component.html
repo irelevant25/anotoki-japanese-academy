@@ -1,36 +1,36 @@
 <div class="page">
-  <anotoki-page-header [heading]="'kanji.tab.practice' | translate" [lead]="'practice.intro' | translate" />
-  @if (!learned().length) {
-    <anotoki-card>
-      <anotoki-empty-state [heading]="'practice.nothingLearned' | translate">
-        <a anotokiButton variant="primary" routerLink="/kanji/lessons">{{ 'practice.goToLessons' | translate }}</a>
-      </anotoki-empty-state>
-    </anotoki-card>
-  } @else {
-    <anotoki-card>
-      <div class="stack">
-        <!-- what to practise: the kit's choice chips, each scope's count its quieter note (a stage's own name, alone, says it is English) -->
-        <anotoki-chip-group id="practiceScope" [label]="'practice.what' | translate" [options]="scopeOptions()" [value]="scope()" (valueChange)="setScope($event)" />
-        <!-- the lessons: several at once, toggles in a group the kit's labelled group names; All when none is chosen -->
-        <anotoki-labelled-group id="practiceLessons" [label]="'kanji.tab.lessons' | translate">
-          <button anotokiChip [pressed]="!lessons().size" data-lesson="all" (click)="allLessons()">{{ 'practice.allLessons' | translate }}</button>
-          @for (L of learnedLessons(); track L) {
-            <button anotokiChip [pressed]="lessons().has(L)" [attr.data-lesson]="L" (click)="toggleLesson(L)">L{{ L }}</button>
-          }
-        </anotoki-labelled-group>
-        <anotoki-chip-group id="practiceTypes" [label]="'practice.type' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
-        <anotoki-chip-group id="practiceAsk" [label]="'practice.askLabel' | translate" [options]="askOptions()" [value]="parts()" (valueChange)="setParts($event)" />
-        <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
-        <anotoki-labelled-group selfNamed [label]="'practice.howMany' | translate">
-          <anotoki-segmented id="howMany" [label]="'practice.howMany' | translate" [options]="countOptions()" [value]="'' + count()" (valueChange)="count.set(+$event)" />
-        </anotoki-labelled-group>
-        <p class="small muted" id="practiceInfo">{{ info() }}</p>
-        <div class="cluster">
-          <button anotokiButton variant="primary" id="startPractice" [disabled]="!take()" (click)="start()">
-            {{ take() ? ('practice.start' | translate: { n: take() }) : ('practice.nothing' | translate) }}
-          </button>
-        </div>
-      </div>
-    </anotoki-card>
-  }
+    <anotoki-page-header [heading]="'kanji.tab.practice' | translate" [lead]="'practice.intro' | translate" />
+    @if (!learned().length) {
+        <anotoki-card>
+            <anotoki-empty-state [heading]="'practice.nothingLearned' | translate">
+                <a anotokiButton variant="primary" routerLink="/kanji/lessons">{{ "practice.goToLessons" | translate }}</a>
+            </anotoki-empty-state>
+        </anotoki-card>
+    } @else {
+        <anotoki-card>
+            <div class="stack">
+                <!-- what to practise: the kit's choice chips, each scope's count its quieter note (a stage's own name, alone, says it is English) -->
+                <anotoki-chip-group id="practiceScope" [label]="'practice.what' | translate" [options]="scopeOptions()" [value]="scope()" (valueChange)="setScope($event)" />
+                <!-- the lessons: several at once, toggles in a group the kit's labelled group names; All when none is chosen -->
+                <anotoki-labelled-group id="practiceLessons" [label]="'kanji.tab.lessons' | translate">
+                    <button anotokiChip [pressed]="!lessons().size" data-lesson="all" (click)="allLessons()">{{ "practice.allLessons" | translate }}</button>
+                    @for (L of learnedLessons(); track L) {
+                        <button anotokiChip [pressed]="lessons().has(L)" [attr.data-lesson]="L" (click)="toggleLesson(L)">L{{ L }}</button>
+                    }
+                </anotoki-labelled-group>
+                <anotoki-chip-group id="practiceTypes" [label]="'practice.type' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
+                <anotoki-chip-group id="practiceAsk" [label]="'practice.askLabel' | translate" [options]="askOptions()" [value]="parts()" (valueChange)="setParts($event)" />
+                <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
+                <anotoki-labelled-group selfNamed [label]="'practice.howMany' | translate">
+                    <anotoki-segmented id="howMany" [label]="'practice.howMany' | translate" [options]="countOptions()" [value]="'' + count()" (valueChange)="count.set(+$event)" />
+                </anotoki-labelled-group>
+                <p class="small muted" id="practiceInfo">{{ info() }}</p>
+                <div class="cluster">
+                    <button anotokiButton variant="primary" id="startPractice" [disabled]="!take()" (click)="start()">
+                        {{ take() ? ("practice.start" | translate: { n: take() }) : ("practice.nothing" | translate) }}
+                    </button>
+                </div>
+            </div>
+        </anotoki-card>
+    }
 </div>

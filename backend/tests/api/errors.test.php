@@ -112,8 +112,11 @@ test('a database that cannot be reached: 503 database_unavailable, and why only 
     $e = new PDOException($why);
     $site = answer_to($e);
     assert_same(503, $site['status']);
-    assert_same(['error' => 'The database is not reachable. The server\'s error log says more.', 'code' => 'database_unavailable'], $site['body'],
-        'a website: a sentence and a code — no "detail", and nothing of the user or the host');
+    assert_same(
+        ['error' => 'The database is not reachable. The server\'s error log says more.', 'code' => 'database_unavailable'],
+        $site['body'],
+        'a website: a sentence and a code — no "detail", and nothing of the user or the host',
+    );
     assert_false(array_key_exists('detail', $site['body']));
     foreach (NOT_THIS_COMPUTER as $sapi) {
         $r = answer_to($e, $sapi);
@@ -122,8 +125,11 @@ test('a database that cannot be reached: 503 database_unavailable, and why only 
     }
     $here = answer_to($e, 'cli-server');
     assert_same(503, $here['status']);
-    assert_same(['error' => "The database is not reachable: $why", 'code' => 'database_unavailable', 'detail' => $why], $here['body'],
-        'this computer: the sentence as it always was, and the reason by itself');
+    assert_same(
+        ['error' => "The database is not reachable: $why", 'code' => 'database_unavailable', 'detail' => $why],
+        $here['body'],
+        'this computer: the sentence as it always was, and the reason by itself',
+    );
     assert_true(str_contains((string) file_get_contents($GLOBALS['log']), "[db] $why"), 'the error log has the reason, wherever it runs');
 });
 
@@ -139,8 +145,11 @@ test('anything else that goes wrong: 500 server_error, and what only on this com
     }
     $here = answer_to($e, 'cli-server');
     assert_same(500, $here['status']);
-    assert_same(['error' => 'Undefined array key "stage"', 'code' => 'server_error', 'detail' => 'Undefined array key "stage"'], $here['body'],
-        'this computer: the message, as it always was, and once more as the reason');
+    assert_same(
+        ['error' => 'Undefined array key "stage"', 'code' => 'server_error', 'detail' => 'Undefined array key "stage"'],
+        $here['body'],
+        'this computer: the message, as it always was, and once more as the reason',
+    );
     assert_match('/\[server\] Undefined array key "stage" @ .*errors\.test\.php:\d+/', (string) file_get_contents($GLOBALS['log']), 'the error log says where, too');
     // an Error is no Exception, and is answered all the same
     assert_same(['error' => 'Something went wrong on the server.', 'code' => 'server_error'], answer_to(new TypeError('not an int'))['body']);
@@ -159,14 +168,20 @@ test('a migration waiting for an administrator: the anotoki library’s 503 upda
     }
     assert_same(503, $response->getStatusCode());
     assert_same(['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'], json_decode((string) $response->getBody(), true));
-    assert_same(['60', 'no-store', 'nosniff', "default-src 'none'; frame-ancestors 'none'"], [$response->getHeaderLine('Retry-After'), $response->getHeaderLine('Cache-Control'),
-        $response->getHeaderLine('X-Content-Type-Options'), $response->getHeaderLine('Content-Security-Policy')], 'asked again in a minute, never kept; the security headers as on every answer');
+    assert_same(
+        ['60', 'no-store', 'nosniff', "default-src 'none'; frame-ancestors 'none'"],
+        [$response->getHeaderLine('Retry-After'), $response->getHeaderLine('Cache-Control'), $response->getHeaderLine('X-Content-Type-Options'), $response->getHeaderLine('Content-Security-Policy')],
+        'asked again in a minute, never kept; the security headers as on every answer',
+    );
     assert_false(str_contains((string) file_get_contents($GLOBALS['log']), $name), 'and the log says nothing of it');
     // Nor does the site's own error log: a state, not a failure - the library's `expected` codes (update_pending,
     // feature_unavailable, not_set_up; anotoki-lib 0.5.0), never a blanket rule for every 503 (the last test: a real one
     // is written).
-    assert_same([], array_values(array_filter(library_log_lines(), static fn (array $l): bool => ($l['code'] ?? null) === 'update_pending'
-        || ($l['path'] ?? null) === '/api/kanji/summary')), 'no line of the gate\'s 503');
+    assert_same(
+        [],
+        array_values(array_filter(library_log_lines(), static fn(array $l): bool => ($l['code'] ?? null) === 'update_pending' || ($l['path'] ?? null) === '/api/kanji/summary')),
+        'no line of the gate\'s 503',
+    );
 });
 
 test('an unknown address and a wrong method keep their codes', function (): void {
@@ -180,8 +195,10 @@ test('an unknown address and a wrong method keep their codes', function (): void
 test('for real, on this computer: a server whose database is not there says why, in the sentence and as "detail"', function (): void {
     // Settings of their own: this file's database, at a port of this computer where nothing listens.
     $dir = test_server_config();
-    file_put_contents("$dir/database.local.php", '<?php return ' . var_export(['name' => db_name(), 'host' => '127.0.0.1', 'port' => test_free_port()], true)
-        . ' + (require ' . var_export(test_config_server_file(), true) . ');');
+    file_put_contents(
+        "$dir/database.local.php",
+        '<?php return ' . var_export(['name' => db_name(), 'host' => '127.0.0.1', 'port' => test_free_port()], true) . ' + (require ' . var_export(test_config_server_file(), true) . ');',
+    );
     $app = start_app(['env' => ['ACADEMY_CONFIG_DIR' => $dir]]);
     $r = call($app['base'], 'GET', '/api/kanji/summary');
     assert_same(503, $r['status']);
@@ -192,7 +209,7 @@ test('for real, on this computer: a server whose database is not there says why,
     assert_true(count(server_problems($app)) > 0, 'its log has it too');
     // A 503 that is a failure is in the site's own error log (its storage: these settings' folder), with the status and
     // the code it was answered with - the library leaves out only the states it expects, never every 503.
-    $failures = array_values(array_filter(library_log_lines($dir), static fn (array $l): bool => ($l['code'] ?? null) === 'database_unavailable'));
+    $failures = array_values(array_filter(library_log_lines($dir), static fn(array $l): bool => ($l['code'] ?? null) === 'database_unavailable'));
     assert_true($failures !== [], 'the database out of reach is written down: ' . json_encode(library_log_lines($dir)));
     assert_same([503, 'server'], [(int) ($failures[0]['status'] ?? 0), $failures[0]['source'] ?? null]);
     // Where the site stands: unavailable (the settings are there; the database does not answer) - which the pages say

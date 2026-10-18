@@ -78,9 +78,7 @@ export class KanjiShellComponent implements OnInit {
   readonly screen = inject(KanjiScreenService);
 
   /** The tabs as the kit's link tabs take them, worded in the language on the page; the dashboard's its address alone. */
-  readonly tabs = computed<LinkTabItem[]>(() =>
-    TABS.map(([path, nav, key]) => ({ id: nav || DASHBOARD, label: this.i18n.t(key), path, exact: nav === '' })),
-  );
+  readonly tabs = computed<LinkTabItem[]>(() => TABS.map(([path, nav, key]) => ({ id: nav || DASHBOARD, label: this.i18n.t(key), path, exact: nav === '' })));
   /** The tab to mark, whatever the address says (KanjiScreenService); an item's page names no tab, and none is marked. */
   readonly currentTab = computed(() => this.screen.tab() || DASHBOARD);
   readonly ready = signal(false);

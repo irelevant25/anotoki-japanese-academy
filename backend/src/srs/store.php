@@ -23,9 +23,9 @@
 declare(strict_types=1);
 
 const DEFAULT_SETTINGS = [
-    'batchSize' => 5,        // lessons per batch
+    'batchSize' => 5, // lessons per batch
     'lessonTypes' => 'both', // 'both' | 'kanji' | 'vocab'
-    'autoplay' => true,      // play vocabulary audio after the reading is answered
+    'autoplay' => true, // play vocabulary audio after the reading is answered
 ];
 
 /** One person's rows: callers add " AND …" or " ORDER BY …", and pass the user id first. */
@@ -93,10 +93,10 @@ function store_item(int $uid, string $id, bool $lock = false): ?array
 function store_normalize(array $s): array
 {
     $b = srs_blank();
-    $int = static fn ($v, int $default = 0): int => is_numeric($v) ? (int) $v : $default;
-    $ms = static fn ($v): ?int => is_numeric($v) ? (int) $v : null;
-    $texts = static fn ($v): array => is_array($v) ? array_values(array_filter($v, 'is_string')) : [];
-    $part = static fn (string $a, string $b) => $s[$a][$b] ?? null;
+    $int = static fn($v, int $default = 0): int => is_numeric($v) ? (int) $v : $default;
+    $ms = static fn($v): ?int => is_numeric($v) ? (int) $v : null;
+    $texts = static fn($v): array => is_array($v) ? array_values(array_filter($v, 'is_string')) : [];
+    $part = static fn(string $a, string $b) => $s[$a][$b] ?? null;
     return [
         'stage' => max(0, min(9, $int($s['stage'] ?? 0))),
         'learnedAt' => $ms($s['learnedAt'] ?? null),
@@ -145,14 +145,28 @@ function store_put(int $uid, string $id, array $s, bool $touch = true): void
             meaning_note = EXCLUDED.meaning_note, reading_note = EXCLUDED.reading_note,
             synonyms = EXCLUDED.synonyms, extra_readings = EXCLUDED.extra_readings, updated_at = now()',
         [
-            $uid, $id, $s['stage'], $s['learnedAt'], $s['nextReview'], $s['lastReviewAt'], $s['burnedAt'],
-            $s['reviews']['meaning']['correct'], $s['reviews']['meaning']['incorrect'],
-            $s['reviews']['reading']['correct'], $s['reviews']['reading']['incorrect'],
-            $s['streak']['meaning'], $s['streak']['reading'],
-            $s['practice']['correct'], $s['practice']['incorrect'], $s['practice']['last'], $s['lastWrongAt'],
-            $s['notes']['meaning'], $s['notes']['reading'],
-            json_text($s['synonyms']), json_text($s['extraReadings']),
-        ]
+            $uid,
+            $id,
+            $s['stage'],
+            $s['learnedAt'],
+            $s['nextReview'],
+            $s['lastReviewAt'],
+            $s['burnedAt'],
+            $s['reviews']['meaning']['correct'],
+            $s['reviews']['meaning']['incorrect'],
+            $s['reviews']['reading']['correct'],
+            $s['reviews']['reading']['incorrect'],
+            $s['streak']['meaning'],
+            $s['streak']['reading'],
+            $s['practice']['correct'],
+            $s['practice']['incorrect'],
+            $s['practice']['last'],
+            $s['lastWrongAt'],
+            $s['notes']['meaning'],
+            $s['notes']['reading'],
+            json_text($s['synonyms']),
+            json_text($s['extraReadings']),
+        ],
     );
     if ($touch) {
         store_touch($uid);
@@ -183,7 +197,7 @@ function store_save_settings(int $uid, array $settings): void
         'INSERT INTO srs_settings (user_id, batch_size, lesson_types, autoplay) VALUES (?, ?, ?, ?)
          ON CONFLICT (user_id) DO UPDATE SET batch_size = EXCLUDED.batch_size, lesson_types = EXCLUDED.lesson_types,
             autoplay = EXCLUDED.autoplay, updated_at = now()',
-        [$uid, $settings['batchSize'], $settings['lessonTypes'], $settings['autoplay']]
+        [$uid, $settings['batchSize'], $settings['lessonTypes'], $settings['autoplay']],
     );
 }
 
@@ -199,7 +213,7 @@ function store_bump_daily(int $uid, string $kind, bool $correct, int $t): void
          ON CONFLICT (user_id, day) DO UPDATE SET lessons = srs_daily.lessons + EXCLUDED.lessons, reviews = srs_daily.reviews + EXCLUDED.reviews,
             reviews_correct = srs_daily.reviews_correct + EXCLUDED.reviews_correct, practice = srs_daily.practice + EXCLUDED.practice,
             practice_correct = srs_daily.practice_correct + EXCLUDED.practice_correct',
-        array_merge([$uid, local_date($t)], $d)
+        array_merge([$uid, local_date($t)], $d),
     );
 }
 
@@ -207,8 +221,14 @@ function store_bump_daily(int $uid, string $kind, bool $correct, int $t): void
 function store_daily(int $uid): array
 {
     $out = [];
-    foreach (db_all("SELECT to_char(day, 'YYYY-MM-DD') AS day, lessons, reviews, reviews_correct, practice, practice_correct
-                     FROM srs_daily WHERE user_id = ? ORDER BY day", [$uid]) as $r) {
+    foreach (
+        db_all(
+            "SELECT to_char(day, 'YYYY-MM-DD') AS day, lessons, reviews, reviews_correct, practice, practice_correct
+                     FROM srs_daily WHERE user_id = ? ORDER BY day",
+            [$uid],
+        )
+        as $r
+    ) {
         $out[$r['day']] = [
             'lessons' => (int) $r['lessons'],
             'reviews' => (int) $r['reviews'],
@@ -226,10 +246,7 @@ function store_log(int $uid, array $event, ?int $t = null): void
     $kind = (string) $event['kind'];
     $id = $event['id'] ?? null;
     unset($event['kind'], $event['id'], $event['t']);
-    db_exec(
-        'INSERT INTO srs_log (user_id, at, kind, item_id, details) VALUES (?, academy_time(?), ?, ?, ?::json)',
-        [$uid, $t ?? now_ms(), $kind, $id, json_text($event ?: new stdClass())]
-    );
+    db_exec('INSERT INTO srs_log (user_id, at, kind, item_id, details) VALUES (?, academy_time(?), ?, ?, ?::json)', [$uid, $t ?? now_ms(), $kind, $id, json_text($event ?: new stdClass())]);
 }
 
 /** The whole log, oldest first, as the lines of the old kanji-log.jsonl: { t, kind, id?, ...details }. */

@@ -229,7 +229,11 @@ describe('PracticeComponent', () => {
   it('has no copy of the stage names: whatever the catalog calls them is what it says', async () => {
     const renamed = GROUPS.map((g) => ({ ...g, name: `${g.name}*` }));
     await open({ 0: 1 }, { groups: renamed });
-    expect(chips(0).slice(4).map((chip) => clean(chip.textContent))).toEqual(['Apprentice* 1', 'Guru* and above 0', 'Burned* 0']);
+    expect(
+      chips(0)
+        .slice(4)
+        .map((chip) => clean(chip.textContent)),
+    ).toEqual(['Apprentice* 1', 'Guru* and above 0', 'Burned* 0']);
   });
 
   it('words its other choices from keys', async () => {
@@ -249,16 +253,19 @@ describe('PracticeComponent', () => {
         .filter((chip) => chip.getAttribute('aria-checked') === 'true' || chip.getAttribute('aria-pressed') === 'true')
         .map((chip) => clean(chip.textContent));
     expect([pressed(0), pressed(1), pressed(2), pressed(3)]).toEqual([['Everything learned 2'], ['All lessons'], ['Kanji & vocabulary'], ['Meaning + reading']]);
-    expect([0, 2, 3].map((field) => chips(field).every((chip) => chip.getAttribute('role') === 'radio')), 'one of several: radios').toEqual([true, true, true]);
-    expect(chips(1).map((chip) => chip.getAttribute('aria-pressed')), 'several at once: toggles').toEqual(['true', 'false']);
+    expect(
+      [0, 2, 3].map((field) => chips(field).every((chip) => chip.getAttribute('role') === 'radio')),
+      'one of several: radios',
+    ).toEqual([true, true, true]);
+    expect(
+      chips(1).map((chip) => chip.getAttribute('aria-pressed')),
+      'several at once: toggles',
+    ).toEqual(['true', 'false']);
     expect(chips(0)[0].classList.contains('anotoki-chip--on')).toBe(true);
     expect(chips(0)[1].classList.contains('anotoki-chip--on')).toBe(false);
     expect(chips(4).map((chip) => chip.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false', 'false']);
     expect(chips(0)[1].disabled, 'Weakest: nothing missed yet').toBe(true);
-    expect(
-      host.querySelectorAll('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').length,
-      'every row of chips named by the words over it (How many names itself)',
-    ).toBe(4);
+    expect(host.querySelectorAll('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').length, 'every row of chips named by the words over it (How many names itself)').toBe(4);
 
     chips(1)[1].click(); // L3 alone
     chips(3)[2].click(); // the reading only

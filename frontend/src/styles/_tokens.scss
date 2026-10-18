@@ -19,7 +19,7 @@
 // told light, and for a page that is told dark - root() writes the library's
 // so, and the dark mixin below this app's own.
 
-@use '@anotoki/lib/styles' as anotoki;
+@use "@anotoki/lib/styles" as anotoki;
 
 @include anotoki.root(
   (
@@ -129,19 +129,24 @@
     // Manrope (the family's font; anotoki.fonts in styles.scss), then the stack this app had before it,
     // whose Japanese faces (--jp-sans below) draw the kana and kanji Manrope has none of
     font-sans: (
-        'Manrope Variable',
+        "Manrope Variable",
         -apple-system,
         BlinkMacSystemFont,
-        'Segoe UI',
+        "Segoe UI",
         system-ui,
-        'Hiragino Kaku Gothic ProN',
-        'Yu Gothic UI',
-        'Yu Gothic',
-        'Meiryo',
-        'Noto Sans JP',
+        "Hiragino Kaku Gothic ProN",
+        "Yu Gothic UI",
+        "Yu Gothic",
+        "Meiryo",
+        "Noto Sans JP",
         sans-serif,
       ),
-    font-mono: (ui-monospace, SFMono-Regular, Consolas, monospace),
+    font-mono: (
+      ui-monospace,
+      SFMono-Regular,
+      Consolas,
+      monospace,
+    ),
     // this app's corners are 10 px all round: its menus and dialogs too (the family's are 16 and 20)
     radius-lg: 10px,
     radius-xl: 10px,
@@ -202,8 +207,8 @@
   --q-reading-bg: #2a2a30;
   --q-reading-ink: #f2f0f5;
 
-  --jp-serif: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'Noto Serif JP', 'MS Mincho', serif;
-  --jp-sans: 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
+  --jp-serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "MS Mincho", serif;
+  --jp-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
 }
 
 @mixin dark {
@@ -231,11 +236,11 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
+  :root:not([data-theme="light"]) {
     @include dark;
   }
 }
 
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   @include dark;
 }

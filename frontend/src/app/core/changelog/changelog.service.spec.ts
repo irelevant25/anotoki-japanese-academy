@@ -24,7 +24,10 @@ describe('the versions: three numbers, MAJOR.MINOR.PATCH', () => {
 
   it('public/changelog.json: every release with three numbers, the newest first - and the newest is frontend/package.json’s version, the one the foot shows', () => {
     const versions = (changelog as ChangelogEntry[]).map((entry) => entry.version);
-    expect(versions.filter((version) => !/^\d+\.\d+\.\d+$/.test(version)), 'not three numbers').toEqual([]);
+    expect(
+      versions.filter((version) => !/^\d+\.\d+\.\d+$/.test(version)),
+      'not three numbers',
+    ).toEqual([]);
     for (let i = 1; i < versions.length; i++) {
       expect(compareVersions(versions[i - 1], versions[i]), `${versions[i - 1]} before ${versions[i]}`).toBeGreaterThan(0);
     }

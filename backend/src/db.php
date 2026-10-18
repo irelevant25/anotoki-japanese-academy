@@ -16,12 +16,7 @@ use Anotoki\Lib\Translations\Schema;
 
 function db_dsn(?string $name = null): string
 {
-    return sprintf(
-        'pgsql:host=%s;port=%d;dbname=%s;connect_timeout=5;application_name=japanese-academy',
-        config('db.host'),
-        (int) config('db.port'),
-        $name ?? db_name()
-    );
+    return sprintf('pgsql:host=%s;port=%d;dbname=%s;connect_timeout=5;application_name=japanese-academy', config('db.host'), (int) config('db.port'), $name ?? db_name());
 }
 
 /** The app's database: config('db.name') (backend/config/database.local.php; the tests' own settings name theirs). */

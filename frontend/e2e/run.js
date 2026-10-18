@@ -172,12 +172,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const authorizeAt = sent.findIndex((r) => r.url.startsWith(`${IAM.issuer}/api/oidc/authorize`));
   const askedBefore = sent.slice(0, authorizeAt).filter((r) => r.url.startsWith(`${app.base}/api/`) || r.url.startsWith(`${app.base}/report/`));
   const noData = (r) => /^\/api\/(site-status|auth\/config|translations\/[\w-]+)$/.test(new URL(r.url).pathname);
-  ck('signed out, a deep link goes straight to the IAM: nobody’s data asked for on the way',
-    authorizeAt > 0 && askedBefore.every(noData), askedBefore.map((r) => r.url).join(' '));
+  ck('signed out, a deep link goes straight to the IAM: nobody’s data asked for on the way', authorizeAt > 0 && askedBefore.every(noData), askedBefore.map((r) => r.url).join(' '));
   const drawn = await page.evaluate(() => sessionStorage.getItem('drawn-signed-out'));
   ck('and no page of the app drawn before it', drawn === null, drawn || '');
-  ck('back from the IAM on the page asked for, signed in',
-    new URL(page.url()).pathname === '/kanji/reviews' && (await page.textContent(BAR.userName)).trim() === 'lea', page.url());
+  ck('back from the IAM on the page asked for, signed in', new URL(page.url()).pathname === '/kanji/reviews' && (await page.textContent(BAR.userName)).trim() === 'lea', page.url());
   let log = await iamLog();
   ck('the IAM was asked: authorize, then its code for tokens', log.includes('GET /api/oidc/authorize') && log.includes('POST /api/oidc/token'));
 
@@ -190,12 +188,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await denied.goto(app.base + '/exam');
   await denied.waitForSelector(FAILURE.retry, { timeout: 15000 });
   const refusedWords = (await denied.textContent(FAILURE.message)).trim();
-  ck('refused at the IAM: the anotoki library’s screen says so, in its words - never the IAM’s',
-    refusedWords === 'The sign-in was not completed.' && (await denied.textContent(FAILURE.title)).trim() === 'Signing in did not work', refusedWords);
-  ck('on its own address, which search engines are asked to leave alone',
-    new URL(denied.url()).pathname === '/sign-in-failed' && (await denied.getAttribute('meta[name="robots"]', 'content')) === 'noindex', denied.url());
-  ck('with nothing of the app behind it, and Sign in in the bar',
-    (await denied.$('#bookChips')) === null && (await denied.$(BAR.userButton)) === null && (await denied.isVisible(BAR.signInButton)));
+  ck(
+    'refused at the IAM: the anotoki library’s screen says so, in its words - never the IAM’s',
+    refusedWords === 'The sign-in was not completed.' && (await denied.textContent(FAILURE.title)).trim() === 'Signing in did not work',
+    refusedWords,
+  );
+  ck(
+    'on its own address, which search engines are asked to leave alone',
+    new URL(denied.url()).pathname === '/sign-in-failed' && (await denied.getAttribute('meta[name="robots"]', 'content')) === 'noindex',
+    denied.url(),
+  );
+  ck('with nothing of the app behind it, and Sign in in the bar', (await denied.$('#bookChips')) === null && (await denied.$(BAR.userButton)) === null && (await denied.isVisible(BAR.signInButton)));
   await denied.screenshot({ path: path.join(SHOTS, 'sign-in-failed.png') });
   await iamState({ deny: false });
   await denied.click(FAILURE.retry);
@@ -214,8 +217,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await iamState({ deny: false });
   await again.click(BAR.signInButton);
   await again.waitForSelector(BAR.userButton, { timeout: 15000 });
-  ck('refused on /kanji/item, the bar’s Sign in comes back there, signed in',
-    decodeURIComponent(new URL(again.url()).pathname) === '/kanji/item/k:大' && againErrors.length === 0, again.url() + ' ' + againErrors.join(' | '));
+  ck(
+    'refused on /kanji/item, the bar’s Sign in comes back there, signed in',
+    decodeURIComponent(new URL(again.url()).pathname) === '/kanji/item/k:大' && againErrors.length === 0,
+    again.url() + ' ' + againErrors.join(' | '),
+  );
   await deniedAgain.close();
 
   /* ---------------------------------------------- the legal pages */
@@ -232,20 +238,30 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await legal.goto(app.base + '/privacy');
   await legal.waitForSelector('anotoki-privacy-page h1', { timeout: 15000 });
   const legalFoot = await footerOf(legal);
-  ck('signed out, /privacy: the family’s page in the app’s frame - no trip to the IAM, Sign in in the bar, the footer: no Feedback signed out, its links',
-    (await legal.textContent('anotoki-privacy-page h1')).trim() === 'Privacy policy' && !toTheIam()
-      && (await legal.isVisible(BAR.signInButton)) && legalFoot.row.join('|') === `Version ${LATEST.version}|What's new` && legalFoot.links.join('|') === 'Terms|Privacy|Contact',
-    JSON.stringify(legalFoot));
+  ck(
+    'signed out, /privacy: the family’s page in the app’s frame - no trip to the IAM, Sign in in the bar, the footer: no Feedback signed out, its links',
+    (await legal.textContent('anotoki-privacy-page h1')).trim() === 'Privacy policy' &&
+      !toTheIam() &&
+      (await legal.isVisible(BAR.signInButton)) &&
+      legalFoot.row.join('|') === `Version ${LATEST.version}|What's new` &&
+      legalFoot.links.join('|') === 'Terms|Privacy|Contact',
+    JSON.stringify(legalFoot),
+  );
   const storedNames = await legal.$$eval('[data-stored] code', (els) => els.map((el) => el.textContent.trim()));
-  ck('its facts are Japanese Academy’s: its stored items by name, the anotoki account’s Privacy page at the IAM it signs in with',
-    storedNames.includes('academy-exam-kept-paper') && storedNames.includes('japanese-academy-visitor')
-      && (await legal.getAttribute('[data-account-privacy]', 'href')) === `${IAM.issuer}/privacy`, storedNames.join(', '));
+  ck(
+    'its facts are Japanese Academy’s: its stored items by name, the anotoki account’s Privacy page at the IAM it signs in with',
+    storedNames.includes('academy-exam-kept-paper') && storedNames.includes('japanese-academy-visitor') && (await legal.getAttribute('[data-account-privacy]', 'href')) === `${IAM.issuer}/privacy`,
+    storedNames.join(', '),
+  );
   await legal.click('anotoki-site-footer anotoki-legal-links a[href="/terms"]');
   await legal.waitForSelector('anotoki-terms-page h1');
   await legal.click('anotoki-site-footer anotoki-legal-links a[href="/contact"]');
   await legal.waitForSelector('anotoki-contact-page [data-open-feedback]');
-  ck('the footer’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
-    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('anotoki-site-footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(), legal.url());
+  ck(
+    'the footer’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
+    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('anotoki-site-footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(),
+    legal.url(),
+  );
   await legal.click(BAR.brand);
   await legal.waitForSelector(BAR.userButton, { timeout: 15000 });
   ck('the home page from there is a learner’s: to the IAM first, and back signed in', toTheIam() && new URL(legal.url()).pathname === '/', legal.url());
@@ -284,9 +300,18 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const inSession = async (pg = page) => (await pg.$('.session .s-input:not([readonly])')) !== null;
   // Angular draws what a key or click changed a moment later, not during the
   // event: wait for it (true), or for 3 s (false).
-  const until = (selector, state = 'visible') => page.waitForSelector(selector, { state, timeout: 3000 }).then(() => true, () => false);
+  const until = (selector, state = 'visible') =>
+    page.waitForSelector(selector, { state, timeout: 3000 }).then(
+      () => true,
+      () => false,
+    );
   const untilText = (selector, text) =>
-    page.waitForFunction(([s, t]) => document.querySelector(s)?.textContent.trim() === t, [selector, text], { timeout: 3000 }).then(() => true, () => false);
+    page
+      .waitForFunction(([s, t]) => document.querySelector(s)?.textContent.trim() === t, [selector, text], { timeout: 3000 })
+      .then(
+        () => true,
+        () => false,
+      );
   // a real page load every time
   const open = async (url) => {
     await page.goto('about:blank');
@@ -304,7 +329,12 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'menuitemradio', null, { timeout: 3000 });
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    return page.waitForFunction(() => document.documentElement.lang === 'sk', null, { timeout: 5000 }).then(() => true, () => false);
+    return page
+      .waitForFunction(() => document.documentElement.lang === 'sk', null, { timeout: 5000 })
+      .then(
+        () => true,
+        () => false,
+      );
   };
   // and back to English with the mouse: the choice is kept in this browser
   const backToEnglish = async () => {
@@ -318,7 +348,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const theme = (mode) =>
     page
       .waitForFunction((m) => document.documentElement.getAttribute('data-theme') === m, mode, { timeout: 2000 })
-      .then(() => mode, () => page.evaluate(() => document.documentElement.getAttribute('data-theme')));
+      .then(
+        () => mode,
+        () => page.evaluate(() => document.documentElement.getAttribute('data-theme')),
+      );
   const barKeys = async () => {
     await page.waitForTimeout(300); // the page's words settled (a language just chosen draws the bar again)
     await page.focus(themeChoice('dark'));
@@ -377,8 +410,13 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   // same as the Dashboard link's: clicking it must still bring the dashboard back.
   ck('the address stayed /kanji', new URL(page.url()).pathname === '/kanji', page.url());
   await page.click('.subnav a[href="/kanji"]');
-  ck('the Dashboard link works after a lesson started there',
-    await page.waitForSelector('.cards3', { timeout: 3000 }).then(() => true, () => false));
+  ck(
+    'the Dashboard link works after a lesson started there',
+    await page.waitForSelector('.cards3', { timeout: 3000 }).then(
+      () => true,
+      () => false,
+    ),
+  );
   let p = await progressOf(LEA);
   const learned = Object.keys(p).filter((id) => p[id].stage === 1);
   ck('server: 5 items at Apprentice I, hers', learned.length === 5, learned.join(' '));
@@ -412,8 +450,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
       const did = await barKeys();
       const after = { cls: await page.$eval('.session', (el) => el.className), value: await page.inputValue('.s-input'), path: new URL(page.url()).pathname };
       ck('Enter and Space on the bar over a review: the bar’s controls work (dark, light, the menu open and shut)', barDidItsOwn(did), JSON.stringify(did));
-      ck('and the card is left alone: not checked, the answer as typed, the page the same',
-        !/is-(wrong|correct)/.test(after.cls) && after.value === typed && after.path === '/kanji/reviews', JSON.stringify(after));
+      ck(
+        'and the card is left alone: not checked, the answer as typed, the page the same',
+        !/is-(wrong|correct)/.test(after.cls) && after.value === typed && after.path === '/kanji/reviews',
+        JSON.stringify(after),
+      );
       await page.fill('.s-input', '');
     }
     const r = await answer({ wrong: !missedChars && c.part === 'reading' });
@@ -468,8 +509,16 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('the accepted answer is now a synonym', (p[accepted].synonyms || []).includes('numero uno'));
   // the session ran at /kanji/practice, the same address as this link
   await page.click('text=New practice');
-  ck('"New practice" works after a practice session',
-    await page.getByRole('button', { name: /^Practise \d+/ }).waitFor({ timeout: 3000 }).then(() => true, () => false));
+  ck(
+    '"New practice" works after a practice session',
+    await page
+      .getByRole('button', { name: /^Practise \d+/ })
+      .waitFor({ timeout: 3000 })
+      .then(
+        () => true,
+        () => false,
+      ),
+  );
 
   await open(`/kanji/item/${encodeURIComponent(accepted)}`);
   await page.waitForSelector('.ihead');
@@ -491,8 +540,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await page.click('.subnav a[href="/kanji"]');
   await page.waitForSelector('.cards3');
   await page.waitForTimeout(2500); // the save lands meanwhile
-  ck('a late save leaves the dashboard alone',
-    (await page.$('.cards3')) !== null && !/Practice done/.test(await page.textContent('main')));
+  ck('a late save leaves the dashboard alone', (await page.$('.cards3')) !== null && !/Practice done/.test(await page.textContent('main')));
   await page.unroute('**/api/kanji/practice');
   await open('/kanji/browse');
   await page.waitForSelector('.bgrid');
@@ -551,15 +599,16 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await backToEnglish();
   const didOnPaper = await barKeys();
   ck('Enter and Space on the bar over the last question: the bar’s controls work', barDidItsOwn(didOnPaper), JSON.stringify(didOnPaper));
-  ck('and the paper is still open: nothing chosen, nothing handed in',
-    (await paperOpen()) && (await page.$$('#gridNav .done')).length === total, `stored: ${stored()}`);
+  ck('and the paper is still open: nothing chosen, nothing handed in', (await paperOpen()) && (await page.$$('#gridNav .done')).length === total, `stored: ${stored()}`);
   // Sign out over an open paper asks first - the kit's question, in a modal dialog; Cancel keeps the paper and the sign-in
   await page.click(BAR.userButton);
   await page.click(BAR.signOut);
   const asked = await answerQuestion(page, false);
-  ck('Sign out over an open paper asks first: the kit’s question, its title asking, the sentence saying what goes',
+  ck(
+    'Sign out over an open paper asks first: the kit’s question, its title asking, the sentence saying what goes',
     asked?.title === 'Sign out anyway?' && asked?.message === 'Your exam is not finished, and signing out loses the test.' && asked?.no === 'Cancel' && asked?.yes === 'Sign out',
-    JSON.stringify(asked));
+    JSON.stringify(asked),
+  );
   ck('and Cancel keeps the paper and the sign-in', (await paperOpen()) && (await page.isVisible(BAR.userButton)));
   await page.keyboard.press('Escape'); // the menu, if it stayed open
   await page.evaluate(() => document.activeElement && document.activeElement.blur()); // the paper's keys again
@@ -572,8 +621,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   // browsers fetch audio with Range headers, so 206 Partial Content is the normal answer
   ck('recordings stream', audio.length > 0 && audio.every((x) => /^20[06] audio\/mpeg/.test(x)), `${audio.length} clip(s)`);
   const reportHref = await page.getAttribute('#reportLink', 'href');
-  ck('the report: hers with her token, nobody’s without one',
-    (await app.api(reportHref, LEA)).status === 200 && (await fetch(app.base + reportHref)).status === 401 && (await app.api(reportHref, MAX)).status === 404);
+  ck(
+    'the report: hers with her token, nobody’s without one',
+    (await app.api(reportHref, LEA)).status === 200 && (await fetch(app.base + reportHref)).status === 401 && (await app.api(reportHref, MAX)).status === 404,
+  );
   await page.click('#againBtn');
   ck('"New test": the setup again', (await until('#setup:not([hidden]) #bookChips button')) && !(await page.isVisible('#result')));
   ck('no browser box was raised over the paper', boxes.length === 0, boxes.join(' | '));
@@ -599,8 +650,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
 
   const latest = LATEST;
   const foot = await footerOf(page);
-  ck('the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, Terms · Privacy · Contact under them',
-    foot.border === 'solid' && foot.row.join('|') === `Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact', JSON.stringify(foot));
+  ck(
+    'the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, Terms · Privacy · Contact under them',
+    foot.border === 'solid' && foot.row.join('|') === `Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact',
+    JSON.stringify(foot),
+  );
   await page.click('anotoki-site-footer [data-whats-new]');
   await page.waitForSelector('app-changelog-dialog dialog[open]');
   const news = await page.textContent('app-changelog-dialog dialog');
@@ -612,7 +666,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   // What Angular draws after the key, waited for (a busy computer may take a frame or two): the dialog gone.
   const newsClosed = await page
     .waitForFunction(() => !document.querySelector('app-changelog-dialog dialog'), null, { timeout: 5000 })
-    .then(() => true, () => false);
+    .then(
+      () => true,
+      () => false,
+    );
   ck('Escape closes it, and the focus is back on What’s new', newsClosed && (await page.evaluate(() => document.activeElement?.hasAttribute('data-whats-new') ?? false)));
 
   /* ------------------------------------------- the bar's menus by keys */
@@ -632,36 +689,47 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const homeItem = await focused();
   await page.keyboard.press('ArrowUp');
   const round = await focused();
-  ck('the person’s menu by keys: Enter opens it on its first item; End, Home, and ↑ round to the last',
+  ck(
+    'the person’s menu by keys: Enter opens it on its first item; End, Home, and ↑ round to the last',
     firstItem.role === 'menuitem' && firstItem.id === 'accountLink' && lastItem.id === 'signOut' && homeItem.id === 'accountLink' && round.id === 'signOut',
-    JSON.stringify([firstItem, lastItem, homeItem, round]));
+    JSON.stringify([firstItem, lastItem, homeItem, round]),
+  );
   await page.keyboard.press('Escape');
   ck('Escape closes it, the focus on its button', (await until(BAR.menu, 'detached')) && (await focused()).id === 'userButton');
-  for (const [key, from] of [['Tab', 'first'], ['Shift+Tab', 'first'], ['Tab', 'last'], ['Shift+Tab', 'last']]) {
+  for (const [key, from] of [
+    ['Tab', 'first'],
+    ['Shift+Tab', 'first'],
+    ['Tab', 'last'],
+    ['Shift+Tab', 'last'],
+  ]) {
     await openBy(BAR.userButton, BAR.menu);
     if (from === 'last') await page.keyboard.press('End');
     await page.keyboard.press(key); // a real key press: the browser moves the focus unless the menu stops it
     await page.waitForTimeout(100);
     const where = await focused();
-    ck(`a real ${key} from the ${from} item closes the menu, the focus on its button (never <body>)`,
-      (await page.$(BAR.menu)) === null && where.id === 'userButton', JSON.stringify(where));
+    ck(`a real ${key} from the ${from} item closes the menu, the focus on its button (never <body>)`, (await page.$(BAR.menu)) === null && where.id === 'userButton', JSON.stringify(where));
   }
   await openBy(BAR.langButton, BAR.menu);
   const inUse = await page.evaluate(() => document.activeElement?.getAttribute('lang'));
   await page.keyboard.press('Tab');
   await page.waitForTimeout(100);
-  ck('the language menu opens on the language in use; a real Tab closes it on its button',
-    inUse === 'en' && (await page.$(BAR.menu)) === null && (await focused()).id === 'langButton', `${inUse} ${JSON.stringify(await focused())}`);
+  ck(
+    'the language menu opens on the language in use; a real Tab closes it on its button',
+    inUse === 'en' && (await page.$(BAR.menu)) === null && (await focused()).id === 'langButton',
+    `${inUse} ${JSON.stringify(await focused())}`,
+  );
   // a phone: the links and the person's menu are in one menu
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForSelector(BAR.menuButton);
-  ck('at 390 px: the menu button, no links and no person’s button in the row',
-    (await page.$(BAR.nav)) === null && (await page.$(BAR.userButton)) === null);
+  ck('at 390 px: the menu button, no links and no person’s button in the row', (await page.$(BAR.nav)) === null && (await page.$(BAR.userButton)) === null);
   await openBy(BAR.menuButton, BAR.menu);
   const phoneFirst = await page.evaluate(() => document.activeElement?.textContent.trim());
   const phoneItems = await page.$$eval(`${BAR.menu} [role="menuitem"]`, (els, bar) => els.map((e) => Object.keys(bar).find((name) => e.matches(bar[name])) || e.id || e.textContent.trim()), BAR);
-  ck('its menu: Kanji and Exam, then the person’s items; the focus on the first',
-    /^Kanji/.test(phoneFirst) && /^Kanji/.test(phoneItems[0]) && phoneItems[1] === 'Exam' && phoneItems.includes('accountLink') && phoneItems.at(-1) === 'signOut', phoneItems.join(', '));
+  ck(
+    'its menu: Kanji and Exam, then the person’s items; the focus on the first',
+    /^Kanji/.test(phoneFirst) && /^Kanji/.test(phoneItems[0]) && phoneItems[1] === 'Exam' && phoneItems.includes('accountLink') && phoneItems.at(-1) === 'signOut',
+    phoneItems.join(', '),
+  );
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Tab');
   await page.waitForTimeout(100);
@@ -685,10 +753,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await download.saveAs(saved);
   const file = JSON.parse(fs.readFileSync(saved, 'utf8'));
   const hers = file.users && file.users[0];
-  ck('Download: her own file, under the server’s name',
-    /^japanese-academy-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename()) && file.format === 'japanese-academy-backup' && file.version === 2
-      && file.users.length === 1 && String(hers.id) === String(LEA.sub) && Object.keys(hers.kanji.items).length === itemsBefore && hers.attempts.length === 1,
-    `${download.suggestedFilename()} ${file.users && file.users.length} person(s)`);
+  ck(
+    'Download: her own file, under the server’s name',
+    /^japanese-academy-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename()) &&
+      file.format === 'japanese-academy-backup' &&
+      file.version === 2 &&
+      file.users.length === 1 &&
+      String(hers.id) === String(LEA.sub) &&
+      Object.keys(hers.kanji.items).length === itemsBefore &&
+      hers.attempts.length === 1,
+    `${download.suggestedFilename()} ${file.users && file.users.length} person(s)`,
+  );
   // then she learns three more
   const ahead = cat.items.filter((it) => !hers.kanji.items[it.id]).slice(0, 3);
   for (const it of ahead) await app.api('/api/kanji/learn', LEA, { method: 'POST', body: { id: it.id } });
@@ -702,24 +777,44 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('Bring back asks first, with what the file holds', question.includes(download.suggestedFilename()) && question.includes('lea') && question.includes(String(inFile)), question);
   await shot('your-data-question');
   await page.click('#keepMine');
-  ck('"Keep mine": nothing sent, nothing changed',
-    (await until('#your-data anotoki-dialog dialog[open]', 'detached')) && puts() === putsBefore && Object.keys(await progressOf(LEA)).length === itemsBefore + 3);
+  ck(
+    '"Keep mine": nothing sent, nothing changed',
+    (await until('#your-data anotoki-dialog dialog[open]', 'detached')) && puts() === putsBefore && Object.keys(await progressOf(LEA)).length === itemsBefore + 3,
+  );
   await page.setInputFiles('#your-data input[type=file]', saved);
   await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
   await page.click('#replaceMine');
   await page.waitForSelector('#yourDataDone', { timeout: 10000 });
-  ck('"Replace": done, a copy of what it replaced kept', /^Done: your data is now what the file held\./.test((await page.textContent('#yourDataDone')).trim()), await page.textContent('#yourDataDone'));
+  ck(
+    '"Replace": done, a copy of what it replaced kept',
+    /^Done: your data is now what the file held\./.test((await page.textContent('#yourDataDone')).trim()),
+    await page.textContent('#yourDataDone'),
+  );
   ck('her data is the file’s again: the three learned since are gone', Object.keys(await progressOf(LEA)).length === itemsBefore);
   await page.waitForFunction((n) => (document.getElementById('kLearned')?.textContent || '').trim().startsWith(`${n} /`), inFile, { timeout: 5000 }).catch(() => undefined);
   ck('and the home page shows it', (await page.textContent('#kLearned')).trim().startsWith(`${inFile} /`), await page.textContent('#kLearned'));
-  ck('the server kept a copy of what was replaced', fs.readdirSync(app.backups).some((f) => /before-import-user-4101-/.test(f)), fs.readdirSync(app.backups).join(' '));
+  ck(
+    'the server kept a copy of what was replaced',
+    fs.readdirSync(app.backups).some((f) => /before-import-user-4101-/.test(f)),
+    fs.readdirSync(app.backups).join(' '),
+  );
   ck('max’s data untouched', learnedBy(await progressOf(MAX)) === 2);
   const putsThen = puts();
   await page.setInputFiles('#your-data input[type=file]', { name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"notes": [1, 2, 3]}') });
-  const refused = await page.waitForFunction(() => document.getElementById('yourDataError')?.textContent.trim(), null, { timeout: 5000 }).then(() => true, () => false);
-  ck('a file that is not one: refused here, before anything is sent',
-    refused && (await page.textContent('#yourDataError')).trim() === 'The file was not brought back: That is not a Japanese Academy data file, or it is damaged.' && puts() === putsThen && (await page.$('#your-data anotoki-dialog dialog[open]')) === null,
-    await page.textContent('#yourDataError'));
+  const refused = await page
+    .waitForFunction(() => document.getElementById('yourDataError')?.textContent.trim(), null, { timeout: 5000 })
+    .then(
+      () => true,
+      () => false,
+    );
+  ck(
+    'a file that is not one: refused here, before anything is sent',
+    refused &&
+      (await page.textContent('#yourDataError')).trim() === 'The file was not brought back: That is not a Japanese Academy data file, or it is damaged.' &&
+      puts() === putsThen &&
+      (await page.$('#your-data anotoki-dialog dialog[open]')) === null,
+    await page.textContent('#yourDataError'),
+  );
 
   /* -------------------------------------------------------- sign-out */
   console.log('sign-out');
@@ -743,7 +838,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await iamState({ deny: true });
   await page.click(BAR.userButton);
   await page.click(BAR.signOut);
-  const waited = await page.waitForSelector(`${BAR.signOut}[aria-busy="true"]`, { timeout: 1000 }).then(() => true, () => false);
+  const waited = await page.waitForSelector(`${BAR.signOut}[aria-busy="true"]`, { timeout: 1000 }).then(
+    () => true,
+    () => false,
+  );
   const waitWords = waited ? (await page.textContent(BAR.signOut)).trim() : '';
   ck('Sign out with an answer on its way: it waits, saying so', waited && waitWords === 'Saving…', waitWords);
   await page.waitForSelector(FAILURE.retry, { timeout: 15000 });
@@ -769,9 +867,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await page.waitForSelector('#test:not([hidden])');
   await page.click('#quitBtn');
   const unanswered = await answerQuestion(page, true);
-  ck('Finish now with every question unanswered: the kit’s question, Finish or back to the paper',
-    unanswered?.title === 'Finish and score anyway?' && /^\d+ questions are unanswered\.$/.test(unanswered?.message ?? '') &&unanswered?.no === 'Back to the test' && unanswered?.yes === 'Finish',
-    JSON.stringify(unanswered));
+  ck(
+    'Finish now with every question unanswered: the kit’s question, Finish or back to the paper',
+    unanswered?.title === 'Finish and score anyway?' && /^\d+ questions are unanswered\.$/.test(unanswered?.message ?? '') && unanswered?.no === 'Back to the test' && unanswered?.yes === 'Finish',
+    JSON.stringify(unanswered),
+  );
   await page.waitForSelector('#result:not([hidden])', { timeout: 15000 });
   const [report] = await Promise.all([context.waitForEvent('page'), page.click('#reportLink')]);
   await report.waitForFunction(() => document.body && /By skill/.test(document.body.innerText), null, { timeout: 10000 });
@@ -804,13 +904,27 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const bearer = (r) => /^Bearer /.test(r.headers.authorization || '');
   const api = requests.filter((r) => ours(r) && !ofWords(r));
   const elsewhere = requests.filter((r) => !ours(r) || ofWords(r));
-  ck('her token went with every call to the API', api.length > 20 && api.every(bearer), api.filter((r) => !bearer(r)).map((r) => r.url).join(' '));
-  ck('and nowhere else: not to the IAM, not with the app’s own files or words',
-    elsewhere.some((r) => r.url.startsWith(IAM.issuer)) && !elsewhere.some(bearer), elsewhere.filter(bearer).map((r) => r.url).join(' '));
-  ck('where the site stands was asked, with nothing of anybody’s: no token, no key',
-    requests.some(ofNobody) && requests.filter(ofNobody).every((r) => !bearer(r) && !r.headers['x-visitor-key']));
-  ck('the browser’s time zone went with every call to this site’s API, and never to the IAM',
-    requests.filter(ours).every((r) => r.headers['x-time-zone'] === zone) && !requests.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-time-zone']));
+  ck(
+    'her token went with every call to the API',
+    api.length > 20 && api.every(bearer),
+    api
+      .filter((r) => !bearer(r))
+      .map((r) => r.url)
+      .join(' '),
+  );
+  ck(
+    'and nowhere else: not to the IAM, not with the app’s own files or words',
+    elsewhere.some((r) => r.url.startsWith(IAM.issuer)) && !elsewhere.some(bearer),
+    elsewhere
+      .filter(bearer)
+      .map((r) => r.url)
+      .join(' '),
+  );
+  ck('where the site stands was asked, with nothing of anybody’s: no token, no key', requests.some(ofNobody) && requests.filter(ofNobody).every((r) => !bearer(r) && !r.headers['x-visitor-key']));
+  ck(
+    'the browser’s time zone went with every call to this site’s API, and never to the IAM',
+    requests.filter(ours).every((r) => r.headers['x-time-zone'] === zone) && !requests.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-time-zone']),
+  );
 
   await page.click(BAR.userButton);
   ck('the menu: her IAM account page', (await page.getAttribute(BAR.accountLink, 'href')) === `${IAM.issuer}/account`);
@@ -859,8 +973,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const adminErrors = watch(admin, { ignore: [/\/api\/admin\/translations$/] });
   await admin.goto(app.base + '/?lang=sk');
   await admin.waitForSelector('.homecards', { timeout: 15000 });
-  ck('?lang=sk, through the IAM and back: the page is Slovak, and the parameter leaves the address',
-    (await admin.getAttribute('html', 'lang')) === 'sk' && !new URL(admin.url()).searchParams.has('lang'), admin.url());
+  ck(
+    '?lang=sk, through the IAM and back: the page is Slovak, and the parameter leaves the address',
+    (await admin.getAttribute('html', 'lang')) === 'sk' && !new URL(admin.url()).searchParams.has('lang'),
+    admin.url(),
+  );
   const otherTab = await adminContext.newPage();
   await otherTab.goto(app.base + '/');
   await otherTab.waitForSelector('.homecards');
@@ -872,21 +989,36 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('Admin panel in her menu, in Slovak', (await admin.textContent(BAR.adminLink)).trim() === 'Administrátorský panel', await admin.textContent(BAR.adminLink));
   await admin.click(BAR.adminLink);
   await admin.waitForSelector(GRID);
-  ck('Admin panel: the Translations page, at /admin/translations, its title naming the panel',
-    new URL(admin.url()).pathname === '/admin/translations' && (await admin.title()) === 'Translations · Admin panel · Japanese Academy', `${admin.url()} ${await admin.title()}`);
-  ck('the admin area is English with Slovak chosen: the page, its <html lang>, the bar',
-    (await admin.getAttribute('main', 'lang')) === 'en' && (await admin.textContent('h1')).trim() === 'Translations' && (await admin.getAttribute('html', 'lang')) === 'en'
-      && (await admin.$(BAR.langButton)) === null);
+  ck(
+    'Admin panel: the Translations page, at /admin/translations, its title naming the panel',
+    new URL(admin.url()).pathname === '/admin/translations' && (await admin.title()) === 'Translations · Admin panel · Japanese Academy',
+    `${admin.url()} ${await admin.title()}`,
+  );
+  ck(
+    'the admin area is English with Slovak chosen: the page, its <html lang>, the bar',
+    (await admin.getAttribute('main', 'lang')) === 'en' &&
+      (await admin.textContent('h1')).trim() === 'Translations' &&
+      (await admin.getAttribute('html', 'lang')) === 'en' &&
+      (await admin.$(BAR.langButton)) === null,
+  );
   const adminLinks = await admin.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()));
-  ck('the bar holds the panel’s sections: Translations, Languages, People, Feedback, Errors, Audit log, Backups, Migrations; beside the mark its name',
-    adminLinks.join(',') === 'Translations,Languages,People,Feedback,Errors,Audit log,Backups,Migrations'
-      && (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel', adminLinks.join(','));
+  ck(
+    'the bar holds the panel’s sections: Translations, Languages, People, Feedback, Errors, Audit log, Backups, Migrations; beside the mark its name',
+    adminLinks.join(',') === 'Translations,Languages,People,Feedback,Errors,Audit log,Backups,Migrations' &&
+      (await admin.textContent(BAR.wordmark)).replace(/\s+/g, ' ').trim() === 'anotoki Japanese · admin panel',
+    adminLinks.join(','),
+  );
   const adminFoot = await footerOf(admin);
-  ck('the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, Terms · Privacy · Contact',
+  ck(
+    'the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, Terms · Privacy · Contact',
     adminFoot.border === 'solid' && adminFoot.row.join('|') === `Version ${LATEST.version}|What's new|Feedback` && adminFoot.links.join('|') === 'Terms|Privacy|Contact',
-    JSON.stringify(adminFoot));
+    JSON.stringify(adminFoot),
+  );
   await admin.click(BAR.userButton);
-  ck('and her menu says it in English, with the way back', (await admin.textContent(BAR.accountLink)).trim() === 'Your anotoki account' && (await admin.textContent(BAR.backLink)).trim() === 'Back to Japanese Academy');
+  ck(
+    'and her menu says it in English, with the way back',
+    (await admin.textContent(BAR.accountLink)).trim() === 'Your anotoki account' && (await admin.textContent(BAR.backLink)).trim() === 'Back to Japanese Academy',
+  );
   await admin.keyboard.press('Escape');
   await admin.screenshot({ path: path.join(SHOTS, 'admin-translations.png') });
 
@@ -904,15 +1036,22 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('a refused string: the reason stands beside its key', /^Nothing was saved\. .*\{x\}/.test(refusedText), refusedText);
 
   await admin.click(barLink('/admin/languages'));
-  const leaveAsked = await admin.waitForSelector(`${QUESTION} dialog[open]`, { timeout: 3000 }).then(() => true, () => false);
+  const leaveAsked = await admin.waitForSelector(`${QUESTION} dialog[open]`, { timeout: 3000 }).then(
+    () => true,
+    () => false,
+  );
   const words = leaveAsked ? { title: await admin.textContent(`${QUESTION} h2`), message: await admin.textContent(`${QUESTION} .anotoki-dialog__description`) } : {};
-  ck('leaving with a string not saved asks, in a modal <dialog>, with its words',
+  ck(
+    'leaving with a string not saved asks, in a modal <dialog>, with its words',
     leaveAsked && (await admin.$eval(`${QUESTION} dialog`, (d) => d.matches(':modal'))) && words.title === 'Leave without saving?' && /^1 changed string is not saved yet/.test(words.message),
-    JSON.stringify(words));
+    JSON.stringify(words),
+  );
   await admin.keyboard.press('Escape');
-  const closed = await admin.waitForSelector(`${QUESTION} dialog[open]`, { state: 'detached', timeout: 3000 }).then(() => true, () => false);
-  ck('Escape counts as "no": the page and the string stay',
-    closed && new URL(admin.url()).pathname === '/admin/translations' && (await lessonCell.inputValue()) === 'Lekcia {x}', admin.url());
+  const closed = await admin.waitForSelector(`${QUESTION} dialog[open]`, { state: 'detached', timeout: 3000 }).then(
+    () => true,
+    () => false,
+  );
+  ck('Escape counts as "no": the page and the string stay', closed && new URL(admin.url()).pathname === '/admin/translations' && (await lessonCell.inputValue()) === 'Lekcia {x}', admin.url());
   await admin.click(barLink('/admin/languages'));
   await admin.waitForSelector(`${QUESTION} dialog[open]`);
   await admin.click(`${QUESTION} [data-question-yes]`);
@@ -924,23 +1063,42 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await admin.fill(`${ADD} input[placeholder="Čeština"]`, 'Čeština');
   ck('a new language is not offered unless switched on', !(await admin.isChecked(`${ADD} .anotoki-languages-page__add-offered input[role=switch]`)));
   await admin.click(`${ADD} button[data-add]`);
-  const added = await admin.waitForSelector('li.anotoki-languages-page__language[data-language="cs"]', { timeout: 5000 }).then(() => true, () => false);
+  const added = await admin.waitForSelector('li.anotoki-languages-page__language[data-language="cs"]', { timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
   const offered = (await (await fetch(app.base + '/api/translations/en')).json()).languages.map((l) => l.code);
-  ck('a new language comes in hidden: marked so, and not offered',
-    added && (await admin.$eval('li.anotoki-languages-page__language[data-language="cs"]', (li) => li.classList.contains('anotoki-languages-page__language--hidden')
-      && li.querySelector('[data-offered] .anotoki-switch__words')?.textContent.trim() === 'Hidden' && !li.querySelector('[data-offered] input')?.checked))
-      && !offered.includes('cs') && offered.includes('sk'), offered.join(','));
+  ck(
+    'a new language comes in hidden: marked so, and not offered',
+    added &&
+      (await admin.$eval(
+        'li.anotoki-languages-page__language[data-language="cs"]',
+        (li) =>
+          li.classList.contains('anotoki-languages-page__language--hidden') &&
+          li.querySelector('[data-offered] .anotoki-switch__words')?.textContent.trim() === 'Hidden' &&
+          !li.querySelector('[data-offered] input')?.checked,
+      )) &&
+      !offered.includes('cs') &&
+      offered.includes('sk'),
+    offered.join(','),
+  );
 
   // People - the anotoki library's page: an ADMIN deletes a person's data, after a copy of it
   const PEOPLE = 'anotoki-people-page';
   await admin.click(barLink('/admin/people'));
   await admin.waitForSelector(`${PEOPLE} [data-people]`);
   const listed = await admin.$$eval(`${PEOPLE} [data-person]`, (rows) => rows.map((r) => r.getAttribute('data-person')));
-  ck('People (the library’s page): everybody who signed in, her too - "you" on her own row',
-    [LEA, MAX, ADA].every((x) => listed.includes(String(x.sub))) && (await admin.$(`${PEOPLE} [data-person="${ADA.sub}"] [data-you]`)) !== null, listed.join(','));
+  ck(
+    'People (the library’s page): everybody who signed in, her too - "you" on her own row',
+    [LEA, MAX, ADA].every((x) => listed.includes(String(x.sub))) && (await admin.$(`${PEOPLE} [data-person="${ADA.sub}"] [data-you]`)) !== null,
+    listed.join(','),
+  );
   const peopleColumns = await admin.$$eval(`${PEOPLE} [data-people] thead th`, (cells) => cells.map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
-  ck('with this site’s columns beside the library’s: time zone, learned, the exam',
-    ['Time zone', 'Learned', 'Exam'].every((column) => peopleColumns.includes(column)), peopleColumns.join(' | '));
+  ck(
+    'with this site’s columns beside the library’s: time zone, learned, the exam',
+    ['Time zone', 'Learned', 'Exam'].every((column) => peopleColumns.includes(column)),
+    peopleColumns.join(' | '),
+  );
   await admin.screenshot({ path: path.join(SHOTS, 'admin-people.png'), fullPage: true });
   const leaBefore = Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n);
   await admin.click(`${PEOPLE} [data-person="${MAX.sub}"] [data-delete]`);
@@ -950,16 +1108,23 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await admin.click(`${PEOPLE} [data-confirm-delete]`);
   const deletedSaid = await admin
     .waitForFunction((page) => /backups\//.test(document.querySelector(`${page} [data-outcome]`)?.textContent || ''), PEOPLE, { timeout: 10000 })
-    .then(() => true, () => false);
-  const rowGone = await admin.waitForSelector(`${PEOPLE} [data-person="${MAX.sub}"]`, { state: 'detached', timeout: 10000 }).then(() => true, () => false);
-  ck('then deletes: what went said, with the copy’s file, and the row gone (the list asked for again)',
-    deletedSaid && rowGone, deletedSaid ? '' : await admin.textContent(PEOPLE));
-  ck('his data is gone, a copy of it kept, nobody else’s touched - and the delete in the audit log',
-    Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', MAX.sub)[0].n) === 0
-      && app.sql('SELECT id FROM users WHERE id = ?', MAX.sub).length === 0
-      && fs.readdirSync(app.backups).some((f) => /before-delete-user-4102-/.test(f))
-      && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) === leaBefore
-      && Number(app.sql("SELECT count(*) AS n FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", String(MAX.sub))[0].n) === 1);
+    .then(
+      () => true,
+      () => false,
+    );
+  const rowGone = await admin.waitForSelector(`${PEOPLE} [data-person="${MAX.sub}"]`, { state: 'detached', timeout: 10000 }).then(
+    () => true,
+    () => false,
+  );
+  ck('then deletes: what went said, with the copy’s file, and the row gone (the list asked for again)', deletedSaid && rowGone, deletedSaid ? '' : await admin.textContent(PEOPLE));
+  ck(
+    'his data is gone, a copy of it kept, nobody else’s touched - and the delete in the audit log',
+    Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', MAX.sub)[0].n) === 0 &&
+      app.sql('SELECT id FROM users WHERE id = ?', MAX.sub).length === 0 &&
+      fs.readdirSync(app.backups).some((f) => /before-delete-user-4102-/.test(f)) &&
+      Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) === leaBefore &&
+      Number(app.sql("SELECT count(*) AS n FROM anotoki_audit_log WHERE action = 'person.data_deleted' AND target_id = ?", String(MAX.sub))[0].n) === 1,
+  );
 
   // Feedback, from the family's footer of a learner's page: it reaches the panel - the count beside its Feedback
   // link (no mail is sent), the message on the library's Feedback page.
@@ -974,16 +1139,30 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await fb.click('anotoki-site-footer [data-open-feedback]');
   await fb.waitForSelector('[data-feedback-dialog] anotoki-feedback-form form');
   ck('its form in the kit’s dialog, named by the button', (await fb.textContent('[data-feedback-dialog] .anotoki-dialog__title')).trim() === 'Feedback');
-  ck('its form in a dialog: her account’s address written in to answer her, "without my name" offered',
-    (await fb.inputValue('anotoki-feedback-form [data-email] input')) === 'noa@example.test' && (await fb.$('anotoki-feedback-form [data-anonymous]')) !== null);
+  ck(
+    'its form in a dialog: her account’s address written in to answer her, "without my name" offered',
+    (await fb.inputValue('anotoki-feedback-form [data-email] input')) === 'noa@example.test' && (await fb.$('anotoki-feedback-form [data-anonymous]')) !== null,
+  );
   await fb.fill('anotoki-feedback-form [data-message] textarea', 'The stroke order of 学 would help me a lot.');
   await fb.click('anotoki-feedback-form button[type="submit"]');
-  const thanked = await fb.waitForSelector('anotoki-feedback-form [data-thanks]', { timeout: 10000 }).then(() => true, () => false);
+  const thanked = await fb.waitForSelector('anotoki-feedback-form [data-thanks]', { timeout: 10000 }).then(
+    () => true,
+    () => false,
+  );
   const sentRow = app.sql('SELECT user_id, contact_email, page, message FROM anotoki_feedback ORDER BY id DESC LIMIT 1')[0] || {};
-  ck('sent: the thanks; kept as hers, her account’s address to answer her, the page without its query',
-    thanked && Number(sentRow.user_id) === NOA.sub && sentRow.contact_email === 'noa@example.test' && sentRow.page === '/kanji', JSON.stringify(sentRow));
+  ck(
+    'sent: the thanks; kept as hers, her account’s address to answer her, the page without its query',
+    thanked && Number(sentRow.user_id) === NOA.sub && sentRow.contact_email === 'noa@example.test' && sentRow.page === '/kanji',
+    JSON.stringify(sentRow),
+  );
   await fb.click('anotoki-feedback-form [data-close]');
-  ck('Close puts the form away', await fb.waitForSelector('anotoki-feedback-form', { state: 'detached', timeout: 3000 }).then(() => true, () => false));
+  ck(
+    'Close puts the form away',
+    await fb.waitForSelector('anotoki-feedback-form', { state: 'detached', timeout: 3000 }).then(
+      () => true,
+      () => false,
+    ),
+  );
   ck('no browser errors around the form', fbErrors.length === 0, fbErrors.join(' | '));
   await fbContext.close();
 
@@ -1006,21 +1185,32 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const reportAnswer = reportRequest ? await reportRequest.response() : null;
   const reportBody = reportRequest ? reportRequest.postData() || '' : '';
   const reportHeaders = reportRequest ? reportRequest.headers() : {};
-  ck("a page's own error is reported: through the app's HttpClient, her token and time zone on it, the address scrubbed out in the page",
-    !!reportAnswer && reportAnswer.status() === 204 && /^Bearer /.test(reportHeaders.authorization || '') && !!reportHeaders['x-time-zone']
-      && /e2e: a page error/.test(reportBody) && !/noa@example\.test/.test(reportBody), `${reportAnswer && reportAnswer.status()} ${reportBody}`);
+  ck(
+    "a page's own error is reported: through the app's HttpClient, her token and time zone on it, the address scrubbed out in the page",
+    !!reportAnswer &&
+      reportAnswer.status() === 204 &&
+      /^Bearer /.test(reportHeaders.authorization || '') &&
+      !!reportHeaders['x-time-zone'] &&
+      /e2e: a page error/.test(reportBody) &&
+      !/noa@example\.test/.test(reportBody),
+    `${reportAnswer && reportAnswer.status()} ${reportBody}`,
+  );
   const loggedReport = await (await app.api('/api/admin/errors?days=1&search=' + encodeURIComponent('e2e: a page error'), ADA)).json();
   const loggedText = JSON.stringify(loggedReport);
-  ck("and the error log has it, as the page's (source client), scrubbed again - no address",
-    /e2e: a page error/.test(loggedText) && /"source":"client"/.test(loggedText) && !/noa@example\.test/.test(loggedText), loggedText.slice(0, 300));
+  ck(
+    "and the error log has it, as the page's (source client), scrubbed again - no address",
+    /e2e: a page error/.test(loggedText) && /"source":"client"/.test(loggedText) && !/noa@example\.test/.test(loggedText),
+    loggedText.slice(0, 300),
+  );
   ck('the console heard of it, and of nothing else', oopsErrors.length > 0 && oopsErrors.every((e) => /e2e: a page error/.test(e)), oopsErrors.join(' | '));
   await oopsContext.close();
 
   await admin.goto(app.base + '/admin/translations');
   await admin.waitForSelector(GRID);
-  const badge = await admin
-    .waitForSelector(`${barLink('/admin/feedback')} .anotoki-top-bar__badge`, { timeout: 10000 })
-    .then((el) => el.textContent(), () => '');
+  const badge = await admin.waitForSelector(`${barLink('/admin/feedback')} .anotoki-top-bar__badge`, { timeout: 10000 }).then(
+    (el) => el.textContent(),
+    () => '',
+  );
   ck('the panel’s bar: the new message counted beside Feedback', badge.trim() === '1', badge);
   await admin.click(barLink('/admin/feedback'));
   await admin.waitForSelector('anotoki-feedback-page [data-messages] [data-message]');
@@ -1030,14 +1220,21 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await admin.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
   const read = await admin
     .waitForFunction((link) => !document.querySelector(`${link} .anotoki-top-bar__badge`), barLink('/admin/feedback'), { timeout: 5000 })
-    .then(() => true, () => false);
+    .then(
+      () => true,
+      () => false,
+    );
   ck('opened, it is read: the count goes', read);
   // The shot once the viewer has settled: faded in, the message's new status back (no spinner left in it).
   await admin
-    .waitForFunction(() => {
-      const dialog = document.querySelector('anotoki-feedback-page [data-viewer] dialog[open]');
-      return !!dialog && getComputedStyle(dialog).opacity === '1' && !dialog.querySelector('anotoki-spinner, [aria-busy="true"]');
-    }, null, { timeout: 5000 })
+    .waitForFunction(
+      () => {
+        const dialog = document.querySelector('anotoki-feedback-page [data-viewer] dialog[open]');
+        return !!dialog && getComputedStyle(dialog).opacity === '1' && !dialog.querySelector('anotoki-spinner, [aria-busy="true"]');
+      },
+      null,
+      { timeout: 5000 },
+    )
     .catch(() => {});
   await admin.screenshot({ path: path.join(SHOTS, 'admin-feedback-message.png') });
   await admin.keyboard.press('Escape');
@@ -1047,12 +1244,19 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('the error log (the library’s page): what went wrong on the server, in its frame', (await admin.getAttribute('main.admin', 'lang')) === 'en');
   const pageErrorListed = await admin
     .waitForFunction(() => /e2e: a page error/.test(document.querySelector('anotoki-error-log-page')?.textContent || ''), null, { timeout: 10000 })
-    .then(() => true, () => false);
+    .then(
+      () => true,
+      () => false,
+    );
   ck("and what went wrong in a page: the learner's page error, listed there", pageErrorListed);
   await admin.click(barLink('/admin/audit'));
   await admin.waitForSelector('anotoki-audit-log-page [data-entries]');
   const audited = (await admin.textContent('anotoki-audit-log-page [data-entries]')).replace(/\s+/g, ' ');
-  ck('the audit log (the library’s page): the person’s data deleted and the language added, by her', /person\.data_deleted/.test(audited) && /language\.created/.test(audited) && /ada/.test(audited), audited.slice(0, 300));
+  ck(
+    'the audit log (the library’s page): the person’s data deleted and the language added, by her',
+    /person\.data_deleted/.test(audited) && /language\.created/.test(audited) && /ada/.test(audited),
+    audited.slice(0, 300),
+  );
   await admin.click(barLink('/admin/backups'));
   await admin.waitForSelector('anotoki-backups-page [data-create]');
   await admin.click('anotoki-backups-page [data-create]');
@@ -1060,10 +1264,16 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await admin.click('anotoki-backups-page [data-guarded-confirm]');
   const backedUp = await admin
     .waitForFunction(() => document.querySelectorAll('anotoki-backups-page [data-backup]').length > 0, null, { timeout: 30000 })
-    .then(() => true, () => false);
+    .then(
+      () => true,
+      () => false,
+    );
   const backupFiles = fs.readdirSync(app.backups);
-  ck('the backups (the library’s page): Back up now, after its question, by an ADMIN who signed in at the IAM minutes ago - one made and listed, beside this site’s own copies',
-    backedUp && backupFiles.some((f) => /-manual-[0-9a-f]{32}\.anotoki-backup$/.test(f)) && backupFiles.some((f) => /^academy-.*\.json$/.test(f)), backupFiles.join(', '));
+  ck(
+    'the backups (the library’s page): Back up now, after its question, by an ADMIN who signed in at the IAM minutes ago - one made and listed, beside this site’s own copies',
+    backedUp && backupFiles.some((f) => /-manual-[0-9a-f]{32}\.anotoki-backup$/.test(f)) && backupFiles.some((f) => /^academy-.*\.json$/.test(f)),
+    backupFiles.join(', '),
+  );
   await admin.screenshot({ path: path.join(SHOTS, 'admin-backups.png'), fullPage: true });
   ck('no browser errors in the admin area', adminErrors.length === 0, adminErrors.join(' | '));
   await adminContext.close();
@@ -1088,11 +1298,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   }
   const people403 = await (await app.api('/api/admin/people', EDDIE)).json();
   const delete403 = await app.api(`/api/admin/people/${LEA.sub}`, EDDIE, { method: 'DELETE' });
-  ck('and the API: 403 admin_only to the people, a delete refused, nothing deleted',
-    people403.code === 'admin_only' && delete403.status === 403 && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) > 0);
+  ck(
+    'and the API: 403 admin_only to the people, a delete refused, nothing deleted',
+    people403.code === 'admin_only' && delete403.status === 403 && Number(app.sql('SELECT count(*) AS n FROM srs_progress WHERE user_id = ?', LEA.sub)[0].n) > 0,
+  );
   const tools403 = [];
   for (const url of ['/api/admin/feedback', '/api/admin/errors', '/api/admin/audit', '/api/admin/backups']) tools403.push((await (await app.api(url, EDDIE)).json()).code);
-  ck('and 403 admin_only to every admin tool', tools403.every((code) => code === 'admin_only'), tools403.join(','));
+  ck(
+    'and 403 admin_only to every admin tool',
+    tools403.every((code) => code === 'admin_only'),
+    tools403.join(','),
+  );
   ck('no browser errors, as an EDITOR', editorErrors.length === 0, editorErrors.join(' | '));
   await editorContext.close();
 
@@ -1106,8 +1322,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   ck('a learner: no Admin in the menu', (await learner.$(BAR.adminLink)) === null);
   await learner.goto(app.base + '/admin/translations');
   await learner.waitForSelector('.homecards');
-  ck('and /admin sends them home; the API says 403 staff_only',
-    new URL(learner.url()).pathname === '/' && (await (await app.api('/api/admin/languages', NOA)).json()).code === 'staff_only');
+  ck('and /admin sends them home; the API says 403 staff_only', new URL(learner.url()).pathname === '/' && (await (await app.api('/api/admin/languages', NOA)).json()).code === 'staff_only');
   await learnerContext.close();
 
   /* ------------------------------------- a database update waiting for an ADMIN */
@@ -1148,9 +1363,13 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   app.sql('DELETE FROM migrations WHERE name = ?', WAITS);
   app.sql("UPDATE content_state SET stamp = 'before the upload'");
   const waiting = await app.api('/api/kanji/summary', NOA);
-  ck('every address with data says the site is being updated, and to ask again in a minute: no request applies it',
-    waiting.status === 503 && (await waiting.json()).code === 'update_pending' && waiting.headers.get('retry-after') === '60'
-      && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0);
+  ck(
+    'every address with data says the site is being updated, and to ask again in a minute: no request applies it',
+    waiting.status === 503 &&
+      (await waiting.json()).code === 'update_pending' &&
+      waiting.headers.get('retry-after') === '60' &&
+      app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0,
+  );
   /** The anotoki library's page, as a tab shows it: its heading, its words, every button and link on it. */
   const libraryPage = (pg) =>
     pg.$eval('anotoki-site-status', (el) => ({
@@ -1168,11 +1387,16 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await sitter.click('#quitBtn');
   const sitterAsked = await answerQuestion(sitter, true); // "questions unanswered: finish anyway?" - Finish
   await sitter.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
-  ck('a paper open as the update lands: its hand-in refused with no error (the “unanswered?” question alone), the library’s page in its place, the paper kept for the tab',
-    (await libraryPage(sitter)).title === 'The site is being updated' && sitterAsked?.title === 'Finish and score anyway?'
-      && (await sitter.$(NOTICE)) === null && sitterBoxes.length === 0
-      && (await sitter.$('app-exam')) === null && (await keptOf(sitter))?.idx === 2,
-    `${JSON.stringify(sitterAsked)} ${sitterBoxes.join(',')} ${JSON.stringify(sitting)}`);
+  ck(
+    'a paper open as the update lands: its hand-in refused with no error (the “unanswered?” question alone), the library’s page in its place, the paper kept for the tab',
+    (await libraryPage(sitter)).title === 'The site is being updated' &&
+      sitterAsked?.title === 'Finish and score anyway?' &&
+      (await sitter.$(NOTICE)) === null &&
+      sitterBoxes.length === 0 &&
+      (await sitter.$('app-exam')) === null &&
+      (await keptOf(sitter))?.idx === 2,
+    `${JSON.stringify(sitterAsked)} ${sitterBoxes.join(',')} ${JSON.stringify(sitting)}`,
+  );
 
   // A visitor - nobody signed in, sign-in required here: never sent to the IAM while the site is being updated.
   const asVisitor = await newContext(browser, { viewport: { width: 390, height: 844 } });
@@ -1183,10 +1407,15 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await waitingVisitor.goto(app.base + '/kanji/reviews');
   await waitingVisitor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByVisitor = await libraryPage(waitingVisitor);
-  ck('a visitor: “The site is being updated” - the library’s page alone (no bar, no footer), no error, no code, no setup or migrations button; a quiet Sign in, and no trip to the IAM',
-    seenByVisitor.title === 'The site is being updated' && seenByVisitor.actions.join(',') === 'Sign in' && (await bare(waitingVisitor))
-      && !/error|update_pending|503|setup|Migrations/i.test(seenByVisitor.text) && !visitorSent.some((url) => url.startsWith(IAM.issuer)),
-    JSON.stringify(seenByVisitor));
+  ck(
+    'a visitor: “The site is being updated” - the library’s page alone (no bar, no footer), no error, no code, no setup or migrations button; a quiet Sign in, and no trip to the IAM',
+    seenByVisitor.title === 'The site is being updated' &&
+      seenByVisitor.actions.join(',') === 'Sign in' &&
+      (await bare(waitingVisitor)) &&
+      !/error|update_pending|503|setup|Migrations/i.test(seenByVisitor.text) &&
+      !visitorSent.some((url) => url.startsWith(IAM.issuer)),
+    JSON.stringify(seenByVisitor),
+  );
   await waitingVisitor.screenshot({ path: path.join(SHOTS, 'waiting-visitor.png') });
   ck('no browser errors for the visitor', visitorErrors.length === 0, visitorErrors.join(' | '));
   await asVisitor.close();
@@ -1201,12 +1430,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await waitingLearner.goto(app.base + '/');
   await waitingLearner.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
   const seenByLearner = await libraryPage(waitingLearner);
-  ck('a signed-in learner: the same page alone, no error, and no button at all',
+  ck(
+    'a signed-in learner: the same page alone, no error, and no button at all',
     seenByLearner.title === 'The site is being updated' && seenByLearner.actions.length === 0 && (await bare(waitingLearner)) && !/error|update_pending|setup|Migrations/i.test(seenByLearner.text),
-    JSON.stringify(seenByLearner));
+    JSON.stringify(seenByLearner),
+  );
   await waitingLearner.screenshot({ path: path.join(SHOTS, 'waiting-learner.png') });
-  ck('nothing of the pages behind it is made: the home page asks for no data, and no answer fails',
-    askedForData(learnerSent).length === 0 && learnerErrors.length === 0, [...askedForData(learnerSent), ...learnerErrors].join(' | '));
+  ck(
+    'nothing of the pages behind it is made: the home page asks for no data, and no answer fails',
+    askedForData(learnerSent).length === 0 && learnerErrors.length === 0,
+    [...askedForData(learnerSent), ...learnerErrors].join(' | '),
+  );
   await asLearner.close();
 
   // An EDITOR rewords strings, and applies nothing: the same page everywhere, with no way to the Migrations page.
@@ -1221,12 +1455,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     await waitingEditor.goto(app.base + where);
     await waitingEditor.waitForSelector('anotoki-site-status h1', { timeout: 15000 });
     const seen = await libraryPage(waitingEditor);
-    ck(`an EDITOR at ${where} while it waits: the same page alone, and no way to the Migrations page`,
+    ck(
+      `an EDITOR at ${where} while it waits: the same page alone, and no way to the Migrations page`,
       seen.title === 'The site is being updated' && seen.actions.length === 0 && (await waitingEditor.$('main.admin')) === null && (await bare(waitingEditor)),
-      `${new URL(waitingEditor.url()).pathname}: ${JSON.stringify(seen)}`);
+      `${new URL(waitingEditor.url()).pathname}: ${JSON.stringify(seen)}`,
+    );
   }
-  ck('and no page behind it asks for data (Translations would), nor does an answer fail',
-    askedForData(waitingEditorSent).length === 0 && waitingEditorErrors.length === 0, [...askedForData(waitingEditorSent), ...waitingEditorErrors].join(' | '));
+  ck(
+    'and no page behind it asks for data (Translations would), nor does an answer fail',
+    askedForData(waitingEditorSent).length === 0 && waitingEditorErrors.length === 0,
+    [...askedForData(waitingEditorSent), ...waitingEditorErrors].join(' | '),
+  );
   await asEditor.close();
 
   // A signed-out administrator: the visitors' page, whose Sign in goes to the IAM and back to it - signed in, the
@@ -1244,21 +1483,32 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await migrations.waitForSelector('anotoki-site-status a', { timeout: 15000 });
   const seenByAdmin = await libraryPage(migrations);
   // Signed in now - the page says so, the ADMIN's own (its way to the Migrations page) - and still alone: no bar.
-  ck('its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page, and still no bar or footer',
-    (await iamLog()).slice(iamBefore).includes('GET /api/oidc/authorize') && new URL(migrations.url()).pathname === '/'
-      && seenByAdmin.title === 'A database update is waiting' && seenByAdmin.actions.join(',') === 'Open Migrations'
-      && (await bare(migrations)), `${migrations.url()} ${JSON.stringify(seenByAdmin)}`);
+  ck(
+    'its Sign in: to the IAM and back to the same page, signed in - “A database update is waiting”, with the way to the Migrations page, and still no bar or footer',
+    (await iamLog()).slice(iamBefore).includes('GET /api/oidc/authorize') &&
+      new URL(migrations.url()).pathname === '/' &&
+      seenByAdmin.title === 'A database update is waiting' &&
+      seenByAdmin.actions.join(',') === 'Open Migrations' &&
+      (await bare(migrations)),
+    `${migrations.url()} ${JSON.stringify(seenByAdmin)}`,
+  );
   await migrations.screenshot({ path: path.join(SHOTS, 'waiting-admin.png') });
   await migrations.click('anotoki-site-status a');
   await migrations.waitForSelector('[data-pending] .anotoki-migrations-page__file', { timeout: 15000 });
   const pendingFiles = await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()));
   const waitingFoot = await footerOf(migrations);
-  ck('the Migrations page opens while it waits, in the admin panel’s frame - the bar (Migrations its one link, her menu), the footer without Feedback -: the file pending, the rest applied, Apply on',
-    new URL(migrations.url()).pathname === '/admin/migrations' && pendingFiles.join(',') === WAITS
-      && (await migrations.$$('[data-applied] .anotoki-migrations-page__file')).length >= 5 && !(await migrations.isDisabled('[data-apply]'))
-      && (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy'
-      && (await migrations.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()))).join(',') === 'Migrations' && (await migrations.$(BAR.userButton)) !== null
-      && waitingFoot.row.join('|') === `Version ${LATEST.version}|What's new`, `${pendingFiles.join(',')} ${await migrations.title()} ${JSON.stringify(waitingFoot)}`);
+  ck(
+    'the Migrations page opens while it waits, in the admin panel’s frame - the bar (Migrations its one link, her menu), the footer without Feedback -: the file pending, the rest applied, Apply on',
+    new URL(migrations.url()).pathname === '/admin/migrations' &&
+      pendingFiles.join(',') === WAITS &&
+      (await migrations.$$('[data-applied] .anotoki-migrations-page__file')).length >= 5 &&
+      !(await migrations.isDisabled('[data-apply]')) &&
+      (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy' &&
+      (await migrations.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()))).join(',') === 'Migrations' &&
+      (await migrations.$(BAR.userButton)) !== null &&
+      waitingFoot.row.join('|') === `Version ${LATEST.version}|What's new`,
+    `${pendingFiles.join(',')} ${await migrations.title()} ${JSON.stringify(waitingFoot)}`,
+  );
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
   await migrations.click('[data-apply]');
   await migrations.waitForSelector('anotoki-dialog[data-confirm] dialog[open]');
@@ -1274,15 +1524,24 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await migrations.waitForSelector('[data-result] .anotoki-alert__heading', { timeout: 15000 });
   await migrations.waitForFunction(() => !document.querySelector('[data-apply]').textContent.includes('Applying'));
   const stopped = (await migrations.textContent('[data-result]')).replace(/\s+/g, ' ').trim();
-  ck('a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
-    (await migrations.textContent('[data-result] .anotoki-alert__heading')).trim() === `Stopped at ${WAITS}` && /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped)
-      && (await migrations.getAttribute('[data-result]', 'role')) === 'alert' && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0
-      && app.sql(SK_ADMIN, 'en')[0].value === enAdmin && !(await migrations.isDisabled('[data-apply]'))
-      && (await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS, stopped);
+  ck(
+    'a migration that fails: stopped at its file, nothing applied, rolled back whole, Apply on for another try',
+    (await migrations.textContent('[data-result] .anotoki-alert__heading')).trim() === `Stopped at ${WAITS}` &&
+      /Nothing was applied\. The failed file was rolled back as a whole\./.test(stopped) &&
+      (await migrations.getAttribute('[data-result]', 'role')) === 'alert' &&
+      app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 0 &&
+      app.sql(SK_ADMIN, 'en')[0].value === enAdmin &&
+      !(await migrations.isDisabled('[data-apply]')) &&
+      (await migrations.$$eval('[data-pending] .anotoki-migrations-page__file code', (els) => els.map((e) => e.textContent.trim()))).join(',') === WAITS,
+    stopped,
+  );
   // Why, in PostgreSQL's own words (its gate's exception), on the page as the IAM's shows it - a website's too.
   const why = (await migrations.$eval('[data-result] pre.anotoki-migrations-page__error', (el) => el.textContent).catch(() => '')).trim();
-  ck("a migration that fails: why, in PostgreSQL's own words, on the page (no error log to look in)",
-    /ERROR:\s+006_admin_panel_words: reworded keys without an English and a Slovak string: topbar\.admin/.test(why) && !/error log/.test(stopped), why || stopped);
+  ck(
+    "a migration that fails: why, in PostgreSQL's own words, on the page (no error log to look in)",
+    /ERROR:\s+006_admin_panel_words: reworded keys without an English and a Slovak string: topbar\.admin/.test(why) && !/error log/.test(stopped),
+    why || stopped,
+  );
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-failed.png'), fullPage: true });
   app.sql("INSERT INTO translations (key_name, language_code, value) VALUES ('topbar.admin', 'sk', ?)", skAdmin);
 
@@ -1291,9 +1550,13 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await migrations.click('[data-confirm-apply]');
   await migrations.waitForFunction(() => document.querySelector('[data-result] .anotoki-alert__heading')?.textContent.trim() === 'Up to date', null, { timeout: 15000 });
   await migrations.waitForFunction(() => /Nothing pending/.test(document.querySelector('[data-pending]')?.textContent ?? ''));
-  ck('then applies it: up to date, nothing pending, the file applied, Apply off',
-    /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) && (await migrations.isDisabled('[data-apply]'))
-      && app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1, await migrations.textContent('[data-result]'));
+  ck(
+    'then applies it: up to date, nothing pending, the file applied, Apply off',
+    /Applied: 006_admin_panel_words\.sql\./.test(await migrations.textContent('[data-result]')) &&
+      (await migrations.isDisabled('[data-apply]')) &&
+      app.sql('SELECT name FROM migrations WHERE name = ?', WAITS).length === 1,
+    await migrations.textContent('[data-result]'),
+  );
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations.png'), fullPage: true });
   // Back to the app without a page load (the menu's link): the gate is open again, and the app's words were asked
   // for anew - the learner's page is drawn in words, not keys, from the start.
@@ -1301,8 +1564,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await migrations.click(BAR.backLink);
   await migrations.waitForSelector('.homecards', { timeout: 15000 });
   const keysBack = await keyShaped(migrations);
-  ck('back to the app by the menu, no page load: its words at once, no key on the page',
-    keysBack.length === 0 && new URL(migrations.url()).pathname === '/' && (await migrations.$('anotoki-site-status')) === null, keysBack.join(' | '));
+  ck(
+    'back to the app by the menu, no page load: its words at once, no key on the page',
+    keysBack.length === 0 && new URL(migrations.url()).pathname === '/' && (await migrations.$('anotoki-site-status')) === null,
+    keysBack.join(' | '),
+  );
   ck('and the app is back, for everybody', (await app.api('/api/kanji/summary', NOA)).status === 200);
   ck('no browser errors on the way: no page behind the library’s page asked for anything', migrationErrors.length === 0, migrationErrors.join(' | '));
   const editorMigrations = await app.api('/api/admin/migrations', EDDIE);
@@ -1313,8 +1579,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   // pages first in the page about to go (anotoki-lib 0.2.0): the fresh page puts her paper back, its copy used then.
   await sitter.waitForSelector('#test:not([hidden])', { timeout: 45000 });
   const satAgain = await paperShown(sitter);
-  ck('Pia’s tab, the site back: loaded afresh by itself, her paper on its question with its answers and flag',
-    JSON.stringify(satAgain) === JSON.stringify(sitting) && (await sitter.$('anotoki-site-status')) === null, JSON.stringify(satAgain));
+  ck(
+    'Pia’s tab, the site back: loaded afresh by itself, her paper on its question with its answers and flag',
+    JSON.stringify(satAgain) === JSON.stringify(sitting) && (await sitter.$('anotoki-site-status')) === null,
+    JSON.stringify(satAgain),
+  );
   ck('its copy used once: an open paper again, which nothing keeps for the tab while the site is ready', (await keptOf(sitter)) === null);
   await sitter.keyboard.press('1');
   await sitter.waitForFunction((done) => document.querySelectorAll('#gridNav .done').length === done + 1, sitting.done);
@@ -1332,7 +1601,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const PAGO = 'Pacific/Pago_Pago'; // UTC-11: never the same day
   await app.api('/api/kanji/summary', KIRI); // the person's row
   app.sql('INSERT INTO srs_daily (user_id, day, lessons) VALUES (?, ?::date, 3), (?, ?::date, 7)', KIRI.sub, dayIn(KIRITIMATI), KIRI.sub, dayIn(PAGO));
-  for (const [timezoneId, lessons, lang] of [[KIRITIMATI, '3', null], [PAGO, '7', 'sk']]) {
+  for (const [timezoneId, lessons, lang] of [
+    [KIRITIMATI, '3', null],
+    [PAGO, '7', 'sk'],
+  ]) {
     const zoned = await newContext(browser, { viewport: { width: 1100, height: 860 }, timezoneId, ...(lang ? { locale: 'sk-SK' } : {}) });
     await plant(zoned, KIRI, lang);
     const z = await zoned.newPage();
@@ -1410,14 +1682,21 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vOpen('/');
   await vPage.waitForSelector('#visitorNotice', { timeout: 15000 });
   await vPage.waitForSelector('.homecards');
-  ck('sign-in not required: / opens at once, no trip to the IAM, as a visitor',
-    new URL(vPage.url()).pathname === '/' && !toIam(0), vPage.url());
+  ck('sign-in not required: / opens at once, no trip to the IAM, as a visitor', new URL(vPage.url()).pathname === '/' && !toIam(0), vPage.url());
   const noticeWords = (await vPage.textContent('#visitorNotice p')).trim();
-  ck('the notice: kept for this browser for 30 days after the last visit; signing in keeps it',
-    noticeWords === 'You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.', noticeWords);
-  ck('no Your data, no person’s menu, no way to the admin panel; Sign in in the bar and in the notice',
-    (await vPage.$('#your-data')) === null && (await vPage.$(BAR.userButton)) === null && (await vPage.$(BAR.adminLink)) === null
-      && (await vPage.isVisible(BAR.signInButton)) && (await vPage.isVisible('#visitorSignIn')));
+  ck(
+    'the notice: kept for this browser for 30 days after the last visit; signing in keeps it',
+    noticeWords === 'You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.',
+    noticeWords,
+  );
+  ck(
+    'no Your data, no person’s menu, no way to the admin panel; Sign in in the bar and in the notice',
+    (await vPage.$('#your-data')) === null &&
+      (await vPage.$(BAR.userButton)) === null &&
+      (await vPage.$(BAR.adminLink)) === null &&
+      (await vPage.isVisible(BAR.signInButton)) &&
+      (await vPage.isVisible('#visitorSignIn')),
+  );
   ck('a page looked at makes nobody: no key, no visitor', (await heldKey()) === null && visitorRows().length === 0, visitorRows().join(','));
   await vPage.screenshot({ path: path.join(SHOTS, 'home-visitor.png') });
 
@@ -1426,7 +1705,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await iamState({ deny: true });
   let mark = vSent.length;
   await vOpen('/admin/migrations');
-  const failedShown = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(() => true, () => false);
+  const failedShown = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(
+    () => true,
+    () => false,
+  );
   const failedWords = failedShown ? (await vPage.textContent(FAILURE.message)).trim() : '';
   ck('/admin/migrations as a visitor: to the IAM first, never the panel', toIam(mark) && (await vPage.$('main.admin')) === null, vPage.url());
   ck('refused there: the library’s screen says why, in its words', failedShown && failedWords === refusedWords, `${vPage.url()} ${failedWords}`);
@@ -1434,11 +1716,20 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vOpen('/');
   await vPage.waitForSelector('#visitorNotice');
   await vPage.click(BAR.signInButton);
-  const refusedHere = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(() => true, () => false);
-  ck('the bar’s Sign in refused at the IAM: the library’s screen, in the place of the visitor’s page',
-    refusedHere && (await vPage.$('#visitorNotice')) === null && (await vPage.isVisible(BAR.signInButton)), vPage.url());
+  const refusedHere = await vPage.waitForSelector(FAILURE.back, { timeout: 15000 }).then(
+    () => true,
+    () => false,
+  );
+  ck(
+    'the bar’s Sign in refused at the IAM: the library’s screen, in the place of the visitor’s page',
+    refusedHere && (await vPage.$('#visitorNotice')) === null && (await vPage.isVisible(BAR.signInButton)),
+    vPage.url(),
+  );
   await vPage.click(FAILURE.back);
-  const backHome = await vPage.waitForSelector('#visitorNotice', { timeout: 5000 }).then(() => true, () => false);
+  const backHome = await vPage.waitForSelector('#visitorNotice', { timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
   ck('and Back: the page again, still a visitor’s - never round to the IAM', backHome && new URL(vPage.url()).pathname === '/' && (await vPage.$(FAILURE.screen)) === null, vPage.url());
   await iamState({ deny: false });
 
@@ -1459,13 +1750,17 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vPage.waitForSelector('app-summary h1');
   const key = await heldKey();
   const [visitor] = visitorRows();
-  ck('a lesson batch as a visitor: one key in this browser, one visitor (a negative id), five items its own',
+  ck(
+    'a lesson batch as a visitor: one key in this browser, one visitor (a negative id), five items its own',
     /^[A-Za-z0-9_-]{43}$/.test(key || '') && visitorRows().length === 1 && visitor < 0 && rowsOf('srs_progress', visitor) === 5,
-    `${key} ${visitorRows().join(',')}`);
+    `${key} ${visitorRows().join(',')}`,
+  );
   const learns = await Promise.all(vSent.filter((r) => r.method === 'POST' && r.url === `${app.base}/api/kanji/learn`).map(async (r) => r.headers));
-  ck('the first answer went alone and brought the key; every other went with it; none with a token',
+  ck(
+    'the first answer went alone and brought the key; every other went with it; none with a token',
     learns.length >= 5 && !learns[0]['x-visitor-key'] && learns.slice(1).every((h) => h['x-visitor-key'] === key) && learns.every((h) => !h.authorization),
-    learns.map((h) => (h['x-visitor-key'] ? 'key' : 'none')).join(','));
+    learns.map((h) => (h['x-visitor-key'] ? 'key' : 'none')).join(','),
+  );
   await vOpen('/');
   await vPage.waitForFunction(() => /\d/.test(document.getElementById('kLearned')?.textContent || ''));
   ck('the page loaded again: the visitor’s progress is still there', (await vPage.textContent('#kLearned')).trim().startsWith('5 /'), await vPage.textContent('#kLearned'));
@@ -1481,7 +1776,12 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vPage.waitForSelector('#result:not([hidden])', { timeout: 15000 });
   ck('an exam as a visitor: scored and kept, the visitor’s', rowsOf('exam_attempts', visitor) === 1);
   const [vReport] = await Promise.all([vContext.waitForEvent('page'), vPage.click('#reportLink')]);
-  const reportOpened = await vReport.waitForFunction(() => document.body && /By skill/.test(document.body.innerText), null, { timeout: 10000 }).then(() => true, () => false);
+  const reportOpened = await vReport
+    .waitForFunction(() => document.body && /By skill/.test(document.body.innerText), null, { timeout: 10000 })
+    .then(
+      () => true,
+      () => false,
+    );
   ck('and its report opens, fetched with the key', reportOpened && vReport.url().startsWith('blob:'), vReport.url());
   await vReport.close();
 
@@ -1511,18 +1811,26 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const visitorBefore = rowsOf('srs_progress', visitor);
   mark = vSent.length;
   await vPage.click(BAR.signInButton);
-  const signInWaited = await vPage.waitForSelector(`${BAR.signInButton}[aria-busy="true"]`, { timeout: 1000 }).then(() => true, () => false);
+  const signInWaited = await vPage.waitForSelector(`${BAR.signInButton}[aria-busy="true"]`, { timeout: 1000 }).then(
+    () => true,
+    () => false,
+  );
   const signInWaitWords = signInWaited ? (await vPage.textContent(BAR.signInButton)).trim() : '';
   ck('Sign in with answers on their way: it waits for them, saying so', signInWaited && signInWaitWords === 'Saving…' && visitorBefore < 10, `${signInWaitWords} (${visitorBefore} kept before)`);
   await vPage.waitForSelector(BAR.userButton, { timeout: 20000 });
   await vPage.unroute('**/api/kanji/learn');
   ck('then to the IAM and back, signed in, on the page it left', toIam(mark) && (await vPage.textContent(BAR.userName)).trim() === 'vera' && new URL(vPage.url()).pathname === '/kanji', vPage.url());
-  const movedShown = await vPage.waitForSelector('#visitorMoved', { timeout: 10000 }).then(() => true, () => false);
+  const movedShown = await vPage.waitForSelector('#visitorMoved', { timeout: 10000 }).then(
+    () => true,
+    () => false,
+  );
   const movedWords = movedShown ? (await vPage.textContent('#visitorMoved p')).replace(/\s+/g, ' ').trim() : '';
   ck('the note: what moved into the account', movedWords === 'What you studied without signing in is now in your account. Kanji and words: 10, exam attempts: 1.', movedWords);
-  ck('in the database: her 10 items (the last answer too) and the exam; no visitor left, its key gone from the browser',
+  ck(
+    'in the database: her 10 items (the last answer too) and the exam; no visitor left, its key gone from the browser',
     vHeld >= 1 && rowsOf('srs_progress', VERA.sub) === 10 && rowsOf('exam_attempts', VERA.sub) === 1 && visitorRows().length === 0 && (await heldKey()) === null,
-    `${rowsOf('srs_progress', VERA.sub)} items, ${rowsOf('exam_attempts', VERA.sub)} attempt(s), visitors ${visitorRows().join(',')}, ${vHeld} held back`);
+    `${rowsOf('srs_progress', VERA.sub)} items, ${rowsOf('exam_attempts', VERA.sub)} attempt(s), visitors ${visitorRows().join(',')}, ${vHeld} held back`,
+  );
   ck('the kanji dashboard shows them as hers, the notice gone', (await vPage.$('#visitorNotice')) === null && (await vPage.isVisible('.cards3')));
 
   // Signing out: a fresh visitor's page, with nothing of hers.
@@ -1531,9 +1839,11 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vPage.waitForSelector('#visitorNotice', { timeout: 15000 });
   await vOpen('/');
   await vPage.waitForFunction(() => /\d/.test(document.getElementById('kLearned')?.textContent || ''));
-  ck('signed out: a visitor’s page again, nothing learned, no key, nobody made',
+  ck(
+    'signed out: a visitor’s page again, nothing learned, no key, nobody made',
     (await vPage.$(BAR.userButton)) === null && (await vPage.textContent('#kLearned')).trim().startsWith('0 /') && (await heldKey()) === null && visitorRows().length === 0,
-    await vPage.textContent('#kLearned'));
+    await vPage.textContent('#kLearned'),
+  );
 
   // Sign-in required again, with a visitor's key held: the page goes to the IAM, and the sign-in moves it.
   console.log('visitors: sign-in required again');
@@ -1550,17 +1860,39 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await vPage.waitForSelector('.cards3');
   const sentSince = await Promise.all(vSent.slice(mark).map(async (r) => ({ url: r.url, method: r.method, headers: await r.headers })));
   ck('switched on: the page goes to the IAM first, and comes back signed in', toIam(mark) && (await vPage.textContent(BAR.userName)).trim() === 'wren', vPage.url());
-  ck('the key went only with the move, never as a visitor’s while sign-in is required',
+  ck(
+    'the key went only with the move, never as a visitor’s while sign-in is required',
     sentSince.filter((r) => r.headers['x-visitor-key']).every((r) => r.method === 'POST' && r.url === `${app.base}/api/visitor/move` && /^Bearer /.test(r.headers.authorization || '')),
-    sentSince.filter((r) => r.headers['x-visitor-key']).map((r) => r.url).join(' '));
-  const wrenHas = await vPage.waitForFunction((k) => localStorage.getItem(k) === null, VISITOR_KEY, { timeout: 10000 }).then(() => true, () => false);
-  ck('and the sign-in moved the visitor’s item into the account: the visitor and its key gone',
-    wrenHas && app.sql('SELECT item_id FROM srs_progress WHERE user_id = ?', WREN.sub).map((r) => r.item_id).join(',') === wrenItem && visitorRows().length === 0,
-    `${app.sql('SELECT item_id FROM srs_progress WHERE user_id = ?', WREN.sub).map((r) => r.item_id).join(',')} visitors ${visitorRows().join(',')}`);
+    sentSince
+      .filter((r) => r.headers['x-visitor-key'])
+      .map((r) => r.url)
+      .join(' '),
+  );
+  const wrenHas = await vPage
+    .waitForFunction((k) => localStorage.getItem(k) === null, VISITOR_KEY, { timeout: 10000 })
+    .then(
+      () => true,
+      () => false,
+    );
+  ck(
+    'and the sign-in moved the visitor’s item into the account: the visitor and its key gone',
+    wrenHas &&
+      app
+        .sql('SELECT item_id FROM srs_progress WHERE user_id = ?', WREN.sub)
+        .map((r) => r.item_id)
+        .join(',') === wrenItem &&
+      visitorRows().length === 0,
+    `${app
+      .sql('SELECT item_id FROM srs_progress WHERE user_id = ?', WREN.sub)
+      .map((r) => r.item_id)
+      .join(',')} visitors ${visitorRows().join(',')}`,
+  );
   const vAll = await Promise.all(vSent.map(async (r) => ({ url: r.url, headers: await r.headers })));
-  ck('never a token and a key together but on the move; never the key to the IAM',
-    vAll.every((r) => !(r.headers['x-visitor-key'] && r.headers.authorization) || r.url === `${app.base}/api/visitor/move`)
-      && !vAll.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-visitor-key']));
+  ck(
+    'never a token and a key together but on the move; never the key to the IAM',
+    vAll.every((r) => !(r.headers['x-visitor-key'] && r.headers.authorization) || r.url === `${app.base}/api/visitor/move`) &&
+      !vAll.some((r) => r.url.startsWith(IAM.issuer) && r.headers['x-visitor-key']),
+  );
   ck('no browser errors as a visitor, signing in and out, and no browser box', vErrors.length === 0 && vBoxes.length === 0, [...vErrors, ...vBoxes].join(' | '));
   await vContext.close();
 
@@ -1573,8 +1905,12 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   await skPage.waitForSelector('#visitorNotice', { timeout: 15000 });
   const skNotice = (await skPage.textContent('#visitorNotice p')).trim();
   const skFound = [...(await keyShaped(skPage))];
-  ck('in Slovak, on a phone: the notice in Slovak, 30 days in their form',
-    (await skPage.getAttribute('html', 'lang')) === 'sk' && skNotice === 'Študuješ bez prihlásenia. To, čo sa naučíš, uchováme pre tento prehliadač 30 dní po tvojej poslednej návšteve. Prihlás sa a zostane ti vo tvojom účte.', skNotice);
+  ck(
+    'in Slovak, on a phone: the notice in Slovak, 30 days in their form',
+    (await skPage.getAttribute('html', 'lang')) === 'sk' &&
+      skNotice === 'Študuješ bez prihlásenia. To, čo sa naučíš, uchováme pre tento prehliadač 30 dní po tvojej poslednej návšteve. Prihlás sa a zostane ti vo tvojom účte.',
+    skNotice,
+  );
   ck('and no sideways scroll at 390 px', await skPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await skPage.screenshot({ path: path.join(SHOTS, 'home-visitor-sk-phone.png'), fullPage: true });
   await skPage.click(BAR.menuButton);

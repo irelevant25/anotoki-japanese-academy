@@ -219,12 +219,7 @@ export class TopBarComponent {
    * legal page (Terms, Privacy, Contact: anybody's) - any other time the
    * browser is on its way to the IAM -, or visiting.
    */
-  private readonly signedOut = computed(
-    () =>
-      this.auth.showSignIn() ||
-      this.auth.visiting() ||
-      (this.auth.state() === 'signed-out' && (this.auth.signInError() !== null || isLegalPage(this.here()))),
-  );
+  private readonly signedOut = computed(() => this.auth.showSignIn() || this.auth.visiting() || (this.auth.state() === 'signed-out' && (this.auth.signInError() !== null || isLegalPage(this.here()))));
 
   private readonly shownLinks = computed(() => {
     if (!this.ready()) {

@@ -67,7 +67,7 @@ if (built) {
 const modules = join(FRONTEND, 'node_modules');
 const lock = join(FRONTEND, 'package-lock.json');
 if (!existsSync(join(modules, '.package-lock.json')) || statSync(lock).mtimeMs > statSync(join(modules, '.package-lock.json')).mtimeMs) {
-  console.log('Installing the frontend\'s packages (npm ci)…');
+  console.log("Installing the frontend's packages (npm ci)…");
   npm(['ci', '--no-audit', '--no-fund']);
 }
 console.log('Building the app (ng build)…');

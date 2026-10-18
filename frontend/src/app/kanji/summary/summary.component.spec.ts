@@ -162,7 +162,13 @@ describe('SummaryComponent', () => {
   it('after lessons: how many items were learned and, as a sentence of its own, when their first review comes', async () => {
     const at = Date.now() + 4 * 3600e3;
     const clock = new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    await show(result('lesson', [0, 1, 2, 3, 4].map((i) => entry(i))), { summary: { nextReviewAt: at } });
+    await show(
+      result(
+        'lesson',
+        [0, 1, 2, 3, 4].map((i) => entry(i)),
+      ),
+      { summary: { nextReviewAt: at } },
+    );
     expect(text('h1')).toBe('Lessons done');
     // the browser suite looks for "learned 5 item" here
     expect(text('.anotoki-page-header__lead')).toBe(`You learned 5 items. The first review is in 4 h, at ${clock}.`);
@@ -181,10 +187,21 @@ describe('SummaryComponent', () => {
   it('after lessons, in Slovak: no past tense about the reader, and each number with its own form', async () => {
     const at = Date.now() + 4 * 3600e3;
     const clock = new Date(at).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
-    await show(result('lesson', [0, 1, 2, 3, 4].map((i) => entry(i))), { slovak: true, summary: { nextReviewAt: at } });
+    await show(
+      result(
+        'lesson',
+        [0, 1, 2, 3, 4].map((i) => entry(i)),
+      ),
+      { slovak: true, summary: { nextReviewAt: at } },
+    );
     expect(text('h1')).toBe('Lekcie sú hotové');
     expect(text('.anotoki-page-header__lead')).toBe(`Máš naučených 5 nových položiek. Prvé opakovanie príde o 4 h, o ${clock}.`);
-    await shown(result('lesson', [0, 1, 2].map((i) => entry(i))));
+    await shown(
+      result(
+        'lesson',
+        [0, 1, 2].map((i) => entry(i)),
+      ),
+    );
     expect(text('.anotoki-page-header__lead')).toBe(`Máš naučené 3 nové položky. Prvé opakovanie príde o 4 h, o ${clock}.`);
     await shown(result('lesson', [entry(0)]));
     expect(text('.anotoki-page-header__lead')).toBe(`Máš naučenú 1 novú položku. Prvé opakovanie príde o 4 h, o ${clock}.`);

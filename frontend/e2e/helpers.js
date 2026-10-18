@@ -136,7 +136,14 @@ async function startStandIn(dir) {
   process.on('exit', () => {
     if (!closed) proc.kill();
   });
-  for (let i = 0; !(await fetch(`${base}/.well-known/openid-configuration`).then((r) => r.ok, () => false)); i++) {
+  for (
+    let i = 0;
+    !(await fetch(`${base}/.well-known/openid-configuration`).then(
+      (r) => r.ok,
+      () => false,
+    ));
+    i++
+  ) {
     if (i > 100) {
       await close();
       throw new Error('the stand-in IAM did not start');
@@ -147,8 +154,7 @@ async function startStandIn(dir) {
    * Merges `changes` into its state ({ user, deny, down, refuse, ttl, login_required, application_missing });
    * returns the state (its `log` too).
    */
-  const state = async (changes = {}) =>
-    (await fetch(`${base}/_test/state`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) })).json();
+  const state = async (changes = {}) => (await fetch(`${base}/_test/state`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) })).json();
   return { base, dir, close, state };
 }
 
@@ -246,7 +252,7 @@ function plant(context, person, lang = null) {
         // about:blank has no storage
       }
     },
-    [session.key, session.value, lang]
+    [session.key, session.value, lang],
   );
 }
 
@@ -280,11 +286,11 @@ async function startApp({ frontend = BUILD, applicationTtl = null } = {}) {
   // This computer only, like the real server (and no firewall prompt on a new
   // PC); no opcode cache, which on Windows every PHP process of the same build
   // shares (see start_app() in backend/tests/lib.php).
-  const server = spawn(
-    findPhp(),
-    ['-d', 'display_errors=stderr', '-d', 'opcache.enable=0', '-S', `127.0.0.1:${port}`, '-t', BACKEND, path.join(BACKEND, 'router.php')],
-    { cwd: ROOT, env, stdio: ['ignore', out, out] }
-  );
+  const server = spawn(findPhp(), ['-d', 'display_errors=stderr', '-d', 'opcache.enable=0', '-S', `127.0.0.1:${port}`, '-t', BACKEND, path.join(BACKEND, 'router.php')], {
+    cwd: ROOT,
+    env,
+    stdio: ['ignore', out, out],
+  });
   const base = `http://127.0.0.1:${port}`;
   open += 1;
 
@@ -379,12 +385,7 @@ async function startApp({ frontend = BUILD, applicationTtl = null } = {}) {
     backups: TEST.dir,
     /** Makes items due for review now, for user `userId`. */
     makeDue: (ids, agoMs, userId) =>
-      sql(
-        'UPDATE srs_progress SET next_review = academy_time(?) WHERE user_id = ? AND item_id IN (SELECT json_array_elements_text(?::json))',
-        Date.now() - agoMs,
-        userId,
-        JSON.stringify(ids)
-      ),
+      sql('UPDATE srs_progress SET next_review = academy_time(?) WHERE user_id = ? AND item_id IN (SELECT json_array_elements_text(?::json))', Date.now() - agoMs, userId, JSON.stringify(ids)),
     close,
   };
 }

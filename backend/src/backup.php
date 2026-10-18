@@ -59,9 +59,7 @@ function backup_dir(): string
 {
     if (config_is_test_db(db_name())) {
         $dir = config('app.backups_dir');
-        return is_string($dir) && $dir !== ''
-            ? str_replace('\\', '/', app_path($dir))
-            : str_replace('\\', '/', sys_get_temp_dir()) . '/academy-backups-' . db_name();
+        return is_string($dir) && $dir !== '' ? str_replace('\\', '/', app_path($dir)) : str_replace('\\', '/', sys_get_temp_dir()) . '/academy-backups-' . db_name();
     }
     return str_replace('\\', '/', BACKEND) . '/storage/backups';
 }
@@ -88,7 +86,7 @@ function learner_has_data_of(int $uid): bool
     return (bool) db_value(
         'SELECT EXISTS (SELECT 1 FROM srs_progress WHERE user_id = ?) OR EXISTS (SELECT 1 FROM srs_daily WHERE user_id = ?)
             OR EXISTS (SELECT 1 FROM srs_log WHERE user_id = ?) OR EXISTS (SELECT 1 FROM exam_attempts WHERE user_id = ?)',
-        [$uid, $uid, $uid, $uid]
+        [$uid, $uid, $uid, $uid],
     );
 }
 
@@ -112,7 +110,7 @@ function backup_data(?array $only = null): array
         $people = users_all();
         if ($only !== null) {
             $known = array_column($people, null, 'id');
-            $people = array_map(static fn (int $id): array => $known[$id] ?? ['id' => $id, 'username' => null, 'createdAt' => null, 'lastSeenAt' => null, 'timeZone' => null], $only);
+            $people = array_map(static fn(int $id): array => $known[$id] ?? ['id' => $id, 'username' => null, 'createdAt' => null, 'lastSeenAt' => null, 'timeZone' => null], $only);
         }
         $data = [
             'format' => BACKUP_FORMAT,
@@ -120,7 +118,7 @@ function backup_data(?array $only = null): array
             'takenAt' => iso_time(now_ms()),
             'database' => db_name(),
             'everybody' => $only === null,
-            'users' => array_map(static fn (array $u): array => $u + backup_person($u['id']), $people),
+            'users' => array_map(static fn(array $u): array => $u + backup_person($u['id']), $people),
         ];
         // The site's own words go with a copy of everybody, never with one of some people alone.
         $translations = $only === null ? translations_backup() : null;
@@ -273,7 +271,7 @@ function backup_daily(): ?string
         return null;
     }
     backup_write('daily');
-    $daily = array_values(array_filter(scandir(backup_dir()) ?: [], static fn (string $f): bool => (bool) preg_match(DAILY_BACKUP, $f)));
+    $daily = array_values(array_filter(scandir(backup_dir()) ?: [], static fn(string $f): bool => (bool) preg_match(DAILY_BACKUP, $f)));
     sort($daily);
     foreach (array_slice($daily, 0, max(0, count($daily) - BACKUPS_KEEP)) as $old) {
         unlink(backup_dir() . "/$old");
@@ -319,7 +317,7 @@ function backup_person_in(array $data, ?int $pick = null): array
     if (!$people) {
         throw new RuntimeException('That backup holds nobody\'s data.');
     }
-    $ids = implode(', ', array_map(static fn (array $p): string => js_string($p['id'] ?? '?'), $people));
+    $ids = implode(', ', array_map(static fn(array $p): string => js_string($p['id'] ?? '?'), $people));
     throw new RuntimeException('That backup holds the data of ' . count($people) . " people (user ids $ids), and none of them is user " . js_string($pick) . '.');
 }
 
@@ -364,7 +362,7 @@ function backup_restore(array $data): array
                     is_int($person['createdAt'] ?? null) ? $person['createdAt'] : null,
                     is_int($person['lastSeenAt'] ?? null) ? $person['lastSeenAt'] : null,
                     $id,
-                ]
+                ],
             );
             $zone = time_zone_known($person['timeZone'] ?? null);
             if ($zone !== null) {
@@ -465,19 +463,25 @@ function learner_import(int $uid, array $data, bool $replace = false): array
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) $day) || !is_array($d)) {
                     continue;
                 }
-                $n = static fn (string $key): int => is_numeric($d[$key] ?? null) ? (int) $d[$key] : 0;
-                db_exec(
-                    'INSERT INTO srs_daily (user_id, day, lessons, reviews, reviews_correct, practice, practice_correct) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [$uid, (string) $day, $n('lessons'), $n('reviews'), $n('reviewsCorrect'), $n('practice'), $n('practiceCorrect')]
-                );
+                $n = static fn(string $key): int => is_numeric($d[$key] ?? null) ? (int) $d[$key] : 0;
+                db_exec('INSERT INTO srs_daily (user_id, day, lessons, reviews, reviews_correct, practice, practice_correct) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+                    $uid,
+                    (string) $day,
+                    $n('lessons'),
+                    $n('reviews'),
+                    $n('reviewsCorrect'),
+                    $n('practice'),
+                    $n('practiceCorrect'),
+                ]);
                 $counts['days']++;
             }
             // last, so the saves above don't count as a change
             $now = now_ms();
-            db_exec(
-                'UPDATE srs_settings SET created_at = academy_time(?), updated_at = academy_time(?) WHERE user_id = ?',
-                [is_numeric($k['createdAt'] ?? null) ? (int) $k['createdAt'] : $now, is_numeric($k['updatedAt'] ?? null) ? (int) $k['updatedAt'] : $now, $uid]
-            );
+            db_exec('UPDATE srs_settings SET created_at = academy_time(?), updated_at = academy_time(?) WHERE user_id = ?', [
+                is_numeric($k['createdAt'] ?? null) ? (int) $k['createdAt'] : $now,
+                is_numeric($k['updatedAt'] ?? null) ? (int) $k['updatedAt'] : $now,
+                $uid,
+            ]);
         }
 
         // The log in its order, LEARNER_IMPORT_CHUNK lines to a statement: a long one
@@ -488,7 +492,7 @@ function learner_import(int $uid, array $data, bool $replace = false): array
             db_exec(
                 'INSERT INTO srs_log (user_id, at, kind, item_id, details)
                  SELECT ?::bigint, academy_time((r->>0)::bigint), r->>1, r->>2, r->3 FROM json_array_elements(?::json) WITH ORDINALITY AS t(r, n) ORDER BY n',
-                [$uid, json_text($rows)]
+                [$uid, json_text($rows)],
             );
         };
         foreach (is_array($data['log'] ?? null) ? $data['log'] : [] as $e) {

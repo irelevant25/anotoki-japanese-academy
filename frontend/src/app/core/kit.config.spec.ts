@@ -136,12 +136,7 @@ describe('the anotoki library’s kit, in this app’s words and theme (core/kit
     configure(provideTestTranslations({}));
     const kept = TestBed.inject(AnotokiWords);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    expect([kept.t('topbar.sections'), kept.t('theme.auto'), kept.t('theme.autoHint'), kept.t('topbar.signOut')]).toEqual([
-      'The app’s sections',
-      'System',
-      'As your device is set',
-      'Sign out',
-    ]);
+    expect([kept.t('topbar.sections'), kept.t('theme.auto'), kept.t('theme.autoHint'), kept.t('topbar.signOut')]).toEqual(['The app’s sections', 'System', 'As your device is set', 'Sign out']);
     expect(KIT_ENGLISH, 'the two this app says its own way, and only they').toEqual({ 'anotoki.topbar.sections': 'The app’s sections', 'anotoki.theme.auto': 'System' });
     expect(warn, 'no key asked for that has no string').not.toHaveBeenCalled();
   });

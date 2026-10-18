@@ -111,8 +111,7 @@ function auth_from_this_computer(array $server): bool
  */
 function auth_log_text(string $text): string
 {
-    $flat = preg_replace('/[\p{Cc}\x{2028}\x{2029}]+/u', ' ', $text)
-        ?? preg_replace('/[\x00-\x1F\x7F-\xFF]+/', ' ', $text); // not UTF-8: every byte past ASCII goes too
+    $flat = preg_replace('/[\p{Cc}\x{2028}\x{2029}]+/u', ' ', $text) ?? preg_replace('/[\x00-\x1F\x7F-\xFF]+/', ' ', $text); // not UTF-8: every byte past ASCII goes too
     return str_clip(trim((string) $flat), 300);
 }
 
@@ -283,7 +282,7 @@ function academy_identify_with(?Closure $visitor): Identify
         null,
         static function (string $reason): void {
             error_log('[auth] a token was refused: ' . auth_log_text($reason));
-        }
+        },
     );
 }
 

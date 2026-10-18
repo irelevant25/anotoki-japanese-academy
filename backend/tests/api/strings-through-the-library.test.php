@@ -62,8 +62,11 @@ before(function (): void {
     // they are other tests' (people-migration.test.php).
     $later = array_merge([MIGRATION_009], library_migrations());
     $own = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
-    $others = array_merge(array_values(array_filter($own, static fn (string $name): bool => strcmp($name, MIGRATION_009) > 0)),
-        library_migrations('anotoki_admin'), library_migrations('anotoki_people'));
+    $others = array_merge(
+        array_values(array_filter($own, static fn(string $name): bool => strcmp($name, MIGRATION_009) > 0)),
+        library_migrations('anotoki_admin'),
+        library_migrations('anotoki_people'),
+    );
     foreach (array_merge($later, $others) as $name) {
         db_exec('INSERT INTO migrations (name) VALUES (?)', [$name]);
     }
@@ -78,9 +81,9 @@ before(function (): void {
         db_exec('UPDATE translations SET value = ?, updated_by = ?, updated_at = ? WHERE key_name = ? AND language_code = ?', [$text, THE_OWNER, $at, $key, $code]);
         assert_same($text, db_value('SELECT value FROM translations WHERE key_name = ? AND language_code = ?', [$key, $code]), "$key ($code) reworded");
     };
-    $owned('topbar.sections', 'sk', 'Sekcie Akadémie', '2026-10-08 09:00:00+00');         // a word of the kit's
-    $owned('signIn.button', 'en', 'Log in', '2026-10-08 09:01:00+00');                    // a word the app keeps too
-    $owned('language.button', 'sk', 'Jazyk stránky: {name}', '2026-10-08 09:02:00+00');   // without {code}, as Slovak may
+    $owned('topbar.sections', 'sk', 'Sekcie Akadémie', '2026-10-08 09:00:00+00'); // a word of the kit's
+    $owned('signIn.button', 'en', 'Log in', '2026-10-08 09:01:00+00'); // a word the app keeps too
+    $owned('language.button', 'sk', 'Jazyk stránky: {name}', '2026-10-08 09:02:00+00'); // without {code}, as Slovak may
     // Left out on purpose: the theme's hint reads English in Slovak.
     db_exec("DELETE FROM translations WHERE key_name = 'theme.systemHint' AND language_code = 'sk'");
     // A language of the owner's own, with a string of a word that moves.
@@ -98,8 +101,10 @@ test('the check at 009\'s end fails it by name when a string did not come over a
         db()->exec(substr($sql, 0, $at));
         // On the way, the owner's Slovak word changed (somebody else's hand, a trigger): the check must not let it pass.
         db_exec("UPDATE translations SET value = 'Sekcie' WHERE key_name = 'anotoki.topbar.sections' AND language_code = 'sk'");
-        assert_throws(static fn () => db()->exec(substr($sql, $at)),
-            "/009_strings_through_the_library: strings that did not come under the library's keys as they were: anotoki\\.topbar\\.sections \\(sk\\)/");
+        assert_throws(
+            static fn() => db()->exec(substr($sql, $at)),
+            "/009_strings_through_the_library: strings that did not come under the library's keys as they were: anotoki\\.topbar\\.sections \\(sk\\)/",
+        );
     } finally {
         db()->rollBack();
     }
@@ -108,7 +113,7 @@ test('the check at 009\'s end fails it by name when a string did not come over a
         db()->exec(substr($sql, 0, $at));
         // A string the app's key did not have, under a library key: the Slovak the owner left out would be filled in.
         db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('anotoki.theme.autoHint', 'sk', 'Podľa zariadenia')");
-        assert_throws(static fn () => db()->exec(substr($sql, $at)), "/strings under the library's keys the app's keys did not have: anotoki\\.theme\\.autoHint \\(sk\\)/");
+        assert_throws(static fn() => db()->exec(substr($sql, $at)), "/strings under the library's keys the app's keys did not have: anotoki\\.theme\\.autoHint \\(sk\\)/");
     } finally {
         db()->rollBack();
     }
@@ -117,42 +122,53 @@ test('the check at 009\'s end fails it by name when a string did not come over a
     assert_same(null, db_value("SELECT name FROM translation_keys WHERE name LIKE 'anotoki.%' LIMIT 1"), 'and no key of the library\'s made');
 });
 
-test('the upload: 009, then the library\'s set; every string of the words that moved comes through as it was - text, who and when, every language, a blank one blank -, and the library writes its own only where the app had none', function (): void {
-    $before = every_word();
-    assert_same(array_merge([MIGRATION_009], library_migrations()), db_migrate(), 'this site\'s 009 first, then the library\'s files');
-    $after = every_word();
+test(
+    'the upload: 009, then the library\'s set; every string of the words that moved comes through as it was - text, who and when, every language, a blank one blank -, and the library writes its own only where the app had none',
+    function (): void {
+        $before = every_word();
+        assert_same(array_merge([MIGRATION_009], library_migrations()), db_migrate(), 'this site\'s 009 first, then the library\'s files');
+        $after = every_word();
 
-    foreach (CARRIED as $own => [$library, $goes]) {
-        assert_same($before[$own], $after[$library] ?? null, "$own -> $library: every language, its text, who wrote it and when");
-        assert_same($goes ? null : $before[$own], $after[$own] ?? null, $goes ? "$own is gone, its strings with it" : "$own stays the app's, as it was");
-    }
-    // The owner's, word for word.
-    assert_same(['Sekcie Akadémie', THE_OWNER], array_slice($after['anotoki.topbar.sections']['sk'], 0, 2), 'the owner\'s rewording, still theirs');
-    assert_same('Log in', $after['anotoki.topbar.signIn']['en'][0], 'the bar\'s Sign in says the owner\'s word');
-    assert_same('Log in', $after['signIn.button']['en'][0], 'and so does the Sign in card, from its own key');
-    assert_same('Jazyk stránky: {name}', $after['anotoki.language.button']['sk'][0], 'a rewording without {code} is kept: Slovak may leave a placeholder out');
-    assert_same(['en'], array_keys($after['anotoki.theme.autoHint']), 'the Slovak left out stays out: the library wrote no Slovak of its own');
-    assert_same(['de', 'en', 'sk'], array_keys($after['anotoki.theme.label']), 'every language, the owner\'s own too');
-    assert_same('Erscheinungsbild', $after['anotoki.theme.label']['de'][0]);
-    // Nothing else of the app's changed: every key that was there and is not one of those that went is as it was.
-    $gone = array_keys(array_filter(CARRIED, static fn (array $c): bool => $c[1]));
-    assert_same(array_diff_key($before, array_flip($gone)), array_diff_key($after, array_flip(array_filter(array_keys($after), static fn (string $k): bool => str_starts_with($k, 'anotoki.')))),
-        'every other string of the app\'s as it was');
+        foreach (CARRIED as $own => [$library, $goes]) {
+            assert_same($before[$own], $after[$library] ?? null, "$own -> $library: every language, its text, who wrote it and when");
+            assert_same($goes ? null : $before[$own], $after[$own] ?? null, $goes ? "$own is gone, its strings with it" : "$own stays the app's, as it was");
+        }
+        // The owner's, word for word.
+        assert_same(['Sekcie Akadémie', THE_OWNER], array_slice($after['anotoki.topbar.sections']['sk'], 0, 2), 'the owner\'s rewording, still theirs');
+        assert_same('Log in', $after['anotoki.topbar.signIn']['en'][0], 'the bar\'s Sign in says the owner\'s word');
+        assert_same('Log in', $after['signIn.button']['en'][0], 'and so does the Sign in card, from its own key');
+        assert_same('Jazyk stránky: {name}', $after['anotoki.language.button']['sk'][0], 'a rewording without {code} is kept: Slovak may leave a placeholder out');
+        assert_same(['en'], array_keys($after['anotoki.theme.autoHint']), 'the Slovak left out stays out: the library wrote no Slovak of its own');
+        assert_same(['de', 'en', 'sk'], array_keys($after['anotoki.theme.label']), 'every language, the owner\'s own too');
+        assert_same('Erscheinungsbild', $after['anotoki.theme.label']['de'][0]);
+        // Nothing else of the app's changed: every key that was there and is not one of those that went is as it was.
+        $gone = array_keys(array_filter(CARRIED, static fn(array $c): bool => $c[1]));
+        assert_same(
+            array_diff_key($before, array_flip($gone)),
+            array_diff_key($after, array_flip(array_filter(array_keys($after), static fn(string $k): bool => str_starts_with($k, 'anotoki.')))),
+            'every other string of the app\'s as it was',
+        );
 
-    // The library's other words: its own, written by nobody - the app had none.
-    assert_same([['Cancel', null], ['Zrušiť', null]], [array_slice($after['anotoki.ui.cancel']['en'], 0, 2), array_slice($after['anotoki.ui.cancel']['sk'], 0, 2)]);
-    assert_same(count(Anotoki\Lib\Translations\LibraryWords::keys()), count(array_filter(array_keys($after), static fn (string $key): bool => str_starts_with($key, 'anotoki.'))),
-        'every word of the library, with a string');
-    // Descriptions are the library's, those of the keys 009 made ahead of it too.
-    foreach (Anotoki\Lib\Translations\LibraryWords::all() as $key => $words) {
-        assert_same($words['description'], db_value('SELECT description FROM translation_keys WHERE name = ?', [$key]), "$key: the library's description");
-    }
-    assert_match('/anotoki\.topbar\.signIn/', (string) db_value("SELECT description FROM translation_keys WHERE name = 'signIn.button'"), 'the card\'s button says where the bar\'s word is now');
+        // The library's other words: its own, written by nobody - the app had none.
+        assert_same([['Cancel', null], ['Zrušiť', null]], [array_slice($after['anotoki.ui.cancel']['en'], 0, 2), array_slice($after['anotoki.ui.cancel']['sk'], 0, 2)]);
+        assert_same(
+            count(Anotoki\Lib\Translations\LibraryWords::keys()),
+            count(array_filter(array_keys($after), static fn(string $key): bool => str_starts_with($key, 'anotoki.'))),
+            'every word of the library, with a string',
+        );
+        // Descriptions are the library's, those of the keys 009 made ahead of it too.
+        foreach (Anotoki\Lib\Translations\LibraryWords::all() as $key => $words) {
+            assert_same($words['description'], db_value('SELECT description FROM translation_keys WHERE name = ?', [$key]), "$key: the library's description");
+        }
+        assert_match('/anotoki\.topbar\.signIn/', (string) db_value("SELECT description FROM translation_keys WHERE name = 'signIn.button'"), 'the card\'s button says where the bar\'s word is now');
 
-    // What a page reads: the owner's words under the library's keys, English where Slovak was left out.
-    $slovak = academy_translations()->bundle('sk');
-    assert_same(['Sekcie Akadémie', 'As your device is set', 'System'],
-        [$slovak['values']->{'anotoki.topbar.sections'} ?? null, $slovak['values']->{'anotoki.theme.autoHint'} ?? null, $slovak['english']->{'anotoki.theme.auto'} ?? null]);
-    assert_same([], academy_translations()->storedRefusals(), 'and nothing stored that a save would refuse');
-    assert_same([], db_pending_migrations(), 'nothing waits any more');
-});
+        // What a page reads: the owner's words under the library's keys, English where Slovak was left out.
+        $slovak = academy_translations()->bundle('sk');
+        assert_same(
+            ['Sekcie Akadémie', 'As your device is set', 'System'],
+            [$slovak['values']->{'anotoki.topbar.sections'} ?? null, $slovak['values']->{'anotoki.theme.autoHint'} ?? null, $slovak['english']->{'anotoki.theme.auto'} ?? null],
+        );
+        assert_same([], academy_translations()->storedRefusals(), 'and nothing stored that a save would refuse');
+        assert_same([], db_pending_migrations(), 'nothing waits any more');
+    },
+);

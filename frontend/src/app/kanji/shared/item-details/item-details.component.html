@@ -1,55 +1,55 @@
 <div class="details">
-  @if (!context()) {
-    <section class="dsec">
-      <h3>{{ 'kanji.meaning' | translate }}</h3>
-      <p class="meanings" lang="en">{{ item().meanings.join('; ') }}</p>
-      @if (synonyms().length) {
-        <p class="syn small muted">{{ 'item.synonyms' | translate: { synonyms: synonyms().join(', ') } }}</p>
-      }
-      @if (wordClass()) {
-        <p class="small muted" lang="en">{{ wordClass() }}</p>
-      }
-    </section>
-    <section class="dsec">
-      <h3>{{ 'kanji.reading' | translate }}</h3>
-      <app-readings [item]="item()" />
-    </section>
-  }
-
-  @if (item().type === 'kanji') {
-    @if (examples().length) {
-      <section class="dsec">
-        <h3>{{ 'item.foundIn' | translate }}</h3>
-        <ul class="examples">
-          @for (v of examples(); track v.id) {
-            <li>
-              <a class="ex-w" lang="ja" [routerLink]="['/kanji/item', v.id]">{{ v.chars }}</a>
-              <span class="ex-r" lang="ja">{{ v.readings[0] }}</span>
-              <span class="ex-m" lang="en">{{ v.meanings[0] }}</span>
-              @if (v.audio) {
-                <button anotokiButton size="sm" [attr.aria-label]="'kanji.listen' | translate" (click)="play(v)">▶</button>
-              }
-            </li>
-          }
-        </ul>
-      </section>
+    @if (!context()) {
+        <section class="dsec">
+            <h3>{{ "kanji.meaning" | translate }}</h3>
+            <p class="meanings" lang="en">{{ item().meanings.join("; ") }}</p>
+            @if (synonyms().length) {
+                <p class="syn small muted">{{ "item.synonyms" | translate: { synonyms: synonyms().join(", ") } }}</p>
+            }
+            @if (wordClass()) {
+                <p class="small muted" lang="en">{{ wordClass() }}</p>
+            }
+        </section>
+        <section class="dsec">
+            <h3>{{ "kanji.reading" | translate }}</h3>
+            <app-readings [item]="item()" />
+        </section>
     }
-  } @else {
-    <section class="dsec">
-      <h3>{{ 'kanji.type.kanji' | translate }}</h3>
-      <div class="tiles">
-        @for (k of madeOf(); track k.id) {
-          <app-tile [item]="k" [withMeaning]="true" />
+
+    @if (item().type === "kanji") {
+        @if (examples().length) {
+            <section class="dsec">
+                <h3>{{ "item.foundIn" | translate }}</h3>
+                <ul class="examples">
+                    @for (v of examples(); track v.id) {
+                        <li>
+                            <a class="ex-w" lang="ja" [routerLink]="['/kanji/item', v.id]">{{ v.chars }}</a>
+                            <span class="ex-r" lang="ja">{{ v.readings[0] }}</span>
+                            <span class="ex-m" lang="en">{{ v.meanings[0] }}</span>
+                            @if (v.audio) {
+                                <button anotokiButton size="sm" [attr.aria-label]="'kanji.listen' | translate" (click)="play(v)">▶</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            </section>
         }
-      </div>
-    </section>
-  }
+    } @else {
+        <section class="dsec">
+            <h3>{{ "kanji.type.kanji" | translate }}</h3>
+            <div class="tiles">
+                @for (k of madeOf(); track k.id) {
+                    <app-tile [item]="k" [withMeaning]="true" />
+                }
+            </div>
+        </section>
+    }
 
-  @if (nothingMore()) {
-    <p class="muted">{{ 'lesson.nothingMore' | translate }}</p>
-  }
+    @if (nothingMore()) {
+        <p class="muted">{{ "lesson.nothingMore" | translate }}</p>
+    }
 
-  @if (notes() && !context()) {
-    <app-notes-editor [item]="item()" />
-  }
+    @if (notes() && !context()) {
+        <app-notes-editor [item]="item()" />
+    }
 </div>

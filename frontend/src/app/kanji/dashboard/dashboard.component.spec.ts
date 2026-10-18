@@ -84,7 +84,18 @@ const GROUPS: StageGroup[] = [
 ];
 
 function item(i: number): CatalogItem {
-  return { id: `k:${i}`, type: 'kanji', chars: ['一', '二', '三', '四', '五', '六', '七'][i], no: i + 1, lesson: 3, courseLesson: 3, order: i, meanings: [`meaning ${i}`], readings: ['いち'], audio: null };
+  return {
+    id: `k:${i}`,
+    type: 'kanji',
+    chars: ['一', '二', '三', '四', '五', '六', '七'][i],
+    no: i + 1,
+    lesson: 3,
+    courseLesson: 3,
+    order: i,
+    meanings: [`meaning ${i}`],
+    readings: ['いち'],
+    audio: null,
+  };
 }
 const ITEMS = [0, 1, 2, 3, 4, 5, 6].map(item);
 

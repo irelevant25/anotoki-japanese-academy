@@ -23,7 +23,7 @@ function score_attempt(array $exam, array $responses): array
         $r = $responses[$q['id']] ?? [];
         $r = is_array($r) ? $r : [];
         $choice = js_number_or_null($r['choice'] ?? null);
-        $chosen = $choice === null ? null : ($q['options'][$choice] ?? null);
+        $chosen = $choice === null ? null : $q['options'][$choice] ?? null;
         $ms = js_number($r['ms'] ?? null);
         $rows[] = [
             'n' => $q['n'],
@@ -49,8 +49,8 @@ function score_attempt(array $exam, array $responses): array
     }
 
     $total = count($rows);
-    $right = count(array_filter($rows, static fn (array $r): bool => $r['correct']));
-    $answered = count(array_filter($rows, static fn (array $r): bool => $r['answered']));
+    $right = count(array_filter($rows, static fn(array $r): bool => $r['correct']));
+    $answered = count(array_filter($rows, static fn(array $r): bool => $r['answered']));
     $pct = $total ? ($right / $total) * 100 : 0;
 
     $group = static function (callable $keyFn, callable $nameFn) use ($rows): array {
@@ -64,23 +64,23 @@ function score_attempt(array $exam, array $responses): array
             }
             $m[$k]['ms'] += $r['ms'];
         }
-        return array_map(static fn (array $g): array => $g + ['pct' => $g['total'] ? ($g['right'] / $g['total']) * 100 : 0], array_values($m));
+        return array_map(static fn(array $g): array => $g + ['pct' => $g['total'] ? ($g['right'] / $g['total']) * 100 : 0], array_values($m));
     };
 
     $sectionOrder = array_flip(array_column(SECTIONS, 'id'));
-    $bySection = $group(static fn (array $r) => $r['section'], static fn (array $r) => $r['sectionName']);
-    usort($bySection, static fn (array $a, array $b): int => ($sectionOrder[$a['key']] ?? 99) - ($sectionOrder[$b['key']] ?? 99));
+    $bySection = $group(static fn(array $r) => $r['section'], static fn(array $r) => $r['sectionName']);
+    usort($bySection, static fn(array $a, array $b): int => ($sectionOrder[$a['key']] ?? 99) - ($sectionOrder[$b['key']] ?? 99));
 
-    $byLesson = $group(static fn (array $r) => $r['lesson'], static fn (array $r) => $r['lesson'] === 0 ? 'Greetings' : "Lesson {$r['lesson']}");
-    usort($byLesson, static fn (array $a, array $b): int => $a['key'] <=> $b['key']);
+    $byLesson = $group(static fn(array $r) => $r['lesson'], static fn(array $r) => $r['lesson'] === 0 ? 'Greetings' : "Lesson {$r['lesson']}");
+    usort($byLesson, static fn(array $a, array $b): int => $a['key'] <=> $b['key']);
 
-    $byBook = $group(static fn (array $r) => $r['book'], static fn (array $r) => "Part {$r['book']}");
-    usort($byBook, static fn (array $a, array $b): int => $a['key'] <=> $b['key']);
+    $byBook = $group(static fn(array $r) => $r['book'], static fn(array $r) => "Part {$r['book']}");
+    usort($byBook, static fn(array $a, array $b): int => $a['key'] <=> $b['key']);
 
-    $weakSections = array_values(array_filter($bySection, static fn (array $s): bool => $s['pct'] < SECTION_FLOOR));
-    usort($weakSections, static fn (array $a, array $b): int => $a['pct'] <=> $b['pct']);
-    $weakLessons = array_values(array_filter($byLesson, static fn (array $l): bool => $l['pct'] < SECTION_FLOOR && $l['total'] >= 3));
-    usort($weakLessons, static fn (array $a, array $b): int => $a['pct'] <=> $b['pct']);
+    $weakSections = array_values(array_filter($bySection, static fn(array $s): bool => $s['pct'] < SECTION_FLOOR));
+    usort($weakSections, static fn(array $a, array $b): int => $a['pct'] <=> $b['pct']);
+    $weakLessons = array_values(array_filter($byLesson, static fn(array $l): bool => $l['pct'] < SECTION_FLOOR && $l['total'] >= 3));
+    usort($weakLessons, static fn(array $a, array $b): int => $a['pct'] <=> $b['pct']);
 
     $totalMs = array_sum(array_column($rows, 'ms'));
 

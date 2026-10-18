@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
-    exit;
+    exit();
 }
 
 function say(string $line = ''): void
@@ -43,18 +43,32 @@ function stop(string $message): never
 if (PHP_VERSION_ID < 80200) {
     stop('PHP 8.2 or newer is needed; this is PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ').');
 }
-$missing = array_values(array_filter(['pdo_pgsql', 'mbstring', 'intl'], static fn (string $ext): bool => !extension_loaded($ext)));
+$missing = array_values(array_filter(['pdo_pgsql', 'mbstring', 'intl'], static fn(string $ext): bool => !extension_loaded($ext)));
 if ($missing) {
-    stop('PHP ' . PHP_VERSION . ' (' . PHP_BINARY . ') lacks the extension(s) ' . implode(', ', $missing) . '.'
-        . ' Enable them in ' . (php_ini_loaded_file() ?: 'php.ini') . ' (extension=' . implode(', extension=', $missing) . ').');
+    stop(
+        'PHP ' .
+            PHP_VERSION .
+            ' (' .
+            PHP_BINARY .
+            ') lacks the extension(s) ' .
+            implode(', ', $missing) .
+            '.' .
+            ' Enable them in ' .
+            (php_ini_loaded_file() ?: 'php.ini') .
+            ' (extension=' .
+            implode(', extension=', $missing) .
+            ').',
+    );
 }
 
 require __DIR__ . '/src/bootstrap.php';
 
 $opts = getopt('', ['check', 'sync', 'backup', 'restore:']);
 if (!array_intersect_key($opts, ['check' => 1, 'sync' => 1, 'backup' => 1, 'restore' => 1])) {
-    stop('Say what to do: --check, --sync, --backup or --restore=FILE (the top of backend/manage.php explains each).'
-        . ' Setting the app up is the setup page\'s job: start the app (composer start in backend/) and open /setup.php.');
+    stop(
+        'Say what to do: --check, --sync, --backup or --restore=FILE (the top of backend/manage.php explains each).' .
+            ' Setting the app up is the setup page\'s job: start the app (composer start in backend/) and open /setup.php.',
+    );
 }
 
 try {
@@ -78,15 +92,22 @@ try {
                 // it is one of this site's own, the anotoki library's files (db_migration_ready()).
                 $status = db_migrator()->status()['pending'];
                 $draft = db_waiting_draft($status) ?? $status[count($ready)];
-                say('Waiting: ' . db_migration_path($draft) . ' does not end with its last line, "-- end of ' . substr($draft['name'], 0, 3) . '": '
-                    . 'it is still being written (or half copied), and nothing applies it, or anything after it, until it does'
-                    . ($draft['set'] === MIGRATION_SET && db_own_draft(db_name()) !== null ? ' - nor the anotoki library\'s files.' : '.'));
+                say(
+                    'Waiting: ' .
+                        db_migration_path($draft) .
+                        ' does not end with its last line, "-- end of ' .
+                        substr($draft['name'], 0, 3) .
+                        '": ' .
+                        'it is still being written (or half copied), and nothing applies it, or anything after it, until it does' .
+                        ($draft['set'] === MIGRATION_SET && db_own_draft(db_name()) !== null ? ' - nor the anotoki library\'s files.' : '.'),
+                );
             }
             if ($ready) {
                 // No request applies a migration: until somebody does, the site says it is being updated.
                 $todo[] = 'apply ' . implode(', ', $ready);
-                $who = 'An ADMIN applies it on the admin panel\'s Migrations page (/admin/migrations: Apply pending), or manage.php --sync does'
-                    . ' (the setup page too). Until then the site tells everybody it is being updated.';
+                $who =
+                    'An ADMIN applies it on the admin panel\'s Migrations page (/admin/migrations: Apply pending), or manage.php --sync does' .
+                    ' (the setup page too). Until then the site tells everybody it is being updated.';
             } else {
                 exit(1);
             }
@@ -100,10 +121,20 @@ try {
         }
         $people = (int) db_value('SELECT count(*) FROM users WHERE id > 0');
         $visitors = visitors_count(); // somebody studying without signing in (src/visitors.php): no person
-        say('Ready: database ' . db_name() . ', tables and study content up to date; '
-            . $people . ' ' . ($people === 1 ? 'person' : 'people') . ', '
-            . ($visitors['ready'] ? $visitors['count'] . ' ' . ($visitors['count'] === 1 ? 'visitor' : 'visitors') . ' (not signed in), ' : '')
-            . db_value('SELECT count(*) FROM srs_items') . ' kanji items, ' . exam_stats()['total'] . ' exam questions.');
+        say(
+            'Ready: database ' .
+                db_name() .
+                ', tables and study content up to date; ' .
+                $people .
+                ' ' .
+                ($people === 1 ? 'person' : 'people') .
+                ', ' .
+                ($visitors['ready'] ? $visitors['count'] . ' ' . ($visitors['count'] === 1 ? 'visitor' : 'visitors') . ' (not signed in), ' : '') .
+                db_value('SELECT count(*) FROM srs_items') .
+                ' kanji items, ' .
+                exam_stats()['total'] .
+                ' exam questions.',
+        );
         exit(0);
     }
 
@@ -119,8 +150,12 @@ try {
         say('Applied: ' . implode(', ', $migrated['applied']) . '.');
     }
     if ($waiting = db_first_pending_migration()) {
-        $why = db_migration_path($waiting) . ' does not end with its last line, "-- end of ' . substr($waiting['name'], 0, 3) . '": '
-            . 'it is not applied (is it still being written or copied?), and nor is anything after it.';
+        $why =
+            db_migration_path($waiting) .
+            ' does not end with its last line, "-- end of ' .
+            substr($waiting['name'], 0, 3) .
+            '": ' .
+            'it is not applied (is it still being written or copied?), and nor is anything after it.';
         // A backup reads the tables as they are, with or without it: a migration still
         // being written must never stand between the owner and a copy of their data.
         if (isset($opts['sync']) || isset($opts['restore']) || !isset($opts['backup'])) {
@@ -143,10 +178,18 @@ try {
         $data = backup_read($file);
         say('Backup of what was there: ' . backup_write('before-restore'));
         $counts = backup_restore($data);
-        $whose = "{$counts['people']} " . ($counts['people'] === 1 ? 'person' : 'people')
-            . (($data['everybody'] ?? true) === false ? ' (the file holds theirs alone: everybody else\'s data is as it was)' : '') . ', ';
-        say("Restored from $file" . (isset($data['database']) ? " (a copy of the database {$data['database']})" : '') . ': '
-            . $whose . "{$counts['items']} kanji items, {$counts['log']} answers, {$counts['attempts']} exam attempts.");
+        $whose =
+            "{$counts['people']} " .
+            ($counts['people'] === 1 ? 'person' : 'people') .
+            (($data['everybody'] ?? true) === false ? ' (the file holds theirs alone: everybody else\'s data is as it was)' : '') .
+            ', ';
+        say(
+            "Restored from $file" .
+                (isset($data['database']) ? " (a copy of the database {$data['database']})" : '') .
+                ': ' .
+                $whose .
+                "{$counts['items']} kanji items, {$counts['log']} answers, {$counts['attempts']} exam attempts.",
+        );
     }
 } catch (PDOException $e) {
     stop('Database error: ' . $e->getMessage());

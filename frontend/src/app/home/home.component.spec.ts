@@ -35,8 +35,7 @@ beforeEach(standIn);
 
 // The page's strings as the migration seeds them (the plural families whole: English `.few` is `.other`).
 const ENGLISH: Record<string, string> = {
-  'home.intro':
-    'Learn the kanji of the course — and the vocabulary written with them — through spaced-repetition lessons, reviews and practice. Then test yourself on the whole course with the exam.',
+  'home.intro': 'Learn the kanji of the course — and the vocabulary written with them — through spaced-repetition lessons, reviews and practice. Then test yourself on the whole course with the exam.',
   'home.kanji.sub': 'Lessons · reviews · practice',
   'home.kanji.reviewsDue.one': 'review due',
   'home.kanji.reviewsDue.few': 'reviews due',
@@ -324,7 +323,7 @@ describe('HomeComponent: in Slovak', () => {
     ];
     for (const [n, reviews, lessons, attempts] of forms) {
       TestBed.resetTestingModule();
-    standIn();
+      standIn();
       const el = await draw({ summary: summary({ reviewsDue: n, lessonsAvailable: n }), attempts: Array.from({ length: n }, (_, i) => attempt({ id: `a${i}` })) }, 'sk');
       expect([text(el, '#kDue'), label(el, 'kDue')], `${n}`).toEqual([String(n), reviews]);
       expect([text(el, '#kLessons'), label(el, 'kLessons')], `${n}`).toEqual([String(n), lessons]);
@@ -399,9 +398,7 @@ describe('HomeComponent: somebody studying without signing in (visiting)', () =>
     const auth = authStandIn('visiting');
     auth.visitorKeepDays.set(30);
     const el = await draw({}, 'en', [{ provide: AuthService, useValue: auth }]);
-    expect(text(el, '#visitorNotice p')).toBe(
-      'You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.',
-    );
+    expect(text(el, '#visitorNotice p')).toBe('You are studying without signing in. What you study is kept for this browser for 30 days after your last visit. Sign in to keep it in your account.');
     expect(el.querySelector('app-your-data')).toBeNull();
     expect(el.querySelector('main')?.firstElementChild?.tagName.toLowerCase(), 'above everything else').toBe('app-visitor-notice');
 

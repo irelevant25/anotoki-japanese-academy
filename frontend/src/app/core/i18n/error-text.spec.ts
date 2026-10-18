@@ -114,9 +114,7 @@ describe('errorKey(): a failed request in the reader’s words', () => {
   });
 
   it('visitor_limit: worded by which of a visitor’s limits its answer names, with its number — a limit nobody listed is the general sentence', () => {
-    const atCap = toApiError(
-      new HttpErrorResponse({ status: 422, error: { error: 'Without signing in, …', code: 'visitor_limit', limit: 'attempts', max: 10 } }),
-    );
+    const atCap = toApiError(new HttpErrorResponse({ status: 422, error: { error: 'Without signing in, …', code: 'visitor_limit', limit: 'attempts', max: 10 } }));
     expect([errorKey(atCap), errorParams(atCap)]).toEqual(['error.visitor_limit.attempts', { status: 422, max: 10 }]);
     const answers = new ApiError('x', 422, { code: 'visitor_limit', limit: 'answers', max: 20000 });
     expect([errorKey(answers), errorParams(answers)]).toEqual(['error.visitor_limit.answers', { status: 422, max: 20000 }]);

@@ -40,8 +40,7 @@ function errors_middleware(string $sapi = PHP_SAPI): callable
         } catch (Slim\Exception\HttpNotFoundException $e) {
             return json_response(new Slim\Psr7\Response(), ['error' => 'Not found', 'code' => 'not_found'], 404);
         } catch (Slim\Exception\HttpMethodNotAllowedException $e) {
-            return json_response(new Slim\Psr7\Response(), ['error' => 'Method not allowed', 'code' => 'method_not_allowed'], 405,
-                ['Allow: ' . implode(', ', $e->getAllowedMethods())]);
+            return json_response(new Slim\Psr7\Response(), ['error' => 'Method not allowed', 'code' => 'method_not_allowed'], 405, ['Allow: ' . implode(', ', $e->getAllowedMethods())]);
         } catch (PDOException $e) {
             error_log('[db] ' . $e->getMessage());
             academy_error_log()->record($e, $request, 503, 'database_unavailable');

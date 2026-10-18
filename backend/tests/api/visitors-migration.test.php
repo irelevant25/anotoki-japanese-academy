@@ -18,8 +18,15 @@ const MIGRATION_011 = '011_legal_pages_and_questions.sql';
 /** Every row of every table of somebody's data, as JSON, in a stable order. */
 function rows_now(): array
 {
-    $order = ['users' => 'id', 'srs_settings' => 'user_id', 'srs_progress' => 'user_id, item_id', 'srs_daily' => 'user_id, day',
-        'srs_log' => 'id', 'exam_attempts' => 'user_id, id', 'imports' => 'user_id, source'];
+    $order = [
+        'users' => 'id',
+        'srs_settings' => 'user_id',
+        'srs_progress' => 'user_id, item_id',
+        'srs_daily' => 'user_id, day',
+        'srs_log' => 'id',
+        'exam_attempts' => 'user_id, id',
+        'imports' => 'user_id, source',
+    ];
     $out = [];
     foreach ($order as $table => $by) {
         $out[$table] = array_column(db_all("SELECT to_jsonb(t)::text AS r FROM $table t ORDER BY $by"), 'r');
@@ -62,7 +69,7 @@ test('a database that is not what it expects fails it loudly, and then nothing c
     db_exec('INSERT INTO users (id) VALUES (0)');
     try {
         $before = rows_now();
-        assert_throws(static fn () => db_migrate(), '/007_visitors\.sql: .*users_person_or_visitor/');
+        assert_throws(static fn() => db_migrate(), '/007_visitors\.sql: .*users_person_or_visitor/');
         assert_no_007();
         assert_same($before, rows_now(), 'every row as it was');
     } finally {
@@ -78,7 +85,7 @@ test('a database that is not what it expects fails it loudly, and then nothing c
     try {
         db()->exec(substr($sql, 0, $at));
         db_exec('INSERT INTO users (id) VALUES (99)');
-        assert_throws(static fn () => db()->exec(substr($sql, $at)), "/007_visitors: a table of somebody's data changed: users \\(2 rows before, 3 after\\)/");
+        assert_throws(static fn() => db()->exec(substr($sql, $at)), "/007_visitors: a table of somebody's data changed: users \\(2 rows before, 3 after\\)/");
     } finally {
         db()->rollBack();
     }
@@ -90,7 +97,7 @@ test('applied: every row as it was; a row is a person (id > 0, no key) or a visi
     $before = rows_now();
     assert_same([MIGRATION_007], db_migrate());
     $after = rows_now();
-    $users = static fn (array $rows): array => array_map(static function (string $r): array {
+    $users = static fn(array $rows): array => array_map(static function (string $r): array {
         $row = json_decode($r, true);
         unset($row['visitor_key_hash'], $row['visitor_from']);
         return $row;
@@ -103,14 +110,14 @@ test('applied: every row as it was; a row is a person (id > 0, no key) or a visi
     assert_same(null, db_value("SELECT conname FROM pg_constraint WHERE conrelid = 'users'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) = 'CHECK ((id > 0))'"), 'the old check is gone');
 
     $hash = str_repeat('a', 64);
-    assert_throws(static fn () => db_exec('INSERT INTO users (id) VALUES (0)'), '/users_person_or_visitor/');
-    assert_throws(static fn () => db_exec('INSERT INTO users (id) VALUES (-5)'), '/users_person_or_visitor/');
-    assert_throws(static fn () => db_exec('INSERT INTO users (id, visitor_key_hash) VALUES (5, ?)', [$hash]), '/users_person_or_visitor/');
-    assert_throws(static fn () => db_exec('INSERT INTO users (id, visitor_from) VALUES (6, ?)', [$hash]), '/users_person_or_visitor/');
+    assert_throws(static fn() => db_exec('INSERT INTO users (id) VALUES (0)'), '/users_person_or_visitor/');
+    assert_throws(static fn() => db_exec('INSERT INTO users (id) VALUES (-5)'), '/users_person_or_visitor/');
+    assert_throws(static fn() => db_exec('INSERT INTO users (id, visitor_key_hash) VALUES (5, ?)', [$hash]), '/users_person_or_visitor/');
+    assert_throws(static fn() => db_exec('INSERT INTO users (id, visitor_from) VALUES (6, ?)', [$hash]), '/users_person_or_visitor/');
     assert_same(-1, (int) db_value("SELECT nextval('visitor_ids')"));
     assert_same(-2, (int) db_value("SELECT nextval('visitor_ids')"));
     db_exec('INSERT INTO users (id, visitor_key_hash, visitor_from) VALUES (-2, ?, ?)', [$hash, $hash]);
-    assert_throws(static fn () => db_exec('INSERT INTO users (id, visitor_key_hash) VALUES (-3, ?)', [$hash]), '/duplicate key/');
+    assert_throws(static fn() => db_exec('INSERT INTO users (id, visitor_key_hash) VALUES (-3, ?)', [$hash]), '/duplicate key/');
     db_exec("INSERT INTO srs_progress (user_id, item_id, stage) VALUES (-2, 'k:大', 1)");
     assert_same(2, (int) db_value("SELECT count(*) FROM srs_progress WHERE item_id = 'k:大' AND user_id IN (1, -2)"), 'a visitor\'s rows like anybody\'s');
     assert_true(visitors_ready(), 'the app sees a database that can keep visitors');

@@ -418,11 +418,7 @@ describe('TopBarComponent', () => {
     expect(parts('.anotoki-top-bar__menu-head > span')).toEqual(['hana', 'hana@example.test', 'Administrátor']);
     expect(host.querySelector('.anotoki-top-bar__menu-head')?.getAttribute('role')).toBe('none');
     expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Administrátorský panel', 'Odhlásiť sa']);
-    expect([items()[0].getAttribute('href'), items()[0].getAttribute('target'), items()[0].getAttribute('rel')]).toEqual([
-      'https://iam.example.test/account',
-      '_blank',
-      'noopener',
-    ]);
+    expect([items()[0].getAttribute('href'), items()[0].getAttribute('target'), items()[0].getAttribute('rel')]).toEqual(['https://iam.example.test/account', '_blank', 'noopener']);
     expect(items()[1].getAttribute('href')).toBe('/admin');
 
     roles.set(['EDITOR']);
@@ -682,7 +678,12 @@ describe('TopBarComponent', () => {
     TestBed.inject(SiteStatus).report('update_pending');
     await fixture.whenStable();
     expect(links()).toEqual([]);
-    expect(childrenOf('.anotoki-top-bar__actions'), 'the language, the theme and the person stay').toEqual(['anotoki-language-switcher', 'anotoki-theme-toggle', 'button.person-button', 'anotoki-menu']);
+    expect(childrenOf('.anotoki-top-bar__actions'), 'the language, the theme and the person stay').toEqual([
+      'anotoki-language-switcher',
+      'anotoki-theme-toggle',
+      'button.person-button',
+      'anotoki-menu',
+    ]);
     await openMenu();
     expect(items().map(words)).toEqual(['Tvoj účet anotoki', 'Odhlásiť sa']);
 
@@ -717,13 +718,7 @@ describe('TopBarComponent', () => {
   it('keeps every key of every control to itself: Enter and Space never reach the document, where a quiz or a paper listens', async () => {
     due.set(12);
     await draw();
-    const controls = (): Element[] => [
-      brand(),
-      ...links(),
-      host.querySelector('anotoki-language-switcher button')!,
-      ...Array.from(host.querySelectorAll('[role="radio"]')),
-      personButton(),
-    ];
+    const controls = (): Element[] => [brand(), ...links(), host.querySelector('anotoki-language-switcher button')!, ...Array.from(host.querySelectorAll('[role="radio"]')), personButton()];
     expect(controls()).toHaveLength(8);
     for (const control of controls()) {
       for (const key of ['Enter', ' ', 'a', '1', 'f', 'r']) {
@@ -825,7 +820,19 @@ describe('TopBarComponent', () => {
       await draw();
       await at('/admin/translations');
       await openMenu();
-      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
+      expect(items().map(words)).toEqual([
+        'Translations',
+        'Languages',
+        'People',
+        'Feedback',
+        'Errors',
+        'Audit log',
+        'Backups',
+        'Migrations',
+        'Your anotoki account',
+        'Back to Japanese Academy',
+        'Sign out',
+      ]);
       items()[1].click();
       await fixture.whenStable();
       expect(items()).toEqual([]);
@@ -948,7 +955,19 @@ describe('TopBarComponent', () => {
       expect(parts('anotoki-brand .anotoki-brand__wordmark > span')).toEqual(['Japanese', '·', 'admin panel']);
       expect(brand().getAttribute('aria-label')).toBe('anotoki Japanese admin panel: home');
       await openMenu();
-      expect(items().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations', 'Your anotoki account', 'Back to Japanese Academy', 'Sign out']);
+      expect(items().map(words)).toEqual([
+        'Translations',
+        'Languages',
+        'People',
+        'Feedback',
+        'Errors',
+        'Audit log',
+        'Backups',
+        'Migrations',
+        'Your anotoki account',
+        'Back to Japanese Academy',
+        'Sign out',
+      ]);
       await resize(ADMIN_PHONE_BAR_MAX + 1);
       expect(items(), 'the menu closes as the bar unfolds').toEqual([]);
       expect(links().map(words)).toEqual(['Translations', 'Languages', 'People', 'Feedback', 'Errors', 'Audit log', 'Backups', 'Migrations']);

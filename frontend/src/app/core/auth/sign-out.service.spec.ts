@@ -26,7 +26,12 @@ describe('SignOutService: nothing the learner did goes unsaved without asking', 
     logout.mockClear();
     box = vi.spyOn(window, 'confirm').mockReturnValue(true);
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations(SLOVAK, { language: 'sk' }), { provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } }],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideAuth(),
+        provideTestTranslations(SLOVAK, { language: 'sk' }),
+        { provide: AuthService, useValue: { state: signal('ready'), user: signal(null), logout } },
+      ],
     });
   });
   afterEach(() => {

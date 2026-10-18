@@ -54,9 +54,7 @@ describe('ProblemComponent: with no strings, in the English it keeps', () => {
 
   it('the reason the server gives the owner’s own computer comes after the page’s words, small, and marked as English', async () => {
     const el = await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: '004_languages_and_translations.sql: relation "languages" already exists' });
-    expect(said(el)).toBe(
-      "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
-    );
+    expect(said(el)).toBe('Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.');
     const detail = el.querySelector('#problem .detail');
     expect(detail?.textContent).toBe('004_languages_and_translations.sql: relation "languages" already exists');
     expect(detail?.getAttribute('lang')).toBe('en');
@@ -111,7 +109,7 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
     'error.http': 'The server answered with an error ({status}).',
     'error.unknown': 'Something went wrong.',
     'error.not_found': 'Not found.',
-    'error.not_up_to_date': "The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
+    'error.not_up_to_date': 'The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.',
   };
   const SLOVAK = {
     'boot.problem.couldNotStart': 'Aplikáciu Japanese Academy sa nepodarilo spustiť: {reason}',
@@ -128,18 +126,14 @@ describe('ProblemComponent: with the strings the browser kept from an earlier vi
 
   it('reads in that language, the detail still English, and follows the language when it changes', async () => {
     const el = await draw({ kind: 'server', status: 503, code: 'not_up_to_date', detail: 'the migration 004 failed' });
-    expect(said(el)).toBe(
-      'Aplikáciu Japanese Academy sa nepodarilo spustiť: Databáza ešte nie je zosúladená s touto verziou aplikácie: najprv ju musí aktualizovať administrátor. Skús to neskôr.',
-    );
+    expect(said(el)).toBe('Aplikáciu Japanese Academy sa nepodarilo spustiť: Databáza ešte nie je zosúladená s touto verziou aplikácie: najprv ju musí aktualizovať administrátor. Skús to neskôr.');
     expect(el.querySelector('.detail')?.textContent).toBe('the migration 004 failed');
     expect(el.querySelector('.detail')?.getAttribute('lang')).toBe('en');
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Skúsiť znova');
 
     await TestBed.inject(TranslationService).setLanguage('en', { remember: false });
     await TestBed.inject(ApplicationRef).whenStable();
-    expect(said(el)).toBe(
-      "Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.",
-    );
+    expect(said(el)).toBe('Japanese Academy could not start: The database is not up to date with this version of the app yet: an administrator has to apply the update first. Try again later.');
     expect(el.querySelector('button')?.textContent?.trim()).toBe('Try again');
   });
 

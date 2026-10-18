@@ -1,18 +1,4 @@
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  ElementRef,
-  HostListener,
-  inject,
-  input,
-  OnDestroy,
-  OnInit,
-  output,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, input, OnDestroy, OnInit, output, signal, viewChild } from '@angular/core';
 import { TranslatePipe, TranslationParams, TranslationService } from '@anotoki/lib/translations';
 import { ButtonComponent } from '@anotoki/lib/ui/button';
 import { CardComponent } from '@anotoki/lib/ui/card';
@@ -113,9 +99,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
    * session ends: until then signing out would lose it without a word. So the
    * session tells the sign-out (`signOut.notSaved`), however long ago it failed.
    */
-  private readonly unwatch = this.saves.watch(() =>
-    !this.reported && this.engine?.done.some((entry) => entry.error) ? 'signOut.notSaved' : null,
-  );
+  private readonly unwatch = this.saves.watch(() => (!this.reported && this.engine?.done.some((entry) => entry.error) ? 'signOut.notSaved' : null));
 
   readonly cfg = computed(() => MODES[this.mode()]);
   readonly card = signal<CatalogItem | null>(null);
@@ -250,10 +234,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const typed = v.trim();
     const it = e.cur.it;
-    const res =
-      e.part === 'meaning'
-        ? checkMeaning(typed, this.kanji.acceptMeanings(it), this.kanji.known())
-        : checkReading(typed, this.kanji.acceptReadings(it));
+    const res = e.part === 'meaning' ? checkMeaning(typed, this.kanji.acceptMeanings(it), this.kanji.known()) : checkReading(typed, this.kanji.acceptReadings(it));
     if (res.verdict === 'invalid') {
       this.shake(res.kind ? { key: CHECK_KEYS[res.kind] } : null);
       return;
@@ -329,12 +310,7 @@ export class SessionComponent implements OnInit, AfterViewInit, OnDestroy {
   private save(entry: DoneEntry): void {
     const mode = this.mode();
     const wrong = entry.wrongM + entry.wrongR;
-    const call =
-      mode === 'lesson'
-        ? this.api.learn(entry.it.id)
-        : mode === 'review'
-          ? this.api.review(entry.it.id, entry.wrongM, entry.wrongR)
-          : this.api.practice(entry.it.id, wrong === 0, wrong);
+    const call = mode === 'lesson' ? this.api.learn(entry.it.id) : mode === 'review' ? this.api.review(entry.it.id, entry.wrongM, entry.wrongR) : this.api.practice(entry.it.id, wrong === 0, wrong);
     this.pending.push(
       this.saves.track(call).then(
         (r) => {

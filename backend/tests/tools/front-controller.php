@@ -18,8 +18,16 @@ if (preg_match('~^/(api|audio|report)(/|$)~', $path) || $path === '/setup.php') 
 
 /** A file of the document root, sent with .htaccess's headers (mod_headers). */
 $send = static function (string $file): void {
-    $types = ['html' => 'text/html; charset=utf-8', 'js' => 'text/javascript; charset=utf-8', 'css' => 'text/css; charset=utf-8',
-        'json' => 'application/json', 'svg' => 'image/svg+xml', 'png' => 'image/png', 'ico' => 'image/x-icon', 'txt' => 'text/plain; charset=utf-8'];
+    $types = [
+        'html' => 'text/html; charset=utf-8',
+        'js' => 'text/javascript; charset=utf-8',
+        'css' => 'text/css; charset=utf-8',
+        'json' => 'application/json',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'ico' => 'image/x-icon',
+        'txt' => 'text/plain; charset=utf-8',
+    ];
     $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
     header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
     header('X-Content-Type-Options: nosniff');

@@ -1,39 +1,38 @@
 <div class="page">
-  <anotoki-page-header [heading]="'kanji.tab.lessons' | translate" [lead]="'lessons.intro' | translate" />
-  <anotoki-card>
-    <div class="stack">
-      <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
-      <anotoki-labelled-group selfNamed [label]="'lessons.batchSize' | translate">
-        <anotoki-segmented id="batchSize" [label]="'lessons.batchSize' | translate" [options]="sizeOptions()" [value]="'' + batch()" (valueChange)="setBatch(+$event)" />
-      </anotoki-labelled-group>
-      <anotoki-chip-group id="lessonTypes" [label]="'lessons.include' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
-      <!-- the course's order, or one lesson: each lesson's chip heard with how many of its items can be learned now ("L6, 12 available") -->
-      <anotoki-chip-group
-        id="lessonFrom"
-        [label]="'lessons.from' | translate"
-        [hint]="'lessons.fromNote' | translate"
-        [options]="lessonOptions()"
-        [value]="lesson() === null ? COURSE_ORDER : '' + lesson()"
-        (valueChange)="setLesson($event)"
-      />
-      <anotoki-labelled-group [label]="'lessons.nextUp' | translate">
-        <div class="preview">
-          @for (it of next(); track it.id) {
-            <app-tile [item]="it" [withMeaning]="true" />
-          } @empty {
-            <p class="muted small">{{ 'lessons.nothingLeft' | translate }}</p>
-          }
+    <anotoki-page-header [heading]="'kanji.tab.lessons' | translate" [lead]="'lessons.intro' | translate" />
+    <anotoki-card>
+        <div class="stack">
+            <!-- the segmented choice says its own name to a screen reader (its label): the kit's labelled group shows it, and keeps it from being said twice -->
+            <anotoki-labelled-group selfNamed [label]="'lessons.batchSize' | translate">
+                <anotoki-segmented id="batchSize" [label]="'lessons.batchSize' | translate" [options]="sizeOptions()" [value]="'' + batch()" (valueChange)="setBatch(+$event)" />
+            </anotoki-labelled-group>
+            <anotoki-chip-group id="lessonTypes" [label]="'lessons.include' | translate" [options]="kindOptions()" [value]="types()" (valueChange)="setTypes($event)" />
+            <!-- the course's order, or one lesson: each lesson's chip heard with how many of its items can be learned now ("L6, 12 available") -->
+            <anotoki-chip-group
+                id="lessonFrom"
+                [label]="'lessons.from' | translate"
+                [hint]="'lessons.fromNote' | translate"
+                [options]="lessonOptions()"
+                [value]="lesson() === null ? COURSE_ORDER : '' + lesson()"
+                (valueChange)="setLesson($event)" />
+            <anotoki-labelled-group [label]="'lessons.nextUp' | translate">
+                <div class="preview">
+                    @for (it of next(); track it.id) {
+                        <app-tile [item]="it" [withMeaning]="true" />
+                    } @empty {
+                        <p class="muted small">{{ "lessons.nothingLeft" | translate }}</p>
+                    }
+                </div>
+            </anotoki-labelled-group>
+            <div class="cluster">
+                <button anotokiButton variant="primary" id="startLessons" [disabled]="!next().length" (click)="start()">
+                    @if (next().length) {
+                        {{ "lessons.start" | translatePlural: next().length }}
+                    } @else {
+                        {{ "kanji.nothingToLearn" | translate }}
+                    }
+                </button>
+            </div>
         </div>
-      </anotoki-labelled-group>
-      <div class="cluster">
-        <button anotokiButton variant="primary" id="startLessons" [disabled]="!next().length" (click)="start()">
-          @if (next().length) {
-            {{ 'lessons.start' | translatePlural: next().length }}
-          } @else {
-            {{ 'kanji.nothingToLearn' | translate }}
-          }
-        </button>
-      </div>
-    </div>
-  </anotoki-card>
+    </anotoki-card>
 </div>

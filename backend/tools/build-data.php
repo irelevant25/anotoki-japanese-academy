@@ -74,15 +74,8 @@ function data_verb_class(string $english): ?string
 }
 
 // い-adjectives whose index entry has no kanji okurigana to key off.
-const KANA_I_ADJ = [
-    'いい', 'かっこいい', 'つまらない', 'おいしい', 'かわいい', 'やさしい',
-    'すごい', 'こわい', 'きれい', 'にぎやか',
-];
-const NOT_I_ADJ = [
-    'きれい(な)', 'にぎやか(な)', 'いっぱい', 'だいたい', 'ぜったい',
-    'はい', 'たくさん', 'ばんごはん', 'ひるごはん', 'あさごはん',
-    'きらい(な)', 'だいきらい(な)',
-];
+const KANA_I_ADJ = ['いい', 'かっこいい', 'つまらない', 'おいしい', 'かわいい', 'やさしい', 'すごい', 'こわい', 'きれい', 'にぎやか'];
+const NOT_I_ADJ = ['きれい(な)', 'にぎやか(な)', 'いっぱい', 'だいたい', 'ぜったい', 'はい', 'たくさん', 'ばんごはん', 'ひるごはん', 'あさごはん', 'きらい(な)', 'だいきらい(な)'];
 
 function data_adj_class(string $kana, string $kanji): ?string
 {
@@ -155,7 +148,7 @@ function data_number(?string $v)
 
 function data_kanji(): array
 {
-    $split = static fn (?string $s): array => array_values(array_filter(array_map('js_trim', explode('/', (string) $s)), static fn (string $x): bool => $x !== ''));
+    $split = static fn(?string $s): array => array_values(array_filter(array_map('js_trim', explode('/', (string) $s)), static fn(string $x): bool => $x !== ''));
     $out = [];
     foreach (tsv_read_all('kanji-part1.tsv', 'kanji-part2.tsv') as $r) {
         [$no, $kanji, $lesson, $on, $kun, $meaning, $compounds] = array_pad($r, 7, null);
@@ -189,8 +182,10 @@ function data_build(string $dir = BACKEND . '/data', bool $quiet = false): void
 {
     $vocab = data_vocab();
     $kanji = data_kanji();
-    $grammar = array_map(static fn (array $r): array => ['lesson' => data_number($r[0])] + (isset($r[1]) ? ['point' => $r[1]] : []) + (isset($r[2]) ? ['ref' => $r[2]] : []),
-        tsv_read_all('grammar-index-part1.tsv', 'grammar-index-part2.tsv'));
+    $grammar = array_map(
+        static fn(array $r): array => ['lesson' => data_number($r[0])] + (isset($r[1]) ? ['point' => $r[1]] : []) + (isset($r[2]) ? ['ref' => $r[2]] : []),
+        tsv_read_all('grammar-index-part1.tsv', 'grammar-index-part2.tsv'),
+    );
 
     foreach (['vocab.json' => $vocab, 'kanji.json' => $kanji, 'grammar-index.json' => $grammar] as $file => $data) {
         file_put_contents("$dir/$file", json_pretty($data));
@@ -205,8 +200,8 @@ function data_build(string $dir = BACKEND . '/data', bool $quiet = false): void
     }
     ksort($byLesson);
     echo 'vocab entries : ' . count($vocab) . "\n";
-    echo '  verbs       : ' . count(array_filter($vocab, static fn (array $v): bool => $v['verbClass'] !== null)) . "\n";
-    echo '  adjectives  : ' . count(array_filter($vocab, static fn (array $v): bool => $v['adjClass'] !== null)) . "\n";
+    echo '  verbs       : ' . count(array_filter($vocab, static fn(array $v): bool => $v['verbClass'] !== null)) . "\n";
+    echo '  adjectives  : ' . count(array_filter($vocab, static fn(array $v): bool => $v['adjClass'] !== null)) . "\n";
     echo '  by lesson   : ' . json_encode((object) $byLesson) . "\n";
     echo 'kanji         : ' . count($kanji) . "\n";
     echo 'grammar points: ' . count($grammar) . "\n";

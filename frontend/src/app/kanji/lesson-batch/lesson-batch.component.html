@@ -1,58 +1,58 @@
 @let it = current();
 <div class="lhead">
-  <h1>{{ 'kanji.tab.lessons' | translate }}</h1>
-  <div class="lstrip">
-    @for (x of items(); track x.id; let k = $index) {
-      <button type="button" class="lchip t-{{ x.type }}" [class.on]="k === i()" lang="ja" (click)="pick(k)">{{ x.chars }}</button>
-    }
-  </div>
+    <h1>{{ "kanji.tab.lessons" | translate }}</h1>
+    <div class="lstrip">
+        @for (x of items(); track x.id; let k = $index) {
+            <button type="button" class="lchip t-{{ x.type }}" [class.on]="k === i()" lang="ja" (click)="pick(k)">{{ x.chars }}</button>
+        }
+    </div>
 </div>
 
 <div class="lband t-{{ it.type }}">
-  <div class="lchars" lang="ja">{{ it.chars }}</div>
-  <div class="lmeta">{{ typeKey(it) | translate }} · {{ 'common.lesson' | translate: { n: it.lesson } }}{{ it.type === 'kanji' ? ' · #' + it.no : '' }}</div>
+    <div class="lchars" lang="ja">{{ it.chars }}</div>
+    <div class="lmeta">{{ typeKey(it) | translate }} · {{ "common.lesson" | translate: { n: it.lesson } }}{{ it.type === "kanji" ? " · #" + it.no : "" }}</div>
 </div>
 <div class="ltabs" role="tablist">
-  @for (t of tabs; track t; let k = $index) {
-    <button type="button" role="tab" class="ltab" [class.on]="k === tab()" [attr.aria-selected]="k === tab()" (click)="setTab(k)">{{ t | translate }}</button>
-  }
+    @for (t of tabs; track t; let k = $index) {
+        <button type="button" role="tab" class="ltab" [class.on]="k === tab()" [attr.aria-selected]="k === tab()" (click)="setTab(k)">{{ t | translate }}</button>
+    }
 </div>
 <div class="lbody">
-  @for (k of [key()]; track k) {
-    @switch (tab()) {
-      @case (0) {
-        <div>
-          <p class="lbig" lang="en">{{ it.meanings.join('; ') }}</p>
-          @if (it.type === 'vocab') {
-            <div class="dsec">
-              <h3>{{ 'lesson.madeOf' | translate }}</h3>
-              <div class="tiles">
-                @for (kj of madeOf(it); track kj.id) {
-                  <app-tile [item]="kj" [withMeaning]="true" />
-                }
-              </div>
-            </div>
-          }
-          <app-notes-editor [item]="it" [parts]="['meaning']" [title]="null" />
-        </div>
-      }
-      @case (1) {
-        <div>
-          <app-readings [item]="it" />
-          @if (it.type === 'kanji') {
-            <p class="small muted lnote">{{ 'lesson.readingNote' | translate }}</p>
-          }
-          <app-notes-editor [item]="it" [parts]="['reading']" [title]="null" />
-        </div>
-      }
-      @default {
-        <app-item-details [item]="it" [notes]="false" [context]="true" />
-      }
+    @for (k of [key()]; track k) {
+        @switch (tab()) {
+            @case (0) {
+                <div>
+                    <p class="lbig" lang="en">{{ it.meanings.join("; ") }}</p>
+                    @if (it.type === "vocab") {
+                        <div class="dsec">
+                            <h3>{{ "lesson.madeOf" | translate }}</h3>
+                            <div class="tiles">
+                                @for (kj of madeOf(it); track kj.id) {
+                                    <app-tile [item]="kj" [withMeaning]="true" />
+                                }
+                            </div>
+                        </div>
+                    }
+                    <app-notes-editor [item]="it" [parts]="['meaning']" [title]="null" />
+                </div>
+            }
+            @case (1) {
+                <div>
+                    <app-readings [item]="it" />
+                    @if (it.type === "kanji") {
+                        <p class="small muted lnote">{{ "lesson.readingNote" | translate }}</p>
+                    }
+                    <app-notes-editor [item]="it" [parts]="['reading']" [title]="null" />
+                </div>
+            }
+            @default {
+                <app-item-details [item]="it" [notes]="false" [context]="true" />
+            }
+        }
     }
-  }
 </div>
 <div class="lnav">
-  <button anotokiButton [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">{{ 'lesson.back' | translate }}</button>
-  <span class="small muted lhint">{{ 'lesson.keysHint' | translate }}</span>
-  <button anotokiButton variant="primary" (click)="step(1)">{{ (last() ? 'lesson.startQuiz' : 'lesson.next') | translate }}</button>
+    <button anotokiButton [disabled]="i() === 0 && tab() === 0" (click)="step(-1)">{{ "lesson.back" | translate }}</button>
+    <span class="small muted lhint">{{ "lesson.keysHint" | translate }}</span>
+    <button anotokiButton variant="primary" (click)="step(1)">{{ (last() ? "lesson.startQuiz" : "lesson.next") | translate }}</button>
 </div>

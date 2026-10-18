@@ -69,8 +69,10 @@ function test_config_write(string $dir, string $name, string $jwks, string $back
     }
     $server = test_config_server_file();
     if (!is_file($server)) {
-        throw new RuntimeException('The tests make their databases on the PostgreSQL server of backend/config/database.local.php, and there is none:'
-            . ' set this copy up first (composer start in backend/, then open http://localhost:8200/setup.php).');
+        throw new RuntimeException(
+            'The tests make their databases on the PostgreSQL server of backend/config/database.local.php, and there is none:' .
+                ' set this copy up first (composer start in backend/, then open http://localhost:8200/setup.php).',
+        );
     }
     if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException("Cannot make $dir");

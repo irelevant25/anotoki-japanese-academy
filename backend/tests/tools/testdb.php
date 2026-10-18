@@ -112,7 +112,9 @@ switch ($command) {
         if (!$options && db_exists()) {
             // A draft is edited while it is written, and an applied one is never applied again:
             // when the drafts the template was made with are not these, it is made afresh.
-            $made = db_server()->query("SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = '" . TEMPLATE . "'")->fetchColumn();
+            $made = db_server()
+                ->query("SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = '" . TEMPLATE . "'")
+                ->fetchColumn();
             if (preg_match('/^academy drafts (\w+)$/D', (string) $made, $m) && $m[1] !== $drafts) {
                 $options = ['--fresh'];
                 echo TEMPLATE . ": a migration being written changed since it was made: made afresh\n";
@@ -163,8 +165,12 @@ switch ($command) {
             }
         }
         // backend/tests/api/deploy.test.php makes a database user per run, as a host would
-        $roles = $server->query("SELECT rolname FROM pg_roles r WHERE rolname LIKE 'academy\\_test\\_%\\_site'
-                                 AND NOT EXISTS (SELECT 1 FROM pg_database d WHERE d.datdba = r.oid)")->fetchAll();
+        $roles = $server
+            ->query(
+                "SELECT rolname FROM pg_roles r WHERE rolname LIKE 'academy\\_test\\_%\\_site'
+                                 AND NOT EXISTS (SELECT 1 FROM pg_database d WHERE d.datdba = r.oid)",
+            )
+            ->fetchAll();
         foreach ($roles as $r) {
             $server->exec('DROP ROLE IF EXISTS "' . test_name($r['rolname']) . '"');
             echo "dropped the user {$r['rolname']}\n";
@@ -178,7 +184,9 @@ switch ($command) {
         break;
 
     default:
-        fwrite(STDERR, "usage: php backend/tests/tools/testdb.php template [--fresh] | create NAME | site NAME | drop NAME | sweep | sql NAME SQL [JSON-PARAMS]"
-            . " | config DIR NAME JWKS BACKUPS [FRONTEND]\n");
+        fwrite(
+            STDERR,
+            'usage: php backend/tests/tools/testdb.php template [--fresh] | create NAME | site NAME | drop NAME | sweep | sql NAME SQL [JSON-PARAMS]' . " | config DIR NAME JWKS BACKUPS [FRONTEND]\n",
+        );
         exit(1);
 }

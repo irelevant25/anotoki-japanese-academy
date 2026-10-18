@@ -39,16 +39,19 @@ test('clean reviews climb 1 → 9 with the WaniKani intervals', function (): voi
 });
 
 test('penalty: ceil(misses / 2), doubled from Guru, never below Apprentice I', function (): void {
-    foreach ([
-        [4, ['meaningWrong' => 1], 3],
-        [4, ['meaningWrong' => 1, 'readingWrong' => 1], 3],
-        [4, ['meaningWrong' => 3], 2],
-        [2, ['readingWrong' => 5], 1],
-        [5, ['meaningWrong' => 1], 3],
-        [7, ['meaningWrong' => 1], 5],
-        [8, ['meaningWrong' => 2, 'readingWrong' => 2], 4],
-        [6, [], 7],
-    ] as [$from, $wrong, $to]) {
+    foreach (
+        [
+            [4, ['meaningWrong' => 1], 3],
+            [4, ['meaningWrong' => 1, 'readingWrong' => 1], 3],
+            [4, ['meaningWrong' => 3], 2],
+            [2, ['readingWrong' => 5], 1],
+            [5, ['meaningWrong' => 1], 3],
+            [7, ['meaningWrong' => 1], 5],
+            [8, ['meaningWrong' => 2, 'readingWrong' => 2], 4],
+            [6, [], 7],
+        ]
+        as [$from, $wrong, $to]
+    ) {
         assert_same($to, srs_review(at($from), $wrong, NOW)['to'], "$from " . json_encode($wrong));
     }
 });

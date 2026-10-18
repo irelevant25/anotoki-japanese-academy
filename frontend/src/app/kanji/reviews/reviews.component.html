@@ -1,14 +1,14 @@
 @if (due.length) {
-  <app-session mode="review" [items]="due" (done)="finished($event)" />
+    <app-session mode="review" [items]="due" (done)="finished($event)" />
 } @else {
-  <div class="page">
-    <anotoki-page-header [heading]="'kanji.tab.reviews' | translate" />
-    <anotoki-card>
-      <!-- when the next review comes (when one is scheduled), then where to go meanwhile: one line of the empty state -->
-      <anotoki-empty-state icon="checkCircle" [heading]="'reviews.noneDue' | translate" [text]="(next() ? next() + ' ' : '') + ('reviews.practiceHint' | translate)">
-        <a anotokiButton variant="primary" routerLink="/kanji/practice">{{ 'kanji.tab.practice' | translate }}</a>
-        <a anotokiButton routerLink="/kanji/lessons">{{ 'kanji.tab.lessons' | translate }}</a>
-      </anotoki-empty-state>
-    </anotoki-card>
-  </div>
+    <div class="page">
+        <anotoki-page-header [heading]="'kanji.tab.reviews' | translate" />
+        <anotoki-card>
+            <!-- when the next review comes (when one is scheduled), then where to go meanwhile: one line of the empty state -->
+            <anotoki-empty-state icon="checkCircle" [heading]="'reviews.noneDue' | translate" [text]="(next() ? next() + ' ' : '') + ('reviews.practiceHint' | translate)">
+                <a anotokiButton variant="primary" routerLink="/kanji/practice">{{ "kanji.tab.practice" | translate }}</a>
+                <a anotokiButton routerLink="/kanji/lessons">{{ "kanji.tab.lessons" | translate }}</a>
+            </anotoki-empty-state>
+        </anotoki-card>
+    </div>
 }

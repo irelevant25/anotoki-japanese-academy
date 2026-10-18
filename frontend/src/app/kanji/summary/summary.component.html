@@ -1,90 +1,92 @@
 <div class="page">
-  <anotoki-page-header [heading]="title() | translate" [lead]="lead()">
-    @if (result().mode !== 'lesson' && result().unfinished) {
-      <p pageMeta class="small muted" id="unsavedNote">{{ 'summary.unsaved' | translatePlural: result().unfinished }}</p>
-    }
-  </anotoki-page-header>
+    <anotoki-page-header [heading]="title() | translate" [lead]="lead()">
+        @if (result().mode !== "lesson" && result().unfinished) {
+            <p pageMeta class="small muted" id="unsavedNote">{{ "summary.unsaved" | translatePlural: result().unfinished }}</p>
+        }
+    </anotoki-page-header>
 
-  <div class="cluster" id="summaryActions">
-    @switch (result().mode) {
-      @case ('lesson') {
-        <button anotokiButton variant="primary" [disabled]="!more().length" (click)="nextLessons()">
-          @if (more().length) {
-            {{ 'summary.nextLessons' | translatePlural: more().length }}
-          } @else {
-            {{ 'summary.allCaughtUp' | translate }}
-          }
-        </button>
-        <button anotokiButton (click)="practiseLessons()">{{ 'summary.practiseThese' | translate }}</button>
-      }
-      @case ('practice') {
-        <button anotokiButton variant="primary" (click)="sameAgain()">{{ 'summary.sameAgain' | translate }}</button>
-        @if (missed().length) {
-          <button anotokiButton (click)="justMissed()">{{ 'summary.justMissed' | translate: { n: missed().length } }}</button>
-        }
-        <a anotokiButton routerLink="/kanji/practice">{{ 'summary.newPractice' | translate }}</a>
-      }
-      @default {
-        @if (summary()?.reviewsDue; as due) {
-          <button anotokiButton variant="primary" (click)="moreReviews()">{{ 'summary.moreDue' | translate: { n: due } }}</button>
-        }
-      }
-    }
-    <a anotokiButton routerLink="/kanji">{{ 'kanji.tab.dashboard' | translate }}</a>
-  </div>
-
-  @if (missed().length) {
-    <anotoki-card id="summaryMissed" [heading]="'summary.missed' | translate: { n: missed().length }">
-      <ul class="sumlist">
-        @for (d of missed(); track d.it.id) {
-          <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
-        }
-      </ul>
-    </anotoki-card>
-  }
-  @if (clean().length) {
-    <anotoki-card id="summaryClean" [heading]="'summary.rightFirstTime' | translate: { n: clean().length }">
-      <ul class="sumlist">
-        @for (d of clean(); track d.it.id) {
-          <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
-        }
-      </ul>
-    </anotoki-card>
-  }
-  @if (failed().length) {
-    <anotoki-card id="summaryFailed" [heading]="'summary.notSaved' | translate">
-      <ul class="sumlist">
-        @for (d of failed(); track d.it.id) {
-          <li>
-            <app-tile [item]="d.it" />
-            @if (d.error; as failure) {
-              <span class="sm-x">{{ reason(failure) }}</span>
-              @if (failure.body.detail) {
-                <span class="small muted" lang="en">{{ failure.body.detail }}</span>
-              }
+    <div class="cluster" id="summaryActions">
+        @switch (result().mode) {
+            @case ("lesson") {
+                <button anotokiButton variant="primary" [disabled]="!more().length" (click)="nextLessons()">
+                    @if (more().length) {
+                        {{ "summary.nextLessons" | translatePlural: more().length }}
+                    } @else {
+                        {{ "summary.allCaughtUp" | translate }}
+                    }
+                </button>
+                <button anotokiButton (click)="practiseLessons()">{{ "summary.practiseThese" | translate }}</button>
             }
-          </li>
+            @case ("practice") {
+                <button anotokiButton variant="primary" (click)="sameAgain()">{{ "summary.sameAgain" | translate }}</button>
+                @if (missed().length) {
+                    <button anotokiButton (click)="justMissed()">{{ "summary.justMissed" | translate: { n: missed().length } }}</button>
+                }
+                <a anotokiButton routerLink="/kanji/practice">{{ "summary.newPractice" | translate }}</a>
+            }
+            @default {
+                @if (summary()?.reviewsDue; as due) {
+                    <button anotokiButton variant="primary" (click)="moreReviews()">{{ "summary.moreDue" | translate: { n: due } }}</button>
+                }
+            }
         }
-      </ul>
-    </anotoki-card>
-  }
+        <a anotokiButton routerLink="/kanji">{{ "kanji.tab.dashboard" | translate }}</a>
+    </div>
+
+    @if (missed().length) {
+        <anotoki-card id="summaryMissed" [heading]="'summary.missed' | translate: { n: missed().length }">
+            <ul class="sumlist">
+                @for (d of missed(); track d.it.id) {
+                    <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
+                }
+            </ul>
+        </anotoki-card>
+    }
+    @if (clean().length) {
+        <anotoki-card id="summaryClean" [heading]="'summary.rightFirstTime' | translate: { n: clean().length }">
+            <ul class="sumlist">
+                @for (d of clean(); track d.it.id) {
+                    <ng-container *ngTemplateOutlet="row; context: { $implicit: d }" />
+                }
+            </ul>
+        </anotoki-card>
+    }
+    @if (failed().length) {
+        <anotoki-card id="summaryFailed" [heading]="'summary.notSaved' | translate">
+            <ul class="sumlist">
+                @for (d of failed(); track d.it.id) {
+                    <li>
+                        <app-tile [item]="d.it" />
+                        @if (d.error; as failure) {
+                            <span class="sm-x">{{ reason(failure) }}</span>
+                            @if (failure.body.detail) {
+                                <span class="small muted" lang="en">{{ failure.body.detail }}</span>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+        </anotoki-card>
+    }
 </div>
 
 <ng-template #row let-d>
-  <li>
-    <app-tile [item]="d.it" />
-    <span class="sm-m" lang="en">{{ d.it.meanings[0] }}</span>
-    <span class="sm-r" lang="ja">{{ d.it.readings[0] }}</span>
-    @if (misses(d)) {
-      <span class="sm-x">{{ 'summary.misses' | translatePlural: misses(d) }}</span>
-    }
-    @if (moved(d); as mv) {
-      @if (mv.kind === 'stays') {
-        <!-- the app's words, in the page's language, with the stage's English name inside them: one piece of the badge -->
-        <anotoki-badge><span><app-worded [parts]="mv.parts" /></span></anotoki-badge>
-      } @else {
-        <anotoki-badge [tone]="mv.dir === 'up' ? 'success' : 'danger'" lang="en">{{ mv.from }} → {{ mv.to }}</anotoki-badge>
-      }
-    }
-  </li>
+    <li>
+        <app-tile [item]="d.it" />
+        <span class="sm-m" lang="en">{{ d.it.meanings[0] }}</span>
+        <span class="sm-r" lang="ja">{{ d.it.readings[0] }}</span>
+        @if (misses(d)) {
+            <span class="sm-x">{{ "summary.misses" | translatePlural: misses(d) }}</span>
+        }
+        @if (moved(d); as mv) {
+            @if (mv.kind === "stays") {
+                <!-- the app's words, in the page's language, with the stage's English name inside them: one piece of the badge -->
+                <anotoki-badge>
+                    <span><app-worded [parts]="mv.parts" /></span>
+                </anotoki-badge>
+            } @else {
+                <anotoki-badge [tone]="mv.dir === 'up' ? 'success' : 'danger'" lang="en">{{ mv.from }} → {{ mv.to }}</anotoki-badge>
+            }
+        }
+    </li>
 </ng-template>

@@ -101,9 +101,16 @@ function academy_translation_routes(Slim\App $app): void
 
     // The editors and the administrators: reading and rewording the strings.
     // Who saved a string is the request's person, the token's, and nothing a body says.
-    $strings = TranslationsRoutes::strings($app, '/api/admin', $translations, static function (Request $request): ?int {
-        return uid($request);
-    }, $error, $audit);
+    $strings = TranslationsRoutes::strings(
+        $app,
+        '/api/admin',
+        $translations,
+        static function (Request $request): ?int {
+            return uid($request);
+        },
+        $error,
+        $audit,
+    );
     $strings->add(body_limit_middleware());
     $strings->add(staff_middleware());
     data_route($strings);

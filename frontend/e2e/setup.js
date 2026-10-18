@@ -117,7 +117,11 @@ async function cleanup() {
   // What the setup page applies, as it names it, in the order the sets run (backend/src/db.php): the anotoki
   // library's admin tools' tables (anotoki_admin), this app's own migrations, the library's words
   // (anotoki_translations) and its people (anotoki_people) - the library's from the upload's vendor/, each with its set.
-  const sqlIn = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  const sqlIn = (dir) =>
+    fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
   const library = (folder, set) => sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'backend', 'migrations', folder)).map((f) => `${set}/${f}`);
   const migrations = [
     ...library('admin', 'anotoki_admin'),
@@ -169,8 +173,11 @@ async function cleanup() {
     title: el.querySelector('h1').textContent.trim(),
     actions: [...el.querySelectorAll('a, button')].map((a) => `${a.textContent.trim()}${a.getAttribute('href') ? ' ' + a.getAttribute('href') : ''}`),
   }));
-  ck('not set up, and never installed (this computer’s never is): the library’s page says so, with the way to the setup page',
-    notSetUp.title === 'This site is not set up yet' && notSetUp.actions.join(',') === 'Open the setup page /setup.php,Try again', JSON.stringify(notSetUp));
+  ck(
+    'not set up, and never installed (this computer’s never is): the library’s page says so, with the way to the setup page',
+    notSetUp.title === 'This site is not set up yet' && notSetUp.actions.join(',') === 'Open the setup page /setup.php,Try again',
+    JSON.stringify(notSetUp),
+  );
   await page.click('text=Open the setup page');
   await page.waitForSelector('#setup');
   ck('its link opens the setup page', new URL(page.url()).pathname === '/setup.php');
@@ -179,9 +186,12 @@ async function cleanup() {
   ck('the database and the IAM, and nothing else', fields.join(',') === 'nonce,db_host,db_port,db_name,db_user,db_password,issuer,client_id', fields.join(','));
   const defaults = {};
   for (const id of ['db_host', 'db_port', 'db_name', 'db_user', 'issuer', 'client_id']) defaults[id] = await page.inputValue(`#${id}`);
-  ck('the family’s defaults: anotoki_japanese on 5432, the development IAM',
-    JSON.stringify(defaults) === JSON.stringify({ db_host: 'localhost', db_port: '5432', db_name: 'anotoki_japanese', db_user: 'postgres', issuer: 'http://localhost:4300', client_id: 'japanese-academy' }),
-    JSON.stringify(defaults));
+  ck(
+    'the family’s defaults: anotoki_japanese on 5432, the development IAM',
+    JSON.stringify(defaults) ===
+      JSON.stringify({ db_host: 'localhost', db_port: '5432', db_name: 'anotoki_japanese', db_user: 'postgres', issuer: 'http://localhost:4300', client_id: 'japanese-academy' }),
+    JSON.stringify(defaults),
+  );
   ck('nothing is saved yet: no "unchanged" password', (await page.getAttribute('#db_password', 'placeholder')) === null);
 
   const result = async (which, on = page) => {
@@ -199,8 +209,11 @@ async function cleanup() {
   await page.fill('#db_name', `${NAME}_nowhere`);
   await page.fill('#db_password', db.password);
   r = await result('db');
-  ck('Test connection: no such database, and this user may not make one',
-    !r.good && r.text === `Connected to the server, but there is no database "${NAME}_nowhere" and this user may not create one. Make it in the hosting panel first.`, r.text);
+  ck(
+    'Test connection: no such database, and this user may not make one',
+    !r.good && r.text === `Connected to the server, but there is no database "${NAME}_nowhere" and this user may not create one. Make it in the hosting panel first.`,
+    r.text,
+  );
   await page.fill('#db_name', NAME);
   r = await result('db');
   ck('Test connection: the database, empty', r.good && r.text === `Connected to the database "${NAME}": it is empty - Save makes the tables.`, r.text);
@@ -226,12 +239,15 @@ async function cleanup() {
   ck('the study content built', /Built the study content: [\d,]+ kanji items and [\d,]+ exam questions/.test(done));
   ck('people sign in with their anotoki account, each with their own data', done.includes(`Open the app and sign in with your anotoki account at ${issuer}.`));
   ck('the setup page is still there', fs.existsSync(path.join(DIR, 'backend', 'setup.php')));
-  ck('the settings written: database and auth only, auth naming the IAM alone',
-    fs.existsSync(path.join(DIR, 'backend', 'config', 'database.local.php')) && !fs.existsSync(path.join(DIR, 'backend', 'config', 'app.local.php'))
-      && (() => {
+  ck(
+    'the settings written: database and auth only, auth naming the IAM alone',
+    fs.existsSync(path.join(DIR, 'backend', 'config', 'database.local.php')) &&
+      !fs.existsSync(path.join(DIR, 'backend', 'config', 'app.local.php')) &&
+      (() => {
         const auth = fs.readFileSync(path.join(DIR, 'backend', 'config', 'auth.local.php'), 'utf8');
         return auth.includes(issuer) && auth.includes('japanese-academy') && !/mode|local_user_id|jwks_file|time_?zone/i.test(auth);
-      })());
+      })(),
+  );
   await page.screenshot({ path: path.join(SHOTS, 'setup-done.png'), fullPage: true });
 
   await page.click('text=Open Japanese Academy');
@@ -245,9 +261,14 @@ async function cleanup() {
   await page.goto(`${local}/setup.php`);
   await page.waitForSelector('#setup');
   const again = await page.content();
-  ck('opened again on this computer: what is saved, never the password',
-    /This copy is set up already/.test(again) && (await page.inputValue('#db_name')) === NAME && (await page.inputValue('#issuer')) === issuer
-      && !again.includes(db.password) && (await page.getAttribute('#db_password', 'placeholder')) === 'unchanged');
+  ck(
+    'opened again on this computer: what is saved, never the password',
+    /This copy is set up already/.test(again) &&
+      (await page.inputValue('#db_name')) === NAME &&
+      (await page.inputValue('#issuer')) === issuer &&
+      !again.includes(db.password) &&
+      (await page.getAttribute('#db_password', 'placeholder')) === 'unchanged',
+  );
   r = await result('db');
   ck('and Test connection: up to date', r.good && r.text === `Connected to the database "${NAME}": it is up to date.`, r.text);
   ck('no browser errors on this computer', errors.length === 0, errors.join(' | '));
@@ -276,19 +297,29 @@ async function cleanup() {
   await site.fill('#token', 'not-the-token');
   await site.press('#token', 'Enter'); // Enter checks the token: it sends no form
   r = await tokenResult();
-  ck('Enter in the token checks it, and sends no form', !r.good && /That is not the token/.test(r.text)
-    && new URL(site.url()).pathname === '/setup.php' && (await site.inputValue('#token')) === 'not-the-token', r.text);
+  ck(
+    'Enter in the token checks it, and sends no form',
+    !r.good && /That is not the token/.test(r.text) && new URL(site.url()).pathname === '/setup.php' && (await site.inputValue('#token')) === 'not-the-token',
+    r.text,
+  );
   await site.fill('#issuer', issuer);
   r = await result('iam', site);
   ck('its buttons want the token too', !r.good && /That is not the token/.test(r.text), r.text);
   // pasted: the page checks it at once (a paste event, as the clipboard gives one)
-  await site.$eval('#token', (el, value) => {
-    el.value = value;
-    el.dispatchEvent(new Event('paste', { bubbles: true }));
-  }, token);
+  await site.$eval(
+    '#token',
+    (el, value) => {
+      el.value = value;
+      el.dispatchEvent(new Event('paste', { bubbles: true }));
+    },
+    token,
+  );
   const pasted = await site
     .waitForFunction(() => document.getElementById('token-result').textContent === 'That is the token.', null, { timeout: 5000 })
-    .then(() => true, () => false);
+    .then(
+      () => true,
+      () => false,
+    );
   ck('a pasted token is checked at once: "That is the token.", and no more', pasted);
   ck('and still nothing of what is saved after it', await nothingSaved(true));
   await site.fill('#db_host', String(db.host));
@@ -303,20 +334,29 @@ async function cleanup() {
   await Promise.all([site.waitForNavigation(), site.click('button[type=submit]')]);
   await site.waitForSelector('h1');
   const siteDone = await site.textContent('main');
-  ck('Save on a website: set up, through the IAM', (await site.textContent('h1')) === 'Set up' && siteDone.includes(`sign-in through the IAM at ${issuer}.`),
-    siteDone.replace(/\s+/g, ' ').slice(0, 300));
+  ck(
+    'Save on a website: set up, through the IAM',
+    (await site.textContent('h1')) === 'Set up' && siteDone.includes(`sign-in through the IAM at ${issuer}.`),
+    siteDone.replace(/\s+/g, ' ').slice(0, 300),
+  );
   ck('it reached the IAM’s keys', /Reached the IAM: its keys are there/.test(siteDone));
-  ck('the lock written, the setup page and its token gone',
-    fs.existsSync(path.join(DIR, 'backend', 'storage', 'installed.lock')) && !fs.existsSync(path.join(DIR, 'backend', 'setup.php')) && !fs.existsSync(tokenFile)
-      && /Removed backend\/setup\.php and backend\/config\/setup-token\.local\.php/.test(siteDone));
+  ck(
+    'the lock written, the setup page and its token gone',
+    fs.existsSync(path.join(DIR, 'backend', 'storage', 'installed.lock')) &&
+      !fs.existsSync(path.join(DIR, 'backend', 'setup.php')) &&
+      !fs.existsSync(tokenFile) &&
+      /Removed backend\/setup\.php and backend\/config\/setup-token\.local\.php/.test(siteDone),
+  );
   ck('/setup.php is no more', (await fetch(`${local}/setup.php`)).status === 404);
   await iam.state({ user: { id: 7, username: 'reader', roles: ['MEMBER'] } });
   await site.click('text=Open Japanese Academy');
   await site.waitForSelector('.homecards, #signin-button, main', { timeout: 15000 });
   await site.waitForSelector(`${BAR.userButton}, #signin-button`, { timeout: 15000 }).catch(() => undefined);
-  ck('the app on the website: to the IAM and back, signed in',
+  ck(
+    'the app on the website: to the IAM and back, signed in',
     (await site.$('.homecards')) !== null && (await site.textContent(BAR.userName, { timeout: 2000 }).catch(() => '')).trim() === 'reader',
-    `${site.url()} ${(await site.textContent('body')).replace(/\s+/g, ' ').slice(0, 200)} | IAM: ${(await iam.state()).log.slice(-6).join(', ')}`);
+    `${site.url()} ${(await site.textContent('body')).replace(/\s+/g, ' ').slice(0, 200)} | IAM: ${(await iam.state()).log.slice(-6).join(', ')}`,
+  );
   await site.screenshot({ path: path.join(SHOTS, 'setup-website-app.png') });
   ck('no browser errors on the website', siteErrors.length === 0, siteErrors.join(' | '));
 
@@ -334,8 +374,11 @@ async function cleanup() {
       text: el.textContent.replace(/\s+/g, ' ').trim(),
       actions: [...el.querySelectorAll('a, button')].map((a) => a.textContent.trim()),
     }));
-    ck('installed, its settings gone: “not available right now”, asking again by itself - never the setup page',
-      seen.title === 'The site is not available right now' && seen.actions.join(',') === 'Try again' && !/setup/i.test(seen.text), JSON.stringify(seen));
+    ck(
+      'installed, its settings gone: “not available right now”, asking again by itself - never the setup page',
+      seen.title === 'The site is not available right now' && seen.actions.join(',') === 'Try again' && !/setup/i.test(seen.text),
+      JSON.stringify(seen),
+    );
     await gone.screenshot({ path: path.join(SHOTS, 'setup-website-not-available.png') });
   } finally {
     fs.writeFileSync(authFile, authSaved);

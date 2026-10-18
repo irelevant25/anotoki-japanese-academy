@@ -7,52 +7,46 @@
   pages.
 -->
 <anotoki-site-gate>
-  <ng-template anotokiSitePages>
-    <app-top-bar />
+    <ng-template anotokiSitePages>
+        <app-top-bar />
 
-    @switch (auth.state()) {
-      @case ('ready') {
-        <router-outlet />
-      }
-      @case ('visiting') {
-        <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page) - but on a legal page, which is anybody's. -->
-        @if (auth.signInError() && !legalPage()) {
-          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
-        } @else {
-          <router-outlet />
+        @switch (auth.state()) {
+            @case ("ready") {
+                <router-outlet />
+            }
+            @case ("visiting") {
+                <!-- Nobody signed in, where the IAM does not require it: the app itself, for a visitor - or, when a sign-in of theirs came back without one, the library's screen that says why (its Back: the page) - but on a legal page, which is anybody's. -->
+                @if (auth.signInError() && !legalPage()) {
+                    <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
+                } @else {
+                    <router-outlet />
+                }
+            }
+            @case ("signed-out") {
+                <!-- A legal page: anybody's, signed in or not. A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
+                @if (legalPage()) {
+                    <router-outlet />
+                } @else if (auth.signInError()) {
+                    <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
+                } @else if (auth.showSignIn()) {
+                    <app-sign-in />
+                }
+            }
+            @case ("problem") {
+                <app-problem />
+            }
         }
-      }
-      @case ('signed-out') {
-        <!-- A legal page: anybody's, signed in or not. A sign-in that came back without one: the library's screen. The session ended here: the Sign in card. Else on the way to the IAM (the library's guard), and nothing is drawn. -->
-        @if (legalPage()) {
-          <router-outlet />
-        } @else if (auth.signInError()) {
-          <main class="wrap sign-in-failure" id="signInFailure"><anotoki-sign-in-failure-route /></main>
-        } @else if (auth.showSignIn()) {
-          <app-sign-in />
-        }
-      }
-      @case ('problem') {
-        <app-problem />
-      }
-    }
 
-    <!--
+        <!--
       The family's footer (@anotoki/lib/footer), the build analyzer's: its top border, "Version 0.5.1 · What's new ·
       Feedback", then Terms · Privacy · Contact. The version is the changelog's newest entry; What's new - once the
       changelog has come - opens the app's own news; Feedback, the library's form in the kit's dialog, only while the
       app itself is shown. No key pressed in it, nor in the form it opens, reaches the page: the reviews and the exam
       listen on `document`.
     -->
-    <anotoki-site-footer
-      [version]="changelog.version()"
-      [whatsNew]="!!changelog.version()"
-      (whatsNew)="news.open()"
-      [feedback]="feedbackOffered()"
-      (keydown)="$event.stopPropagation()"
-    />
-    <app-changelog-dialog #news />
-  </ng-template>
+        <anotoki-site-footer [version]="changelog.version()" [whatsNew]="!!changelog.version()" (whatsNew)="news.open()" [feedback]="feedbackOffered()" (keydown)="$event.stopPropagation()" />
+        <app-changelog-dialog #news />
+    </ng-template>
 </anotoki-site-gate>
 
 <!--

@@ -267,8 +267,12 @@ function config_read_file(string $which, ?string &$problem = null): ?array
     $read = config_require_cleanly($file);
     if ($read['problem'] !== null) {
         $problem = $read['problem'];
-        config_said('backend/config/' . CONFIG_FILES[$which] . " $problem: "
-            . (in_array($which, CONFIG_REQUIRED, true) ? 'this copy is not set up until it is mended.' : 'its defaults hold until it is mended.'));
+        config_said(
+            'backend/config/' .
+                CONFIG_FILES[$which] .
+                " $problem: " .
+                (in_array($which, CONFIG_REQUIRED, true) ? 'this copy is not set up until it is mended.' : 'its defaults hold until it is mended.'),
+        );
         return null;
     }
     if (!is_array($read['value'])) {
@@ -317,13 +321,17 @@ function config_read_cloudflare(): ?array
     }
     $read = config_require_cleanly($file);
     if ($read['problem'] !== null) {
-        config_said("backend/config/cloudflare.local.php {$read['problem']}: no request carries its secret, so every request from Cloudflare's ranges counts as the edge it came from until it is mended.");
+        config_said(
+            "backend/config/cloudflare.local.php {$read['problem']}: no request carries its secret, so every request from Cloudflare's ranges counts as the edge it came from until it is mended.",
+        );
         return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
     $values = $read['value'];
-    $secret = is_array($values) ? ($values['origin_secret'] ?? null) : null;
+    $secret = is_array($values) ? $values['origin_secret'] ?? null : null;
     if (!is_string($secret) || trim($secret) === '') {
-        config_said('backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.');
+        config_said(
+            'backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.',
+        );
         return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
     return $values;
@@ -568,8 +576,7 @@ function config_set_up(): bool
 /** Writes one settings file and reads the settings again (config_put()). */
 function config_write(string $which, array $values, string $by = 'the setup page'): void
 {
-    config_put(config_dir() . '/' . CONFIG_FILES[$which], "<?php\n// Written by $by. This copy's own settings: git ignores this file, never commit it.\n\nreturn "
-        . var_export($values, true) . ";\n");
+    config_put(config_dir() . '/' . CONFIG_FILES[$which], "<?php\n// Written by $by. This copy's own settings: git ignores this file, never commit it.\n\nreturn " . var_export($values, true) . ";\n");
     config_all(true);
 }
 

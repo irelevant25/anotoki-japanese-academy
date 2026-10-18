@@ -47,7 +47,8 @@ const ADV_KEYS = ['potential', 'volitional', 'ba', 'passive', 'causative', 'caus
  * takes い rather than り.
  */
 const IRREGULAR_MASU_STEM = [
-    'くださる' => 'くださ', '下さる' => '下さ',
+    'くださる' => 'くださ',
+    '下さる' => '下さ',
     'いらっしゃる' => 'いらっしゃ',
     'おっしゃる' => 'おっしゃ',
     'なさる' => 'なさ',
@@ -324,6 +325,6 @@ function wrong_adj_forms(string $rawWord, string $trueClass, string $formKey): a
         $add($word . 'くないです');
         $add($word . 'くて');
     }
-    $out = array_values(array_filter($out, static fn ($x): bool => $x !== $truth));
+    $out = array_values(array_filter($out, static fn($x): bool => $x !== $truth));
     return array_values(array_filter($out, 'js_truthy'));
 }

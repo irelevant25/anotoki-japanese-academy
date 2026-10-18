@@ -7,9 +7,9 @@
 // and this app's own after them (styles/base, styles/items), so that where the
 // two speak of the same thing (the page's reading size) the app's word stands.
 
-@use 'sass:meta';
-@use '@anotoki/lib/styles' as anotoki;
-@use 'styles/tokens';
+@use "sass:meta";
+@use "@anotoki/lib/styles" as anotoki;
+@use "styles/tokens";
 
 // Manrope, the anotoki family's font: its files come with the library, and the
 // build copies those a page needs (each subset with its unicode-range).
@@ -18,5 +18,5 @@
 @include anotoki.utilities;
 @include anotoki.tables;
 
-@include meta.load-css('styles/base');
-@include meta.load-css('styles/items');
+@include meta.load-css("styles/base");
+@include meta.load-css("styles/items");

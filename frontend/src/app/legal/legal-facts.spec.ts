@@ -18,7 +18,16 @@ const IAM = 'https://iam.anotoki.example';
  * Every address a legal page of Japanese Academy's may link to: the anotoki account's pages, its own Contact page,
  * the family's address and operator, the authority, Cloudflare.
  */
-const ADDRESSES = [`${IAM}/account`, `${IAM}/privacy`, '/contact', 'mailto:support@anotoki.eu', 'https://codehero.sk', 'https://dataprotection.gov.sk/', 'https://www.websupport.sk', 'https://www.cloudflare.com/privacypolicy/'];
+const ADDRESSES = [
+  `${IAM}/account`,
+  `${IAM}/privacy`,
+  '/contact',
+  'mailto:support@anotoki.eu',
+  'https://codehero.sk',
+  'https://dataprotection.gov.sk/',
+  'https://www.websupport.sk',
+  'https://www.cloudflare.com/privacypolicy/',
+];
 
 /**
  * Japanese Academy's own strings the facts name, as stand-ins: the words themselves are migration 011's (and the

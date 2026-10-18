@@ -22,10 +22,7 @@ require_once __DIR__ . '/../src/bootstrap.php';
 
 const TTS_ENDPOINT = 'https://texttospeech.googleapis.com/v1/text:synthesize';
 
-const VOICES = [
-    ['id' => 'f', 'name' => 'ja-JP-Neural2-B', 'label' => 'female'],
-    ['id' => 'm', 'name' => 'ja-JP-Neural2-C', 'label' => 'male'],
-];
+const VOICES = [['id' => 'f', 'name' => 'ja-JP-Neural2-B', 'label' => 'female'], ['id' => 'm', 'name' => 'ja-JP-Neural2-C', 'label' => 'male']];
 
 // Everything else that decides how a clip sounds. Change it, and every clip is
 // made again on the next build.
@@ -67,20 +64,21 @@ function audio_words(): array
     }
     $keys = array_map('strval', array_keys($byKey));
     sort($keys, SORT_STRING);
-    return array_map(static fn (string $k): array => $byKey[$k], $keys);
+    return array_map(static fn(string $k): array => $byKey[$k], $keys);
 }
 
 function audio_escape_xml(string $s): string
 {
-    return preg_replace_callback('/[&<>"\']/', static fn (array $m): string => '&#' . ord($m[0]) . ';', $s);
+    return preg_replace_callback('/[&<>"\']/', static fn(array $m): string => '&#' . ord($m[0]) . ';', $s);
 }
 
 /** The request for one clip. A kanji word is sent with its reading as yomigana. */
 function audio_request(array $s, array $voice): array
 {
-    $input = $s['text'] === $s['reading']
-        ? ['text' => $s['reading']]
-        : ['ssml' => '<speak><phoneme alphabet="yomigana" ph="' . audio_escape_xml($s['reading']) . '">' . audio_escape_xml($s['text']) . '</phoneme></speak>'];
+    $input =
+        $s['text'] === $s['reading']
+            ? ['text' => $s['reading']]
+            : ['ssml' => '<speak><phoneme alphabet="yomigana" ph="' . audio_escape_xml($s['reading']) . '">' . audio_escape_xml($s['text']) . '</phoneme></speak>'];
     return [
         'input' => $input,
         'voice' => ['languageCode' => 'ja-JP', 'name' => $voice['name']],
@@ -107,15 +105,18 @@ function audio_google_synth(string $key): Closure
                 usleep((int) (($at - $now) * 1e6));
             }
             $ch = curl_init(TTS_ENDPOINT);
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                // in a header, so the key never appears in a logged URL
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json', "X-Goog-Api-Key: $key"],
-                CURLOPT_POSTFIELDS => json_text($req),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 60,
-                // PHP on Windows usually has no CA bundle of its own: use Windows' certificates
-            ] + (PHP_OS_FAMILY === 'Windows' && defined('CURLSSLOPT_NATIVE_CA') ? [CURLOPT_SSL_OPTIONS => CURLSSLOPT_NATIVE_CA] : []));
+            curl_setopt_array(
+                $ch,
+                [
+                    CURLOPT_POST => true,
+                    // in a header, so the key never appears in a logged URL
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json', "X-Goog-Api-Key: $key"],
+                    CURLOPT_POSTFIELDS => json_text($req),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 60,
+                    // PHP on Windows usually has no CA bundle of its own: use Windows' certificates
+                ] + (PHP_OS_FAMILY === 'Windows' && defined('CURLSSLOPT_NATIVE_CA') ? [CURLOPT_SSL_OPTIONS => CURLSSLOPT_NATIVE_CA] : []),
+            );
             $body = curl_exec($ch);
             $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             $error = curl_error($ch);
@@ -167,11 +168,20 @@ function audio_write_index(array $index, string $file): void
     $block = static function (array $obj): string {
         $keys = array_map('strval', array_keys($obj));
         sort($keys, SORT_STRING);
-        return implode(",\n", array_map(static fn (string $k): string => '  ' . json_text($k) . ': ' . ($obj[$k] === [] ? '{}' : json_text($obj[$k])), $keys));
+        return implode(",\n", array_map(static fn(string $k): string => '  ' . json_text($k) . ': ' . ($obj[$k] === [] ? '{}' : json_text($obj[$k])), $keys));
     };
-    $json = "{\n \"recipe\": " . json_text($index['recipe']) . ",\n \"voices\": " . json_text($index['voices']) . ",\n"
-        . " \"clips\": {\n" . $block($index['clips']) . "\n },\n"
-        . " \"made\": {\n" . $block($index['made']) . "\n }\n}\n";
+    $json =
+        "{\n \"recipe\": " .
+        json_text($index['recipe']) .
+        ",\n \"voices\": " .
+        json_text($index['voices']) .
+        ",\n" .
+        " \"clips\": {\n" .
+        $block($index['clips']) .
+        "\n },\n" .
+        " \"made\": {\n" .
+        $block($index['made']) .
+        "\n }\n}\n";
     file_put_atomic($file, $json);
 }
 
@@ -184,7 +194,7 @@ function audio_prune(array $index): array
             $used[$f] = true;
         }
     }
-    $index['made'] = array_filter($index['made'], static fn ($f): bool => isset($used[(string) $f]), ARRAY_FILTER_USE_KEY);
+    $index['made'] = array_filter($index['made'], static fn($f): bool => isset($used[(string) $f]), ARRAY_FILTER_USE_KEY);
     return $index;
 }
 
@@ -207,7 +217,7 @@ function audio_build(array $o): array
         'voices' => VOICES,
         'dryRun' => false,
         'limit' => PHP_INT_MAX,
-        'shouldStop' => static fn (): bool => false,
+        'shouldStop' => static fn(): bool => false,
         'log' => static function (string $line): void {
             echo $line, "\n";
         },
@@ -218,8 +228,7 @@ function audio_build(array $o): array
     $old = audio_load_index($o['indexFile']);
     $oldVoice = array_column($old['voices'], 'name', 'id');
     // an index from before clips were stamped: its clips share its recipe and voices
-    $stampOf = static fn (string $file, string $voiceId): ?string => $old['made'][$file]
-        ?? ($old['recipe'] && isset($oldVoice[$voiceId]) ? "{$old['recipe']}|{$oldVoice[$voiceId]}" : null);
+    $stampOf = static fn(string $file, string $voiceId): ?string => $old['made'][$file] ?? ($old['recipe'] && isset($oldVoice[$voiceId]) ? "{$old['recipe']}|{$oldVoice[$voiceId]}" : null);
 
     $index = ['recipe' => $recipe, 'voices' => $voices, 'clips' => [], 'made' => []];
     $todo = [];
@@ -239,9 +248,17 @@ function audio_build(array $o): array
         }
     }
     $batch = array_slice($todo, 0, $o['limit']);
-    $chars = array_sum(array_map(static fn (array $t): int => audio_billed(audio_request($t['s'], $t['voice'])), $batch));
-    $log(count($words) . ' words in ' . count($voices) . ' voices: ' . count($todo) . ' clip(s) to make'
-        . (count($batch) < count($todo) ? ', ' . count($batch) . ' this time' : '') . " ($chars characters)");
+    $chars = array_sum(array_map(static fn(array $t): int => audio_billed(audio_request($t['s'], $t['voice'])), $batch));
+    $log(
+        count($words) .
+            ' words in ' .
+            count($voices) .
+            ' voices: ' .
+            count($todo) .
+            ' clip(s) to make' .
+            (count($batch) < count($todo) ? ', ' . count($batch) . ' this time' : '') .
+            " ($chars characters)",
+    );
     if ($o['dryRun']) {
         return ['made' => 0, 'removed' => 0, 'skipped' => [], 'todo' => count($todo), 'chars' => $chars];
     }
@@ -254,12 +271,12 @@ function audio_build(array $o): array
     $skipped = [];
     try {
         foreach ($batch as ['s' => $s, 'voice' => $voice]) {
-            if (($o['shouldStop'])()) {
+            if ($o['shouldStop']()) {
                 break;
             }
             $taken++;
             try {
-                $mp3 = ($o['synth'])(audio_request($s, $voice));
+                $mp3 = $o['synth'](audio_request($s, $voice));
             } catch (TtsError $e) {
                 if ($e->status !== 400) {
                     throw $e;
@@ -325,7 +342,7 @@ function audio_limit_arg(array $args): int
 {
     foreach ($args as $i => $a) {
         if ($a === '--limit' || str_starts_with($a, '--limit=')) {
-            $raw = str_contains($a, '=') ? explode('=', $a, 2)[1] : ($args[$i + 1] ?? '');
+            $raw = str_contains($a, '=') ? explode('=', $a, 2)[1] : $args[$i + 1] ?? '';
             if (!preg_match('/^[1-9]\d*$/D', $raw)) {
                 throw new RuntimeException('--limit needs a whole number of clips, e.g. --limit 20');
             }
@@ -344,10 +361,10 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
         $stopping = true;
     };
     if (function_exists('sapi_windows_set_ctrl_handler')) {
-        sapi_windows_set_ctrl_handler(static fn (int $event) => $stop());
+        sapi_windows_set_ctrl_handler(static fn(int $event) => $stop());
     } elseif (function_exists('pcntl_signal')) {
         pcntl_async_signals(true);
-        pcntl_signal(SIGINT, static fn () => $stop());
+        pcntl_signal(SIGINT, static fn() => $stop());
     }
     try {
         $args = array_slice($argv, 1);
@@ -364,10 +381,9 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
         if ($dryRun) {
             exit(0);
         }
-        $files = array_values(array_filter(scandir(AUDIO_CLIPS) ?: [], static fn (string $f): bool => (bool) preg_match(CLIP_NAME, $f)));
-        $mb = array_sum(array_map(static fn (string $f): int => (int) filesize(AUDIO_CLIPS . "/$f"), $files)) / 1048576;
-        echo "made {$r['made']}, removed {$r['removed']}" . ($r['stopped'] ? ', stopped early' : '') . '; '
-            . 'backend/data/audio has ' . count($files) . ' clips (' . js_to_fixed($mb, 1) . " MB)\n";
+        $files = array_values(array_filter(scandir(AUDIO_CLIPS) ?: [], static fn(string $f): bool => (bool) preg_match(CLIP_NAME, $f)));
+        $mb = array_sum(array_map(static fn(string $f): int => (int) filesize(AUDIO_CLIPS . "/$f"), $files)) / 1048576;
+        echo "made {$r['made']}, removed {$r['removed']}" . ($r['stopped'] ? ', stopped early' : '') . '; ' . 'backend/data/audio has ' . count($files) . ' clips (' . js_to_fixed($mb, 1) . " MB)\n";
         exit($r['stopped'] || $r['skipped'] ? 1 : 0);
     } catch (Throwable $e) {
         fwrite(STDERR, $e->getMessage() . "\n");

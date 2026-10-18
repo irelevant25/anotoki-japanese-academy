@@ -452,7 +452,11 @@ describe('keptWord(): a string for what is drawn while there may be no strings',
 
   it('is the string of the language on the page when there is one, with its placeholders filled', () => {
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideAuth(), provideTestTranslations({ 'signIn.failed': 'Prihlásenie sa nepodarilo. ({code})' }, { language: 'sk', english: { 'signIn.failed': 'Signing in did not work. ({code})' } })],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideAuth(),
+        provideTestTranslations({ 'signIn.failed': 'Prihlásenie sa nepodarilo. ({code})' }, { language: 'sk', english: { 'signIn.failed': 'Signing in did not work. ({code})' } }),
+      ],
     });
     const i18n = TestBed.inject(TranslationService);
     expect(keptWord(i18n, 'signIn.failed', 'Signing in did not work. ({code})', { code: 'state_mismatch' })).toBe('Prihlásenie sa nepodarilo. (state_mismatch)');

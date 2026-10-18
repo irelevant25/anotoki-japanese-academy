@@ -3,23 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslationService } from '@anotoki/lib/translations';
 import { provideTestTranslations } from '@anotoki/lib/translations/testing';
 import type { AnotokiDateFormat, AnotokiTimeFormat } from '@anotoki/lib/auth';
-import {
-  dateInOrder,
-  fmtAdminMoment,
-  fmtClock,
-  fmtClockSince,
-  fmtDate,
-  fmtDateTime,
-  fmtDuration,
-  fmtHour,
-  fmtIn,
-  fmtInShort,
-  fmtWeekday,
-  fmtWeekdayClock,
-  fmtWeekdayOf,
-  pct,
-  Wording,
-} from './format';
+import { dateInOrder, fmtAdminMoment, fmtClock, fmtClockSince, fmtDate, fmtDateTime, fmtDuration, fmtHour, fmtIn, fmtInShort, fmtWeekday, fmtWeekdayClock, fmtWeekdayOf, pct, Wording } from './format';
 
 const NOW = Date.UTC(2026, 8, 29, 10, 0, 0);
 const MIN = 60000;

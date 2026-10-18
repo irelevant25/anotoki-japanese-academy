@@ -163,7 +163,10 @@ function focusedOn(page) {
  */
 async function answerQuestion(page, yes, timeout = 5000) {
   const open = 'anotoki-confirm-host dialog[open]';
-  const shown = await page.waitForSelector(open, { timeout }).then(() => true, () => false);
+  const shown = await page.waitForSelector(open, { timeout }).then(
+    () => true,
+    () => false,
+  );
   if (!shown) return null;
   const words = (selector) => page.$eval(selector, (el) => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
   const said = {

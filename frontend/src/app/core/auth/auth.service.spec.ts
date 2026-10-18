@@ -313,12 +313,16 @@ describe('AuthService.fetch(): the app’s own addresses (a report, the data fil
   });
 
   it('a 503 tells SiteStatus: being updated (the gate stands in, the sign-in goes on), or not set up after all', async () => {
-    const started = await start(undefined, { sub: '7' }, {
-      answers: {
-        '/report/a-1': () => answer(503, { code: 'update_pending', message: 'The site is being updated.' }),
-        '/api/me/data': () => answer(503, { ...NOT_SET_UP, installed: true }),
+    const started = await start(
+      undefined,
+      { sub: '7' },
+      {
+        answers: {
+          '/report/a-1': () => answer(503, { code: 'update_pending', message: 'The site is being updated.' }),
+          '/api/me/data': () => answer(503, { ...NOT_SET_UP, installed: true }),
+        },
       },
-    });
+    );
     await started.auth.fetch('/report/a-1');
     expect([TestBed.inject(SiteStatus).state(), started.auth.state()]).toEqual(['update-pending', 'ready']);
     await started.auth.fetch('/api/me/data');

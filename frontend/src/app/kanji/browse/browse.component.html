@@ -1,31 +1,24 @@
 <div class="page">
-  <anotoki-page-header [heading]="'kanji.tab.browse' | translate" />
-  <div class="stack">
-    <anotoki-text-field
-      [label]="'browse.search' | translate"
-      hideLabel
-      [placeholder]="'browse.search' | translate"
-      [value]="query()"
-      (valueChange)="query.set($event)"
-    />
-    <div class="bfilters">
-      <anotoki-segmented id="browseType" [label]="'practice.type' | translate" [options]="typeOptions()" [value]="type()" (valueChange)="type.set($event)" />
-      <!-- the kit's choice chips, named for a screen reader alone: nothing is written over them -->
-      <anotoki-chip-group
-        id="browseLesson"
-        hideLabel
-        [label]="'kanji.tab.lessons' | translate"
-        [options]="lessonOptions()"
-        [value]="lesson() ? '' + lesson() : 'any'"
-        (valueChange)="setLesson($event)"
-      />
-      <anotoki-chip-group id="browseStage" hideLabel [label]="'item.stage' | translate" [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" />
+    <anotoki-page-header [heading]="'kanji.tab.browse' | translate" />
+    <div class="stack">
+        <anotoki-text-field [label]="'browse.search' | translate" hideLabel [placeholder]="'browse.search' | translate" [value]="query()" (valueChange)="query.set($event)" />
+        <div class="bfilters">
+            <anotoki-segmented id="browseType" [label]="'practice.type' | translate" [options]="typeOptions()" [value]="type()" (valueChange)="type.set($event)" />
+            <!-- the kit's choice chips, named for a screen reader alone: nothing is written over them -->
+            <anotoki-chip-group
+                id="browseLesson"
+                hideLabel
+                [label]="'kanji.tab.lessons' | translate"
+                [options]="lessonOptions()"
+                [value]="lesson() ? '' + lesson() : 'any'"
+                (valueChange)="setLesson($event)" />
+            <anotoki-chip-group id="browseStage" hideLabel [label]="'item.stage' | translate" [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" />
+        </div>
+        <p class="small muted">{{ "browse.count" | translatePlural: list().length }}</p>
+        <div class="bgrid">
+            @for (it of shown(); track it.id) {
+                <app-tile [item]="it" [withMeaning]="true" />
+            }
+        </div>
     </div>
-    <p class="small muted">{{ 'browse.count' | translatePlural: list().length }}</p>
-    <div class="bgrid">
-      @for (it of shown(); track it.id) {
-        <app-tile [item]="it" [withMeaning]="true" />
-      }
-    </div>
-  </div>
 </div>

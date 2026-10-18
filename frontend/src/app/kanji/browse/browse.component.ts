@@ -55,14 +55,9 @@ export class BrowseComponent {
     ...this.kanji.groups().map((g): StatusChoice => ({ id: g.id, key: null, name: g.name })),
   ]);
   /** The stages as the choice chips offer them: the app's own words, or a stage group's own English name, marked so. */
-  readonly statusOptions = computed<ChipOption[]>(() =>
-    this.statusChoices().map((s) => (s.key !== null ? { value: s.id, label: this.i18n.t(s.key) } : { value: s.id, label: s.name, lang: 'en' })),
-  );
+  readonly statusOptions = computed<ChipOption[]>(() => this.statusChoices().map((s) => (s.key !== null ? { value: s.id, label: this.i18n.t(s.key) } : { value: s.id, label: s.name, lang: 'en' })));
   /** Any lesson, then each lesson of the course ("L6"), as the choice chips offer them. */
-  readonly lessonOptions = computed<ChipOption[]>(() => [
-    { value: 'any', label: this.i18n.t('browse.anyLesson') },
-    ...this.kanji.lessons().map((L) => ({ value: String(L), label: `L${L}` })),
-  ]);
+  readonly lessonOptions = computed<ChipOption[]>(() => [{ value: 'any', label: this.i18n.t('browse.anyLesson') }, ...this.kanji.lessons().map((L) => ({ value: String(L), label: `L${L}` }))]);
 
   /** A lesson chosen on its chips: any lesson, or one. */
   setLesson(value: string | null): void {

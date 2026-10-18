@@ -32,7 +32,7 @@ function iam_state(array $iam, ?array $changes = null): array
 /** How often the stand-in IAM was asked about this site so far. */
 function asked(array $iam): int
 {
-    return count(array_filter(iam_state($iam)['log'], static fn (string $l): bool => $l === 'GET /api/public/applications/japanese-academy'));
+    return count(array_filter(iam_state($iam)['log'], static fn(string $l): bool => $l === 'GET /api/public/applications/japanese-academy'));
 }
 
 /** What migration 007 adds, as far as visitors_ready() looks: from now on this file's database can keep visitors (again). */
@@ -65,8 +65,11 @@ test('the stand-in IAM answers the public application route: the switch, an unkn
     assert_same(false, call($iam['base'], 'GET', $url, null, no_token())['body']['login_required'], 'switched off');
     assert_same('other-site', call($iam['base'], 'GET', '/api/public/applications/other-site', null, no_token())['body']['client_id'] ?? null, 'any client id');
     iam_state($iam, ['application_missing' => true]);
-    assert_same([404, 'not_found'], [call($iam['base'], 'GET', $url, null, no_token())['status'], call($iam['base'], 'GET', $url, null, no_token())['body']['error'] ?? null],
-        'an unknown or switched-off application');
+    assert_same(
+        [404, 'not_found'],
+        [call($iam['base'], 'GET', $url, null, no_token())['status'], call($iam['base'], 'GET', $url, null, no_token())['body']['error'] ?? null],
+        'an unknown or switched-off application',
+    );
     iam_state($iam, ['application_missing' => false, 'down' => true]);
     assert_same(503, call($iam['base'], 'GET', $url, null, no_token())['status'], 'the IAM out of reach');
     assert_same(5, asked($iam), 'every ask is in its log');
@@ -88,16 +91,26 @@ test('while the database cannot keep visitors, sign-in is required whatever the 
     $users = (int) db_value('SELECT count(*) FROM users');
     assert_same(200, call($file['base'], 'GET', '/api/kanji/summary')['status'], 'a signed-in person studies as ever');
     $key = str_repeat('k', 43);
-    foreach ([['GET', '/api/kanji/summary', null, []], ['POST', '/api/kanji/learn', ['id' => 'k:一'], []], ['GET', '/api/kanji/summary', null, ["X-Visitor-Key: $key"]],
-        ['POST', '/api/kanji/learn', ['id' => 'k:一'], ["X-Visitor-Key: $key"]]] as [$method, $url, $body, $headers]) {
+    foreach (
+        [
+            ['GET', '/api/kanji/summary', null, []],
+            ['POST', '/api/kanji/learn', ['id' => 'k:一'], []],
+            ['GET', '/api/kanji/summary', null, ["X-Visitor-Key: $key"]],
+            ['POST', '/api/kanji/learn', ['id' => 'k:一'], ["X-Visitor-Key: $key"]],
+        ]
+        as [$method, $url, $body, $headers]
+    ) {
         $r = call($file['base'], $method, $url, $body, array_merge(no_token(), $headers));
         assert_same([401, 'sign_in_required'], [$r['status'], $r['body']['code'] ?? null], "$method $url " . ($headers ? 'with a key' : 'by nobody'));
         assert_same(null, $r['headers']['x-visitor-key'] ?? null, 'no key handed out');
     }
     assert_same($users, (int) db_value('SELECT count(*) FROM users'), 'nobody was made');
     $move = call($file['base'], 'POST', '/api/visitor/move', null, ["X-Visitor-Key: $key"]);
-    assert_same([503, 'visitors_unavailable', '60'], [$move['status'], $move['body']['code'] ?? null, $move['headers']['retry-after'] ?? null],
-        'the move (a token and a key, whatever the switch) says the database is not ready');
+    assert_same(
+        [503, 'visitors_unavailable', '60'],
+        [$move['status'], $move['body']['code'] ?? null, $move['headers']['retry-after'] ?? null],
+        'the move (a token and a key, whatever the switch) says the database is not ready',
+    );
     assert_same([], server_problems($file));
 
     assert_same(true, asked_now($reason), 'and in this process');
@@ -165,8 +178,14 @@ test('the test\'s own file stands for the IAM: off, on, nothing at all, an answe
     assert_same(true, relayed($app), 'on: read on every request, nothing kept');
     test_access(null);
     assert_same(true, relayed($app), 'no answer, never one before: required');
-    foreach (['not json' => 'not json', 'another site\'s answer' => '{"client_id": "genshin", "login_required": false}',
-        'a login_required that is no boolean' => '{"client_id": "japanese-academy", "login_required": "false"}'] as $what => $body) {
+    foreach (
+        [
+            'not json' => 'not json',
+            'another site\'s answer' => '{"client_id": "genshin", "login_required": false}',
+            'a login_required that is no boolean' => '{"client_id": "japanese-academy", "login_required": "false"}',
+        ]
+        as $what => $body
+    ) {
         file_put_contents($GLOBALS['TEST_CONFIG']['application'], $body);
         assert_same(true, relayed($app), "$what: no answer, so required");
     }
@@ -190,14 +209,18 @@ test('the seams count for a throwaway database only: a real one asks its IAM and
     } finally {
         config_overrides([]);
     }
-    assert_same('/tmp/answer.json', (static function (): ?string {
-        putenv('ACADEMY_APPLICATION_FILE=/tmp/answer.json');
-        try {
-            return config_env_application('academy_test_x');
-        } finally {
-            putenv('ACADEMY_APPLICATION_FILE');
-        }
-    })(), 'the environment\'s file (a built site of the tests) for a test database');
+    assert_same(
+        '/tmp/answer.json',
+        (static function (): ?string {
+            putenv('ACADEMY_APPLICATION_FILE=/tmp/answer.json');
+            try {
+                return config_env_application('academy_test_x');
+            } finally {
+                putenv('ACADEMY_APPLICATION_FILE');
+            }
+        })(),
+        'the environment\'s file (a built site of the tests) for a test database',
+    );
     putenv('ACADEMY_APPLICATION_FILE=/tmp/answer.json');
     try {
         assert_same(null, config_env_application('japanese_academy'), 'never for any other');

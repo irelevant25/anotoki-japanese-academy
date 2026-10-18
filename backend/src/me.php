@@ -123,7 +123,7 @@ function me_import(int $uid, string $text, ?string $requestZone): array
             db_exec(
                 "INSERT INTO imports (user_id, source, summary) VALUES (?, 'file', ?::jsonb)
                  ON CONFLICT (user_id, source) DO UPDATE SET imported_at = now(), summary = EXCLUDED.summary",
-                [$uid, json_text($counts)]
+                [$uid, json_text($counts)],
             );
             return $counts + ['copy' => $copy];
         });
@@ -185,11 +185,18 @@ function me_person_in($data, int $uid): array
     // version 1 with its items, day counts and settings (each an object, {} decoded as []), the log
     // and the attempts lists, all of them there. A person with none of it is no file of this app:
     // taken, it would replace everything they have with nothing.
-    $object = static fn ($v): bool => is_array($v) && ($v === [] || !array_is_list($v));
-    $list = static fn ($v): bool => is_array($v) && array_is_list($v);
+    $object = static fn($v): bool => is_array($v) && ($v === [] || !array_is_list($v));
+    $list = static fn($v): bool => is_array($v) && array_is_list($v);
     $kanji = $person['kanji'] ?? null;
-    if (!is_array($kanji) || $kanji === [] || array_is_list($kanji) || ($kanji['version'] ?? null) !== 1
-        || !$object($kanji['items'] ?? null) || !$object($kanji['daily'] ?? null) || !$object($kanji['settings'] ?? null)) {
+    if (
+        !is_array($kanji) ||
+        $kanji === [] ||
+        array_is_list($kanji) ||
+        ($kanji['version'] ?? null) !== 1 ||
+        !$object($kanji['items'] ?? null) ||
+        !$object($kanji['daily'] ?? null) ||
+        !$object($kanji['settings'] ?? null)
+    ) {
         throw me_refused('That data file is damaged: its kanji progress is not as this app writes it.');
     }
     if (!$list($person['log'] ?? null)) {
@@ -199,8 +206,13 @@ function me_person_in($data, int $uid): array
         throw me_refused('That data file is damaged: its exam attempts are missing or not a list.');
     }
     foreach ($person['attempts'] ?? [] as $a) {
-        if (!is_array($a) || !is_array($a['attempt'] ?? null) || ms_from_iso($a['attempt']['finishedAt'] ?? null) === null
-            || !is_scalar($a['attempt']['id'] ?? null) || (isset($a['report']) && !is_string($a['report']))) {
+        if (
+            !is_array($a) ||
+            !is_array($a['attempt'] ?? null) ||
+            ms_from_iso($a['attempt']['finishedAt'] ?? null) === null ||
+            !is_scalar($a['attempt']['id'] ?? null) ||
+            (isset($a['report']) && !is_string($a['report']))
+        ) {
             throw me_refused('That data file is damaged: an exam attempt is not as this app writes it.');
         }
     }

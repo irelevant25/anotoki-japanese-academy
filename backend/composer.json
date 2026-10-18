@@ -1,31 +1,31 @@
 {
-    "name": "anotoki/japanese-academy",
-    "description": "Japanese Academy's backend: the kanji SRS and the exam, on Slim 4 and PostgreSQL.",
-    "type": "project",
-    "license": "proprietary",
-    "require": {
-        "php": ">=8.2",
-        "anotoki/lib": "^0.7.0",
-        "slim/psr7": "^1.8",
-        "slim/slim": "^4.15"
-    },
-    "config": {
-        "optimize-autoloader": true,
-        "sort-packages": true
-    },
-    "scripts": {
-        "start": [
-            "Composer\\Config::disableProcessTimeout",
-            "php -S localhost:8200 router.php"
-        ]
-    },
-    "scripts-descriptions": {
-        "start": "Japanese Academy on http://localhost:8200: the API, the setup page and the last build of the app (router.php); nothing happens at start, and a new migration waits for an ADMIN's Apply on the Migrations page"
-    },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/irelevant25/anotoki-lib"
-        }
+  "name": "anotoki/japanese-academy",
+  "description": "Japanese Academy's backend: the kanji SRS and the exam, on Slim 4 and PostgreSQL.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2",
+    "anotoki/lib": "^0.7.0",
+    "slim/psr7": "^1.8",
+    "slim/slim": "^4.15"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "scripts": {
+    "start": [
+      "Composer\\Config::disableProcessTimeout",
+      "php -S localhost:8200 router.php"
     ]
+  },
+  "scripts-descriptions": {
+    "start": "Japanese Academy on http://localhost:8200: the API, the setup page and the last build of the app (router.php); nothing happens at start, and a new migration waits for an ADMIN's Apply on the Migrations page"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/irelevant25/anotoki-lib"
+    }
+  ]
 }

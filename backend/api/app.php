@@ -126,13 +126,11 @@ use Slim\Factory\AppFactory;
  */
 function academy_site_open_paths(): array
 {
-    return array_merge([
-        AuthRoutes::openPath(),
-        TranslationsRoutes::openPath(),
-        '/api/health',
-        '~^/audio/[^/]+$~D',
-        '~^/api/admin/migrations(/file|/apply)?$~D',
-    ], ErrorLogRoutes::openPaths(), BackupsRoutes::openPaths());
+    return array_merge(
+        [AuthRoutes::openPath(), TranslationsRoutes::openPath(), '/api/health', '~^/audio/[^/]+$~D', '~^/api/admin/migrations(/file|/apply)?$~D'],
+        ErrorLogRoutes::openPaths(),
+        BackupsRoutes::openPaths(),
+    );
 }
 
 /**
@@ -154,7 +152,7 @@ function academy_site_state(): SiteState
         },
         static function (): Migrator {
             return db_migrator();
-        }
+        },
     );
 }
 
@@ -191,11 +189,17 @@ function academy_app(): Slim\App
     academy_migration_routes($app);
 
     $app->addRoutingMiddleware();
-    $app->add(new PeopleUpkeep(academy_people(), static function () use ($state): bool {
-        return $state->state() === SiteState::READY;
-    }, static function (callable $work): void {
-        after_response_add($work, 'people_scrub');
-    }));
+    $app->add(
+        new PeopleUpkeep(
+            academy_people(),
+            static function () use ($state): bool {
+                return $state->state() === SiteState::READY;
+            },
+            static function (callable $work): void {
+                after_response_add($work, 'people_scrub');
+            },
+        ),
+    );
     // After the trailing-slash rule, so it judges /api/health/ as /api/health; inside the error handling.
     $app->add(new SiteGate($state, $app->getResponseFactory(), academy_site_open_paths()));
     $app->add(trailing_slash_middleware());

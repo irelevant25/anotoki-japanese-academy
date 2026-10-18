@@ -23,9 +23,7 @@ function with_headers(Response $response, array $headers): Response
 function json_response(Response $response, $data, int $status = 200, array $headers = []): Response
 {
     $response->getBody()->write(is_string($data) ? $data : json_text($data));
-    $response = $response->withStatus($status)
-        ->withHeader('Content-Type', 'application/json; charset=utf-8')
-        ->withHeader('Cache-Control', 'no-store');
+    $response = $response->withStatus($status)->withHeader('Content-Type', 'application/json; charset=utf-8')->withHeader('Cache-Control', 'no-store');
     return with_headers($response, $headers);
 }
 
@@ -92,11 +90,15 @@ function file_response(Request $request, Response $response, string $file, strin
         $status = 206;
         $response = $response->withHeader('Content-Range', "bytes $start-$end/$size");
     }
-    $response = with_headers($response->withStatus($status)
-        ->withHeader('Content-Type', $type)
-        ->withHeader('Accept-Ranges', 'bytes')
-        ->withHeader('Content-Length', (string) ($end - $start + 1))
-        ->withHeader('Last-Modified', gmdate('D, d M Y H:i:s', (int) filemtime($file)) . ' GMT'), $headers);
+    $response = with_headers(
+        $response
+            ->withStatus($status)
+            ->withHeader('Content-Type', $type)
+            ->withHeader('Accept-Ranges', 'bytes')
+            ->withHeader('Content-Length', (string) ($end - $start + 1))
+            ->withHeader('Last-Modified', gmdate('D, d M Y H:i:s', (int) filemtime($file)) . ' GMT'),
+        $headers,
+    );
     if ($request->getMethod() === 'HEAD') {
         return $response;
     }

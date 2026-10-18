@@ -18,7 +18,7 @@ function security_headers_middleware(): callable
 {
     return static function (Request $request, RequestHandler $handler): Response {
         $response = $handler->handle($request);
-        $ensure = static fn (Response $r, string $name, string $value): Response => $r->hasHeader($name) ? $r : $r->withHeader($name, $value);
+        $ensure = static fn(Response $r, string $name, string $value): Response => $r->hasHeader($name) ? $r : $r->withHeader($name, $value);
         $response = $ensure($response, 'X-Content-Type-Options', 'nosniff');
         $response = $ensure($response, 'X-Frame-Options', 'DENY');
         $response = $ensure($response, 'Referrer-Policy', 'no-referrer');

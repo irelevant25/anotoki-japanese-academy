@@ -93,72 +93,109 @@ const SCREENS = [
   ['home', '/', async (page) => page.waitForSelector('.homecards')],
   ['kanji-dashboard', '/kanji', async (page) => page.waitForSelector('.cards3')],
   ['kanji-lessons', '/kanji/lessons'],
-  ['kanji-lesson-screen', '/kanji/lessons', async (page) => {
-    // by its id, not its name: the Slovak pass takes this screen too
-    await page.click('#startLessons');
-    await page.waitForSelector('.lband');
-  }],
+  [
+    'kanji-lesson-screen',
+    '/kanji/lessons',
+    async (page) => {
+      // by its id, not its name: the Slovak pass takes this screen too
+      await page.click('#startLessons');
+      await page.waitForSelector('.lband');
+    },
+  ],
   ['kanji-review', '/kanji/reviews', async (page) => page.waitForSelector('.session')],
-  ['kanji-review-answered', '/kanji/reviews', async (page) => {
-    // a wrong answer, with the item's info open under it
-    await page.waitForSelector('.session');
-    const reading = await page.$eval('.s-q', (el) => el.classList.contains('reading'));
-    await page.click('.s-input');
-    await page.keyboard.type(reading ? 'mizu' : 'zebra');
-    await page.keyboard.press('Enter');
-    await page.waitForSelector('.session.is-wrong');
-    await page.keyboard.press('f');
-    await page.waitForSelector('.s-panel:not([hidden])');
-  }],
+  [
+    'kanji-review-answered',
+    '/kanji/reviews',
+    async (page) => {
+      // a wrong answer, with the item's info open under it
+      await page.waitForSelector('.session');
+      const reading = await page.$eval('.s-q', (el) => el.classList.contains('reading'));
+      await page.click('.s-input');
+      await page.keyboard.type(reading ? 'mizu' : 'zebra');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.session.is-wrong');
+      await page.keyboard.press('f');
+      await page.waitForSelector('.s-panel:not([hidden])');
+    },
+  ],
   ['kanji-practice', '/kanji/practice'],
   ['kanji-browse', '/kanji/browse'],
   ['kanji-item', '/kanji/item/k%3A%E5%A4%A7'],
   ['exam', '/exam'],
   ['exam-question', '/exam', startPaper],
   // "Finish now" with questions unanswered: the kit's question, Finish or back to the paper
-  ['exam-finish-question', '/exam', async (page) => {
-    await startPaper(page);
-    await page.click('#quitBtn');
-    await page.waitForSelector('anotoki-confirm-host dialog[open]');
-  }],
-  ['exam-result', '/exam', async (page) => {
-    await startPaper(page);
-    await page.click('#quitBtn');
-    await answerQuestion(page, true);
-    await page.waitForSelector('#result:not([hidden])');
-  }],
+  [
+    'exam-finish-question',
+    '/exam',
+    async (page) => {
+      await startPaper(page);
+      await page.click('#quitBtn');
+      await page.waitForSelector('anotoki-confirm-host dialog[open]');
+    },
+  ],
+  [
+    'exam-result',
+    '/exam',
+    async (page) => {
+      await startPaper(page);
+      await page.click('#quitBtn');
+      await answerQuestion(page, true);
+      await page.waitForSelector('#result:not([hidden])');
+    },
+  ],
   // a paper that could not be scored (no answer from the server: the hand-in cut off): the app's notice, the
   // answers still on the page
-  ['exam-score-failed', '/exam', async (page) => {
-    await page.route('**/api/submit', (route) => route.abort('failed'));
-    await startPaper(page);
-    await page.click('#quitBtn');
-    await answerQuestion(page, true);
-    await page.waitForSelector(NOTICE);
-  }, { after: (page) => page.unroute('**/api/submit') }],
-  ['changelog', '/', async (page) => {
-    await page.click('anotoki-site-footer [data-whats-new]');
-    await page.waitForSelector('app-changelog-dialog dialog[open]');
-  }],
-  ['your-data-question', '/', async (page, app) => {
-    // the reader's own file chosen: the question before anything is replaced
-    const own = await (await app.api('/api/me/data', READER)).text();
-    await page.setInputFiles('#your-data input[type=file]', { name: 'japanese-academy-2026-10-04.json', mimeType: 'application/json', buffer: Buffer.from(own) });
-    await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
-  }],
-  ['bar-menu', '/kanji', async (page) => {
-    // the person's menu, or on a phone the one menu with the links in it
-    await page.waitForSelector('.cards3');
-    const phone = (await page.$(BAR.menuButton)) !== null;
-    await page.click(phone ? BAR.menuButton : BAR.userButton);
-    await page.waitForSelector(BAR.menu);
-  }],
+  [
+    'exam-score-failed',
+    '/exam',
+    async (page) => {
+      await page.route('**/api/submit', (route) => route.abort('failed'));
+      await startPaper(page);
+      await page.click('#quitBtn');
+      await answerQuestion(page, true);
+      await page.waitForSelector(NOTICE);
+    },
+    { after: (page) => page.unroute('**/api/submit') },
+  ],
+  [
+    'changelog',
+    '/',
+    async (page) => {
+      await page.click('anotoki-site-footer [data-whats-new]');
+      await page.waitForSelector('app-changelog-dialog dialog[open]');
+    },
+  ],
+  [
+    'your-data-question',
+    '/',
+    async (page, app) => {
+      // the reader's own file chosen: the question before anything is replaced
+      const own = await (await app.api('/api/me/data', READER)).text();
+      await page.setInputFiles('#your-data input[type=file]', { name: 'japanese-academy-2026-10-04.json', mimeType: 'application/json', buffer: Buffer.from(own) });
+      await page.waitForSelector('#your-data anotoki-dialog dialog[open]');
+    },
+  ],
+  [
+    'bar-menu',
+    '/kanji',
+    async (page) => {
+      // the person's menu, or on a phone the one menu with the links in it
+      await page.waitForSelector('.cards3');
+      const phone = (await page.$(BAR.menuButton)) !== null;
+      await page.click(phone ? BAR.menuButton : BAR.userButton);
+      await page.waitForSelector(BAR.menu);
+    },
+  ],
   // Feedback, from the family's footer: the anotoki library's form in the kit's dialog
-  ['feedback-form', '/', async (page) => {
-    await page.waitForSelector('.homecards');
-    await page.click('anotoki-site-footer [data-open-feedback]');
-    await page.waitForSelector('[data-feedback-dialog] anotoki-feedback-form form');
-  }],
+  [
+    'feedback-form',
+    '/',
+    async (page) => {
+      await page.waitForSelector('.homecards');
+      await page.click('anotoki-site-footer [data-open-feedback]');
+      await page.waitForSelector('[data-feedback-dialog] anotoki-feedback-form form');
+    },
+  ],
   // a refused sign-in: the anotoki library's screen, in the app's frame
   ['sign-in-failed', '/', async (page) => page.waitForSelector('#signInFailure [data-retry]'), { signedOut: true }],
   // nobody signed in, where the IAM does not require it: a visitor's home, with the notice
@@ -169,10 +206,15 @@ const SCREENS = [
   // the anotoki library's admin pages, in the panel's frame
   ['admin-people', '/admin/people', async (page) => page.waitForSelector('anotoki-people-page [data-people]'), { admin: true }],
   ['admin-feedback', '/admin/feedback', async (page) => page.waitForSelector('anotoki-feedback-page [data-messages] [data-message]'), { admin: true }],
-  ['admin-feedback-message', '/admin/feedback', async (page) => {
-    await page.click('anotoki-feedback-page [data-messages] [data-message]');
-    await page.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
-  }, { admin: true }],
+  [
+    'admin-feedback-message',
+    '/admin/feedback',
+    async (page) => {
+      await page.click('anotoki-feedback-page [data-messages] [data-message]');
+      await page.waitForSelector('anotoki-feedback-page [data-viewer] dialog[open]');
+    },
+    { admin: true },
+  ],
   // a row: the page's error the run reported first
   ['admin-errors', '/admin/errors', async (page) => page.waitForSelector('anotoki-error-log-page [data-groups] [data-fingerprint]'), { admin: true }],
   ['admin-audit', '/admin/audit', async (page) => page.waitForSelector('anotoki-audit-log-page [data-entries]'), { admin: true }],
@@ -220,30 +262,34 @@ const VARIANTS = [
 function slovakProblems(page, bundle) {
   const keys = Object.keys(bundle.values);
   const english = keys.filter((k) => typeof bundle.english[k] === 'string' && bundle.values[k] !== bundle.english[k]).map((k) => bundle.english[k].replace(/\s+/g, ' ').trim());
-  return page.evaluate(({ keys, english }) => {
-    const out = [];
-    const lang = document.documentElement.getAttribute('lang');
-    if (lang !== 'sk') out.push(`<html lang="${lang}">`);
-    const keySet = new Set(keys);
-    const englishSet = new Set(english);
-    const where = (el) => `<${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : ''}>`;
-    const check = (raw, el, what) => {
-      const text = raw.replace(/\s+/g, ' ').trim();
-      if (!text) return;
-      if (keySet.has(text) && !el.closest('main.admin')) out.push(`a key ${what} ${where(el)}: ${text}`);
-      const own = (el.closest('[lang]') || document.documentElement).getAttribute('lang') || '';
-      if (englishSet.has(text) && !/^(en|ja)\b/i.test(own)) out.push(`English ${what} ${where(el)}: "${text}"`);
-    };
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const el = node.parentElement;
-      if (el && !el.closest('script, style')) check(node.textContent, el, 'in');
-    }
-    for (const attr of ['aria-label', 'title', 'placeholder', 'alt']) {
-      for (const el of document.querySelectorAll(`[${attr}]`)) check(el.getAttribute(attr), el, `in ${attr} of`);
-    }
-    return [...new Set(out)];
-  }, { keys, english });
+  return page.evaluate(
+    ({ keys, english }) => {
+      const out = [];
+      const lang = document.documentElement.getAttribute('lang');
+      if (lang !== 'sk') out.push(`<html lang="${lang}">`);
+      const keySet = new Set(keys);
+      const englishSet = new Set(english);
+      const where = (el) =>
+        `<${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : ''}>`;
+      const check = (raw, el, what) => {
+        const text = raw.replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        if (keySet.has(text) && !el.closest('main.admin')) out.push(`a key ${what} ${where(el)}: ${text}`);
+        const own = (el.closest('[lang]') || document.documentElement).getAttribute('lang') || '';
+        if (englishSet.has(text) && !/^(en|ja)\b/i.test(own)) out.push(`English ${what} ${where(el)}: "${text}"`);
+      };
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const el = node.parentElement;
+        if (el && !el.closest('script, style')) check(node.textContent, el, 'in');
+      }
+      for (const attr of ['aria-label', 'title', 'placeholder', 'alt']) {
+        for (const el of document.querySelectorAll(`[${attr}]`)) check(el.getAttribute(attr), el, `in ${attr} of`);
+      }
+      return [...new Set(out)];
+    },
+    { keys, english },
+  );
 }
 
 /**
@@ -257,55 +303,59 @@ function slovakProblems(page, bundle) {
  * or the page's frame, on a phone in Slovak too.
  */
 function looks(page, dark) {
-  return page.evaluate(({ dark, bar }) => {
-    const out = [];
-    const people = document.querySelector('anotoki-people-page');
-    if (people) {
-      const right = document.documentElement.clientWidth;
-      for (const button of people.querySelectorAll('[data-delete]')) {
-        const r = button.getBoundingClientRect();
-        if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`"${button.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
-      }
-    }
-    // The status page is a page of its own (the owner's rule of 2026-10-18): nothing of the app's frame around it.
-    if (document.querySelector('anotoki-site-status')) {
-      for (const part of document.querySelectorAll('app-top-bar, anotoki-site-footer, header, nav, footer')) {
-        out.push(`the status page has <${part.tagName.toLowerCase()}> around it`);
-      }
-    } else {
-      // Every other screen: the family's footer, its top border drawn, each of its parts on the screen.
-      const footer = document.querySelector('anotoki-site-footer footer');
-      if (!footer) {
-        out.push('no footer under the page');
-      } else {
-        if (getComputedStyle(footer).borderTopStyle !== 'solid') out.push(`the footer has no top border (${getComputedStyle(footer).borderTopStyle})`);
+  return page.evaluate(
+    ({ dark, bar }) => {
+      const out = [];
+      const people = document.querySelector('anotoki-people-page');
+      if (people) {
         const right = document.documentElement.clientWidth;
-        for (const part of footer.querySelectorAll('.anotoki-site-footer__row > *, anotoki-legal-links a')) {
-          const r = part.getBoundingClientRect();
-          if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`the footer's "${part.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
+        for (const button of people.querySelectorAll('[data-delete]')) {
+          const r = button.getBoundingClientRect();
+          if (r.width && (r.right > right + 0.5 || r.left < -0.5)) out.push(`"${button.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
         }
       }
-    }
-    const question = document.querySelector('#your-data anotoki-dialog dialog[open]');
-    if (question && question.querySelector('#keepMine')) {
-      const active = document.activeElement;
-      if (!active || active.id !== 'keepMine') out.push(`the question's focus is on <${active ? active.tagName.toLowerCase() + (active.id ? '#' + active.id : '') : 'nothing'}>, not on Keep mine`);
-      else if (active.matches(':focus-visible') && getComputedStyle(active).outlineStyle !== 'solid') out.push('Keep mine has the focus but not the accent ring');
-    }
-    const mark = document.querySelector(bar.mark);
-    if (dark && mark && !/255, 255, 255/.test(getComputedStyle(mark).filter)) out.push(`the anotoki mark has no light halo in the dark bar (filter: ${getComputedStyle(mark).filter})`);
-    for (const choice of document.querySelectorAll('main anotoki-segmented .anotoki-segmented__segmented')) {
-      const box = choice.closest('.anotoki-card__body, main');
-      const r = choice.getBoundingClientRect();
-      const b = box.getBoundingClientRect();
-      const style = getComputedStyle(box);
-      const [left, right] = [b.left + parseFloat(style.paddingLeft), b.right - parseFloat(style.paddingRight)];
-      if (r.width && (r.right > right + 0.5 || r.left < left - 0.5)) {
-        out.push(`the segmented choice "${choice.getAttribute('aria-label')}" runs past its box (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(left)}..${Math.round(right)})`);
+      // The status page is a page of its own (the owner's rule of 2026-10-18): nothing of the app's frame around it.
+      if (document.querySelector('anotoki-site-status')) {
+        for (const part of document.querySelectorAll('app-top-bar, anotoki-site-footer, header, nav, footer')) {
+          out.push(`the status page has <${part.tagName.toLowerCase()}> around it`);
+        }
+      } else {
+        // Every other screen: the family's footer, its top border drawn, each of its parts on the screen.
+        const footer = document.querySelector('anotoki-site-footer footer');
+        if (!footer) {
+          out.push('no footer under the page');
+        } else {
+          if (getComputedStyle(footer).borderTopStyle !== 'solid') out.push(`the footer has no top border (${getComputedStyle(footer).borderTopStyle})`);
+          const right = document.documentElement.clientWidth;
+          for (const part of footer.querySelectorAll('.anotoki-site-footer__row > *, anotoki-legal-links a')) {
+            const r = part.getBoundingClientRect();
+            if (r.width && (r.right > right + 0.5 || r.left < -0.5))
+              out.push(`the footer's "${part.textContent.trim()}" is off the screen (${Math.round(r.left)}..${Math.round(r.right)} in 0..${right})`);
+          }
+        }
       }
-    }
-    return out;
-  }, { dark, bar: BAR });
+      const question = document.querySelector('#your-data anotoki-dialog dialog[open]');
+      if (question && question.querySelector('#keepMine')) {
+        const active = document.activeElement;
+        if (!active || active.id !== 'keepMine') out.push(`the question's focus is on <${active ? active.tagName.toLowerCase() + (active.id ? '#' + active.id : '') : 'nothing'}>, not on Keep mine`);
+        else if (active.matches(':focus-visible') && getComputedStyle(active).outlineStyle !== 'solid') out.push('Keep mine has the focus but not the accent ring');
+      }
+      const mark = document.querySelector(bar.mark);
+      if (dark && mark && !/255, 255, 255/.test(getComputedStyle(mark).filter)) out.push(`the anotoki mark has no light halo in the dark bar (filter: ${getComputedStyle(mark).filter})`);
+      for (const choice of document.querySelectorAll('main anotoki-segmented .anotoki-segmented__segmented')) {
+        const box = choice.closest('.anotoki-card__body, main');
+        const r = choice.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        const style = getComputedStyle(box);
+        const [left, right] = [b.left + parseFloat(style.paddingLeft), b.right - parseFloat(style.paddingRight)];
+        if (r.width && (r.right > right + 0.5 || r.left < left - 0.5)) {
+          out.push(`the segmented choice "${choice.getAttribute('aria-label')}" runs past its box (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(left)}..${Math.round(right)})`);
+        }
+      }
+      return out;
+    },
+    { dark, bar: BAR },
+  );
 }
 
 /** Where each piece of the bar is, left-right, and what is wrong with the row (overlap, off the screen, cut). */
@@ -420,7 +470,9 @@ function measureBar(page) {
         if (!strip || !current) return null;
         const s = strip.getBoundingClientRect();
         const c = current.getBoundingClientRect();
-        return c.left >= s.left - 1 && c.right <= s.right + 1 ? null : `the page’s tab "${current.textContent.trim()}" is out of view (${Math.round(c.left)}..${Math.round(c.right)} in ${Math.round(s.left)}..${Math.round(s.right)})`;
+        return c.left >= s.left - 1 && c.right <= s.right + 1
+          ? null
+          : `the page’s tab "${current.textContent.trim()}" is out of view (${Math.round(c.left)}..${Math.round(c.right)} in ${Math.round(s.left)}..${Math.round(s.right)})`;
       });
       if (tab) problems.push(`${variant}/${name}: ${tab}`);
       problems.push(...(await keyShaped(shown)).map((p) => `${variant}/${name}: ${p}`));
@@ -464,7 +516,7 @@ function measureBar(page) {
     await app.api('/api/feedback', ROOMY, { method: 'POST', body: { kind: 'bug', section: 'Exam', message: 'The timer kept running after I finished.' } });
     app.sql(
       "INSERT INTO srs_progress (user_id, item_id, stage, learned_at, next_review) SELECT ?, id, 1, now() - interval '2 days', now() - interval '1 hour' FROM srs_items ORDER BY ord LIMIT 999 ON CONFLICT DO NOTHING",
-      ROOMY.sub
+      ROOMY.sub,
     );
     const ROOM = [360, 390, 760, 761, 960, 961, 1280];
     const SHOT = [360, 390, 760, 761, 1280];
@@ -538,7 +590,11 @@ function measureBar(page) {
       found.push(...(await keyShaped(page)));
       found.push(...errors);
       problems.push(...found.map((p) => `${label}: ${p}`));
-      console.log(`${label}: ${Object.entries(m.pieces).map(([k, v]) => `${k} ${v[0]}-${v[1]}`).join(', ')}${m.badge ? `; due ${m.badge}` : ''}`);
+      console.log(
+        `${label}: ${Object.entries(m.pieces)
+          .map(([k, v]) => `${k} ${v[0]}-${v[1]}`)
+          .join(', ')}${m.badge ? `; due ${m.badge}` : ''}`,
+      );
       if (c.mode === 'admin' ? c.width !== ADMIN_PHONE_BAR_MAX : SHOT.includes(c.width)) {
         await page.screenshot({ path: path.join(SHOTS, `bar-${c.mode}-${c.lang}-${c.width}-${c.dark ? 'dark' : 'light'}.png`), clip: { x: 0, y: 0, width: c.width, height: 140 } });
       }
@@ -549,7 +605,13 @@ function measureBar(page) {
 
     // The menus open, light and dark, shot; and a real Tab and Shift+Tab from
     // an item: the menu closed, the focus on its button, never <body>.
-    for (const [width, dark, lang] of [[390, false, 'sk'], [390, true, 'sk'], [1280, false, 'en'], [1280, true, 'en'], [360, true, 'en']]) {
+    for (const [width, dark, lang] of [
+      [390, false, 'sk'],
+      [390, true, 'sk'],
+      [1280, false, 'en'],
+      [1280, true, 'en'],
+      [360, true, 'en'],
+    ]) {
       const label = `menus ${lang} ${dark ? 'dark' : 'light'} ${width}px`;
       const context = await newContext(browser, { viewport: { width, height: 800 }, colorScheme: dark ? 'dark' : 'light', ...(lang === 'sk' ? { locale: 'sk-SK' } : {}) });
       await plant(context, { ...ROOMY_ADMIN }, lang === 'sk' ? 'sk' : null);

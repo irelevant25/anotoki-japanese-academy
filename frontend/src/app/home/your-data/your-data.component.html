@@ -1,59 +1,61 @@
 <section id="your-data" aria-labelledby="your-data-title">
-  <anotoki-card [heading]="'yourData.title' | translate" headingId="your-data-title">
-    <div class="stack">
-      <div class="stack stack-sm">
-        <p class="muted">{{ 'yourData.intro' | translate }}</p>
-        @if (zone) {
-          <p class="small muted" id="yourZone">{{ 'yourData.timeZone' | translate: { zone } }}</p>
-        }
-      </div>
+    <anotoki-card [heading]="'yourData.title' | translate" headingId="your-data-title">
+        <div class="stack">
+            <div class="stack stack-sm">
+                <p class="muted">{{ "yourData.intro" | translate }}</p>
+                @if (zone) {
+                    <p class="small muted" id="yourZone">{{ "yourData.timeZone" | translate: { zone } }}</p>
+                }
+            </div>
 
-      <div class="stack stack-sm">
-        <div class="cluster takes">
-          <button anotokiButton variant="primary" id="downloadData" [loading]="downloading()" (click)="download()">
-            {{ (downloading() ? 'yourData.downloading' : 'yourData.download') | translate }}
-          </button>
-          <button anotokiButton id="bringBack" [loading]="bringing()" (click)="choose()">
-            {{ (bringing() ? 'yourData.bringing' : 'yourData.bringBack') | translate }}
-          </button>
-          <input #file type="file" accept=".json,application/json" hidden (change)="chosen($event)" />
+            <div class="stack stack-sm">
+                <div class="cluster takes">
+                    <button anotokiButton variant="primary" id="downloadData" [loading]="downloading()" (click)="download()">
+                        {{ (downloading() ? "yourData.downloading" : "yourData.download") | translate }}
+                    </button>
+                    <button anotokiButton id="bringBack" [loading]="bringing()" (click)="choose()">
+                        {{ (bringing() ? "yourData.bringing" : "yourData.bringBack") | translate }}
+                    </button>
+                    <input #file type="file" accept=".json,application/json" hidden (change)="chosen($event)" />
+                </div>
+                <p class="small muted">{{ "yourData.bringBackNote" | translate }}</p>
+            </div>
+
+            @if (downloadFailedText() || refusalText()) {
+                <anotoki-alert tone="danger" announce id="yourDataError">{{ downloadFailedText() }}{{ refusalText() }}</anotoki-alert>
+            }
+            @if (done(); as counts) {
+                <anotoki-alert tone="success" announce="polite" id="yourDataDone">
+                    {{ "yourData.done" | translate }}
+                    @if (counts.copy) {
+                        {{ "yourData.copyKept" | translate }}
+                    }
+                </anotoki-alert>
+            }
         </div>
-        <p class="small muted">{{ 'yourData.bringBackNote' | translate }}</p>
-      </div>
+    </anotoki-card>
 
-      @if (downloadFailedText() || refusalText()) {
-        <anotoki-alert tone="danger" announce id="yourDataError">{{ downloadFailedText() }}{{ refusalText() }}</anotoki-alert>
-      }
-      @if (done(); as counts) {
-        <anotoki-alert tone="success" announce="polite" id="yourDataDone">
-          {{ 'yourData.done' | translate }}
-          @if (counts.copy) {
-            {{ 'yourData.copyKept' | translate }}
-          }
-        </anotoki-alert>
-      }
-    </div>
-  </anotoki-card>
-
-  <!-- The question before a file replaces the data: the kit's dialog, drawn while a file waits for the answer. -->
-  @if (holds(); as file) {
-    <anotoki-dialog size="sm" [heading]="'yourData.confirmTitle' | translate" [busy]="bringing()" (dismiss)="cancel()" (keydown)="keys($event)">
-      <p class="question">{{ 'yourData.confirmText' | translate }}</p>
-      <ul class="holds">
-        <li><b class="filename">{{ file.name }}</b></li>
-        @if (takenAt()) {
-          <li>{{ 'yourData.fileTaken' | translate: { when: takenAt() } }}</li>
-        }
-        @if (file.username) {
-          <li>{{ 'yourData.fileAccount' | translate: { name: file.username } }}</li>
-        }
-        <li>{{ 'yourData.fileItems' | translate: { n: file.items } }}</li>
-        <li>{{ 'yourData.fileAttempts' | translate: { n: file.attempts } }}</li>
-      </ul>
-      <div dialogFooter class="answers">
-        <button anotokiButton id="keepMine" autofocus [disabled]="bringing()" (click)="cancel()">{{ 'yourData.cancel' | translate }}</button>
-        <button anotokiButton variant="danger" id="replaceMine" [disabled]="bringing()" (click)="replace()">{{ 'yourData.replace' | translate }}</button>
-      </div>
-    </anotoki-dialog>
-  }
+    <!-- The question before a file replaces the data: the kit's dialog, drawn while a file waits for the answer. -->
+    @if (holds(); as file) {
+        <anotoki-dialog size="sm" [heading]="'yourData.confirmTitle' | translate" [busy]="bringing()" (dismiss)="cancel()" (keydown)="keys($event)">
+            <p class="question">{{ "yourData.confirmText" | translate }}</p>
+            <ul class="holds">
+                <li>
+                    <b class="filename">{{ file.name }}</b>
+                </li>
+                @if (takenAt()) {
+                    <li>{{ "yourData.fileTaken" | translate: { when: takenAt() } }}</li>
+                }
+                @if (file.username) {
+                    <li>{{ "yourData.fileAccount" | translate: { name: file.username } }}</li>
+                }
+                <li>{{ "yourData.fileItems" | translate: { n: file.items } }}</li>
+                <li>{{ "yourData.fileAttempts" | translate: { n: file.attempts } }}</li>
+            </ul>
+            <div dialogFooter class="answers">
+                <button anotokiButton id="keepMine" autofocus [disabled]="bringing()" (click)="cancel()">{{ "yourData.cancel" | translate }}</button>
+                <button anotokiButton variant="danger" id="replaceMine" [disabled]="bringing()" (click)="replace()">{{ "yourData.replace" | translate }}</button>
+            </div>
+        </anotoki-dialog>
+    }
 </section>

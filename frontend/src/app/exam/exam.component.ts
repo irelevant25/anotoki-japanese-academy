@@ -1,18 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import {
-  afterNextRender,
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  ElementRef,
-  HostListener,
-  inject,
-  Injector,
-  OnDestroy,
-  OnInit,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, Injector, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import { SiteStatus } from '@anotoki/lib/migrations';
 import { TranslatePipe, TranslationService } from '@anotoki/lib/translations';
 import { AlertComponent } from '@anotoki/lib/ui/alert';
@@ -292,7 +279,7 @@ export class ExamComponent implements OnInit, OnDestroy {
   readonly progress = computed(() => (this.total() ? ((this.idx() + 1) / this.total()) * 100 : 0));
   readonly chosen = computed(() => {
     const q = this.q();
-    return q ? this.answers()[q.id]?.choice ?? null : null;
+    return q ? (this.answers()[q.id]?.choice ?? null) : null;
   });
   /** The section of the question shown, named from its id. */
   readonly sectionTag = computed(() => {
@@ -726,13 +713,15 @@ export class ExamComponent implements OnInit, OnDestroy {
     }
     let res: ExamResult;
     try {
-      res = await this.saves.track(this.api.submit({
-        // the spec echoed verbatim, so the server rebuilds this very paper
-        spec: exam.spec,
-        startedAt: this.startedAt,
-        meta: { candidate: this.candidate().trim() },
-        responses: this.answers(),
-      }));
+      res = await this.saves.track(
+        this.api.submit({
+          // the spec echoed verbatim, so the server rebuilds this very paper
+          spec: exam.spec,
+          startedAt: this.startedAt,
+          meta: { candidate: this.candidate().trim() },
+          responses: this.answers(),
+        }),
+      );
     } catch (e) {
       const error = toApiError(e);
       this.quitting.set(false);

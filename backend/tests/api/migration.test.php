@@ -51,7 +51,7 @@ test('the check at the end fails the migration when a row changed on the way, an
     db()->exec("CREATE FUNCTION academy_test_tamper() RETURNS trigger LANGUAGE plpgsql AS \$\$ BEGIN NEW.meaning_note := NEW.meaning_note || '!'; RETURN NEW; END \$\$");
     db()->exec('CREATE TRIGGER academy_test_tamper BEFORE UPDATE ON srs_progress FOR EACH ROW EXECUTE FUNCTION academy_test_tamper()');
     try {
-        assert_throws(static fn () => db_migrate(), '/002_users: the study data did not come through unchanged: srs_progress \(2 rows before, 2 after\)/');
+        assert_throws(static fn() => db_migrate(), '/002_users: the study data did not come through unchanged: srs_progress \(2 rows before, 2 after\)/');
     } finally {
         db()->exec('DROP TRIGGER academy_test_tamper ON srs_progress');
         db()->exec('DROP FUNCTION academy_test_tamper()');
@@ -67,19 +67,22 @@ test('every row comes through as it was, and is the owner’s', function (): voi
     $before = rows_001();
     $after001 = array_values(array_diff(array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []), ['001_init.sql']));
     sort($after001);
-    assert_same(['002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
-        array_slice($after001, 0, 6), 'the migrations of this test, the first of every file after 001');
+    assert_same(
+        ['002_users.sql', '003_content_stamp.sql', '004_languages_and_translations.sql', '005_own_time_zone_and_words.sql', '006_admin_panel_words.sql', '007_visitors.sql'],
+        array_slice($after001, 0, 6),
+        'the migrations of this test, the first of every file after 001',
+    );
     // Then the anotoki library's sets of the words and the people, after this site's own (db_migration_sets()).
     assert_same(array_merge($after001, library_migrations(), library_migrations('anotoki_people')), db_migrate(), 'every one after 001, in order, the library’s last');
     assert_same($before, rows_001(), 'the same rows, the same content');
     foreach (USER_TABLES as $table) {
         assert_same([1], array_map('intval', array_column(db_all("SELECT DISTINCT user_id FROM $table"), 'user_id')), "$table: the owner's");
     }
-    assert_same([['id' => 1, 'preferred_username' => null]], array_map(
-        static fn (array $r): array => ['id' => (int) $r['id'], 'preferred_username' => $r['preferred_username']],
-        db_all('SELECT id, preferred_username FROM users')
-    ));
-    $key = static fn (string $table): string => (string) db_value("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ?::regclass AND contype = 'p'", [$table]);
+    assert_same(
+        [['id' => 1, 'preferred_username' => null]],
+        array_map(static fn(array $r): array => ['id' => (int) $r['id'], 'preferred_username' => $r['preferred_username']], db_all('SELECT id, preferred_username FROM users')),
+    );
+    $key = static fn(string $table): string => (string) db_value("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ?::regclass AND contype = 'p'", [$table]);
     assert_same('PRIMARY KEY (user_id, item_id)', $key('srs_progress'));
     assert_same('PRIMARY KEY (user_id, day)', $key('srs_daily'));
     assert_same('PRIMARY KEY (user_id, id)', $key('exam_attempts'));
@@ -95,8 +98,8 @@ test('then two people can have the same item, day and attempt id, and every row 
              VALUES (2, '2026-09-22T11-09-21-059Z-exam-1', now(), 'exam-1', 1, 1, 100, 'A', true, '{}')");
     db_exec('INSERT INTO srs_settings (user_id) VALUES (2)');
     assert_same(2, (int) db_value("SELECT count(*) FROM srs_progress WHERE item_id = 'k:大'"));
-    assert_throws(static fn () => db_exec("INSERT INTO srs_progress (user_id, item_id) VALUES (3, 'k:大')"), '/foreign key/');
-    assert_throws(static fn () => db_exec("INSERT INTO srs_progress (user_id, item_id) VALUES (2, 'k:大')"), '/duplicate key/');
+    assert_throws(static fn() => db_exec("INSERT INTO srs_progress (user_id, item_id) VALUES (3, 'k:大')"), '/foreign key/');
+    assert_throws(static fn() => db_exec("INSERT INTO srs_progress (user_id, item_id) VALUES (2, 'k:大')"), '/duplicate key/');
 });
 
 test('the app reads the migrated data as the owner’s', function (): void {

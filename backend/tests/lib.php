@@ -70,8 +70,7 @@ function test_db_name_ok(string $name): bool
     putenv("ACADEMY_CONFIG_DIR=$dir");
     putenv('ACADEMY_JWKS_FILE');
     putenv('ACADEMY_APPLICATION_FILE');
-    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups, 'iam' => $iam, 'jwks' => $jwks, 'application' => $application,
-        'anonymized' => $anonymized];
+    $GLOBALS['TEST_CONFIG'] = ['dir' => $dir, 'name' => $name, 'backups' => $backups, 'iam' => $iam, 'jwks' => $jwks, 'application' => $application, 'anonymized' => $anonymized];
 })();
 
 require __DIR__ . '/../src/bootstrap.php';
@@ -99,9 +98,7 @@ function after(callable $fn): void
     $GLOBALS['TESTS']['after'][] = $fn;
 }
 
-final class AssertionFailed extends RuntimeException
-{
-}
+final class AssertionFailed extends RuntimeException {}
 
 function test_show($v): string
 {
@@ -275,7 +272,7 @@ function library_migrations(string $set = Anotoki\Lib\Translations\Schema::SET):
         if ($each->name === $set) {
             $names = array_map('basename', glob($each->directory . '/*.sql') ?: []);
             sort($names);
-            return array_map(static fn (string $name): string => "$set/$name", $names);
+            return array_map(static fn(string $name): string => "$set/$name", $names);
         }
     }
     throw new RuntimeException("No migration set $set here.");
@@ -506,9 +503,13 @@ function stand_in_iam(array $state = []): array
     $port = test_free_port();
     $base = "http://127.0.0.1:$port";
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
-    $proc = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", Anotoki\Lib\Auth\Testing\StandInIam::script()],
-        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']], $pipes, $dir,
-        ['STAND_IN_ISSUER' => $base, 'STAND_IN_DIR' => $dir] + getenv());
+    $proc = proc_open(
+        [PHP_BINARY, '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", Anotoki\Lib\Auth\Testing\StandInIam::script()],
+        [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $null, 'w']],
+        $pipes,
+        $dir,
+        ['STAND_IN_ISSUER' => $base, 'STAND_IN_DIR' => $dir] + getenv(),
+    );
     $GLOBALS['TEST_SERVERS'][] = static function () use ($proc, $dir): void {
         proc_terminate($proc);
         @proc_close($proc);
@@ -588,7 +589,7 @@ function start_app(array $how = []): array
         [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $log, 'a']],
         $pipes,
         ROOT,
-        $env
+        $env,
     );
     if (!is_resource($proc)) {
         throw new RuntimeException('Could not start the server.');
@@ -657,7 +658,7 @@ function test_site(): array
         [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $log, 'a']],
         $pipes,
         $dir,
-        $env
+        $env,
     );
     $site = ['dir' => $dir, 'base' => "http://127.0.0.1:$port", 'role' => $role, 'password' => $password, 'log' => $log];
     // the site first, then its database, then its user, who owns the database; then its folder
@@ -722,8 +723,7 @@ function test_build(string $options): string
 function test_build_command(string $options, bool $allowDrafts = true): string
 {
     $drafts = $allowDrafts ? test_config_migration_drafts() : [];
-    return escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/tools/build-dist.php') . " $options"
-        . ($drafts ? ' --allow-draft=' . escapeshellarg(implode(',', $drafts)) : '');
+    return escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/tools/build-dist.php') . " $options" . ($drafts ? ' --allow-draft=' . escapeshellarg(implode(',', $drafts)) : '');
 }
 
 /**
@@ -735,8 +735,11 @@ function test_build_command(string $options, bool $allowDrafts = true): string
 function test_form(string $base, string $url, array $fields, array $headers = [], ?string $jar = null): array
 {
     $ch = curl_init($base . $url);
-    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180, CURLOPT_HTTPHEADER => $headers]
-        + ($jar !== null ? [CURLOPT_COOKIEFILE => $jar, CURLOPT_COOKIEJAR => $jar] : []));
+    curl_setopt_array(
+        $ch,
+        [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180, CURLOPT_HTTPHEADER => $headers] +
+            ($jar !== null ? [CURLOPT_COOKIEFILE => $jar, CURLOPT_COOKIEJAR => $jar] : []),
+    );
     $raw = curl_exec($ch);
     if ($raw === false) {
         throw new RuntimeException("POST $url: " . curl_error($ch));
@@ -750,14 +753,21 @@ function test_page(string $base, string $url, array $headers = [], ?string $jar 
 {
     $ch = curl_init($base . $url);
     $responseHeaders = [];
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_HEADERFUNCTION => static function ($ch, string $line) use (&$responseHeaders): int {
-            if (str_contains($line, ':')) {
-                [$k, $v] = explode(':', $line, 2);
-                $responseHeaders[strtolower(trim($k))][] = trim($v);
-            }
-            return strlen($line);
-        }] + ($jar !== null ? [CURLOPT_COOKIEFILE => $jar, CURLOPT_COOKIEJAR => $jar] : []));
+    curl_setopt_array(
+        $ch,
+        [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_HEADERFUNCTION => static function ($ch, string $line) use (&$responseHeaders): int {
+                if (str_contains($line, ':')) {
+                    [$k, $v] = explode(':', $line, 2);
+                    $responseHeaders[strtolower(trim($k))][] = trim($v);
+                }
+                return strlen($line);
+            },
+        ] + ($jar !== null ? [CURLOPT_COOKIEFILE => $jar, CURLOPT_COOKIEJAR => $jar] : []),
+    );
     $raw = curl_exec($ch);
     if ($raw === false) {
         throw new RuntimeException("GET $url: " . curl_error($ch));
@@ -769,7 +779,7 @@ function test_page(string $base, string $url, array $headers = [], ?string $jar 
 function server_problems(array $app): array
 {
     $lines = preg_split('/\R/', (string) @file_get_contents($app['log']));
-    return array_values(array_filter($lines, static fn (string $l): bool => (bool) preg_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|Uncaught/i', $l)));
+    return array_values(array_filter($lines, static fn(string $l): bool => (bool) preg_match('/PHP (Fatal|Parse|Warning|Notice|Deprecated)|\[server\]|\[db\]|Uncaught/i', $l)));
 }
 
 /**
@@ -783,26 +793,31 @@ function call(string $base, string $method, string $url, $body = null, array $he
 {
     $ch = curl_init($base . $url);
     $h = $headers;
-    if (!array_filter($headers, static fn (string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
+    if (!array_filter($headers, static fn(string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
         $h = array_merge($h, test_bearer(test_token(TEST_USER)));
     }
     if ($body !== null) {
         $h[] = 'Content-Type: application/json';
     }
     $responseHeaders = [];
-    curl_setopt_array($ch, [
-        CURLOPT_CUSTOMREQUEST => $method,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => $h,
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_HEADERFUNCTION => static function ($ch, string $line) use (&$responseHeaders): int {
-            if (str_contains($line, ':')) {
-                [$k, $v] = explode(':', $line, 2);
-                $responseHeaders[strtolower(trim($k))] = trim($v);
-            }
-            return strlen($line);
-        },
-    ] + ($method === 'HEAD' ? [CURLOPT_NOBODY => true] : []) + ($body !== null ? [CURLOPT_POSTFIELDS => json_text($body)] : []));
+    curl_setopt_array(
+        $ch,
+        [
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $h,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_HEADERFUNCTION => static function ($ch, string $line) use (&$responseHeaders): int {
+                if (str_contains($line, ':')) {
+                    [$k, $v] = explode(':', $line, 2);
+                    $responseHeaders[strtolower(trim($k))] = trim($v);
+                }
+                return strlen($line);
+            },
+        ] +
+            ($method === 'HEAD' ? [CURLOPT_NOBODY => true] : []) +
+            ($body !== null ? [CURLOPT_POSTFIELDS => json_text($body)] : []),
+    );
     $raw = curl_exec($ch);
     if ($raw === false) {
         throw new RuntimeException("$method $url: " . curl_error($ch));
@@ -826,7 +841,7 @@ function call(string $base, string $method, string $url, $body = null, array $he
  */
 function test_begin(string $base, string $method, string $url, $body = null, array $headers = []): array
 {
-    if (!array_filter($headers, static fn (string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
+    if (!array_filter($headers, static fn(string $line): bool => (bool) preg_match('/^Authorization:/i', $line))) {
         $headers = array_merge($headers, test_bearer(test_token(TEST_USER)));
     }
     $curl = curl_init($base . $url);
@@ -847,7 +862,7 @@ function test_begin(string $base, string $method, string $url, $body = null, arr
     $answer = null;
     return [
         'waits' => static function () use ($answered): bool {
-            for ($until = microtime(true) + 10; microtime(true) < $until;) {
+            for ($until = microtime(true) + 10; microtime(true) < $until; ) {
                 if ($answered()) {
                     return false;
                 }
@@ -859,7 +874,7 @@ function test_begin(string $base, string $method, string $url, $body = null, arr
         },
         'answer' => static function () use ($answered, $multi, $curl, &$answer): array {
             if ($answer === null) {
-                for ($until = microtime(true) + 35; !$answered() && microtime(true) < $until;) {
+                for ($until = microtime(true) + 35; !$answered() && microtime(true) < $until; ) {
                     // until it is answered (or its own 30 seconds are over)
                 }
                 $answer = ['status' => (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'body' => json_decode((string) curl_multi_getcontent($curl), true)];

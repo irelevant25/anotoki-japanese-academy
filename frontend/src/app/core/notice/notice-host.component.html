@@ -1,12 +1,12 @@
 @if (notice.pending(); as said) {
-  <anotoki-dialog size="sm" [heading]="said.title" (dismiss)="notice.close()">
-    <p class="message" data-notice-message>{{ said.message }}</p>
-    @if (said.detail) {
-      <!-- the server's own reason, which only the owner's computer is given: as it came, in English -->
-      <p class="detail" lang="en" data-notice-detail>{{ said.detail }}</p>
-    }
-    <div dialogFooter>
-      <button anotokiButton variant="primary" autofocus data-answer="ok" (click)="notice.close()">{{ ok() }}</button>
-    </div>
-  </anotoki-dialog>
+    <anotoki-dialog size="sm" [heading]="said.title" (dismiss)="notice.close()">
+        <p class="message" data-notice-message>{{ said.message }}</p>
+        @if (said.detail) {
+            <!-- the server's own reason, which only the owner's computer is given: as it came, in English -->
+            <p class="detail" lang="en" data-notice-detail>{{ said.detail }}</p>
+        }
+        <div dialogFooter>
+            <button anotokiButton variant="primary" autofocus data-answer="ok" (click)="notice.close()">{{ ok() }}</button>
+        </div>
+    </anotoki-dialog>
 }

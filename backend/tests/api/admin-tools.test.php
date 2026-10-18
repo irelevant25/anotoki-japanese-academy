@@ -87,11 +87,24 @@ before(function (): void {
 });
 
 test('every tool is the site\'s ADMIN\'s alone: nobody is asked to sign in, a learner and an EDITOR are refused in this site\'s words', function (): void {
-    $reads = ['GET /api/admin/errors', 'GET /api/admin/audit', 'GET /api/admin/audit/facets', 'GET /api/admin/feedback', 'GET /api/admin/feedback/unread',
-        'GET /api/admin/feedback/facets', 'GET /api/admin/backups', 'GET /api/admin/backups/proof', 'GET /api/admin/people'];
+    $reads = [
+        'GET /api/admin/errors',
+        'GET /api/admin/audit',
+        'GET /api/admin/audit/facets',
+        'GET /api/admin/feedback',
+        'GET /api/admin/feedback/unread',
+        'GET /api/admin/feedback/facets',
+        'GET /api/admin/backups',
+        'GET /api/admin/backups/proof',
+        'GET /api/admin/people',
+    ];
     // An ADMIN's token signed with a key of the same name that is not the IAM's (a forged one).
-    $forger = Anotoki\Lib\Auth\Testing\TestIam::create(sys_get_temp_dir() . '/academy-test-forged-' . getmypid() . '-' . bin2hex(random_bytes(3)),
-        'https://iam.test', 'japanese-academy', 'academy-test');
+    $forger = Anotoki\Lib\Auth\Testing\TestIam::create(
+        sys_get_temp_dir() . '/academy-test-forged-' . getmypid() . '-' . bin2hex(random_bytes(3)),
+        'https://iam.test',
+        'japanese-academy',
+        'academy-test',
+    );
     $iam = test_iam()['iam'];
     $who = [
         'nobody' => [no_token(), 401, 'sign_in_required'],
@@ -123,10 +136,19 @@ test('every tool is the site\'s ADMIN\'s alone: nobody is asked to sign in, a le
     test_page($GLOBALS['app']['base'], '/api/nothing-here');
     $log = error_log_text();
     assert_true($log !== '', 'a 404 is in the log');
-    $writes = [['POST', '/api/admin/backups', ['description' => 'mine']], ['DELETE', '/api/admin/errors', null], ['DELETE', '/api/admin/people/' . A_LEARNER, null],
-        ['POST', '/api/admin/people/sync', null], ['PUT', '/api/admin/feedback/1/status', ['status' => 'spam']], ['DELETE', '/api/admin/feedback/1', null]];
+    $writes = [
+        ['POST', '/api/admin/backups', ['description' => 'mine']],
+        ['DELETE', '/api/admin/errors', null],
+        ['DELETE', '/api/admin/people/' . A_LEARNER, null],
+        ['POST', '/api/admin/people/sync', null],
+        ['PUT', '/api/admin/feedback/1/status', ['status' => 'spam']],
+        ['DELETE', '/api/admin/feedback/1', null],
+    ];
     foreach ($writes as [$method, $url, $body]) {
-        foreach (['a learner' => [test_bearer(test_token(A_LEARNER, ['MEMBER'])), 'staff_only'], 'an EDITOR' => [test_bearer(test_token(AN_EDITOR, ['EDITOR'])), 'admin_only']] as $name => [$headers, $code]) {
+        foreach (
+            ['a learner' => [test_bearer(test_token(A_LEARNER, ['MEMBER'])), 'staff_only'], 'an EDITOR' => [test_bearer(test_token(AN_EDITOR, ['EDITOR'])), 'admin_only']]
+            as $name => [$headers, $code]
+        ) {
             $r = tools_call($method, $url, $body, $headers);
             assert_same([403, $code], [$r['status'], $r['body']['code'] ?? null], "$method $url, $name: {$r['raw']}");
         }
@@ -146,7 +168,7 @@ test('the error log: a 404 written down without its query string - never a token
     }
     $report = tools_call('GET', '/api/admin/errors?days=1&status=404');
     assert_same(200, $report['status'], $report['raw']);
-    $paths = array_merge(...array_map(static fn (array $g): array => array_merge($g['paths'] ?? [], [$g['latest']['path'] ?? '']), $report['body']['groups'] ?? []));
+    $paths = array_merge(...array_map(static fn(array $g): array => array_merge($g['paths'] ?? [], [$g['latest']['path'] ?? '']), $report['body']['groups'] ?? []));
     assert_true(in_array('/api/no-such-thing', $paths, true), 'the Errors page shows it: ' . json_encode($paths));
     assert_true(($report['body']['total'] ?? 0) >= 1);
 
@@ -159,8 +181,10 @@ test('the error log: a 404 written down without its query string - never a token
     $cleared = tools_call('DELETE', '/api/admin/errors');
     assert_same(200, $cleared['status'], $cleared['raw']);
     assert_same('', error_log_text(), 'cleared');
-    assert_same([[AN_ADMIN, 'errors.cleared']], array_map(static fn (array $e): array => [(int) $e['actor_id'], $e['action']],
-        db_all("SELECT actor_id, action FROM anotoki_audit_log WHERE action = 'errors.cleared'")));
+    assert_same(
+        [[AN_ADMIN, 'errors.cleared']],
+        array_map(static fn(array $e): array => [(int) $e['actor_id'], $e['action']], db_all("SELECT actor_id, action FROM anotoki_audit_log WHERE action = 'errors.cleared'")),
+    );
 });
 
 test('the audit log: who changed the words, under their name, found by it; read-only', function (): void {
@@ -179,59 +203,86 @@ test('the audit log: who changed the words, under their name, found by it; read-
     }
 });
 
-test('feedback: the form takes a person\'s message - the address they send, none when they clear it, and neither id nor address without their name -, and while signing in is required nobody else\'s; nobody\'s while it is not; the honeypot keeps nothing; the badge counts the new ones', function (): void {
-    $form = ['kind' => 'idea', 'section' => 'Kanji', 'message' => 'More N3 kanji, please.', 'page' => '/kanji?x=1#top', 'language' => 'sk', 'website' => ''];
-    assert_same([401, 'sign_in_required'], (static function () use ($form): array {
-        $r = tools_call('POST', '/api/feedback', $form, no_token());
-        return [$r['status'], $r['body']['code'] ?? null];
-    })(), 'nobody, while signing in is required');
-    $asLearner = array_merge(test_bearer(test_token(A_LEARNER, ['MEMBER'])), ['User-Agent: TestBrowser/1.0']);
-    // The address field cleared (the page writes their account's in): no address kept - the server never adds one.
-    $learner = tools_call('POST', '/api/feedback', $form, $asLearner);
-    assert_same([201, ['ok' => true]], [$learner['status'], $learner['body']], $learner['raw']);
-    // The address they send - their account's, as the page wrote it in, or any other - is the one for an answer.
-    $answer = tools_call('POST', '/api/feedback', ['kind' => 'bug', 'message' => 'Please answer me.', 'email' => 'learner@example.test'], $asLearner);
-    assert_same(201, $answer['status'], $answer['raw']);
-    // "Send it without my name": neither their id nor an address, even one typed (the owner's decision of 2026-10-11: their choice).
-    $unnamed = tools_call('POST', '/api/feedback', ['kind' => 'other', 'message' => 'No name, please.', 'anonymous' => true, 'email' => 'learner@example.test'], $asLearner);
-    assert_same(201, $unnamed['status'], $unnamed['raw']);
-    test_access(false);
-    $nobody = tools_call('POST', '/api/feedback', ['kind' => 'bug', 'message' => 'A typo on the exam page.', 'section' => 'Exam', 'email' => 'me@example.test'], no_token());
-    assert_same(201, $nobody['status'], 'nobody, while it is not: ' . $nobody['raw']);
-    $bot = tools_call('POST', '/api/feedback', ['kind' => 'idea', 'message' => 'Buy now', 'website' => 'http://spam.example'], no_token());
-    assert_same([201, ['ok' => true]], [$bot['status'], $bot['body']], 'the honeypot\'s answer, word for word');
-    $refused = tools_call('POST', '/api/feedback', ['kind' => 'idea', 'message' => 'x', 'section' => 'piano'], no_token());
-    assert_same([422, 'section_unknown'], [$refused['status'], $refused['body']['code'] ?? null], 'a place this site does not list');
-    test_access(true);
+test(
+    'feedback: the form takes a person\'s message - the address they send, none when they clear it, and neither id nor address without their name -, and while signing in is required nobody else\'s; nobody\'s while it is not; the honeypot keeps nothing; the badge counts the new ones',
+    function (): void {
+        $form = ['kind' => 'idea', 'section' => 'Kanji', 'message' => 'More N3 kanji, please.', 'page' => '/kanji?x=1#top', 'language' => 'sk', 'website' => ''];
+        assert_same(
+            [401, 'sign_in_required'],
+            (static function () use ($form): array {
+                $r = tools_call('POST', '/api/feedback', $form, no_token());
+                return [$r['status'], $r['body']['code'] ?? null];
+            })(),
+            'nobody, while signing in is required',
+        );
+        $asLearner = array_merge(test_bearer(test_token(A_LEARNER, ['MEMBER'])), ['User-Agent: TestBrowser/1.0']);
+        // The address field cleared (the page writes their account's in): no address kept - the server never adds one.
+        $learner = tools_call('POST', '/api/feedback', $form, $asLearner);
+        assert_same([201, ['ok' => true]], [$learner['status'], $learner['body']], $learner['raw']);
+        // The address they send - their account's, as the page wrote it in, or any other - is the one for an answer.
+        $answer = tools_call('POST', '/api/feedback', ['kind' => 'bug', 'message' => 'Please answer me.', 'email' => 'learner@example.test'], $asLearner);
+        assert_same(201, $answer['status'], $answer['raw']);
+        // "Send it without my name": neither their id nor an address, even one typed (the owner's decision of 2026-10-11: their choice).
+        $unnamed = tools_call('POST', '/api/feedback', ['kind' => 'other', 'message' => 'No name, please.', 'anonymous' => true, 'email' => 'learner@example.test'], $asLearner);
+        assert_same(201, $unnamed['status'], $unnamed['raw']);
+        test_access(false);
+        $nobody = tools_call('POST', '/api/feedback', ['kind' => 'bug', 'message' => 'A typo on the exam page.', 'section' => 'Exam', 'email' => 'me@example.test'], no_token());
+        assert_same(201, $nobody['status'], 'nobody, while it is not: ' . $nobody['raw']);
+        $bot = tools_call('POST', '/api/feedback', ['kind' => 'idea', 'message' => 'Buy now', 'website' => 'http://spam.example'], no_token());
+        assert_same([201, ['ok' => true]], [$bot['status'], $bot['body']], 'the honeypot\'s answer, word for word');
+        $refused = tools_call('POST', '/api/feedback', ['kind' => 'idea', 'message' => 'x', 'section' => 'piano'], no_token());
+        assert_same([422, 'section_unknown'], [$refused['status'], $refused['body']['code'] ?? null], 'a place this site does not list');
+        test_access(true);
 
-    assert_same([
-        [A_LEARNER, 'Kanji', null, '/kanji', 'sk', 'TestBrowser/1.0'],
-        [A_LEARNER, null, 'learner@example.test', null, null, 'TestBrowser/1.0'],
-        [null, null, null, null, null, 'TestBrowser/1.0'],
-        [null, 'Exam', 'me@example.test', null, null, null],
-    ], array_map(static fn (array $r): array => [$r['user_id'] === null ? null : (int) $r['user_id'], $r['section'], $r['contact_email'], $r['page'], $r['language'],
-        $r['user_agent'] === null || str_contains((string) $r['user_agent'], 'TestBrowser') ? $r['user_agent'] : 'curl'],
-        db_all('SELECT user_id, section, contact_email, page, language, user_agent FROM anotoki_feedback ORDER BY id')),
-        'four kept - the person\'s with the address they sent and none where they cleared it, the one without their name with neither -, nothing of the bot\'s');
-    assert_same(0, (int) db_value('SELECT count(*) FROM anotoki_feedback WHERE contact_email = ?', ['user' . A_LEARNER . '@example.test']),
-        'their account\'s address, which their token carries, never put in by the server');
+        assert_same(
+            [
+                [A_LEARNER, 'Kanji', null, '/kanji', 'sk', 'TestBrowser/1.0'],
+                [A_LEARNER, null, 'learner@example.test', null, null, 'TestBrowser/1.0'],
+                [null, null, null, null, null, 'TestBrowser/1.0'],
+                [null, 'Exam', 'me@example.test', null, null, null],
+            ],
+            array_map(
+                static fn(array $r): array => [
+                    $r['user_id'] === null ? null : (int) $r['user_id'],
+                    $r['section'],
+                    $r['contact_email'],
+                    $r['page'],
+                    $r['language'],
+                    $r['user_agent'] === null || str_contains((string) $r['user_agent'], 'TestBrowser') ? $r['user_agent'] : 'curl',
+                ],
+                db_all('SELECT user_id, section, contact_email, page, language, user_agent FROM anotoki_feedback ORDER BY id'),
+            ),
+            'four kept - the person\'s with the address they sent and none where they cleared it, the one without their name with neither -, nothing of the bot\'s',
+        );
+        assert_same(
+            0,
+            (int) db_value('SELECT count(*) FROM anotoki_feedback WHERE contact_email = ?', ['user' . A_LEARNER . '@example.test']),
+            'their account\'s address, which their token carries, never put in by the server',
+        );
 
-    assert_same(['unread' => 4], tools_call('GET', '/api/admin/feedback/unread')['body'], 'the badge');
-    $list = tools_call('GET', '/api/admin/feedback');
-    $names = array_map(static fn (array $item): array => [$item['user_id'] ?? null, $item['user_name'] ?? null], $list['body']['items'] ?? []);
-    assert_same([4, [null, null], [null, null], [A_LEARNER, 'user' . A_LEARNER]], [$list['body']['total'] ?? null, $names[0] ?? null, $names[1] ?? null, $names[2] ?? null],
-        'newest first, the person\'s under their name: ' . $list['raw']);
-    $id = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id = ? ORDER BY id LIMIT 1', [A_LEARNER]);
-    assert_same(200, tools_call('GET', "/api/admin/feedback/$id")['status']);
-    assert_same(['unread' => 3], tools_call('GET', '/api/admin/feedback/unread')['body'], 'opened: read');
-    $resolved = tools_call('PUT', "/api/admin/feedback/$id/status", ['status' => 'resolved']);
-    assert_same([200, 'resolved'], [$resolved['status'], $resolved['body']['message']['status'] ?? null], $resolved['raw']);
-    $other = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id IS NULL ORDER BY id LIMIT 1');
-    assert_same(200, tools_call('DELETE', "/api/admin/feedback/$other")['status']);
-    assert_same([['feedback.status_changed', (string) $id], ['feedback.deleted', (string) $other]], array_map(static fn (array $e): array => [$e['action'], $e['target_id']],
-        db_all("SELECT action, target_id FROM anotoki_audit_log WHERE action LIKE 'feedback.%' ORDER BY id")), 'recorded');
-    assert_same(['unread' => 2], tools_call('GET', '/api/admin/feedback/unread')['body']);
-});
+        assert_same(['unread' => 4], tools_call('GET', '/api/admin/feedback/unread')['body'], 'the badge');
+        $list = tools_call('GET', '/api/admin/feedback');
+        $names = array_map(static fn(array $item): array => [$item['user_id'] ?? null, $item['user_name'] ?? null], $list['body']['items'] ?? []);
+        assert_same(
+            [4, [null, null], [null, null], [A_LEARNER, 'user' . A_LEARNER]],
+            [$list['body']['total'] ?? null, $names[0] ?? null, $names[1] ?? null, $names[2] ?? null],
+            'newest first, the person\'s under their name: ' . $list['raw'],
+        );
+        $id = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id = ? ORDER BY id LIMIT 1', [A_LEARNER]);
+        assert_same(200, tools_call('GET', "/api/admin/feedback/$id")['status']);
+        assert_same(['unread' => 3], tools_call('GET', '/api/admin/feedback/unread')['body'], 'opened: read');
+        $resolved = tools_call('PUT', "/api/admin/feedback/$id/status", ['status' => 'resolved']);
+        assert_same([200, 'resolved'], [$resolved['status'], $resolved['body']['message']['status'] ?? null], $resolved['raw']);
+        $other = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id IS NULL ORDER BY id LIMIT 1');
+        assert_same(200, tools_call('DELETE', "/api/admin/feedback/$other")['status']);
+        assert_same(
+            [['feedback.status_changed', (string) $id], ['feedback.deleted', (string) $other]],
+            array_map(static fn(array $e): array => [$e['action'], $e['target_id']], db_all("SELECT action, target_id FROM anotoki_audit_log WHERE action LIKE 'feedback.%' ORDER BY id")),
+            'recorded',
+        );
+        assert_same(['unread' => 2], tools_call('GET', '/api/admin/feedback/unread')['body']);
+    },
+);
 
 test('backups: made by the ADMIN after a fresh sign-in, downloaded once by a ticket, restored in place - beside this site\'s own JSON copies, which stay', function (): void {
     $stale = tools_call('POST', '/api/admin/backups', ['description' => 'too late'], as_admin(['auth_time' => time() - 3600]));
@@ -249,8 +300,11 @@ test('backups: made by the ADMIN after a fresh sign-in, downloaded once by a tic
     assert_true(is_file(backup_dir() . '/academy-daily-2026-10-01.json'), 'this site\'s own copy beside it');
     $list = tools_call('GET', '/api/admin/backups');
     // Sealed by this installation (anotoki-lib 0.5.0: only a backup made here is restored here), its maker by name.
-    assert_same([[$id, true, true, 'user' . AN_ADMIN]], array_map(static fn (array $b): array => [$b['id'], $b['restorable'], $b['sealed'] ?? null, $b['created_by_name'] ?? null],
-        $list['body']['backups'] ?? []), $list['raw']);
+    assert_same(
+        [[$id, true, true, 'user' . AN_ADMIN]],
+        array_map(static fn(array $b): array => [$b['id'], $b['restorable'], $b['sealed'] ?? null, $b['created_by_name'] ?? null], $list['body']['backups'] ?? []),
+        $list['raw'],
+    );
 
     // The download: a ticket, used once, by a navigation that sends no token.
     $ticket = tools_call('POST', "/api/admin/backups/$id/ticket", new stdClass());
@@ -272,24 +326,31 @@ test('backups: made by the ADMIN after a fresh sign-in, downloaded once by a tic
     assert_true(is_file($stamp), 'the scrub ran this hour (a test server\'s stamp)');
     $restored = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
     assert_same(200, $restored['status'], $restored['raw']);
-    assert_same([['k:山', 3]], array_map(static fn (array $r): array => [$r['item_id'], (int) $r['stage']],
-        db_all('SELECT item_id, stage FROM srs_progress WHERE user_id = ? ORDER BY item_id', [A_LEARNER])), 'as the backup had it');
+    assert_same(
+        [['k:山', 3]],
+        array_map(static fn(array $r): array => [$r['item_id'], (int) $r['stage']], db_all('SELECT item_id, stage FROM srs_progress WHERE user_id = ? ORDER BY item_id', [A_LEARNER])),
+        'as the backup had it',
+    );
     // The IAM out of reach (no list of its deleted accounts here at all): the scrub after the restore did not finish, and
     // the restore says so - never one that looks complete -; the hour's stamp goes after the answer, so the next request runs it
     // (the library's People::afterRestore(), on this site's runner). Since anotoki-lib 0.6.0 the answer says it in the
     // library's fixed sentence, and why is the error log's (the Backups' onError): never a failure's own words in an answer.
-    assert_same('What this site does after a restore did not all go through. The error log says what.',
-        (string) ($restored['body']['after_restore_error'] ?? ''), $restored['raw']);
-    assert_true(str_contains(error_log_text(), 'The accounts the IAM deleted were not checked again (the IAM could not be reached). Whoever it deleted since this backup was made may be named here'),
-        'why, in the error log');
+    assert_same('What this site does after a restore did not all go through. The error log says what.', (string) ($restored['body']['after_restore_error'] ?? ''), $restored['raw']);
+    assert_true(
+        str_contains(error_log_text(), 'The accounts the IAM deleted were not checked again (the IAM could not be reached). Whoever it deleted since this backup was made may be named here'),
+        'why, in the error log',
+    );
     for ($i = 0; $i < 50 && is_file($stamp); $i++) {
         usleep(100000);
         clearstatcache(true, $stamp);
     }
     assert_false(is_file($stamp), 'the stamp gone after the answer: the next request scrubs again');
     touch($stamp); // as the other tests expect it: done for the hour
-    assert_same(['backup.created', 'backup.downloaded', 'backup.created', 'backup.restored'], array_column(db_all("SELECT action FROM anotoki_audit_log WHERE action LIKE 'backup.%' ORDER BY id"), 'action'),
-        'every step recorded, the log kept through the restore');
+    assert_same(
+        ['backup.created', 'backup.downloaded', 'backup.created', 'backup.restored'],
+        array_column(db_all("SELECT action FROM anotoki_audit_log WHERE action LIKE 'backup.%' ORDER BY id"), 'action'),
+        'every step recorded, the log kept through the restore',
+    );
     assert_same(2, count(library_backups()), 'and the copy of what was there before the restore');
     assert_true(is_file(backup_dir() . '/academy-daily-2026-10-01.json'), 'this site\'s own copy, untouched');
     assert_same([], server_problems($GLOBALS['app']));
@@ -308,98 +369,130 @@ test('a restore runs the scrub of the IAM\'s deleted accounts at once: whoever i
         assert_same("deleted-$leaver", db_value('SELECT preferred_username FROM users WHERE id = ?', [$leaver]), 'blanked by the scrub');
 
         $restored = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
-        assert_same([200, true, null], [$restored['status'], array_key_exists('after_restore_error', (array) $restored['body']), $restored['body']['after_restore_error'] ?? null],
-            $restored['raw']);
-        assert_same(["deleted-$leaver", 1], [db_value('SELECT preferred_username FROM users WHERE id = ?', [$leaver]),
-            (int) db_value('SELECT count(*) FROM users WHERE id = ? AND anonymized_at IS NOT NULL', [$leaver])],
-            'the backup named them again, and the restore\'s own scrub blanked them before it answered');
+        assert_same([200, true, null], [$restored['status'], array_key_exists('after_restore_error', (array) $restored['body']), $restored['body']['after_restore_error'] ?? null], $restored['raw']);
+        assert_same(
+            ["deleted-$leaver", 1],
+            [db_value('SELECT preferred_username FROM users WHERE id = ?', [$leaver]), (int) db_value('SELECT count(*) FROM users WHERE id = ? AND anonymized_at IS NOT NULL', [$leaver])],
+            'the backup named them again, and the restore\'s own scrub blanked them before it answered',
+        );
     } finally {
         test_anonymized(null);
     }
 });
 
-test('a restore does again what was deleted since its backup - a person\'s data deleted on the People page, a feedback message -, inside it, on its own connection: it completes, and keeps no copy for that', function (): void {
-    $leaver = 5104;
-    $stayer = 5105;
-    foreach ([[$leaver, 'k:山'], [$stayer, 'k:川']] as [$who, $item]) {
-        users_ensure($who);
-        db_exec('INSERT INTO srs_progress (user_id, item_id, stage) VALUES (?, ?, 4) ON CONFLICT DO NOTHING', [$who, $item]);
-    }
-    foreach ([[$leaver, 'Leaving soon.'], [$stayer, 'Delete this one, please.']] as [$who, $words]) {
-        $sent = tools_call('POST', '/api/feedback', ['kind' => 'idea', 'message' => $words, 'email' => "person-$who@example.test"],
-            array_merge(test_bearer(test_token($who, ['MEMBER'])), ['User-Agent: ReplayBrowser/1.0']));
-        assert_same(201, $sent['status'], $sent['raw']);
-    }
-    $made = tools_call('POST', '/api/admin/backups', ['description' => 'before the deletes']);
-    assert_same(201, $made['status'], $made['raw']);
-    $id = (string) $made['body']['backup']['id'];
+test(
+    'a restore does again what was deleted since its backup - a person\'s data deleted on the People page, a feedback message -, inside it, on its own connection: it completes, and keeps no copy for that',
+    function (): void {
+        $leaver = 5104;
+        $stayer = 5105;
+        foreach ([[$leaver, 'k:山'], [$stayer, 'k:川']] as [$who, $item]) {
+            users_ensure($who);
+            db_exec('INSERT INTO srs_progress (user_id, item_id, stage) VALUES (?, ?, 4) ON CONFLICT DO NOTHING', [$who, $item]);
+        }
+        foreach ([[$leaver, 'Leaving soon.'], [$stayer, 'Delete this one, please.']] as [$who, $words]) {
+            $sent = tools_call(
+                'POST',
+                '/api/feedback',
+                ['kind' => 'idea', 'message' => $words, 'email' => "person-$who@example.test"],
+                array_merge(test_bearer(test_token($who, ['MEMBER'])), ['User-Agent: ReplayBrowser/1.0']),
+            );
+            assert_same(201, $sent['status'], $sent['raw']);
+        }
+        $made = tools_call('POST', '/api/admin/backups', ['description' => 'before the deletes']);
+        assert_same(201, $made['status'], $made['raw']);
+        $id = (string) $made['body']['backup']['id'];
 
-    // After the backup: the leaver's data deleted on the People page (a copy kept first), the stayer's message deleted.
-    $deleted = tools_call('DELETE', "/api/admin/people/$leaver");
-    assert_same([200, ['Kanji and words' => 1, 'Answers' => 0, 'Exam attempts' => 0]], [$deleted['status'], $deleted['body']['deleted'] ?? null], $deleted['raw']);
-    $copies = glob(backup_dir() . "/academy-before-delete-user-$leaver-*.json") ?: [];
-    assert_same(1, count($copies), 'the page\'s delete keeps a copy of what it deletes');
-    $message = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id = ?', [$stayer]);
-    assert_same(200, tools_call('DELETE', "/api/admin/feedback/$message")['status']);
+        // After the backup: the leaver's data deleted on the People page (a copy kept first), the stayer's message deleted.
+        $deleted = tools_call('DELETE', "/api/admin/people/$leaver");
+        assert_same([200, ['Kanji and words' => 1, 'Answers' => 0, 'Exam attempts' => 0]], [$deleted['status'], $deleted['body']['deleted'] ?? null], $deleted['raw']);
+        $copies = glob(backup_dir() . "/academy-before-delete-user-$leaver-*.json") ?: [];
+        assert_same(1, count($copies), 'the page\'s delete keeps a copy of what it deletes');
+        $message = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id = ?', [$stayer]);
+        assert_same(200, tools_call('DELETE', "/api/admin/feedback/$message")['status']);
 
-    test_anonymized([]); // the IAM answers (nobody deleted): the scrub after the restore goes through
-    try {
-        $started = microtime(true);
-        $restored = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
-        $took = microtime(true) - $started;
-    } finally {
-        test_anonymized(null);
-    }
-    assert_same([200, null], [$restored['status'], $restored['body']['after_restore_error'] ?? null], $restored['raw']);
-    // A delete hook on the site's own connection would wait on the restore's locks, and the restore be ended a minute later.
-    assert_true($took < 30, sprintf('the restore went through at once (%.1f s), the deletes done again on its own connection', $took));
+        test_anonymized([]); // the IAM answers (nobody deleted): the scrub after the restore goes through
+        try {
+            $started = microtime(true);
+            $restored = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
+            $took = microtime(true) - $started;
+        } finally {
+            test_anonymized(null);
+        }
+        assert_same([200, null], [$restored['status'], $restored['body']['after_restore_error'] ?? null], $restored['raw']);
+        // A delete hook on the site's own connection would wait on the restore's locks, and the restore be ended a minute later.
+        assert_true($took < 30, sprintf('the restore went through at once (%.1f s), the deletes done again on its own connection', $took));
 
-    assert_same([0, 0], [(int) db_value('SELECT count(*) FROM users WHERE id = ?', [$leaver]), (int) db_value('SELECT count(*) FROM srs_progress WHERE user_id = ?', [$leaver])],
-        'the leaver\'s data the backup held: deleted again before anybody saw it');
-    assert_same([['k:川', 4]], array_map(static fn (array $r): array => [$r['item_id'], (int) $r['stage']],
-        db_all('SELECT item_id, stage FROM srs_progress WHERE user_id = ?', [$stayer])), 'everybody else\'s as the backup had it');
-    assert_same(0, (int) db_value('SELECT count(*) FROM anotoki_feedback WHERE id = ?', [$message]), 'the message deleted since: deleted again');
-    assert_same([['Leaving soon.', null, null]], array_map(static fn (array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
-        db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$leaver])),
-        'the leaver\'s message keeps its words, but neither where to answer nor their browser - forgotten again with their data');
-    assert_same($copies, glob(backup_dir() . "/academy-before-delete-user-$leaver-*.json") ?: [], 'no copy for the restore\'s delete: what it deletes again is the backup\'s, which keeps it');
-    assert_same(['person.data_deleted', 'feedback.deleted', 'backup.restored'], array_column(db_all(
-        "SELECT action FROM anotoki_audit_log WHERE action IN ('person.data_deleted', 'feedback.deleted', 'backup.restored')
-            AND id > (SELECT id FROM anotoki_audit_log WHERE action = 'backup.created' AND target_id = ?) ORDER BY id", [$id]), 'action'),
-        'the deletes recorded once, the restore after them - doing them again writes no entry');
-    assert_same([], server_problems($GLOBALS['app']));
-});
+        assert_same(
+            [0, 0],
+            [(int) db_value('SELECT count(*) FROM users WHERE id = ?', [$leaver]), (int) db_value('SELECT count(*) FROM srs_progress WHERE user_id = ?', [$leaver])],
+            'the leaver\'s data the backup held: deleted again before anybody saw it',
+        );
+        assert_same(
+            [['k:川', 4]],
+            array_map(static fn(array $r): array => [$r['item_id'], (int) $r['stage']], db_all('SELECT item_id, stage FROM srs_progress WHERE user_id = ?', [$stayer])),
+            'everybody else\'s as the backup had it',
+        );
+        assert_same(0, (int) db_value('SELECT count(*) FROM anotoki_feedback WHERE id = ?', [$message]), 'the message deleted since: deleted again');
+        assert_same(
+            [['Leaving soon.', null, null]],
+            array_map(
+                static fn(array $f): array => [$f['message'], $f['contact_email'], $f['user_agent']],
+                db_all('SELECT message, contact_email, user_agent FROM anotoki_feedback WHERE user_id = ?', [$leaver]),
+            ),
+            'the leaver\'s message keeps its words, but neither where to answer nor their browser - forgotten again with their data',
+        );
+        assert_same($copies, glob(backup_dir() . "/academy-before-delete-user-$leaver-*.json") ?: [], 'no copy for the restore\'s delete: what it deletes again is the backup\'s, which keeps it');
+        assert_same(
+            ['person.data_deleted', 'feedback.deleted', 'backup.restored'],
+            array_column(
+                db_all(
+                    "SELECT action FROM anotoki_audit_log WHERE action IN ('person.data_deleted', 'feedback.deleted', 'backup.restored')
+            AND id > (SELECT id FROM anotoki_audit_log WHERE action = 'backup.created' AND target_id = ?) ORDER BY id",
+                    [$id],
+                ),
+                'action',
+            ),
+            'the deletes recorded once, the restore after them - doing them again writes no entry',
+        );
+        assert_same([], server_problems($GLOBALS['app']));
+    },
+);
 
-test('a backup without this installation\'s seal - every plain one made before anotoki-lib 0.5.0, a file put into the folder - is listed so, never restored here (offline alone), and can still be downloaded', function (): void {
-    $made = tools_call('POST', '/api/admin/backups', ['description' => 'its seal taken away']);
-    assert_same(201, $made['status'], $made['raw']);
-    $id = (string) $made['body']['backup']['id'];
-    $sidecar = backup_dir() . "/$id.anotoki-backup.json";
-    $info = json_decode((string) file_get_contents($sidecar), true);
-    assert_true(is_string($info['seal'] ?? null), 'a plain backup made here carries its seal');
-    unset($info['seal']); // as a backup of before 0.5.0: no seal
-    file_put_contents($sidecar, json_encode($info, JSON_UNESCAPED_SLASHES));
+test(
+    'a backup without this installation\'s seal - every plain one made before anotoki-lib 0.5.0, a file put into the folder - is listed so, never restored here (offline alone), and can still be downloaded',
+    function (): void {
+        $made = tools_call('POST', '/api/admin/backups', ['description' => 'its seal taken away']);
+        assert_same(201, $made['status'], $made['raw']);
+        $id = (string) $made['body']['backup']['id'];
+        $sidecar = backup_dir() . "/$id.anotoki-backup.json";
+        $info = json_decode((string) file_get_contents($sidecar), true);
+        assert_true(is_string($info['seal'] ?? null), 'a plain backup made here carries its seal');
+        unset($info['seal']); // as a backup of before 0.5.0: no seal
+        file_put_contents($sidecar, json_encode($info, JSON_UNESCAPED_SLASHES));
 
-    $listed = array_column(tools_call('GET', '/api/admin/backups')['body']['backups'] ?? [], null, 'id');
-    assert_same([false, false], [$listed[$id]['sealed'] ?? null, $listed[$id]['restorable'] ?? null], 'listed as not made here');
-    $rows = (int) db_value('SELECT count(*) FROM srs_progress');
-    $refused = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
-    assert_same([422, 'archive_invalid'], [$refused['status'], $refused['body']['code'] ?? null], $refused['raw']);
-    // The answer in the library's fixed sentence (anotoki-lib 0.6.0), which the page shows; why, in the error log.
-    assert_match('/not made here - the error log says which\. One not made here is restored offline/', (string) ($refused['body']['error'] ?? ''), $refused['raw']);
-    assert_true(str_contains(error_log_text(), 'It carries no seal of this site\'s - it was not made here, or it was changed since - so it is not restored here'), 'why, in the library\'s words, in the error log');
-    assert_same($rows, (int) db_value('SELECT count(*) FROM srs_progress'), 'nothing restored');
-    $ticket = tools_call('POST', "/api/admin/backups/$id/ticket", new stdClass());
-    assert_same(200, $ticket['status'], 'downloaded for a restore offline: ' . $ticket['raw']);
-    assert_same(200, test_page($GLOBALS['app']['base'], (string) $ticket['body']['url'])['status']);
-    assert_same(200, tools_call('DELETE', "/api/admin/backups/$id", new stdClass())['status'], 'and deleted by the ADMIN');
-});
+        $listed = array_column(tools_call('GET', '/api/admin/backups')['body']['backups'] ?? [], null, 'id');
+        assert_same([false, false], [$listed[$id]['sealed'] ?? null, $listed[$id]['restorable'] ?? null], 'listed as not made here');
+        $rows = (int) db_value('SELECT count(*) FROM srs_progress');
+        $refused = tools_call('POST', "/api/admin/backups/$id/restore", ['confirm' => substr($id, -6)]);
+        assert_same([422, 'archive_invalid'], [$refused['status'], $refused['body']['code'] ?? null], $refused['raw']);
+        // The answer in the library's fixed sentence (anotoki-lib 0.6.0), which the page shows; why, in the error log.
+        assert_match('/not made here - the error log says which\. One not made here is restored offline/', (string) ($refused['body']['error'] ?? ''), $refused['raw']);
+        assert_true(
+            str_contains(error_log_text(), 'It carries no seal of this site\'s - it was not made here, or it was changed since - so it is not restored here'),
+            'why, in the library\'s words, in the error log',
+        );
+        assert_same($rows, (int) db_value('SELECT count(*) FROM srs_progress'), 'nothing restored');
+        $ticket = tools_call('POST', "/api/admin/backups/$id/ticket", new stdClass());
+        assert_same(200, $ticket['status'], 'downloaded for a restore offline: ' . $ticket['raw']);
+        assert_same(200, test_page($GLOBALS['app']['base'], (string) $ticket['body']['url'])['status']);
+        assert_same(200, tools_call('DELETE', "/api/admin/backups/$id", new stdClass())['status'], 'and deleted by the ADMIN');
+    },
+);
 
 test('a restore of a database that ever had visitors goes through, and never gives a visitor\'s id again (anotoki-lib 0.5.1: visitor_ids counts down)', function (): void {
     // A visitor's row as src/visitors.php makes one: the next id of visitor_ids (-1, -2, …), a key's hash, a hash of the address.
     $visitor = static function (): int {
-        return (int) db_value("INSERT INTO users (id, visitor_key_hash, visitor_from) VALUES (nextval('visitor_ids'), ?, ?) RETURNING id",
-            [bin2hex(random_bytes(32)), bin2hex(random_bytes(32))]);
+        return (int) db_value("INSERT INTO users (id, visitor_key_hash, visitor_from) VALUES (nextval('visitor_ids'), ?, ?) RETURNING id", [bin2hex(random_bytes(32)), bin2hex(random_bytes(32))]);
     };
     $before = $visitor();
     $made = tools_call('POST', '/api/admin/backups', ['description' => 'with a visitor']);
@@ -413,8 +506,11 @@ test('a restore of a database that ever had visitors goes through, and never giv
         test_anonymized(null);
     }
     assert_same([200, null], [$restored['status'], $restored['body']['after_restore_error'] ?? null], 'the restore went through (0.5.0 set the sequence past its MAXVALUE): ' . $restored['raw']);
-    assert_same([1, 0], [(int) db_value('SELECT count(*) FROM users WHERE id = ?', [$before]), (int) db_value('SELECT count(*) FROM users WHERE id = ?', [$since])],
-        'the backup\'s visitor back, the one made since gone');
+    assert_same(
+        [1, 0],
+        [(int) db_value('SELECT count(*) FROM users WHERE id = ?', [$before]), (int) db_value('SELECT count(*) FROM users WHERE id = ?', [$since])],
+        'the backup\'s visitor back, the one made since gone',
+    );
     $next = $visitor();
     assert_true($next < $since, "the next visitor's id is one never given ($next, after $since)");
     db_exec('DELETE FROM users WHERE id IN (?, ?)', [$before, $next]);
@@ -439,15 +535,23 @@ test('the pages\' own errors: a thrown error reaches the error log, scrubbed, as
     foreach (['someone@example.com', '203.0.113.5', 'abc.def.ghi', 'hunter2', 'secret-in-query', 'a-fragment', '127.0.0.1'] as $never) {
         assert_false(str_contains(json_encode($line, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $never), "never $never");
     }
-    assert_same([422, 'message_required'], (static function () use ($learner): array {
-        $r = tools_call('POST', '/api/client-errors', ['type' => 'Error', 'message' => ' '], $learner);
-        return [$r['status'], $r['body']['code'] ?? null];
-    })(), 'a report says what went wrong');
+    assert_same(
+        [422, 'message_required'],
+        (static function () use ($learner): array {
+            $r = tools_call('POST', '/api/client-errors', ['type' => 'Error', 'message' => ' '], $learner);
+            return [$r['status'], $r['body']['code'] ?? null];
+        })(),
+        'a report says what went wrong',
+    );
     assert_same(413, tools_call('POST', '/api/client-errors', ['message' => str_repeat('x', 9000)], $learner)['status'], '8 KB at most');
-    assert_same([401, 'invalid_token'], (static function (): array {
-        $r = tools_call('POST', '/api/client-errors', ['message' => 'with a bad token'], test_bearer('not.a.token'));
-        return [$r['status'], $r['body']['code'] ?? null];
-    })(), 'a token that is no good: refused, as on every route');
+    assert_same(
+        [401, 'invalid_token'],
+        (static function (): array {
+            $r = tools_call('POST', '/api/client-errors', ['message' => 'with a bad token'], test_bearer('not.a.token'));
+            return [$r['status'], $r['body']['code'] ?? null];
+        })(),
+        'a token that is no good: refused, as on every route',
+    );
 
     // Nobody signed in is counted by their address bucket - this server trusts no proxy of this computer's: all are
     // 127.0.0.1 -, 20 an hour.
@@ -489,8 +593,7 @@ test('behind the proxies the site trusts, the error log and the feedback count t
         assert_same(204, $sent['status'], "$header: {$sent['raw']}");
     }
     $own = client_hash_of($edge['config'], 'by X-Real-IP');
-    assert_same([$own, $own], [client_hash_of($edge['config'], 'by True-Client-IP'), client_hash_of($edge['config'], 'by X-Forwarded-For')],
-        'one bucket for all three: the edge\'s own');
+    assert_same([$own, $own], [client_hash_of($edge['config'], 'by True-Client-IP'), client_hash_of($edge['config'], 'by X-Forwarded-For')], 'one bucket for all three: the edge\'s own');
     assert_false(in_array($own, [$a, client_hash_of($edge['config'], 'from B')], true), 'nobody else\'s');
 
     // The feedback form's limits (5 an hour from one sender) the same way - while visitors may write it.
@@ -516,10 +619,13 @@ test('behind the proxies the site trusts, the error log and the feedback count t
     assert_same([], server_problems($plain));
 });
 
-test('how many backups are kept is the library\'s rotation by number - 14 daily, 5 before an update, 5 before a restore -, the ADMIN\'s own until the owner deletes them, none for its age (the owner\'s decision of 2026-10-11)', function (): void {
-    $retention = (new ReflectionProperty(Anotoki\Lib\Backups\Backups::class, 'retention'))->getValue(academy_backups());
-    assert_same(['daily' => 14, 'before-migration' => 5, 'before-restore' => 5], $retention, 'the library\'s counts, as every anotoki site and the IAM keep them');
-});
+test(
+    'how many backups are kept is the library\'s rotation by number - 14 daily, 5 before an update, 5 before a restore -, the ADMIN\'s own until the owner deletes them, none for its age (the owner\'s decision of 2026-10-11)',
+    function (): void {
+        $retention = (new ReflectionProperty(Anotoki\Lib\Backups\Backups::class, 'retention'))->getValue(academy_backups());
+        assert_same(['daily' => 14, 'before-migration' => 5, 'before-restore' => 5], $retention, 'the library\'s counts, as every anotoki site and the IAM keep them');
+    },
+);
 
 test('the day\'s backup: after the first page load of the day, beside this site\'s own; once', function (): void {
     @unlink($GLOBALS['app']['config'] . '/cache/anotoki-backup-daily.json');
@@ -529,11 +635,11 @@ test('the day\'s backup: after the first page load of the day, beside this site\
     for ($i = 0; $i < 100 && count(library_backups()) === count($before); $i++) {
         usleep(100000);
     }
-    $daily = array_values(array_filter(array_diff(library_backups(), $before), static fn (string $f): bool => str_contains($f, '-daily-')));
+    $daily = array_values(array_filter(array_diff(library_backups(), $before), static fn(string $f): bool => str_contains($f, '-daily-')));
     assert_same(1, count($daily), 'one daily backup, after the answer: ' . json_encode(library_backups()));
     call($GLOBALS['app']['base'], 'GET', '/api/kanji/summary', null, test_bearer(test_token(A_LEARNER, ['MEMBER'])));
     usleep(500000);
-    assert_same(1, count(array_filter(library_backups(), static fn (string $f): bool => str_contains($f, '-daily-'))), 'and no second one that day');
+    assert_same(1, count(array_filter(library_backups(), static fn(string $f): bool => str_contains($f, '-daily-'))), 'and no second one that day');
 });
 
 test('while an update waits, the error log and the backups answer the ADMIN; a restore, the audit log, the feedback, the pages\' own errors and the People page do not', function (): void {
@@ -545,17 +651,22 @@ test('while an update waits, the error log and the backups answer the ADMIN; a r
         assert_same(200, $list['status'], $list['raw']);
         $id = (string) ($list['body']['backups'][0]['id'] ?? '');
         assert_same(200, tools_call('GET', "/api/admin/backups/$id")['status']);
-        foreach (['POST /api/admin/backups/' . $id . '/restore', 'GET /api/admin/audit', 'GET /api/admin/feedback/unread', 'POST /api/feedback', 'POST /api/client-errors',
-            'GET /api/admin/people'] as $route) {
+        foreach (
+            ['POST /api/admin/backups/' . $id . '/restore', 'GET /api/admin/audit', 'GET /api/admin/feedback/unread', 'POST /api/feedback', 'POST /api/client-errors', 'GET /api/admin/people']
+            as $route
+        ) {
             [$method, $url] = explode(' ', $route);
             $r = tools_call($method, $url, $method === 'POST' ? ['confirm' => substr($id, -6), 'kind' => 'idea', 'message' => 'x'] : null);
             assert_same([503, $pending], [$r['status'], $r['body']], $route);
         }
         // Still the ADMIN's alone.
-        assert_same([403, 'admin_only'], (static function (): array {
-            $r = tools_call('GET', '/api/admin/errors', null, test_bearer(test_token(AN_EDITOR, ['EDITOR'])));
-            return [$r['status'], $r['body']['code'] ?? null];
-        })());
+        assert_same(
+            [403, 'admin_only'],
+            (static function (): array {
+                $r = tools_call('GET', '/api/admin/errors', null, test_bearer(test_token(AN_EDITOR, ['EDITOR'])));
+                return [$r['status'], $r['body']['code'] ?? null];
+            })(),
+        );
     } finally {
         db_exec("INSERT INTO migrations (name) VALUES ('anotoki_people/001_people.sql')");
     }

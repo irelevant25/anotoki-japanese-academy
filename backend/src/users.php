@@ -90,13 +90,16 @@ function users_ensure(int $id): void
 function users_all(): array
 {
     $zone = users_time_zone_ready() ? 'time_zone' : 'NULL::text AS time_zone';
-    return array_map(static fn (array $r): array => [
-        'id' => (int) $r['id'],
-        'username' => $r['preferred_username'],
-        'createdAt' => (int) $r['created_at'],
-        'lastSeenAt' => (int) $r['last_seen_at'],
-        'timeZone' => $r['time_zone'],
-    ], db_all("SELECT id, preferred_username, academy_ms(created_at) AS created_at, academy_ms(last_seen_at) AS last_seen_at, $zone FROM users WHERE id > 0 ORDER BY id"));
+    return array_map(
+        static fn(array $r): array => [
+            'id' => (int) $r['id'],
+            'username' => $r['preferred_username'],
+            'createdAt' => (int) $r['created_at'],
+            'lastSeenAt' => (int) $r['last_seen_at'],
+            'timeZone' => $r['time_zone'],
+        ],
+        db_all("SELECT id, preferred_username, academy_ms(created_at) AS created_at, academy_ms(last_seen_at) AS last_seen_at, $zone FROM users WHERE id > 0 ORDER BY id"),
+    );
 }
 
 /** Does this person have anything here at all: study data, settings, an import? */

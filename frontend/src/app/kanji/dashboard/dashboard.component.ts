@@ -46,9 +46,7 @@ export class DashboardComponent {
     if (s.reviewsDue) {
       return this.i18n.t('dashboard.reviewsDue');
     }
-    return s.nextReviewAt
-      ? this.i18n.t('dashboard.nextReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) })
-      : this.i18n.t('dashboard.noReviews');
+    return s.nextReviewAt ? this.i18n.t('dashboard.nextReview', { when: fmtIn(this.wording, s.nextReviewAt), clock: fmtClock(this.wording, s.nextReviewAt) }) : this.i18n.t('dashboard.noReviews');
   });
 
   /** Today's three counts, each sentence cut at its number: the template draws the number in bold. */

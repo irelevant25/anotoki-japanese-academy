@@ -23,7 +23,7 @@ function exam_rng(string $seed): Closure
     $s = $s ?: 1;
     return static function () use (&$s): float {
         $s = int32($s);
-        $s = int32($s + 0x6D2B79F5);
+        $s = int32($s + 0x6d2b79f5);
         $t = imul($s ^ urshift($s, 15), 1 | $s);
         $t = int32($t + imul($t ^ urshift($t, 7), 61 | $t)) ^ $t;
         return urshift($t ^ urshift($t, 14), 0) / 4294967296;
@@ -104,8 +104,8 @@ function exam_senses(string $gloss): array
 {
     static $cache = [];
     return $cache[$gloss] ??= array_map(
-        static fn (string $s): string => js_trim(preg_replace('/[.!?]/u', '', preg_replace('/\((?:polite|casual|formal)\)/u', '', $s))),
-        explode(';', mb_strtolower($gloss))
+        static fn(string $s): string => js_trim(preg_replace('/[.!?]/u', '', preg_replace('/\((?:polite|casual|formal)\)/u', '', $s))),
+        explode(';', mb_strtolower($gloss)),
     );
 }
 
@@ -124,10 +124,7 @@ function exam_same_meaning(string $a, string $b): bool
  * Part 1 is Greetings + Lessons 1–12, Part 2 is Lessons 13–23, so the lesson
  * number alone says which part an item belongs to.
  */
-const BOOKS = [
-    ['id' => 1, 'name' => 'Part 1', 'lessons' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]],
-    ['id' => 2, 'name' => 'Part 2', 'lessons' => [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]],
-];
+const BOOKS = [['id' => 1, 'name' => 'Part 1', 'lessons' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]], ['id' => 2, 'name' => 'Part 2', 'lessons' => [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]];
 
 function exam_book_of($lesson): int
 {
@@ -137,7 +134,7 @@ function exam_book_of($lesson): int
 /** A question of the bank: its id and part first, as the bank has always listed them. */
 function exam_q(int &$nextId, array $obj): array
 {
-    return ['id' => 'q' . (++$nextId), 'book' => exam_book_of($obj['lesson'])] + $obj;
+    return ['id' => 'q' . ++$nextId, 'book' => exam_book_of($obj['lesson'])] + $obj;
 }
 
 /* ----------------------------------------------------- 1/2. vocabulary */
@@ -145,7 +142,7 @@ function exam_q(int &$nextId, array $obj): array
 function exam_vocab_questions(array $vocab, int &$nextId): array
 {
     $out = [];
-    $testable = array_values(array_filter($vocab, static fn (array $v): bool => !$v['extra'] && js_len($v['gloss']) <= 60));
+    $testable = array_values(array_filter($vocab, static fn(array $v): bool => !$v['extra'] && js_len($v['gloss']) <= 60));
 
     // Words whose English gloss is shared with another word cannot be used for
     // English -> Japanese, because more than one option would be correct.
@@ -175,43 +172,41 @@ function exam_vocab_questions(array $vocab, int &$nextId): array
         $samePos = $others($byPos[$v['pos']] ?? [], $i);
 
         // Japanese -> English
-        $differs = static fn (array $x): bool => !exam_same_meaning($x['gloss'], $v['gloss']);
-        $o = exam_options(
-            $v['gloss'],
-            array_column(array_filter($sameLesson, $differs), 'gloss'),
-            $rng,
-            array_column(array_filter($samePos, $differs), 'gloss')
-        );
+        $differs = static fn(array $x): bool => !exam_same_meaning($x['gloss'], $v['gloss']);
+        $o = exam_options($v['gloss'], array_column(array_filter($sameLesson, $differs), 'gloss'), $rng, array_column(array_filter($samePos, $differs), 'gloss'));
         if ($o) {
             $word = exam_display_word($v);
-            $out[] = exam_q($nextId, [
-                'section' => 'vocab-jp-en',
-                'lesson' => $v['lesson'],
-                'question' => "What does 「{$word}」 mean?",
-                'reading' => js_truthy($v['kanji']) ? $v['kana'] : null,
-            ] + $o + [
-                'explain' => "{$word}（{$v['kana']}）= {$v['gloss']}",
-                'ref' => $v['tag'],
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'vocab-jp-en',
+                    'lesson' => $v['lesson'],
+                    'question' => "What does 「{$word}」 mean?",
+                    'reading' => js_truthy($v['kanji']) ? $v['kana'] : null,
+                ] +
+                    $o + [
+                        'explain' => "{$word}（{$v['kana']}）= {$v['gloss']}",
+                        'ref' => $v['tag'],
+                    ],
+            );
         }
 
         // English -> Japanese
         if ($glossCount[exam_norm($v['gloss'])] === 1) {
-            $o = exam_options(
-                exam_display_word($v),
-                array_map('exam_display_word', $sameLesson),
-                $rng,
-                array_map('exam_display_word', $samePos)
-            );
+            $o = exam_options(exam_display_word($v), array_map('exam_display_word', $sameLesson), $rng, array_map('exam_display_word', $samePos));
             if ($o) {
-                $out[] = exam_q($nextId, [
-                    'section' => 'vocab-en-jp',
-                    'lesson' => $v['lesson'],
-                    'question' => "Which word means \"{$v['gloss']}\"?",
-                ] + $o + [
-                    'explain' => "{$v['gloss']} = " . exam_display_word($v) . "（{$v['kana']}）",
-                    'ref' => $v['tag'],
-                ]);
+                $out[] = exam_q(
+                    $nextId,
+                    [
+                        'section' => 'vocab-en-jp',
+                        'lesson' => $v['lesson'],
+                        'question' => "Which word means \"{$v['gloss']}\"?",
+                    ] +
+                        $o + [
+                            'explain' => "{$v['gloss']} = " . exam_display_word($v) . "（{$v['kana']}）",
+                            'ref' => $v['tag'],
+                        ],
+                );
             }
         }
     }
@@ -228,7 +223,7 @@ function exam_vocab_questions(array $vocab, int &$nextId): array
 function exam_fake_readings(string $word, string $correctReading, array $kanjiByChar): array
 {
     $cs = chars($word);
-    if (!array_filter($cs, static fn (string $c): bool => isset($kanjiByChar[$c]))) {
+    if (!array_filter($cs, static fn(string $c): bool => isset($kanjiByChar[$c]))) {
         return [];
     }
     $per = [];
@@ -286,26 +281,27 @@ function exam_kanji_questions(array $kanjiList, int &$nextId): array
             // Every kanji must be one we hold readings for; otherwise the generated
             // distractors keep that character literally (雨期 -> "あめ期") and the
             // all-kana option gives the answer away.
-            if (array_filter($cs, static fn (string $ch): bool => preg_match('/[一-龯]/u', $ch) && !isset($kanjiByChar[$ch]))) {
+            if (array_filter($cs, static fn(string $ch): bool => preg_match('/[一-龯]/u', $ch) && !isset($kanjiByChar[$ch]))) {
                 continue;
             }
-            $fakes = array_values(array_filter(
-                exam_fake_readings($c['word'], $c['reading'], $kanjiByChar),
-                static fn (string $r): bool => !preg_match('/[一-龯]/u', $r)
-            ));
+            $fakes = array_values(array_filter(exam_fake_readings($c['word'], $c['reading'], $kanjiByChar), static fn(string $r): bool => !preg_match('/[一-龯]/u', $r)));
             $o = exam_options($c['reading'], $fakes, $rng, $otherReadings);
             if (!$o) {
                 continue;
             }
-            $out[] = exam_q($nextId, [
-                'section' => 'kanji-reading',
-                'lesson' => $k['lesson'],
-                'question' => "How do you read 「{$c['word']}」?",
-                'hint' => $c['english'],
-            ] + $o + [
-                'explain' => "{$c['word']}（{$c['reading']}）= {$c['english']}",
-                'ref' => "Kanji {$k['no']} 「{$k['kanji']}」 L{$k['lesson']}",
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'kanji-reading',
+                    'lesson' => $k['lesson'],
+                    'question' => "How do you read 「{$c['word']}」?",
+                    'hint' => $c['english'],
+                ] +
+                    $o + [
+                        'explain' => "{$c['word']}（{$c['reading']}）= {$c['english']}",
+                        'ref' => "Kanji {$k['no']} 「{$k['kanji']}」 L{$k['lesson']}",
+                    ],
+            );
         }
     }
 
@@ -328,14 +324,18 @@ function exam_kanji_questions(array $kanjiList, int &$nextId): array
         }
         $on = implode('、', $k['on']) ?: '—';
         $kun = implode('、', $k['kun']) ?: '—';
-        $out[] = exam_q($nextId, [
-            'section' => 'kanji-meaning',
-            'lesson' => $k['lesson'],
-            'question' => "What does the kanji 「{$k['kanji']}」 mean?",
-        ] + $o + [
-            'explain' => "{$k['kanji']} = {$k['meaning']}（on: {$on} / kun: {$kun}）",
-            'ref' => "Kanji {$k['no']} L{$k['lesson']}",
-        ]);
+        $out[] = exam_q(
+            $nextId,
+            [
+                'section' => 'kanji-meaning',
+                'lesson' => $k['lesson'],
+                'question' => "What does the kanji 「{$k['kanji']}」 mean?",
+            ] +
+                $o + [
+                    'explain' => "{$k['kanji']} = {$k['meaning']}（on: {$on} / kun: {$kun}）",
+                    'ref' => "Kanji {$k['no']} L{$k['lesson']}",
+                ],
+        );
     }
 
     // 5. choose the correct kanji spelling for a word given in kana
@@ -343,7 +343,7 @@ function exam_kanji_questions(array $kanjiList, int &$nextId): array
     foreach ($kanjiList as $k) {
         foreach ($k['compounds'] as $c) {
             $cs = chars($c['word']);
-            if (!array_filter($cs, static fn (string $ch): bool => isset($kanjiByChar[$ch]))) {
+            if (!array_filter($cs, static fn(string $ch): bool => isset($kanjiByChar[$ch]))) {
                 continue;
             }
             // Two characters or more, so the distractors differ by one kanji rather
@@ -372,14 +372,18 @@ function exam_kanji_questions(array $kanjiList, int &$nextId): array
             if (!$o) {
                 continue;
             }
-            $out[] = exam_q($nextId, [
-                'section' => 'kanji-writing',
-                'lesson' => $k['lesson'],
-                'question' => "Which is the correct kanji for 「{$c['reading']}」 ({$c['english']})?",
-            ] + $o + [
-                'explain' => "{$c['reading']} = {$c['word']}（{$c['english']}）",
-                'ref' => "Kanji {$k['no']} L{$k['lesson']}",
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'kanji-writing',
+                    'lesson' => $k['lesson'],
+                    'question' => "Which is the correct kanji for 「{$c['reading']}」 ({$c['english']})?",
+                ] +
+                    $o + [
+                        'explain' => "{$c['reading']} = {$c['word']}（{$c['english']}）",
+                        'ref' => "Kanji {$k['no']} L{$k['lesson']}",
+                    ],
+            );
         }
     }
 
@@ -418,11 +422,16 @@ const PART2_FORMS = ['potential', 'volitional', 'ba', 'passive', 'causative', 'c
  */
 function exam_simple_verbs(array $vocab): array
 {
-    return array_values(array_filter($vocab, static fn (array $v): bool => js_truthy($v['verbClass'] ?? null)
-        && !$v['extra']
-        && !preg_match('/[をにがへ・〜～]/u', $v['kana'])
-        && !preg_match('/[をにがへ・〜～]/u', (string) ($v['kanji'] ?? ''))
-        && js_len(exam_display_word($v)) >= 2));
+    return array_values(
+        array_filter(
+            $vocab,
+            static fn(array $v): bool => js_truthy($v['verbClass'] ?? null) &&
+                !$v['extra'] &&
+                !preg_match('/[をにがへ・〜～]/u', $v['kana']) &&
+                !preg_match('/[をにがへ・〜～]/u', (string) ($v['kanji'] ?? '')) &&
+                js_len(exam_display_word($v)) >= 2,
+        ),
+    );
 }
 
 /**
@@ -459,15 +468,19 @@ function exam_verb_questions(array $vocab, int &$nextId): array
             if (!$o) {
                 continue;
             }
-            $out[] = exam_q($nextId, [
-                'section' => 'verb-conjugation',
-                'lesson' => max($v['lesson'], $lessonTaught),
-                'question' => "Give the {$label} of 「{$dict}」 ({$v['gloss']}).",
-                'hint' => $v['verbClass'] === 'irr' ? 'irregular' : $v['verbClass'] . '-verb',
-            ] + $o + [
-                'explain' => "{$dict} [{$v['verbClass']}] → {$correct}",
-                'ref' => $v['tag'],
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'verb-conjugation',
+                    'lesson' => max($v['lesson'], $lessonTaught),
+                    'question' => "Give the {$label} of 「{$dict}」 ({$v['gloss']}).",
+                    'hint' => $v['verbClass'] === 'irr' ? 'irregular' : $v['verbClass'] . '-verb',
+                ] +
+                    $o + [
+                        'explain' => "{$dict} [{$v['verbClass']}] → {$correct}",
+                        'ref' => $v['tag'],
+                    ],
+            );
         }
 
         // verb class identification (three options — it is a three-way choice)
@@ -497,7 +510,7 @@ function exam_adjective_questions(array $vocab, int &$nextId): array
 {
     $rng = exam_rng('adj');
     $out = [];
-    $adjs = array_filter($vocab, static fn (array $v): bool => js_truthy($v['adjClass'] ?? null) && !$v['extra'] && !preg_match('/[をにがへ]/u', $v['kana']));
+    $adjs = array_filter($vocab, static fn(array $v): bool => js_truthy($v['adjClass'] ?? null) && !$v['extra'] && !preg_match('/[をにがへ]/u', $v['kana']));
 
     foreach ($adjs as $a) {
         $word = exam_display_word($a);
@@ -513,15 +526,19 @@ function exam_adjective_questions(array $vocab, int &$nextId): array
             if (!$o) {
                 continue;
             }
-            $out[] = exam_q($nextId, [
-                'section' => 'adjective',
-                'lesson' => max($a['lesson'], $lesson),
-                'question' => "Give the {$label} of 「{$word}」 ({$a['gloss']}).",
-                'hint' => $isI ? 'い-adjective' : 'な-adjective',
-            ] + $o + [
-                'explain' => "{$word} is " . ($isI ? 'an い-adjective' : 'a な-adjective') . " → {$correct}",
-                'ref' => $a['tag'],
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'adjective',
+                    'lesson' => max($a['lesson'], $lesson),
+                    'question' => "Give the {$label} of 「{$word}」 ({$a['gloss']}).",
+                    'hint' => $isI ? 'い-adjective' : 'な-adjective',
+                ] +
+                    $o + [
+                        'explain' => "{$word} is " . ($isI ? 'an い-adjective' : 'a な-adjective') . " → {$correct}",
+                        'ref' => $a['tag'],
+                    ],
+            );
         }
 
         $out[] = exam_q($nextId, [
@@ -540,37 +557,139 @@ function exam_adjective_questions(array $vocab, int &$nextId): array
 /* ------------------------------------------------------------------- kana */
 
 const HIRAGANA = [
-    ['あ', 'a'], ['い', 'i'], ['う', 'u'], ['え', 'e'], ['お', 'o'],
-    ['か', 'ka'], ['き', 'ki'], ['く', 'ku'], ['け', 'ke'], ['こ', 'ko'],
-    ['さ', 'sa'], ['し', 'shi'], ['す', 'su'], ['せ', 'se'], ['そ', 'so'],
-    ['た', 'ta'], ['ち', 'chi'], ['つ', 'tsu'], ['て', 'te'], ['と', 'to'],
-    ['な', 'na'], ['に', 'ni'], ['ぬ', 'nu'], ['ね', 'ne'], ['の', 'no'],
-    ['は', 'ha'], ['ひ', 'hi'], ['ふ', 'fu'], ['へ', 'he'], ['ほ', 'ho'],
-    ['ま', 'ma'], ['み', 'mi'], ['む', 'mu'], ['め', 'me'], ['も', 'mo'],
-    ['や', 'ya'], ['ゆ', 'yu'], ['よ', 'yo'],
-    ['ら', 'ra'], ['り', 'ri'], ['る', 'ru'], ['れ', 're'], ['ろ', 'ro'],
-    ['わ', 'wa'], ['を', 'o (particle)'], ['ん', 'n'],
-    ['が', 'ga'], ['ぎ', 'gi'], ['ぐ', 'gu'], ['げ', 'ge'], ['ご', 'go'],
-    ['ざ', 'za'], ['じ', 'ji'], ['ず', 'zu'], ['ぜ', 'ze'], ['ぞ', 'zo'],
-    ['だ', 'da'], ['で', 'de'], ['ど', 'do'],
-    ['ば', 'ba'], ['び', 'bi'], ['ぶ', 'bu'], ['べ', 'be'], ['ぼ', 'bo'],
-    ['ぱ', 'pa'], ['ぴ', 'pi'], ['ぷ', 'pu'], ['ぺ', 'pe'], ['ぽ', 'po'],
+    ['あ', 'a'],
+    ['い', 'i'],
+    ['う', 'u'],
+    ['え', 'e'],
+    ['お', 'o'],
+    ['か', 'ka'],
+    ['き', 'ki'],
+    ['く', 'ku'],
+    ['け', 'ke'],
+    ['こ', 'ko'],
+    ['さ', 'sa'],
+    ['し', 'shi'],
+    ['す', 'su'],
+    ['せ', 'se'],
+    ['そ', 'so'],
+    ['た', 'ta'],
+    ['ち', 'chi'],
+    ['つ', 'tsu'],
+    ['て', 'te'],
+    ['と', 'to'],
+    ['な', 'na'],
+    ['に', 'ni'],
+    ['ぬ', 'nu'],
+    ['ね', 'ne'],
+    ['の', 'no'],
+    ['は', 'ha'],
+    ['ひ', 'hi'],
+    ['ふ', 'fu'],
+    ['へ', 'he'],
+    ['ほ', 'ho'],
+    ['ま', 'ma'],
+    ['み', 'mi'],
+    ['む', 'mu'],
+    ['め', 'me'],
+    ['も', 'mo'],
+    ['や', 'ya'],
+    ['ゆ', 'yu'],
+    ['よ', 'yo'],
+    ['ら', 'ra'],
+    ['り', 'ri'],
+    ['る', 'ru'],
+    ['れ', 're'],
+    ['ろ', 'ro'],
+    ['わ', 'wa'],
+    ['を', 'o (particle)'],
+    ['ん', 'n'],
+    ['が', 'ga'],
+    ['ぎ', 'gi'],
+    ['ぐ', 'gu'],
+    ['げ', 'ge'],
+    ['ご', 'go'],
+    ['ざ', 'za'],
+    ['じ', 'ji'],
+    ['ず', 'zu'],
+    ['ぜ', 'ze'],
+    ['ぞ', 'zo'],
+    ['だ', 'da'],
+    ['で', 'de'],
+    ['ど', 'do'],
+    ['ば', 'ba'],
+    ['び', 'bi'],
+    ['ぶ', 'bu'],
+    ['べ', 'be'],
+    ['ぼ', 'bo'],
+    ['ぱ', 'pa'],
+    ['ぴ', 'pi'],
+    ['ぷ', 'pu'],
+    ['ぺ', 'pe'],
+    ['ぽ', 'po'],
 ];
 
 const KATAKANA = [
-    ['ア', 'a'], ['イ', 'i'], ['ウ', 'u'], ['エ', 'e'], ['オ', 'o'],
-    ['カ', 'ka'], ['キ', 'ki'], ['ク', 'ku'], ['ケ', 'ke'], ['コ', 'ko'],
-    ['サ', 'sa'], ['シ', 'shi'], ['ス', 'su'], ['セ', 'se'], ['ソ', 'so'],
-    ['タ', 'ta'], ['チ', 'chi'], ['ツ', 'tsu'], ['テ', 'te'], ['ト', 'to'],
-    ['ナ', 'na'], ['ニ', 'ni'], ['ヌ', 'nu'], ['ネ', 'ne'], ['ノ', 'no'],
-    ['ハ', 'ha'], ['ヒ', 'hi'], ['フ', 'fu'], ['ヘ', 'he'], ['ホ', 'ho'],
-    ['マ', 'ma'], ['ミ', 'mi'], ['ム', 'mu'], ['メ', 'me'], ['モ', 'mo'],
-    ['ヤ', 'ya'], ['ユ', 'yu'], ['ヨ', 'yo'],
-    ['ラ', 'ra'], ['リ', 'ri'], ['ル', 'ru'], ['レ', 're'], ['ロ', 'ro'],
-    ['ワ', 'wa'], ['ン', 'n'],
-    ['ガ', 'ga'], ['ジ', 'ji'], ['ズ', 'zu'], ['ダ', 'da'], ['デ', 'de'], ['ド', 'do'],
-    ['バ', 'ba'], ['ビ', 'bi'], ['ブ', 'bu'], ['ベ', 'be'], ['ボ', 'bo'],
-    ['パ', 'pa'], ['ピ', 'pi'], ['プ', 'pu'], ['ペ', 'pe'], ['ポ', 'po'],
+    ['ア', 'a'],
+    ['イ', 'i'],
+    ['ウ', 'u'],
+    ['エ', 'e'],
+    ['オ', 'o'],
+    ['カ', 'ka'],
+    ['キ', 'ki'],
+    ['ク', 'ku'],
+    ['ケ', 'ke'],
+    ['コ', 'ko'],
+    ['サ', 'sa'],
+    ['シ', 'shi'],
+    ['ス', 'su'],
+    ['セ', 'se'],
+    ['ソ', 'so'],
+    ['タ', 'ta'],
+    ['チ', 'chi'],
+    ['ツ', 'tsu'],
+    ['テ', 'te'],
+    ['ト', 'to'],
+    ['ナ', 'na'],
+    ['ニ', 'ni'],
+    ['ヌ', 'nu'],
+    ['ネ', 'ne'],
+    ['ノ', 'no'],
+    ['ハ', 'ha'],
+    ['ヒ', 'hi'],
+    ['フ', 'fu'],
+    ['ヘ', 'he'],
+    ['ホ', 'ho'],
+    ['マ', 'ma'],
+    ['ミ', 'mi'],
+    ['ム', 'mu'],
+    ['メ', 'me'],
+    ['モ', 'mo'],
+    ['ヤ', 'ya'],
+    ['ユ', 'yu'],
+    ['ヨ', 'yo'],
+    ['ラ', 'ra'],
+    ['リ', 'ri'],
+    ['ル', 'ru'],
+    ['レ', 're'],
+    ['ロ', 'ro'],
+    ['ワ', 'wa'],
+    ['ン', 'n'],
+    ['ガ', 'ga'],
+    ['ジ', 'ji'],
+    ['ズ', 'zu'],
+    ['ダ', 'da'],
+    ['デ', 'de'],
+    ['ド', 'do'],
+    ['バ', 'ba'],
+    ['ビ', 'bi'],
+    ['ブ', 'bu'],
+    ['ベ', 'be'],
+    ['ボ', 'bo'],
+    ['パ', 'pa'],
+    ['ピ', 'pi'],
+    ['プ', 'pu'],
+    ['ペ', 'pe'],
+    ['ポ', 'po'],
 ];
 
 function exam_kana_questions(int &$nextId): array
@@ -591,25 +710,33 @@ function exam_kana_questions(int &$nextId): array
             }
             $o = exam_options($romaji, $others, $rng);
             if ($o) {
-                $out[] = exam_q($nextId, [
-                    'section' => 'kana',
-                    'lesson' => $lesson,
-                    'question' => "How is 「{$ch}」 read?",
-                ] + $o + [
-                    'explain' => "{$ch} = {$romaji} ({$name})",
-                    'ref' => "{$name} chart",
-                ]);
+                $out[] = exam_q(
+                    $nextId,
+                    [
+                        'section' => 'kana',
+                        'lesson' => $lesson,
+                        'question' => "How is 「{$ch}」 read?",
+                    ] +
+                        $o + [
+                            'explain' => "{$ch} = {$romaji} ({$name})",
+                            'ref' => "{$name} chart",
+                        ],
+                );
             }
             $o2 = exam_options($ch, $otherChars, $rng);
             if ($o2) {
-                $out[] = exam_q($nextId, [
-                    'section' => 'kana',
-                    'lesson' => $lesson,
-                    'question' => "Which {$name} is read \"{$romaji}\"?",
-                ] + $o2 + [
-                    'explain' => "{$romaji} = {$ch} ({$name})",
-                    'ref' => "{$name} chart",
-                ]);
+                $out[] = exam_q(
+                    $nextId,
+                    [
+                        'section' => 'kana',
+                        'lesson' => $lesson,
+                        'question' => "Which {$name} is read \"{$romaji}\"?",
+                    ] +
+                        $o2 + [
+                            'explain' => "{$romaji} = {$ch} ({$name})",
+                            'ref' => "{$name} chart",
+                        ],
+                );
             }
         }
     }
@@ -690,52 +817,50 @@ function exam_listening_questions(array $vocab, array $audio, int &$nextId): arr
             }
         }
         $nearest = static function (int $n, array $list) use ($word): array {
-            $scored = array_map(static fn (array $p): array => [exam_ear_similarity($word, $p['word']), $p], $list);
-            usort($scored, static fn (array $x, array $y): int => $y[0] <=> $x[0]);
+            $scored = array_map(static fn(array $p): array => [exam_ear_similarity($word, $p['word']), $p], $list);
+            usort($scored, static fn(array $x, array $y): int => $y[0] <=> $x[0]);
             return array_column(array_slice($scored, 0, $n), 1);
         };
         $audioClip = $w['clips'][(int) floor($rng() * count($w['clips']))]; // one of the voices
         $shown = js_truthy($v['kanji'] ?? null) ? "{$v['kanji']}（{$word}）" : $word;
 
         // 1. Hear it, choose the meaning — never a meaning this word also has.
-        $others = array_values(array_filter($peers, static fn (array $p): bool => !exam_same_meaning($p['v']['gloss'], $v['gloss'])));
-        $o = exam_options(
-            $v['gloss'],
-            array_map(static fn (array $p): string => $p['v']['gloss'], $nearest(10, $others)),
-            $rng,
-            array_map(static fn (array $p): string => $p['v']['gloss'], $others)
-        );
+        $others = array_values(array_filter($peers, static fn(array $p): bool => !exam_same_meaning($p['v']['gloss'], $v['gloss'])));
+        $o = exam_options($v['gloss'], array_map(static fn(array $p): string => $p['v']['gloss'], $nearest(10, $others)), $rng, array_map(static fn(array $p): string => $p['v']['gloss'], $others));
         if ($o) {
-            $out[] = exam_q($nextId, [
-                'section' => 'listening-meaning',
-                'lesson' => $v['lesson'],
-                'question' => 'Listen, then choose what the word means.',
-                'audio' => $audioClip,
-            ] + $o + [
-                'explain' => "{$shown} = {$v['gloss']}",
-                'ref' => $v['tag'],
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'listening-meaning',
+                    'lesson' => $v['lesson'],
+                    'question' => 'Listen, then choose what the word means.',
+                    'audio' => $audioClip,
+                ] +
+                    $o + [
+                        'explain' => "{$shown} = {$v['gloss']}",
+                        'ref' => $v['tag'],
+                    ],
+            );
         }
 
         // 2. Hear it, choose the word — options in kana throughout, so the script
         //    itself never hints at the answer.
-        $o = exam_options(
-            $word,
-            array_column($nearest(12, $peers), 'word'),
-            $rng,
-            array_column($peers, 'word')
-        );
+        $o = exam_options($word, array_column($nearest(12, $peers), 'word'), $rng, array_column($peers, 'word'));
         if ($o) {
-            $out[] = exam_q($nextId, [
-                'section' => 'listening-word',
-                'lesson' => $v['lesson'],
-                'question' => 'Listen, then choose the word you heard.',
-                'hint' => $v['gloss'],
-                'audio' => $audioClip,
-            ] + $o + [
-                'explain' => "{$shown} = {$v['gloss']}",
-                'ref' => $v['tag'],
-            ]);
+            $out[] = exam_q(
+                $nextId,
+                [
+                    'section' => 'listening-word',
+                    'lesson' => $v['lesson'],
+                    'question' => 'Listen, then choose the word you heard.',
+                    'hint' => $v['gloss'],
+                    'audio' => $audioClip,
+                ] +
+                    $o + [
+                        'explain' => "{$shown} = {$v['gloss']}",
+                        'ref' => $v['tag'],
+                    ],
+            );
         }
     }
     return $out;
@@ -778,10 +903,9 @@ function exam_build_bank(array $content): array
         exam_adjective_questions($content['vocab'], $nextId),
         exam_kana_questions($nextId),
         exam_listening_questions($content['vocab'], $content['audio'], $nextId),
-        exam_authored_questions($content['authored'], $nextId)
+        exam_authored_questions($content['authored'], $nextId),
     );
-    return array_values(array_filter($bank, static fn (array $x): bool => js_truthy($x['correct'] ?? null)
-        && is_array($x['distractors'] ?? null) && count($x['distractors']) >= 1));
+    return array_values(array_filter($bank, static fn(array $x): bool => js_truthy($x['correct'] ?? null) && is_array($x['distractors'] ?? null) && count($x['distractors']) >= 1));
 }
 
 /** Section metadata: display name, and the weight used to lay out a full paper. */
@@ -811,9 +935,9 @@ const SECTIONS = [
 function exam_normalize_spec($in): array
 {
     $in = is_array($in) ? $in : [];
-    $list = static fn ($v): bool => is_array($v) && array_is_list($v) && $v !== [];
+    $list = static fn($v): bool => is_array($v) && array_is_list($v) && $v !== [];
     // Number() of each; a NaN matches no lesson and goes back to the browser as null, as JSON writes it
-    $numbers = static fn (array $v): array => array_map(static function ($x) {
+    $numbers = static fn(array $v): array => array_map(static function ($x) {
         $n = js_number($x);
         return is_float($n) && is_nan($n) ? null : $n;
     }, $v);
@@ -861,7 +985,7 @@ function exam_scope(array $spec): array
 function exam_build_paper(array $spec, array $pool): array
 {
     $size = $spec['size'];
-    $usedSeed = $spec['seed'] ?? ('exam-' . now_ms() . '-' . random_int(0, 999999));
+    $usedSeed = $spec['seed'] ?? 'exam-' . now_ms() . '-' . random_int(0, 999999);
     $rng = exam_rng($usedSeed);
     $scope = exam_scope($spec);
     $wantSections = $scope['sections'];
@@ -870,8 +994,7 @@ function exam_build_paper(array $spec, array $pool): array
     // Greetings is lesson 0 and is selectable like any other lesson, so it must
     // be excluded when the caller leaves it out.
     $sectionIds = array_column($wantSections, 'id');
-    $inScope = static fn (array $x): bool => in_array($x['section'], $sectionIds, true)
-        && ($wantLessons === null || js_includes($wantLessons, $x['lesson']));
+    $inScope = static fn(array $x): bool => in_array($x['section'], $sectionIds, true) && ($wantLessons === null || js_includes($wantLessons, $x['lesson']));
     $pool = array_values(array_filter($pool, $inScope));
     $totalWeight = array_sum(array_column($wantSections, 'weight'));
 
@@ -888,7 +1011,7 @@ function exam_build_paper(array $spec, array $pool): array
         if (!$byLesson) {
             continue;
         }
-        $buckets = array_map(static fn ($k): array => exam_shuffle($byLesson[$k], $rng), exam_shuffle(array_keys($byLesson), $rng));
+        $buckets = array_map(static fn($k): array => exam_shuffle($byLesson[$k], $rng), exam_shuffle(array_keys($byLesson), $rng));
 
         $take = [];
         for ($i = 0; count($take) < $target; $i++) {
@@ -911,7 +1034,7 @@ function exam_build_paper(array $spec, array $pool): array
 
     // Present the paper section by section, in the canonical order.
     $order = array_flip(array_column(SECTIONS, 'id'));
-    usort($chosen, static fn (array $a, array $b): int => $order[$a['section']] - $order[$b['section']]);
+    usort($chosen, static fn(array $a, array $b): int => $order[$a['section']] - $order[$b['section']]);
     $names = array_column(SECTIONS, 'name', 'id');
 
     // Freeze the option order now, so scoring is by index and the paper is

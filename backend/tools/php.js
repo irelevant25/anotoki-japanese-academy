@@ -24,7 +24,12 @@ function candidates() {
   }
   const globDirs = (base, re) => {
     try {
-      return fs.readdirSync(base).filter((d) => re.test(d)).sort().reverse().map((d) => path.join(base, d));
+      return fs
+        .readdirSync(base)
+        .filter((d) => re.test(d))
+        .sort()
+        .reverse()
+        .map((d) => path.join(base, d));
     } catch {
       return [];
     }
@@ -52,11 +57,11 @@ function candidates() {
 /** '' when this PHP can run the app, else why not. */
 function problem(php) {
   try {
-    const out = execFileSync(
-      php,
-      ['-r', 'echo PHP_VERSION, " ", implode(",", array_filter(["pdo_pgsql", "mbstring", "intl"], function ($e) { return !extension_loaded($e); }));'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000 }
-    ).trim();
+    const out = execFileSync(php, ['-r', 'echo PHP_VERSION, " ", implode(",", array_filter(["pdo_pgsql", "mbstring", "intl"], function ($e) { return !extension_loaded($e); }));'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 15000,
+    }).trim();
     const [version, missing] = out.split(' ');
     const [major, minor] = version.split('.').map(Number);
     if (major < 8 || (major === 8 && minor < 2)) return `PHP ${version}: too old`;
@@ -76,9 +81,7 @@ function findPhp() {
     tried.push(`${php} (${why})`);
   }
   throw new Error(
-    'No PHP 8.2+ with pdo_pgsql, mbstring and intl found (README → Run it). ' +
-      'Set ACADEMY_PHP to its php executable.' +
-      (tried.length ? `\n  tried: ${tried.join('\n         ')}` : '')
+    'No PHP 8.2+ with pdo_pgsql, mbstring and intl found (README → Run it). ' + 'Set ACADEMY_PHP to its php executable.' + (tried.length ? `\n  tried: ${tried.join('\n         ')}` : ''),
   );
 }
 

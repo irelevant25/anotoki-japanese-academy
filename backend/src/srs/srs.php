@@ -156,6 +156,5 @@ function srs_is_learned(?array $s): bool
 
 function srs_is_due(?array $s, int $now): bool
 {
-    return $s !== null && ($s['stage'] ?? 0) >= 1 && $s['stage'] <= 8
-        && ($s['nextReview'] ?? null) !== null && $s['nextReview'] <= $now;
+    return $s !== null && ($s['stage'] ?? 0) >= 1 && $s['stage'] <= 8 && ($s['nextReview'] ?? null) !== null && $s['nextReview'] <= $now;
 }

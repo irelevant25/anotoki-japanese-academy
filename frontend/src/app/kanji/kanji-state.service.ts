@@ -170,8 +170,6 @@ export class KanjiStateService {
   }
 
   availableLessonCount(lesson: number, types: LessonTypes = 'both'): number {
-    return this.items().filter(
-      (it) => it.lesson === lesson && !this.isLearned(it.id) && (types === 'both' || it.type === types) && this.isAvailable(it),
-    ).length;
+    return this.items().filter((it) => it.lesson === lesson && !this.isLearned(it.id) && (types === 'both' || it.type === types) && this.isAvailable(it)).length;
   }
 }

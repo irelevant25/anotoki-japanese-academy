@@ -166,7 +166,7 @@ test('a restore passes the words over: they are the site’s, not anybody’s st
 test('before a language is deleted: a copy of its strings in the backups, which nothing takes for a backup of study data', function (): void {
     db_exec("INSERT INTO languages (code, name, native_name, enabled, sort_order) VALUES ('de', 'German', 'Deutsch', false, 3)");
     db_exec("INSERT INTO translations (key_name, language_code, value) VALUES ('test.word', 'de', 'Wort'), ('test.later', 'de', 'Später – „bald“')");
-    $copies = static fn (): array => array_map('basename', glob(backup_dir() . '/' . TRANSLATIONS_COPY_PREFIX . '*.json') ?: []);
+    $copies = static fn(): array => array_map('basename', glob(backup_dir() . '/' . TRANSLATIONS_COPY_PREFIX . '*.json') ?: []);
 
     // What is refused leaves no copy (the anotoki library's delete, with this app's copy first: academy_language_usage()).
     $refused = static function (string $code): array {
@@ -189,12 +189,16 @@ test('before a language is deleted: a copy of its strings in the backups, which 
     $file = backup_dir() . '/' . $body['copy'];
     assert_same("{\n    \"test.later\": \"Später – „bald“\",\n    \"test.word\": \"Wort\"\n}\n", file_get_contents($file), 'its own strings, flat, as an export gives them');
     assert_same([], glob(backup_dir() . '/*.tmp') ?: [], 'written aside and renamed');
-    assert_same([0, 0], [(int) db_value("SELECT count(*) FROM languages WHERE code = 'de'"), (int) db_value("SELECT count(*) FROM translations WHERE language_code = 'de'")], 'then the language, and its strings with it');
+    assert_same(
+        [0, 0],
+        [(int) db_value("SELECT count(*) FROM languages WHERE code = 'de'"), (int) db_value("SELECT count(*) FROM translations WHERE language_code = 'de'")],
+        'then the language, and its strings with it',
+    );
     assert_same($words[1], words()[1], 'the keys are the code’s, and stay');
-    assert_same(array_values(array_filter($words[2], static fn (array $r): bool => $r['language_code'] !== 'de')), words()[2], 'and no other language lost a string');
+    assert_same(array_values(array_filter($words[2], static fn(array $r): bool => $r['language_code'] !== 'de')), words()[2], 'and no other language lost a string');
 
     // It is a flat {key: text}: no backup of anybody's data, and never counted or thinned with the day's copies.
-    assert_throws(static fn () => backup_read($file), '/is not a Japanese Academy backup/');
+    assert_throws(static fn() => backup_read($file), '/is not a Japanese Academy backup/');
     assert_false((bool) preg_match(DAILY_BACKUP, $body['copy']));
     unlink(backup_dir() . '/academy-' . utc_date() . '.json');
     backup_daily();
@@ -243,7 +247,7 @@ test('the day’s backup: the last 14 are kept', function (): void {
     file_put_contents(backup_dir() . '/academy-before-reset-20200101-000000-000.json', '{}');
     unlink(backup_dir() . '/academy-' . utc_date() . '.json');
     backup_daily();
-    $daily = array_values(array_filter(daily_backups(), static fn (string $f): bool => (bool) preg_match(DAILY_BACKUP, $f)));
+    $daily = array_values(array_filter(daily_backups(), static fn(string $f): bool => (bool) preg_match(DAILY_BACKUP, $f)));
     assert_same(14, count($daily));
     assert_same('academy-2020-01-08.json', $daily[0], 'the oldest go');
     assert_true(in_array('academy-before-reset-20200101-000000-000.json', daily_backups(), true), 'other backups stay');
@@ -264,14 +268,15 @@ test('restore: a backup brings everybody’s data back, and what was there is ba
     assert_same(2, $counts['attempts'], 'one attempt each');
     assert_same($before, [everything_of($owner), everything_of(OTHER)], 'everything as it was, for both');
     assert_same(null, store_item($owner, 'k:一'), 'what came after the backup is gone');
-    assert_throws(static fn () => learner_import($owner, backup_person_in(backup_read($file), $owner)), '/already holds study data/');
+    assert_throws(static fn() => learner_import($owner, backup_person_in(backup_read($file), $owner)), '/already holds study data/');
 });
 
 test('restore: a version-1 backup (from before user ids) is no longer read; a copy of one person’s data restores theirs alone', function (): void {
     $owner = TEST_USER;
     $v2 = backup_read(backup_write('manual'));
-    $v1 = ['format' => BACKUP_FORMAT, 'version' => 1, 'takenAt' => $v2['takenAt'], 'database' => 'japanese_academy']
-        + array_intersect_key(backup_person_in($v2, $owner), array_flip(['kanji', 'log', 'attempts']));
+    $v1 =
+        ['format' => BACKUP_FORMAT, 'version' => 1, 'takenAt' => $v2['takenAt'], 'database' => 'japanese_academy'] +
+        array_intersect_key(backup_person_in($v2, $owner), array_flip(['kanji', 'log', 'attempts']));
     $file = backup_dir() . '/academy-version-1.json';
     file_put_contents($file, json_text($v1));
     $mine = everything_of($owner);
@@ -280,7 +285,7 @@ test('restore: a version-1 backup (from before user ids) is no longer read; a co
     wipe_one($owner);
     study(OTHER, 'k:火');
     $theirs = everything_of(OTHER);
-    assert_throws(static fn () => backup_read($file), '/is a backup of another version of Japanese Academy \(format 1\)/');
+    assert_throws(static fn() => backup_read($file), '/is a backup of another version of Japanese Academy \(format 1\)/');
     assert_same([], everything_of($owner)[2], 'nothing restored');
     $counts = backup_restore($theirsCopy);
     assert_same(1, $counts['people']);
@@ -301,14 +306,14 @@ test('before somebody’s reset: a copy of their data alone (their last 14 kept)
     $owner = TEST_USER;
     study(OTHER, 'k:水', true);
     $theirs = everything_of(OTHER);
-    $older = static fn (int $uid, int $day): string => sprintf('academy-before-reset-user-%d-202001%02d-000000-000.json', $uid, $day);
+    $older = static fn(int $uid, int $day): string => sprintf('academy-before-reset-user-%d-202001%02d-000000-000.json', $uid, $day);
     foreach (range(1, 15) as $day) {
         file_put_contents(backup_dir() . '/' . $older(OTHER, $day), '{}');
     }
     file_put_contents(backup_dir() . '/' . $older($owner, 1), '{}');
 
     store_reset(OTHER);
-    $copies = array_values(array_filter(daily_backups(), static fn (string $f): bool => str_starts_with($f, 'academy-before-reset-user-' . OTHER . '-')));
+    $copies = array_values(array_filter(daily_backups(), static fn(string $f): bool => str_starts_with($f, 'academy-before-reset-user-' . OTHER . '-')));
     assert_same(14, count($copies), 'their last 14');
     assert_same($older(OTHER, 3), $copies[0], 'the oldest go');
     assert_true(in_array($older($owner, 1), daily_backups(), true), 'nobody else’s copies');
@@ -332,11 +337,11 @@ test('restore: a backup that holds nobody is refused, before anything is deleted
     $empty = ['format' => BACKUP_FORMAT, 'version' => BACKUP_VERSION, 'takenAt' => iso_time(now_ms()), 'database' => db_name(), 'everybody' => true, 'users' => []];
     $file = backup_dir() . '/academy-nobody.json';
     file_put_contents($file, json_text($empty));
-    assert_throws(static fn () => backup_read($file), '/holds nobody\'s data: there is nothing in it to restore/');
+    assert_throws(static fn() => backup_read($file), '/holds nobody\'s data: there is nothing in it to restore/');
     $rows = (int) db_value('SELECT count(*) FROM srs_log');
     assert_true($rows > 0);
-    assert_throws(static fn () => backup_restore($empty), '/holds nobody\'s data, so nothing was restored/');
-    assert_throws(static fn () => backup_restore(['users' => ['not a person']] + $empty), '/holds nobody\'s data/');
+    assert_throws(static fn() => backup_restore($empty), '/holds nobody\'s data, so nothing was restored/');
+    assert_throws(static fn() => backup_restore(['users' => ['not a person']] + $empty), '/holds nobody\'s data/');
     assert_same($rows, (int) db_value('SELECT count(*) FROM srs_log'), 'nothing deleted');
     unlink($file);
 });
@@ -352,134 +357,148 @@ test('a file written aside has a name of its own: another writer’s half-writte
     unlink($file);
 });
 
-test('every copy of people\'s data is the site\'s own user\'s alone - 0600, the folder 0700 - whatever umask the host runs PHP with: the day\'s, a person\'s, the raw one before a migration, a language\'s strings (on Windows the folder\'s permissions apply)', function (): void {
-    $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-private-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    $before = config_overrides();
-    $umask = umask(0022); // the usual host's: everybody may read what PHP writes, unless the app says otherwise
-    try {
-        config_overrides(['app' => ['backups_dir' => $folder]]);
-        study(OTHER, 'k:大');
-        $made = [
-            'the day\'s' => backup_write('daily'),
-            'a person\'s' => backup_person_copy('before-reset', OTHER),
-            'the raw one before a migration' => backup_write_raw('before-migration'),
-            'a language\'s strings' => translations_copy('sk', ['home.title' => 'Domov']),
-        ];
-        file_put_atomic("$folder/plain.json", '{}');
-        foreach ($made as $what => $file) {
-            assert_true(is_file($file), "$what: written");
+test(
+    'every copy of people\'s data is the site\'s own user\'s alone - 0600, the folder 0700 - whatever umask the host runs PHP with: the day\'s, a person\'s, the raw one before a migration, a language\'s strings (on Windows the folder\'s permissions apply)',
+    function (): void {
+        $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-private-' . getmypid() . '-' . bin2hex(random_bytes(3));
+        $before = config_overrides();
+        $umask = umask(0022); // the usual host's: everybody may read what PHP writes, unless the app says otherwise
+        try {
+            config_overrides(['app' => ['backups_dir' => $folder]]);
+            study(OTHER, 'k:大');
+            $made = [
+                'the day\'s' => backup_write('daily'),
+                'a person\'s' => backup_person_copy('before-reset', OTHER),
+                'the raw one before a migration' => backup_write_raw('before-migration'),
+                'a language\'s strings' => translations_copy('sk', ['home.title' => 'Domov']),
+            ];
+            file_put_atomic("$folder/plain.json", '{}');
+            foreach ($made as $what => $file) {
+                assert_true(is_file($file), "$what: written");
+                if (PHP_OS_FAMILY !== 'Windows') {
+                    assert_same('600', decoct(fileperms($file) & 0777), "$what: for the site's own user only");
+                }
+            }
             if (PHP_OS_FAMILY !== 'Windows') {
-                assert_same('600', decoct(fileperms($file) & 0777), "$what: for the site's own user only");
+                assert_same('700', decoct(fileperms($folder) & 0777), 'the folder too, made by the first copy');
+                assert_same('644', decoct(fileperms("$folder/plain.json") & 0777), 'a file nobody marks private keeps the umask\'s mode (the data builders\' files in backend/data/)');
+                assert_same(0022, umask(), 'the umask put back');
             }
+            assert_same([], glob("$folder/*.tmp") ?: [], 'nothing left aside');
+        } finally {
+            umask($umask);
+            config_overrides($before);
+            foreach (glob("$folder/*") ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir($folder);
         }
-        if (PHP_OS_FAMILY !== 'Windows') {
-            assert_same('700', decoct(fileperms($folder) & 0777), 'the folder too, made by the first copy');
-            assert_same('644', decoct(fileperms("$folder/plain.json") & 0777), 'a file nobody marks private keeps the umask\'s mode (the data builders\' files in backend/data/)');
-            assert_same(0022, umask(), 'the umask put back');
-        }
-        assert_same([], glob("$folder/*.tmp") ?: [], 'nothing left aside');
-    } finally {
-        umask($umask);
-        config_overrides($before);
-        foreach (glob("$folder/*") ?: [] as $file) {
-            @unlink($file);
-        }
-        @rmdir($folder);
-    }
-});
+    },
+);
 
-test('a backup folder somebody else made, open to others (0755: by FTP, or the old mkdir with 0777), with copies of before in it (0644): closed at the next copy (0700), every copy in it then the site\'s own user\'s alone - this app\'s and the anotoki library\'s -, its guard left as it is (on Windows the folder\'s permissions apply)', function (): void {
-    $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-open-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    $before = config_overrides();
-    $umask = umask(0022);
-    try {
-        mkdir($folder, 0755);
-        chmod($folder, 0755);
-        $old = [
-            'the day\'s of before' => "$folder/academy-2026-10-01.json",
-            'a raw one of before' => "$folder/academy-before-migration-2026-10-01T00-00-00Z.raw.json",
-            'a language\'s of before' => "$folder/academy-before-language-delete-de-2026-10-01T00-00-00Z.json",
-            'the library\'s backup' => "$folder/20261001-000000-abcdef.anotoki-backup",
-            'the library\'s backup\'s note' => "$folder/20261001-000000-abcdef.json",
-        ];
-        foreach ($old as $file) {
-            file_put_contents($file, '{}');
-            chmod($file, 0644);
-        }
-        file_put_contents("$folder/.htaccess", "Require all denied\n");
-        chmod("$folder/.htaccess", 0644);
-        config_overrides(['app' => ['backups_dir' => $folder]]);
-        study(OTHER, 'k:大');
-        $made = backup_write('daily');
-        assert_true(is_file($made), 'the day\'s copy written');
-        if (PHP_OS_FAMILY !== 'Windows') {
-            clearstatcache();
-            assert_same('700', decoct(fileperms($folder) & 0777), 'the folder closed');
-            foreach ($old as $what => $file) {
-                assert_same('600', decoct(fileperms($file) & 0777), "$what: the site's own user's alone now");
-            }
-            assert_same('600', decoct(fileperms($made) & 0777), 'the new copy too');
-            assert_same('644', decoct(fileperms("$folder/.htaccess") & 0777), 'the guard left for the web server to read');
-            // Opened again by hand: closed again at the next copy, whatever is in it.
+test(
+    'a backup folder somebody else made, open to others (0755: by FTP, or the old mkdir with 0777), with copies of before in it (0644): closed at the next copy (0700), every copy in it then the site\'s own user\'s alone - this app\'s and the anotoki library\'s -, its guard left as it is (on Windows the folder\'s permissions apply)',
+    function (): void {
+        $folder = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-open-' . getmypid() . '-' . bin2hex(random_bytes(3));
+        $before = config_overrides();
+        $umask = umask(0022);
+        try {
+            mkdir($folder, 0755);
             chmod($folder, 0755);
-            chmod($old['the day\'s of before'], 0644);
-            backup_person_copy('before-reset', OTHER);
-            clearstatcache();
-            assert_same(['700', '600'], [decoct(fileperms($folder) & 0777), decoct(fileperms($old['the day\'s of before']) & 0777)], 'every copy, the folder on every call');
+            $old = [
+                'the day\'s of before' => "$folder/academy-2026-10-01.json",
+                'a raw one of before' => "$folder/academy-before-migration-2026-10-01T00-00-00Z.raw.json",
+                'a language\'s of before' => "$folder/academy-before-language-delete-de-2026-10-01T00-00-00Z.json",
+                'the library\'s backup' => "$folder/20261001-000000-abcdef.anotoki-backup",
+                'the library\'s backup\'s note' => "$folder/20261001-000000-abcdef.json",
+            ];
+            foreach ($old as $file) {
+                file_put_contents($file, '{}');
+                chmod($file, 0644);
+            }
+            file_put_contents("$folder/.htaccess", "Require all denied\n");
+            chmod("$folder/.htaccess", 0644);
+            config_overrides(['app' => ['backups_dir' => $folder]]);
+            study(OTHER, 'k:大');
+            $made = backup_write('daily');
+            assert_true(is_file($made), 'the day\'s copy written');
+            if (PHP_OS_FAMILY !== 'Windows') {
+                clearstatcache();
+                assert_same('700', decoct(fileperms($folder) & 0777), 'the folder closed');
+                foreach ($old as $what => $file) {
+                    assert_same('600', decoct(fileperms($file) & 0777), "$what: the site's own user's alone now");
+                }
+                assert_same('600', decoct(fileperms($made) & 0777), 'the new copy too');
+                assert_same('644', decoct(fileperms("$folder/.htaccess") & 0777), 'the guard left for the web server to read');
+                // Opened again by hand: closed again at the next copy, whatever is in it.
+                chmod($folder, 0755);
+                chmod($old['the day\'s of before'], 0644);
+                backup_person_copy('before-reset', OTHER);
+                clearstatcache();
+                assert_same(['700', '600'], [decoct(fileperms($folder) & 0777), decoct(fileperms($old['the day\'s of before']) & 0777)], 'every copy, the folder on every call');
+            }
+        } finally {
+            umask($umask);
+            config_overrides($before);
+            foreach (array_merge(glob("$folder/*") ?: [], glob("$folder/.htaccess") ?: []) as $file) {
+                @unlink($file);
+            }
+            @rmdir($folder);
         }
-    } finally {
-        umask($umask);
-        config_overrides($before);
-        foreach (array_merge(glob("$folder/*") ?: [], glob("$folder/.htaccess") ?: []) as $file) {
-            @unlink($file);
-        }
-        @rmdir($folder);
-    }
-});
+    },
+);
 
 test('a backup of several people: one of them is picked by user id, or none', function (): void {
     $data = backup_data();
     assert_same(OTHER, backup_person_in($data, OTHER)['id']);
-    assert_throws(static fn () => backup_person_in($data, 99), '/holds the data of \d+ people \(user ids [\d, ]*7001[\d, ]*\), and none of them is user 99/');
-    assert_throws(static fn () => backup_read(__FILE__), '/is not valid JSON/');
+    assert_throws(static fn() => backup_person_in($data, 99), '/holds the data of \d+ people \(user ids [\d, ]*7001[\d, ]*\), and none of them is user 99/');
+    assert_throws(static fn() => backup_read(__FILE__), '/is not valid JSON/');
     $wrong = backup_dir() . '/academy-wrong.json';
     file_put_contents($wrong, json_text(['format' => BACKUP_FORMAT, 'version' => 9]));
-    assert_throws(static fn () => backup_read($wrong), '/another version of Japanese Academy \(format 9\)/');
+    assert_throws(static fn() => backup_read($wrong), '/another version of Japanese Academy \(format 9\)/');
 });
 
-test('backend/manage.php: a version-1 file is refused, a copy of one person restores theirs; the owner id, the old files and --user are no options any more; --check says when all is ready', function (): void {
-    $php = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/manage.php');
-    $yours = array_map(static fn (string $f): ?string => is_file(BACKEND . "/config/$f") ? md5_file(BACKEND . "/config/$f") : null, CONFIG_FILES);
-    $mine = everything_of(TEST_USER);
-    $v2 = backup_read(backup_write('manual'));
-    $file = backup_dir() . '/academy-version-1-manage.json';
-    file_put_contents($file, json_text(['format' => BACKUP_FORMAT, 'version' => 1, 'takenAt' => $v2['takenAt']]
-        + array_intersect_key(backup_person_in($v2, TEST_USER), array_flip(['kanji', 'log', 'attempts']))));
+test(
+    'backend/manage.php: a version-1 file is refused, a copy of one person restores theirs; the owner id, the old files and --user are no options any more; --check says when all is ready',
+    function (): void {
+        $php = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/manage.php');
+        $yours = array_map(static fn(string $f): ?string => is_file(BACKEND . "/config/$f") ? md5_file(BACKEND . "/config/$f") : null, CONFIG_FILES);
+        $mine = everything_of(TEST_USER);
+        $v2 = backup_read(backup_write('manual'));
+        $file = backup_dir() . '/academy-version-1-manage.json';
+        file_put_contents(
+            $file,
+            json_text(['format' => BACKUP_FORMAT, 'version' => 1, 'takenAt' => $v2['takenAt']] + array_intersect_key(backup_person_in($v2, TEST_USER), array_flip(['kanji', 'log', 'attempts']))),
+        );
 
-    exec("$php --restore=" . escapeshellarg($file) . ' 2>&1', $refused, $code);
-    assert_same(1, $code, 'a file from before user ids');
-    assert_match('/is a backup of another version of Japanese Academy \(format 1\)\./', implode("\n", $refused));
-    assert_same($mine, everything_of(TEST_USER), 'nothing changed');
-    unlink($file);
+        exec("$php --restore=" . escapeshellarg($file) . ' 2>&1', $refused, $code);
+        assert_same(1, $code, 'a file from before user ids');
+        assert_match('/is a backup of another version of Japanese Academy \(format 1\)\./', implode("\n", $refused));
+        assert_same($mine, everything_of(TEST_USER), 'nothing changed');
+        unlink($file);
 
-    $copy = backup_write('before-import', [TEST_USER]);
-    wipe_one(TEST_USER);
-    exec("$php --restore=" . escapeshellarg($copy) . ' 2>&1', $out, $code);
-    assert_same(0, $code, implode("\n", $out));
-    assert_match('/Restored from .*: 1 person \(the file holds theirs alone: everybody else\'s data is as it was\), /', implode("\n", $out));
-    assert_same($mine, everything_of(TEST_USER), 'as the copy has it');
+        $copy = backup_write('before-import', [TEST_USER]);
+        wipe_one(TEST_USER);
+        exec("$php --restore=" . escapeshellarg($copy) . ' 2>&1', $out, $code);
+        assert_same(0, $code, implode("\n", $out));
+        assert_match('/Restored from .*: 1 person \(the file holds theirs alone: everybody else\'s data is as it was\), /', implode("\n", $out));
+        assert_same($mine, everything_of(TEST_USER), 'as the copy has it');
 
-    foreach (['--owner-id=4242', '--import=' . escapeshellarg(sys_get_temp_dir()), '--user=' . TEST_USER] as $gone) {
-        exec("$php $gone 2>&1", $said, $code);
-        assert_same(1, $code, $gone);
-        assert_match('/Say what to do: --check, --sync, --backup or --restore=FILE \(the top/', implode("\n", $said), $gone);
-    }
-    exec("$php --check 2>&1", $check, $code);
-    assert_same(0, $code, implode("\n", $check));
-    assert_match('/^Ready: database academy_test_/', implode("\n", $check));
-    assert_same($yours, array_map(static fn (string $f): ?string => is_file(BACKEND . "/config/$f") ? md5_file(BACKEND . "/config/$f") : null, CONFIG_FILES),
-        'your own settings are not a test’s to change');
-});
+        foreach (['--owner-id=4242', '--import=' . escapeshellarg(sys_get_temp_dir()), '--user=' . TEST_USER] as $gone) {
+            exec("$php $gone 2>&1", $said, $code);
+            assert_same(1, $code, $gone);
+            assert_match('/Say what to do: --check, --sync, --backup or --restore=FILE \(the top/', implode("\n", $said), $gone);
+        }
+        exec("$php --check 2>&1", $check, $code);
+        assert_same(0, $code, implode("\n", $check));
+        assert_match('/^Ready: database academy_test_/', implode("\n", $check));
+        assert_same(
+            $yours,
+            array_map(static fn(string $f): ?string => is_file(BACKEND . "/config/$f") ? md5_file(BACKEND . "/config/$f") : null, CONFIG_FILES),
+            'your own settings are not a test’s to change',
+        );
+    },
+);
 
 /** backend/manage.php with these options, as the owner's computer runs it: no draft named. */
 function manage_as_owner(array $options): array
@@ -510,8 +529,7 @@ test('backend/manage.php while the newest migration is still being written: --ba
         assert_match('/Note: backend\/migrations\/' . preg_quote($draft, '/') . ' does not end with its last line/', $said);
         assert_true((bool) preg_match('/^Backup: (.*academy-manual-\d{8}-\d{6}-\d{3}(-\d+)?\.json)\R/m', $said, $m), $said);
         $copy = backup_read(trim($m[1]));
-        assert_same(array_map('intval', array_column(db_all('SELECT id FROM users ORDER BY id'), 'id')), array_column($copy['users'], 'id'),
-            'everybody, read without the columns');
+        assert_same(array_map('intval', array_column(db_all('SELECT id FROM users ORDER BY id'), 'id')), array_column($copy['users'], 'id'), 'everybody, read without the columns');
         assert_same(null, db_value('SELECT name FROM migrations WHERE name = ?', [$draft]), 'and the draft not applied');
 
         foreach ([['--sync'], ['--restore=' . trim($m[1])]] as $options) {
@@ -541,8 +559,13 @@ test('backend/manage.php --check with a whole migration pending: who applies it 
         db_exec('INSERT INTO migrations (name) VALUES (?) ON CONFLICT DO NOTHING', [$newest]);
     }
     assert_same(1, $code, $said);
-    assert_match('/(?:^|\R)To do: apply ' . preg_quote($newest, '/') . '\. An ADMIN applies it on the admin panel\'s Migrations page \(\/admin\/migrations: Apply pending\),'
-        . ' or manage\.php --sync does \(the setup page too\)\. Until then the site tells everybody it is being updated\.\R/', $said);
+    assert_match(
+        '/(?:^|\R)To do: apply ' .
+            preg_quote($newest, '/') .
+            '\. An ADMIN applies it on the admin panel\'s Migrations page \(\/admin\/migrations: Apply pending\),' .
+            ' or manage\.php --sync does \(the setup page too\)\. Until then the site tells everybody it is being updated\.\R/',
+        $said,
+    );
     assert_no_match('/first request/', $said, 'a request never applies one');
 
     $hash = db_value('SELECT hash FROM content_state');

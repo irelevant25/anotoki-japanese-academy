@@ -49,8 +49,7 @@ function assert_status_to_anybody(string $state): void
             test_access($required);
             foreach ($sent as $what => $headers) {
                 $r = call($GLOBALS['app']['base'], 'GET', '/api/site-status', null, $headers);
-                assert_same([200, ['state' => $state, 'installed' => false], 'no-store'], [$r['status'], $r['body'], $r['headers']['cache-control'] ?? null],
-                    "sign-in $iam, $what");
+                assert_same([200, ['state' => $state, 'installed' => false], 'no-store'], [$r['status'], $r['body'], $r['headers']['cache-control'] ?? null], "sign-in $iam, $what");
             }
         }
     } finally {
@@ -70,8 +69,20 @@ test('while it waits, where the site stands is answered whatever the IAM says ab
 
 test('every address but the open ones: 503 update_pending, Retry-After 60 - to a visitor, a learner and an administrator alike', function (): void {
     $pending = ['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'];
-    $closed = ['GET /api/kanji/summary', 'GET /api/meta', 'POST /api/exam', 'GET /report/x', 'GET /api/me/data', 'GET /api/admin/languages',
-        'GET /api/admin/people', 'GET /api/translations', 'GET /api/translations/en/more', 'GET /api/admin/migrationsx', 'GET /api/nothing', 'GET /api/healthz'];
+    $closed = [
+        'GET /api/kanji/summary',
+        'GET /api/meta',
+        'POST /api/exam',
+        'GET /report/x',
+        'GET /api/me/data',
+        'GET /api/admin/languages',
+        'GET /api/admin/people',
+        'GET /api/translations',
+        'GET /api/translations/en/more',
+        'GET /api/admin/migrationsx',
+        'GET /api/nothing',
+        'GET /api/healthz',
+    ];
     foreach ($closed as $route) {
         [$method, $url] = explode(' ', $route);
         foreach (['nobody' => [null, []], 'a learner' => [LEARNER, []], 'an administrator' => [ADMIN, ['ADMIN']]] as $who => [$id, $roles]) {
@@ -82,8 +93,11 @@ test('every address but the open ones: 503 update_pending, Retry-After 60 - to a
     // The open ones answer as they would (the words not there yet: 004 waits too; the clip: there is no such one).
     assert_same(200, app_call('GET', '/api/auth/config')['status'], 'how to sign in');
     $words = app_call('GET', '/api/translations/en');
-    assert_same([503, 'translations_unavailable', '60'], [$words['status'], $words['body']['code'] ?? null, $words['headers']['retry-after'] ?? null],
-        'the words: none yet, said so as the words\' own answer, the anotoki library\'s (the page shows the library\'s status page, in its own words)');
+    assert_same(
+        [503, 'translations_unavailable', '60'],
+        [$words['status'], $words['body']['code'] ?? null, $words['headers']['retry-after'] ?? null],
+        'the words: none yet, said so as the words\' own answer, the anotoki library\'s (the page shows the library\'s status page, in its own words)',
+    );
     assert_same([200, false], [app_call('GET', '/api/health')['status'], app_call('GET', '/api/health')['body']['contentCurrent'] ?? null], 'the health check: no content yet');
     assert_same(404, app_call('GET', '/audio/nothing.mp3')['status'], 'the clips pass');
     assert_same([], server_problems($GLOBALS['app']), 'and nothing of it is a problem in the log');
@@ -120,12 +134,22 @@ function raw_get(string $path, array $headers): array
 test('while it waits, a crafted path is not an open one: dot segments, %2e%2e, %2F, a trailing newline - 503 like any other address, to an administrator too', function (): void {
     $pending = ['code' => 'update_pending', 'message' => 'The site is being updated. Try again in a few minutes.'];
     $crafted = [
-        '/api/admin/migrations/../x', '/api/admin/migrations/../../kanji/summary', '/api/admin/migrations/%2e%2e/x',
-        '/api/admin/migrations/%2E%2E/%2e%2e/kanji/summary', '/api/admin/migrations%2F..%2F..%2Fkanji%2Fsummary',
-        '/api/admin/migrations/file/../apply', '/api/admin/migrations/x', '/api/admin/migrations/apply%0A', '/api/admin/migrations%0A',
-        '/api/translations/en/../../kanji/summary', '/api/translations/%2e%2e%2Fkanji%2Fsummary',
-        '/audio/../api/kanji/summary', '/audio/%2e%2e%2Fapi%2Fkanji%2Fsummary', '/api/auth/config/../../kanji/summary',
-        '/api/health/%2e%2e/kanji/summary', '/api/health%0A',
+        '/api/admin/migrations/../x',
+        '/api/admin/migrations/../../kanji/summary',
+        '/api/admin/migrations/%2e%2e/x',
+        '/api/admin/migrations/%2E%2E/%2e%2e/kanji/summary',
+        '/api/admin/migrations%2F..%2F..%2Fkanji%2Fsummary',
+        '/api/admin/migrations/file/../apply',
+        '/api/admin/migrations/x',
+        '/api/admin/migrations/apply%0A',
+        '/api/admin/migrations%0A',
+        '/api/translations/en/../../kanji/summary',
+        '/api/translations/%2e%2e%2Fkanji%2Fsummary',
+        '/audio/../api/kanji/summary',
+        '/audio/%2e%2e%2Fapi%2Fkanji%2Fsummary',
+        '/api/auth/config/../../kanji/summary',
+        '/api/health/%2e%2e/kanji/summary',
+        '/api/health%0A',
     ];
     foreach ($crafted as $path) {
         foreach (['nobody' => no_token(), 'an administrator' => test_bearer(test_token(ADMIN, ['ADMIN']))] as $who => $headers) {
@@ -141,8 +165,11 @@ test('while it waits, a crafted path is not an open one: dot segments, %2e%2e, %
     $admin = test_bearer(test_token(ADMIN, ['ADMIN']));
     assert_same(200, raw_get('/api/admin/migrations', $admin)['status'], 'the list');
     assert_same(200, raw_get('/api/admin/migrations/', $admin)['status'], 'the list, with a trailing slash');
-    assert_same([200, '001_init.sql'], [raw_get('/api/admin/migrations/file?set=academy&name=001_init.sql', $admin)['status'],
-        raw_get('/api/admin/migrations/file?set=academy&name=001_init.sql', $admin)['body']['name'] ?? null], 'a file’s SQL');
+    assert_same(
+        [200, '001_init.sql'],
+        [raw_get('/api/admin/migrations/file?set=academy&name=001_init.sql', $admin)['status'], raw_get('/api/admin/migrations/file?set=academy&name=001_init.sql', $admin)['body']['name'] ?? null],
+        'a file’s SQL',
+    );
     assert_same(null, db_value("SELECT to_regclass('migrations')"), 'and nothing applied by any of it');
     assert_same([], server_problems($GLOBALS['app']), 'nor anything in the log');
 });
@@ -163,13 +190,12 @@ test('the Migrations page: an administrator’s, read from the token alone - and
     $list = app_call('GET', '/api/admin/migrations', ADMIN, ['ADMIN']);
     assert_same(200, $list['status']);
     assert_same([MIGRATION_SETS_IN_ORDER, [], []], [$list['body']['sets'], $list['body']['applied'], $list['body']['missing']]);
-    assert_same($files, array_map(static fn (array $p): array => ['set' => $p['set'], 'name' => $p['name']], $list['body']['pending']), 'every file waits, in the order they run');
+    assert_same($files, array_map(static fn(array $p): array => ['set' => $p['set'], 'name' => $p['name']], $list['body']['pending']), 'every file waits, in the order they run');
     assert_same([true], array_values(array_unique(array_column($list['body']['pending'], 'ready'))), 'and may run');
 
     $r = app_call('POST', '/api/admin/migrations/apply', ADMIN, ['ADMIN']);
     assert_same(200, $r['status']);
-    assert_same(['applied' => $files, 'failed' => null, 'error' => null, 'note' => null],
-        $r['body'], 'every one, in order; nothing to copy first, as nobody has data here');
+    assert_same(['applied' => $files, 'failed' => null, 'error' => null, 'note' => null], $r['body'], 'every one, in order; nothing to copy first, as nobody has data here');
     assert_same([200, ['state' => 'ready', 'installed' => false]], array_values(array_slice(app_call('GET', '/api/site-status'), 0, 2)), 'then ready');
     $r = app_call('GET', '/api/kanji/summary', LEARNER);
     assert_same(200, $r['status'], 'the site is back: the content built by the first request that needs it');

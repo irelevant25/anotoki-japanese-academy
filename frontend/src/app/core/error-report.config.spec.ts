@@ -79,10 +79,7 @@ describe('the browser’s errors, reported to the error log (core/error-report.c
     const request = backend.expectOne(ERROR_REPORT_ENDPOINT);
     expect(request.request.method).toBe('POST');
     expect(request.request.context.get(ANOTOKI_ERROR_REPORT)).toBe(true);
-    expect([request.request.headers.get('Authorization'), request.request.headers.get('X-Time-Zone')]).toEqual([
-      `Bearer ${await auth.token()}`,
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-    ]);
+    expect([request.request.headers.get('Authorization'), request.request.headers.get('X-Time-Zone')]).toEqual([`Bearer ${await auth.token()}`, Intl.DateTimeFormat().resolvedOptions().timeZone]);
     const body = request.request.body as { type: string; message: string; page: string };
     expect(body.type).toBe('TypeError');
     expect(body.message).toContain('Cannot read properties of undefined');
@@ -105,10 +102,7 @@ describe('the browser’s errors, reported to the error log (core/error-report.c
     handler.handleError(new Error('A visitor’s page broke'));
     await reported();
     const request = backend.expectOne(ERROR_REPORT_ENDPOINT);
-    expect([request.request.headers.get('Authorization'), request.request.headers.get('X-Time-Zone')]).toEqual([
-      null,
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-    ]);
+    expect([request.request.headers.get('Authorization'), request.request.headers.get('X-Time-Zone')]).toEqual([null, Intl.DateTimeFormat().resolvedOptions().timeZone]);
     request.flush(null, { status: 204, statusText: 'No Content' });
     backend.verify();
   });

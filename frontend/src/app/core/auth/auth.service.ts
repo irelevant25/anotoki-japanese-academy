@@ -66,10 +66,7 @@ export const VISITOR_KEEP_DAYS = 30;
  *            one the browser cannot use): the reason, when there is one, shown
  *            small after the page's words
  */
-export type StartProblem =
-  | { kind: 'offline' }
-  | { kind: 'server'; status: number; code: string; detail: string | null }
-  | { kind: 'signIn'; detail: string | null };
+export type StartProblem = { kind: 'offline' } | { kind: 'server'; status: number; code: string; detail: string | null } | { kind: 'signIn'; detail: string | null };
 
 /**
  * A sign-in that came back without one, or could not even start: the code

@@ -1,22 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
-import {
-  ApiErrorBody,
-  Attempt,
-  BroughtBack,
-  Catalog,
-  ExamMeta,
-  ExamPaper,
-  ExamResult,
-  ExamSpec,
-  ItemPatch,
-  Progress,
-  Settings,
-  StateAnswer,
-  Summary,
-  VisitorMove,
-} from './api.types';
+import { ApiErrorBody, Attempt, BroughtBack, Catalog, ExamMeta, ExamPaper, ExamResult, ExamSpec, ItemPatch, Progress, Settings, StateAnswer, Summary, VisitorMove } from './api.types';
 import { CARRIES_VISITOR_KEY, issuedAs, VISITOR_KEY_HEADER } from '@anotoki/lib/auth';
 
 /**
@@ -114,12 +99,7 @@ export class ApiService {
     return this.call(this.http.post<ExamPaper>('/api/exam', request));
   }
 
-  submit(body: {
-    spec: ExamSpec;
-    startedAt: string | null;
-    meta: { candidate: string };
-    responses: Record<string, { choice: number | null; ms: number }>;
-  }): Promise<ExamResult> {
+  submit(body: { spec: ExamSpec; startedAt: string | null; meta: { candidate: string }; responses: Record<string, { choice: number | null; ms: number }> }): Promise<ExamResult> {
     return this.call(this.http.post<ExamResult>('/api/submit', body));
   }
 
@@ -149,9 +129,7 @@ export class ApiService {
    * 200 {found: false}; 422 bad_visitor_key, 503 visitor_move_retry.
    */
   moveVisitor(key: string): Promise<VisitorMove> {
-    return this.call(
-      this.http.post<VisitorMove>('/api/visitor/move', {}, { headers: { [VISITOR_KEY_HEADER]: key }, context: issuedAs('person').set(CARRIES_VISITOR_KEY, true) }),
-    );
+    return this.call(this.http.post<VisitorMove>('/api/visitor/move', {}, { headers: { [VISITOR_KEY_HEADER]: key }, context: issuedAs('person').set(CARRIES_VISITOR_KEY, true) }));
   }
 
   /** The answer, or an ApiError: its status, its code and the server's answer. */

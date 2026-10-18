@@ -50,7 +50,7 @@ function academy_people_routes(Slim\App $app): void
             return academy_refusal($response, $refusal);
         },
         academy_audit(),
-        academy_admin_context()
+        academy_admin_context(),
     );
     $group->add(admin_middleware());
     $group->add(staff_middleware());

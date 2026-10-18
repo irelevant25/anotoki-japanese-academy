@@ -449,8 +449,18 @@ describe('ExamComponent', () => {
     sessionStorage.clear();
     api = { meta: vi.fn().mockResolvedValue(META), paper: vi.fn(), submit: vi.fn().mockResolvedValue(RESULT), attempts: vi.fn().mockResolvedValue([]) };
     // The browser's own boxes are never raised any more (the kit's question and the app's notice are): any that were would fail the test.
-    vi.stubGlobal('confirm', vi.fn(() => { throw new Error('the browser’s confirm() was raised'); }));
-    vi.stubGlobal('alert', vi.fn(() => { throw new Error('the browser’s alert() was raised'); }));
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => {
+        throw new Error('the browser’s confirm() was raised');
+      }),
+    );
+    vi.stubGlobal(
+      'alert',
+      vi.fn(() => {
+        throw new Error('the browser’s alert() was raised');
+      }),
+    );
     // jsdom has neither a player nor a page to scroll.
     vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
@@ -531,18 +541,27 @@ describe('ExamComponent', () => {
 
     it('its choices are the kit’s buttons, pressed as chosen: one part at least, one length, the lessons and the sections each on or off', async () => {
       await open();
-      const pressed = (selector: string) => all(selector).filter((button) => button.getAttribute('aria-pressed') === 'true').map(said);
+      const pressed = (selector: string) =>
+        all(selector)
+          .filter((button) => button.getAttribute('aria-pressed') === 'true')
+          .map(said);
       // The length is one of four: the kit's choice chips, radios.
-      const checked = (selector: string) => all(selector).filter((button) => button.getAttribute('aria-checked') === 'true').map(said);
+      const checked = (selector: string) =>
+        all(selector)
+          .filter((button) => button.getAttribute('aria-checked') === 'true')
+          .map(said);
       expect(pressed('#bookChips button')).toEqual(['Part 1']);
       expect(checked('#sizeChips [role="radio"]')).toEqual(['Full exam · 250']);
       expect(one('#sizeChips [data-value="250"]').classList.contains('anotoki-chip--on')).toBe(true);
       expect(pressed('#lessonChips [data-lesson]')).toEqual(['Greetings (あいさつ)', 'L1', 'L6']);
       expect(pressed('#sectionChips [data-section]')).toHaveLength(SECTIONS.length);
       // Each row named by its label: the parts, the lessons and the sections the kit's labelled group, the length its radio group.
-      expect(
-        all('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').map((group) => said(host.querySelector('#' + group.getAttribute('aria-labelledby')))),
-      ).toEqual(['Part', 'Paper length', 'Lessons', 'Sections']);
+      expect(all('[role="group"][aria-labelledby], [role="radiogroup"][aria-labelledby]').map((group) => said(host.querySelector('#' + group.getAttribute('aria-labelledby'))))).toEqual([
+        'Part',
+        'Paper length',
+        'Lessons',
+        'Sections',
+      ]);
 
       one('#bookChips [data-book="1"]').click(); // the only part chosen: it stays
       one('#sizeChips [data-value="40"]').click();
@@ -647,9 +666,7 @@ describe('ExamComponent', () => {
 
     it('a visitor at the attempt cap is told before a paper starts (422 visitor_limit), with the number, in the page’s words', async () => {
       await open();
-      api.paper.mockRejectedValue(
-        new ApiError('Without signing in, this browser keeps at most 10 exam attempts.', 422, { code: 'visitor_limit', limit: 'attempts', max: 10 }),
-      );
+      api.paper.mockRejectedValue(new ApiError('Without signing in, this browser keeps at most 10 exam attempts.', 422, { code: 'visitor_limit', limit: 'attempts', max: 10 }));
       one('#startBtn').click();
       await settle();
       expect(text('#setupErr')).toBe('This browser has as many exam attempts as it keeps without signing in (10). Sign in to keep more.');
@@ -1195,12 +1212,7 @@ describe('ExamComponent', () => {
     it('Enter and Space on every control of the top bar and of the news the footer opens never reach the paper: nothing chosen, nothing played, nothing handed in', async () => {
       // The bar as the app draws it over the exam: somebody signed in, Kanji and Exam, the language, the theme, the person's menu.
       TestBed.configureTestingModule({
-        providers: [
-          provideRouter([]),
-          provideKit(),
-          { provide: AuthService, useValue: barAuth() },
-          { provide: KanjiStateService, useValue: { reviewsDue: signal(125) } },
-        ],
+        providers: [provideRouter([]), provideKit(), { provide: AuthService, useValue: barAuth() }, { provide: KanjiStateService, useValue: { reviewsDue: signal(125) } }],
       });
       await open('sk');
       // The one question is the last, and a spoken one: Enter on the page would hand the paper in, Space play the word.

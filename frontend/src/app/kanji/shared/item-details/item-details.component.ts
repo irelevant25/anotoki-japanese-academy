@@ -57,9 +57,7 @@ export class ItemDetailsComponent {
   });
   readonly madeOf = computed(() => {
     const it = this.item();
-    return it.type === 'vocab'
-      ? (it.kanji ?? []).map((c) => this.kanji.item(`k:${c}`)).filter((k): k is CatalogItem => !!k)
-      : [];
+    return it.type === 'vocab' ? (it.kanji ?? []).map((c) => this.kanji.item(`k:${c}`)).filter((k): k is CatalogItem => !!k) : [];
   });
   /** A lesson's Context tab with nothing more to show. */
   readonly nothingMore = computed(() => this.context() && this.item().type === 'kanji' && !this.examples().length);
