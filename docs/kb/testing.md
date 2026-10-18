@@ -100,8 +100,9 @@ The browser suites run against the production build: build it first with
 `node frontend/scripts/ensure-build.mjs` (it builds only when the sources
 changed), e.g. `node frontend/scripts/ensure-build.mjs && node
 frontend/e2e/run.js`. In `frontend/`, `npm run e2e`, `npm run e2e:setup` and
-`npm run screens` run the same three files. There is no package at the
-repository's top any more (2026-10-04), so no `npm test` there.
+`npm run screens` run the same three files. The package at the
+repository's top is Prettier's alone (since 2026-10-18; none from 2026-10-04
+until then), so no `npm test` there.
 
 ## What each suite pins down
 

@@ -22,9 +22,11 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   and served by the backend from the same address.
 
 Since 2026-10-04 the top folder holds only those two, `docs/`, `.claude/`,
-`.gitignore` and the three guides: the study content is `backend/data/`, the
-backups `backend/storage/backups/`, and there is no package or launcher at
-the top (`backend/README.md`, `frontend/README.md`).
+`.gitignore` and the three guides - and since 2026-10-18 the anotoki family's
+formatting setup (a `package.json` for Prettier alone, its `bun.lock`,
+`.prettierrc.json`, `.prettierignore`, `.editorconfig`): the study content is
+`backend/data/`, the backups `backend/storage/backups/`, and there is no
+launcher at the top (`backend/README.md`, `frontend/README.md`).
 
 ```
    (all under backend/data/)

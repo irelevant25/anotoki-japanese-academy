@@ -1,0 +1,38 @@
+**/node_modules/
+**/vendor/
+**/dist/
+**/.angular/
+coverage/
+bun.lock
+package-lock.json
+composer.lock
+*.md
+*.sql
+**/storage/
+**/config/*.local.php
+
+# Written by backend/tools/build-data.php and build-audio.php, never by hand (the study content is rebuilt from them).
+backend/data/*.json
+# The PHP plugin's parser (php-parser 3.7) cannot read a call given an included file, f(require "$config/..."), and it
+# drops the parentheses of (require $file)['key'], which both files hold too.
+backend/tests/api/deploy.test.php
+backend/tests/api/setup.test.php
+# backend/tests/api/errors.test.php reads it for MigrationsRoutes::admin($app, '/api/admin/migrations', on one line: the
+# PHP plugin would put each argument on a line of its own.
+backend/api/routes/migrations.php
+# Prettier puts a text's start or end on a line of its own (htmlWhitespaceSensitivity ignore) and Angular keeps a space there:
+# these pages would gain spaces - " v0.5.1 " in What's new, "Greetings ( " on the exam's chip, " Japanese Academy " in the brand.
+frontend/src/app/core/changelog/changelog-dialog.component.html
+frontend/src/app/exam/exam.component.html
+frontend/src/app/home/home.component.html
+frontend/src/app/home/visitor-notice/visitor-notice.component.html
+frontend/src/app/kanji/dashboard/dashboard.component.html
+frontend/src/app/kanji/kanji-shell.component.html
+frontend/src/app/kanji/session/session.component.html
+frontend/src/app/standin/problem/problem.component.html
+frontend/src/app/standin/sign-in/sign-in.component.html
+# The build copies these as they are: formatted, the built index.html and changelog.json would differ from the ones before.
+frontend/src/index.html
+frontend/public/changelog.json
+# Runs on PHP 5.6 and up, so an old host still gets an answer: the PHP plugin would add PHP 7.3's trailing commas.
+tools/host-check.php

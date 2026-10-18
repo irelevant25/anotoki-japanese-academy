@@ -13,8 +13,10 @@ and using it); `backend/README.md` and `frontend/README.md` map each half;
 | Frontend | `frontend/` | Angular 21: standalone components, zoneless, signals. Built into `frontend/dist/japanese-academy/browser/`, which the backend serves |
 | Data | `backend/data/` | what the study content is built from, and the audio clips |
 
-The top folder holds only these, `docs/`, `.claude/` and the three guides:
-no package of its own, no launcher. Every command below runs from the
+The top folder holds only these, `docs/`, `.claude/`, the three guides and
+the anotoki family's formatting setup (a `package.json` for Prettier alone,
+its `bun.lock`, `.prettierrc.json`, `.prettierignore`, `.editorconfig`): no
+launcher. Every command below runs from the
 repository's top folder unless it says `in backend/` or `in frontend/`.
 
 One address serves both halves: the backend answers `/api/…`, `/audio/…`,
@@ -324,6 +326,7 @@ version is 0.x a new minor version may need changes here: read its
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js` | everybody signed in through the anotoki library's stand-in IAM, in Edge, against the production build: a page opened signed out going to the IAM and back, a refused sign-in's screen, the whole study loop, an exam, the top bar's keys and menus, the family's footer, Your data, sign-out, the admin panel by role, People, feedback sent from the footer and read on the Feedback page, the error and audit logs, a backup made, two time zones, a Slovak pass; then visitors (sign-in not required): study, an exam, Sign in moving it into the account, sign-in switched on with a key held; the legal pages signed out with no trip to the IAM; the kit's question answered where the app asks, and no browser box ever | ~4 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js` | the setup page in Edge, on a built upload: this computer's way and a website's, each then signing in | ~1 min |
 | `node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]` | every screen in light, dark and phone layouts, and in Slovak on a phone (light, dark) - the legal pages in Slovak at 1280 px too -, then the top bar measured at 360–1280 px and its menus → `frontend/e2e/shots/`; fails on overflow, an error, a key or English left on a Slovak page, a bar out of its row; look at the shots | ~10 min |
+| `bun run format:check` (at the top; `bun install` there first) | Prettier on every file of both halves, the anotoki family's one setup (`.prettierrc.json`, `.prettierignore`, `.editorconfig`; the PHP for PHP 7.4); `bun run format` writes it | ~15 s |
 
 `frontend/package.json` runs the same suites as `npm run e2e`, `npm run
 e2e:setup` and `npm run screens` (in `frontend/`), without the build step:

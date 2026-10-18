@@ -94,6 +94,7 @@ From `frontend/`:
 npm start              # ng serve on http://localhost:4400, with the proxy (the backend: composer start in ../backend)
 npm run build          # production build -> dist/japanese-academy/browser/
 npm test               # the unit tests (Vitest, jsdom), after the catalog fixture
+cd .. && bun run format:check   # Prettier on every file of both halves, at the root (bun install there first)
 npm run e2e            # the browser suite, against the last build (build first), signed in through
                        # the anotoki library's stand-in IAM
 npm run e2e:setup      # the setup page in the browser

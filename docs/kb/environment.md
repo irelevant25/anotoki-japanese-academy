@@ -5,8 +5,9 @@ curl and openssl for the IAM and the audio) and PostgreSQL (13 or newer;
 tested with 18); the frontend and the developer tools need Node.js (22, see
 `frontend/.nvmrc`) and npm, and the browser suites Edge or Chrome. Claude
 Code's Bash tool is **Git Bash**; there is also a PowerShell tool. The
-repository's top folder is the usual session start folder; it holds no
-package of its own. The PDFs are in `books/` (only on the owner's computers).
+repository's top folder is the usual session start folder; its one package
+is Prettier's (the family's formatting setup: `bun install` there once). The
+PDFs are in `books/` (only on the owner's computers).
 
 The owner studies with the app on their home PC, where their study database
 lives. Other PCs — the one with all the anotoki repositories side by side,
