@@ -238,9 +238,10 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
 - `frontend/public/changelog.json`: an entry, in plain words, for every
   release the owner will notice; its version has three numbers,
   MAJOR.MINOR.PATCH (big changes, new features, bug fixes), and the newest is
-  the `version` of `frontend/package.json` (there is no package at the top
-  any more; `changelog.service.spec.ts` holds both). A browser's "read"
-  version compares number by number (`compareVersions()`: `0.4` is `0.4.0`).
+  the `version` of `frontend/package.json` (the package at the top is
+  Prettier's alone, with no version; `changelog.service.spec.ts` holds both).
+  A browser's "read" version compares number by number (`compareVersions()`:
+  `0.4` is `0.4.0`).
 - The backend serves the last build: run `node frontend/scripts/ensure-build.mjs` (or work at
   http://localhost:4400 with `npm start` in `frontend/`). Run it before the
   browser suites: it builds only when the sources changed.

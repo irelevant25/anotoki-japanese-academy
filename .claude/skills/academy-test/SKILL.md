@@ -5,8 +5,9 @@ description: Run and read the Japanese Academy tests (PHP unit and API tests, si
 
 # Testing Japanese Academy
 
-Run everything from the repository's top folder. It has no package of its
-own (since 2026-10-04): the PHP tests run through `backend/tools/php.js`,
+Run everything from the repository's top folder. Its one package is
+Prettier's (since 2026-10-18; none from 2026-10-04 until then): the PHP
+tests run through `backend/tools/php.js`,
 which finds a PHP 8.2+ (Git Bash's `php` is 7.4 on the owner's computer), the
 Angular ones in `frontend/`, and the browser suites against the production
 build, made first by `node frontend/scripts/ensure-build.mjs` (it builds only
@@ -49,8 +50,8 @@ node frontend/e2e/screens.js kanji-review        # only screens whose name conta
 node frontend/e2e/screens.js room                # only the top bar's measurements
 ```
 
-Always finish with the full PHP tests, and the full frontend tests when
-`frontend/` changed.
+Always finish with the full PHP tests, the full frontend tests when
+`frontend/` changed, and `bun run format:check` at the top.
 
 ## Reading the output
 

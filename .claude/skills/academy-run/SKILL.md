@@ -160,7 +160,7 @@ node -e "const t=require('fs').readFileSync(process.env.KEYS+'/token','utf8').tr
 ```
 
 For a sign-in by redirect, the anotoki library's stand-in IAM
-(`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, `STAND_IN_DIR="$KEYS"`, its header
+(`backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php`, `STAND_IN_DIR="$KEYS"`, its header
 says how; `"hint_cookie": null` in its `state.json`, as this app reads no hint) signs the configured person in at once. In a browser, any page of
 such a server goes straight to its issuer (`https://iam.test`, which exists
 nowhere): to sign in by hand, start a stand-in IAM on 8590-8599 with

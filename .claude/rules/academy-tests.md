@@ -31,7 +31,7 @@ use the `academy-test` skill.
   `call()`'s `TEST_USER` and `no_token()` in PHP; `iamToken()`, `iamSession()`,
   `plant()`, `app.api()` in Node) -, the IAM's other answers from files of the
   test's (`test_access()`, `test_anonymized()`), and the library's stand-in IAM
-  (`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`) for the setup page's Test
+  (`backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php`) for the setup page's Test
   connection and for every browser suite's sign-in by redirect
   (`startApp()` starts it on this computer; `iamState()` says whom it signs
   in). PHP's issuer `https://iam.test` exists nowhere. Never let a test reach a real IAM, and

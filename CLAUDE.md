@@ -16,7 +16,7 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.6.3, both halves), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.7.0, both halves), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
@@ -70,7 +70,10 @@ the other anotoki sites (the owner's conventions); on 2026-10-04 its top
 folder became theirs too: `.claude/`, `.gitignore`, the three guides,
 `backend/`, `frontend/`, `docs/` and nothing else (the study material moved
 to `backend/data/`, the backups to `backend/storage/backups/`; no root
-package, no launcher). Both earlier versions are in the git history.
+package, no launcher) - and since 2026-10-18 the anotoki family's formatting
+setup beside them (a `package.json` for Prettier alone, its `bun.lock`,
+`.prettierrc.json`, `.prettierignore`, `.editorconfig`). Both earlier versions
+are in the git history.
 
 **Never name the course the data comes from** — not in code, data, docs, file
 names, commit messages or UI text. The repository is on GitHub, and the owner
@@ -215,7 +218,8 @@ count wrong, fix it in the same piece of work.
 
 ## Commands (from the repository's top folder, unless they say otherwise)
 
-There is no package at the top and no launcher. `php` in Git Bash is 7.4 on
+There is no launcher, and the one package at the top is Prettier's (the
+anotoki family's formatting setup). `php` in Git Bash is 7.4 on
 the owner's computer, which the app refuses: `node backend/tools/php.js
 <script> …` finds a PHP 8.2+ (`docs/kb/environment.md`); `composer start`
 runs the `php` first on PATH.
@@ -228,6 +232,8 @@ cd frontend && npm start                     ng serve on localhost:4400, proxyin
 node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (273): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
 cd frontend && npm test                      the Angular unit tests (454 in 43 files): after every frontend change
+bun run format:check                         Prettier on every file of both halves - the anotoki family's setup, the PHP
+                                             for PHP 7.4 (bun install at the top first; bun run format writes it)
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
                                              Edge end to end (217 checks), signed in through the library's stand-in
@@ -731,6 +737,13 @@ Tests enforce most of these. Never weaken a test to make it pass.
   and Manrope are bundled).
 - JS/TS: 2-space indent, single quotes, semicolons. Node tools and the browser
   suites are CommonJS (`frontend/e2e/`) or ES modules (`.mjs`).
+- Every file is formatted by the anotoki family's Prettier setup at the top
+  (`.prettierrc.json`, the PHP for PHP 7.4; `bun run format`). What it must
+  not touch is in `.prettierignore` with the reason: a template where it would
+  put a text's start or end on a line of its own - Angular keeps a space there
+  -, the files the build copies as they are, the generated data, and the PHP
+  its plugin cannot read or a test reads as text. The production build is the
+  same before and after `bun run format`.
 - Colours come only from tokens in `frontend/src/styles/_tokens.scss`, each
   defined for light and dark: Japanese's palette given to the anotoki
   library's tokens (`anotoki.root()`, the `--anotoki-*` properties the kit
@@ -807,7 +820,8 @@ review round.
    `frontend/` changed, `npm test` in `frontend/` pass. If `frontend/`
    changed, the browser suite (`node frontend/e2e/run.js` after a build) also
    passes and the screens have been checked (`node frontend/e2e/screens.js`);
-   if the setup page changed, `node frontend/e2e/setup.js` too.
+   if the setup page changed, `node frontend/e2e/setup.js` too. `bun run
+   format:check` at the top passes.
 2. The checkpoint agents that apply have run. Their findings are fixed or
    reported.
 3. The kb pages, the README, `DEV.md` and the counts are still true. Any

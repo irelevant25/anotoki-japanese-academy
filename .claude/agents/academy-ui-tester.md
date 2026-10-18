@@ -30,7 +30,7 @@ edit project files. Never use port 8200, which is the owner's server, and
 never touch the owner's database or `backend/storage/backups/`. The scripts
 start their own servers, on throwaway databases with
 settings of their own, and the anotoki library's stand-in IAM
-(`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, on a free port of
+(`backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php`, on a free port of
 this computer): never start the real IAM or ask one.
 
 The caller tells you what changed. Then:
