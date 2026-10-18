@@ -1,14 +1,17 @@
 -- 012 — the words of the app's own foot, which the anotoki family's footer took over (2026-10-18)
 --
--- THIS FILE IS A DRAFT until its last line is "-- end of 012": the app waits
--- for that line before it applies a migration (db_migration_ready() in
--- backend/src/db.php), and until then the tests alone apply it, on their
--- throwaway databases - and every file of the anotoki library waits with it on
--- every other database (db_own_draft()), its anotoki_translations/012 among
--- them. The owner says when it is final; its last line is written last.
--- Applied once, it is never edited again - a change is the next migration. An
--- administrator applies it on the admin panel's Migrations page (or
--- backend/manage.php, or the setup page), never a request.
+-- It was written as a draft, without its last line ("-- end of 012"), which
+-- the app waits for before it applies a migration - and, while one of this
+-- site's own files is a draft, every one of the anotoki library's files with
+-- it (db_migration_ready(), db_own_draft() in backend/src/db.php), its
+-- anotoki_translations/012 among them; the tests alone applied the draft, on
+-- their throwaway databases. It is final now (2026-10-18, the owner's go:
+-- "yes you can finalize japanese's migration 012"), with that line written
+-- last: applied once, it is never edited again - a change is the next
+-- migration. An administrator applies it on the admin panel's Migrations page
+-- (or backend/manage.php, or the setup page), never a request; the library's
+-- anotoki_translations/012 (the footer's four words) runs right after it, in
+-- the same Apply.
 --
 -- Since anotoki-lib 0.6.3 (the owner's choice of 2026-10-18: one footer on
 -- every anotoki site, the build analyzer's) the foot of every page and of the
@@ -54,3 +57,5 @@ BEGIN
         RAISE EXCEPTION '012_family_footer: whatsNew.title, the heading of the What''s new dialog, has lost its English or its Slovak string';
     END IF;
 END $$;
+
+-- end of 012

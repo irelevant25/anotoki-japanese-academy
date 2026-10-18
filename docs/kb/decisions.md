@@ -2320,11 +2320,11 @@ failing closed** (round 3c, the owner's words after the deploy; the app's
   Privacy page's item for it (`legal.storage.whatsNew.*`) went: the page
   names only what the app keeps. Migration 012 deletes the three keys and
   describes `whatsNew.title` as the dialog's heading alone - written as a
-  **draft** (the rule above: the owner says when a migration is final):
-  while it is one, the library's files wait with it on every database but
-  the tests' (its `anotoki_translations/012`, the footer's words, among
-  them: the footer says the library's built-in words meanwhile, the same),
-  and `build-dist.php` refuses to build the upload. A browser that kept the
+  **draft** (the rule above: the owner says when a migration is final), and
+  final the same day (the owner's go, "yes you can finalize japanese's
+  migration 012"); the library's `anotoki_translations/012`, the footer's
+  words, runs right after it (until then the footer says the library's
+  built-in words, the same). A browser that kept the
   item keeps a version string nothing reads; no transition for it - the
   sites are not public yet (the owner's word of 2026-10-11).
 - **The status page alone** (the owner: "I prefer nor header nor footer to

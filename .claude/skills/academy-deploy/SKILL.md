@@ -243,8 +243,7 @@ edge) until mended; PHP's error log names the file once a day, never its
 text (`docs/kb/hosting.md`).
 
 **The update that brings anotoki-lib 0.6.3** (both halves; the app's
-0.5.1): not before the owner has accepted migration 012 (its last line
-written: the build refuses a draft). Upload `backend/vendor/` first, then
+0.5.1; migration 012 final since 2026-10-18, the owner's go). Upload `backend/vendor/` first, then
 the rest; one Apply on the Migrations page right after it - 012 (the three
 words only the app's old foot read go) and the library's
 `anotoki_translations/012_…` (the footer's four words; until it is applied

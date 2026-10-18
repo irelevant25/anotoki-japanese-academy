@@ -1459,11 +1459,11 @@ descriptions that still said "chips" told again. Its check fails it unless
 its keys read in both languages, the reworded keys are there in both, and no
 reworded string nobody saved is still the old text (a database that runs
 every file but 007 never runs it: `visitors-migration.test.php`). **012**
-(`012_family_footer.sql`, 2026-10-18) is a **draft** - its last line waits
-for the owner's word, and until then every file of the library's waits
-with it on every database but the tests' (its `anotoki_translations/012`,
-the footer's four words, among them: the footer says the library's built-in
-words meanwhile, the same English and Slovak): the app's own foot went for
+(`012_family_footer.sql`, 2026-10-18) was written as a draft and is final
+since the same day (the owner's go: its last line written last); the
+library's `anotoki_translations/012`, the footer's four words, runs right
+after it (until it is applied the footer says the library's built-in words,
+the same English and Slovak): the app's own foot went for
 the family's footer (anotoki-lib 0.6.3), and with it the dot beside What's
 new, so the three keys nothing reads now go - `whatsNew.unseen` (the dot's
 tooltip) and the Privacy page's `legal.storage.whatsNew.purpose` and

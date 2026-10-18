@@ -325,9 +325,8 @@ the library's, made 0600 then; each new JSON copy written 0600.
 app's 0.5.1) brings the library's `anotoki_translations/012_…` (the family's
 footer's four words) and this app's migration **012**
 (`012_family_footer.sql`: the three words only the app's own foot read go,
-and the What's new dialog's heading is described anew). 012 is a **draft**
-until the owner's word: `build-dist.php` refuses to build the upload while
-it is one, so its last line is written first. Both go up in one Apply on
+and the What's new dialog's heading is described anew), final since
+2026-10-18 (the owner's go). Both go up in one Apply on
 the Migrations page after the upload - `backend/vendor/` first, as ever.
 Until it is applied the footer says the library's built-in words (the same
 English and Slovak), and nothing shows as a key. With it: the foot of every

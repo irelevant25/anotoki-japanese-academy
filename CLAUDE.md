@@ -609,10 +609,10 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `legal.storage.whatsNew.purpose` and `.kept`, the stored item the dot
   needed - deleted, the family's footer having taken the foot's place, dot
   and all; `whatsNew.title` described as the What's new dialog's heading
-  alone) is a **draft** since 2026-10-18: its last line waits for the
-  owner's word - the library's files wait with it meanwhile, its
-  `anotoki_translations/012` (the footer's words) among them, and
-  `build-dist.php` refuses to build the upload. The library's own sets run around this
+  alone) was written as a draft too, and is final since 2026-10-18 (the
+  owner's go, "yes you can finalize japanese's migration 012": its last line
+  written last; it goes up with the library's files of 0.6.3, its
+  `anotoki_translations/012` - the footer's words - right after it). The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
   `anotoki_translations/001_…` to `012_…` (its words, written only where a
