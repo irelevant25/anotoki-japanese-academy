@@ -192,7 +192,7 @@ const MIGRATION_SET = 'academy';
  *                          list of the ids the IAM deleted) - last, after this site's 010
  *                          gave users its anonymized_at
  *
- * The library's files live in backend/vendor/anotoki/lib/php/migrations/.
+ * The library's files live in backend/vendor/anotoki/lib/backend/migrations/.
  *
  * @return list<MigrationSet>
  */
@@ -216,7 +216,7 @@ function db_migration_label(array $file): string
 
 /**
  * Where a migration file is, from the repository's top: backend/migrations/…
- * for this site's own, backend/vendor/anotoki/lib/php/migrations/… for the
+ * for this site's own, backend/vendor/anotoki/lib/backend/migrations/… for the
  * library's.
  *
  * @param array{set: string, name: string} $file

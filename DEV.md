@@ -216,7 +216,7 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both
-halves are 0.6.3 (0.3.0 the translations and the kit a
+halves are 0.7.0 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
@@ -233,7 +233,9 @@ sentences; 0.6.1 and 0.6.2 five sentences of the Privacy page made true,
 each rewording only a string nobody changed; 0.6.3 the family's footer -
 `<anotoki-site-footer>`, the build analyzer's, under every page and in the
 admin panel, its words written by the library's `anotoki_translations/012` -
-and its status page drawn alone, with no bar and no footer around it):
+and its status page drawn alone, with no bar and no footer around it;
+0.7.0 nothing the site does - the library's own folders renamed, its PHP
+half's files now in `backend/vendor/anotoki/lib/backend/`):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -259,7 +261,7 @@ and its status page drawn alone, with no bar and no footer around it):
   `Audit`, `Feedback`, `Backups` - `backend/src/admin.php`,
   `backend/api/routes/admin.php`) and where a request comes from
   (`Support\ClientAddress` - `backend/src/client_address.php`); its stand-in
-  IAM and test IAM for the tests (`php/testing/`);
+  IAM and test IAM for the tests (`backend/testing/`);
 - `@anotoki/lib` (npm, a release's tarball in `frontend/package.json`): where
   the site stands (`SiteStatus`), the gate around the pages and the page it
   shows, and the Migrations page (`@anotoki/lib/migrations/page`) - wired to
@@ -300,7 +302,7 @@ To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.6.0"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.7.0"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);

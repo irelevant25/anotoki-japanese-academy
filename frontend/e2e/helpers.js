@@ -16,7 +16,7 @@
  *
  * Sign-in: there is one way, the IAM's. startApp() first starts the stand-in
  * IAM - the anotoki library's, every anotoki site's
- * (backend/vendor/anotoki/lib/php/testing/stand-in-iam.php) - on a free port of
+ * (backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php) - on a free port of
  * this computer, with a key pair of this run's own (the library's TestIam:
  * backend/tests/tools/iam.php): its authorize signs the person of its
  * state in at once (iamState({ user })) or refuses (iamState({ deny: true })),
@@ -55,7 +55,7 @@ const BUILD = path.join(FRONTEND, 'dist', 'japanese-academy', 'browser');
 const { findPhp } = require(path.join(BACKEND, 'tools', 'php.js'));
 const TESTDB = path.join(BACKEND, 'tests', 'tools', 'testdb.php');
 const IAMTOOL = path.join(BACKEND, 'tests', 'tools', 'iam.php');
-const STANDIN = path.join(BACKEND, 'vendor', 'anotoki', 'lib', 'php', 'testing', 'stand-in-iam.php');
+const STANDIN = path.join(BACKEND, 'vendor', 'anotoki', 'lib', 'backend', 'testing', 'stand-in-iam.php');
 
 /**
  * Where the stand-in IAM starts: user 1, 'owner', MEMBER alone - a learner, as

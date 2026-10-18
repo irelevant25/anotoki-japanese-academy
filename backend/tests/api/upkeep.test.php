@@ -134,7 +134,7 @@ test('the engine: this site’s table as it is, four sets - the anotoki library�
     assert_same((string) file_get_contents(Anotoki\Lib\Translations\Schema::directory() . '/001_languages_and_strings.sql'),
         db_migrator()->source('anotoki_translations', '001_languages_and_strings.sql'), 'a library file’s text');
     assert_same(null, db_migrator()->source(MIGRATION_SET, '001_languages_and_strings.sql'), 'under its own set only');
-    assert_same(['backend/migrations/004_languages_and_translations.sql', 'backend/vendor/anotoki/lib/php/migrations/translations/002_library_words.sql'],
+    assert_same(['backend/migrations/004_languages_and_translations.sql', 'backend/vendor/anotoki/lib/backend/migrations/translations/002_library_words.sql'],
         [db_migration_path(['set' => MIGRATION_SET, 'name' => '004_languages_and_translations.sql']), db_migration_path(['set' => 'anotoki_translations', 'name' => '002_library_words.sql'])],
         'where each is, for what the site says of it');
 });

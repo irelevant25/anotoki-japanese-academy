@@ -19,7 +19,7 @@
   },
   "packageManager": "npm@10.9.2",
   "dependencies": {
-    "@anotoki/lib": "https://github.com/irelevant25/anotoki-lib/releases/download/v0.6.3/anotoki-lib-0.6.3.tgz",
+    "@anotoki/lib": "https://github.com/irelevant25/anotoki-lib/releases/download/v0.7.0/anotoki-lib-0.7.0.tgz",
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",

@@ -485,7 +485,7 @@ function test_server_config(?string $frontend = null, string $issuer = 'https://
 }
 
 /**
- * The anotoki library's stand-in IAM (backend/vendor/anotoki/lib/php/testing/
+ * The anotoki library's stand-in IAM (backend/vendor/anotoki/lib/backend/testing/
  * stand-in-iam.php, the family's one) on a free port, signing with the test
  * IAM's key: authorize, token, logout, the public answer about this site and
  * the deleted accounts, as the browser's sign-in and the app use them. Whom it

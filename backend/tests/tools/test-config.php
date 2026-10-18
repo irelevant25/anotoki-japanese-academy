@@ -45,7 +45,7 @@ function test_config_migration_drafts(): array
  * test IAM (issuer https://iam.test, which exists nowhere), whose keys are
  * the JWKS file $jwks; backups in $backups, and optionally the built frontend
  * in $frontend. $issuer names another IAM than https://iam.test: the stand-in
- * IAM's address (the anotoki library's, vendor/anotoki/lib/php/testing/
+ * IAM's address (the anotoki library's, vendor/anotoki/lib/backend/testing/
  * stand-in-iam.php), whose tokens carry it. The library's cache is DIR/cache,
  * never backend/storage/cache/, and the app's storage DIR itself (its logs,
  * its key: storage_dir()). $auth adds to auth.local.php: 'application_file'

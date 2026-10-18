@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.6.3, both halves) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.7.0, both halves) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -858,7 +858,7 @@ built 2026-10-05).
 ## Testing with tokens
 
 No test asks an IAM. The tests have one of their own - the anotoki library's
-(`Anotoki\Lib\Auth\Testing`, in `backend/vendor/anotoki/lib/php/testing/` and
+(`Anotoki\Lib\Auth\Testing`, in `backend/vendor/anotoki/lib/backend/testing/` and
 `src/Auth/Testing/`):
 
 - PHP (`backend/tests/lib.php`): `test_iam()` is the library's `TestIam` - a
@@ -884,7 +884,7 @@ No test asks an IAM. The tests have one of their own - the anotoki library's
   (`test_config_write()` writes both stamps as done for the day); a test of
   either removes its stamp.
 - The stand-in IAM is the library's
-  (`backend/vendor/anotoki/lib/php/testing/stand-in-iam.php`, the router of
+  (`backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php`, the router of
   PHP's built-in server, the family's one since 0.4.0 - this app's own
   `backend/tests/tools/stand-in-iam.php` went with the move): its discovery
   document and keys for the setup page's **Test connection**, the public

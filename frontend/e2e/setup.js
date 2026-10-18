@@ -4,8 +4,9 @@
  * migration still being written allowed in, for this test alone), with the
  * real app, in a temp folder (backend/tests/tools/front-controller.php does
  * what its .htaccess does), an empty throwaway database owned by a database
- * user of its own, as a hosting panel makes them, and a stand-in IAM
- * (backend/tests/tools/stand-in-iam.php) that signs people in.
+ * user of its own, as a hosting panel makes them, and the anotoki library's
+ * stand-in IAM (backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php)
+ * that signs people in.
  *
  *   not set up     the app says so (the anotoki library's page), and - never
  *                  installed - links to the setup page
@@ -117,7 +118,7 @@ async function cleanup() {
   // library's admin tools' tables (anotoki_admin), this app's own migrations, the library's words
   // (anotoki_translations) and its people (anotoki_people) - the library's from the upload's vendor/, each with its set.
   const sqlIn = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
-  const library = (folder, set) => sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'php', 'migrations', folder)).map((f) => `${set}/${f}`);
+  const library = (folder, set) => sqlIn(path.join(DIR, 'backend', 'vendor', 'anotoki', 'lib', 'backend', 'migrations', folder)).map((f) => `${set}/${f}`);
   const migrations = [
     ...library('admin', 'anotoki_admin'),
     ...sqlIn(path.join(DIR, 'backend', 'migrations')),

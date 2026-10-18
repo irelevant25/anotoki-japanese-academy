@@ -6,7 +6,7 @@ PostgreSQL, signing people in through the anotoki IAM (client
 address. How it works and why is in [`../docs/kb/`](../docs/kb/README.md);
 setting it up and running it in [`../DEV.md`](../DEV.md). The code parses as
 PHP 7.4 (the owner's editor) and runs on 8.2+, the floor of the anotoki
-library (`anotoki/lib` 0.6.3, as the frontend's `@anotoki/lib`: the migrations' engine, the site's state and
+library (`anotoki/lib` 0.7.0, as the frontend's `@anotoki/lib`: the migrations' engine, the site's state and
 the gate in front of every route, the app's words - their address, the admin
 panel's, the command line's work -, the sign-in's checks, the people and
 the admin tools, where a request comes from; `../DEV.md`, *The anotoki library*).
@@ -87,7 +87,7 @@ vendor/              Slim and its pieces, and the anotoki library (anotoki/lib) 
                      cannot run Composer
 tests/               run.php, lib.php; unit/, api/; tools/ (testdb.php, test-config.php, iam.php - the
                      library's test IAM for the browser suites -, front-controller.php, catalog.php); the
-                     stand-in IAM is the library's (vendor/anotoki/lib/php/testing/)
+                     stand-in IAM is the library's (vendor/anotoki/lib/backend/testing/)
 tools/               build-data.php, build-audio.php, build-dist.php (the upload), translation_keys.php
                      (the library's key scan of the frontend, and a backup as a file of strings), php.js
                      (finds a PHP 8.2+), pdf/ (the scanned books' page

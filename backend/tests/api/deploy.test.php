@@ -55,7 +55,7 @@ function site_migrations(): array
         sort($names);
         return array_map(static fn (string $name): string => $set === null ? $name : "$set/$name", $names);
     };
-    $library = 'vendor/anotoki/lib/php/migrations';
+    $library = 'vendor/anotoki/lib/backend/migrations';
     return array_merge($of("$library/admin", 'anotoki_admin'), $of('migrations', null), $of("$library/translations", 'anotoki_translations'),
         $of("$library/people", 'anotoki_people'));
 }
@@ -133,15 +133,15 @@ test('the build: what a site needs, and nothing else', function (): void {
         'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php',
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
         // the anotoki library: the migrations' engine, the SiteGate and the Migrations page's addresses
-        'backend/vendor/anotoki/lib/php/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/php/src/Migrations/Http/SiteGate.php',
+        'backend/vendor/anotoki/lib/backend/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/backend/src/Migrations/Http/SiteGate.php',
         // and its translations: the code that serves the words, its migration set and its own words
-        'backend/vendor/anotoki/lib/php/src/Translations/Translations.php', 'backend/vendor/anotoki/lib/php/src/Translations/Http/TranslationsRoutes.php',
-        'backend/vendor/anotoki/lib/php/migrations/translations/001_languages_and_strings.sql', 'backend/vendor/anotoki/lib/php/migrations/translations/002_library_words.sql',
-        'backend/vendor/anotoki/lib/php/resources/library-words.json',
+        'backend/vendor/anotoki/lib/backend/src/Translations/Translations.php', 'backend/vendor/anotoki/lib/backend/src/Translations/Http/TranslationsRoutes.php',
+        'backend/vendor/anotoki/lib/backend/migrations/translations/001_languages_and_strings.sql', 'backend/vendor/anotoki/lib/backend/migrations/translations/002_library_words.sql',
+        'backend/vendor/anotoki/lib/backend/resources/library-words.json',
         // its sign-in, people and admin tools: who is asking, the scrub, the logs, feedback and backups, and their sets
-        'backend/vendor/anotoki/lib/php/src/Auth/Http/Identify.php', 'backend/vendor/anotoki/lib/php/src/People/Scrubber.php',
-        'backend/vendor/anotoki/lib/php/src/ErrorLog/ErrorLog.php', 'backend/vendor/anotoki/lib/php/src/Backups/Backups.php',
-        'backend/vendor/anotoki/lib/php/migrations/admin/001_audit_log.sql', 'backend/vendor/anotoki/lib/php/migrations/people/001_people.sql',
+        'backend/vendor/anotoki/lib/backend/src/Auth/Http/Identify.php', 'backend/vendor/anotoki/lib/backend/src/People/Scrubber.php',
+        'backend/vendor/anotoki/lib/backend/src/ErrorLog/ErrorLog.php', 'backend/vendor/anotoki/lib/backend/src/Backups/Backups.php',
+        'backend/vendor/anotoki/lib/backend/migrations/admin/001_audit_log.sql', 'backend/vendor/anotoki/lib/backend/migrations/people/001_people.sql',
         // the app's own words: the code that serves them, and the migration that holds them
         'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/staff.php', 'backend/migrations/004_languages_and_translations.sql',
         'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
