@@ -2142,7 +2142,8 @@ survey and Piano Academy).
   `AppComponent` draws them whatever the sign-in says: what an app keeps is
   said before anybody signs in. The operator is the library's default (Code
   Hero s.r.o., support@anotoki.eu, Slovakia); the processors the hosting
-  company "(to be named)" and Cloudflare; the visits the family's Umami
+  company (WebSupport s.r.o. - "to be named" until the owner named it on
+  2026-10-18) and Cloudflare; the visits the family's Umami
   (umami.anotoki.eu, in `index.html` since 2026-10-10). The anotoki account's
   Privacy and account pages are linked at the IAM's address the app signs in
   with; Contact opens Send feedback's form. Every address is the code's,
@@ -2229,8 +2230,9 @@ survey and Piano Academy).
 - **Smaller**: the app's own JSON copies are written 0600 in a folder made
   0700 (`backup_folder()`, `file_put_atomic()`); a refused trusted-proxy
   range is said in PHP's error log once a day, not on every request.
-- **Migration 011** (`011_legal_pages_and_questions.sql`, a draft: its last
-  line is the owner's to write): 54 keys in English and informal Slovak -
+- **Migration 011** (`011_legal_pages_and_questions.sql`, written as a draft,
+  final since 2026-10-18 on the owner's go - "you can finalize japanese's
+  migration 011" - its last line written last): 54 keys in English and informal Slovak -
   the legal pages' 40, the questions' and notices' titles and buttons, the
   listen button's name, the reviews due heard on Kanji -, the rewordings
   each only of a string still seeded and saved by nobody, the descriptions

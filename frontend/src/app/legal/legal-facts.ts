@@ -110,8 +110,9 @@ export function academyLegalPagesConfig(): AnotokiLegalConfig {
  *   (KEPT_PAPER_KEY), the admin pages' unsaved words (ADMIN_DRAFTS_KEY);
  * - counting visits: the family's Umami (src/index.html: umami.anotoki.eu, the
  *   query and the fragment left out) - the library's words;
- * - who else handles data: the hosting company ("to be named" until the owner
- *   names it) and Cloudflare.
+ * - who else handles data: the hosting company (WebSupport s.r.o., named by
+ *   the owner on 2026-10-18: the servers, the database and the mail) and
+ *   Cloudflare.
  *
  * Japanese Academy takes feedback: the Contact page opens the family's form in
  * the kit's dialog (configured in core/feedback.config.ts). Every address the
@@ -161,7 +162,7 @@ export function academyLegalFacts(i18n: TranslationService, auth: AnotokiAuth, v
       { name: KEPT_PAPER_KEY, kind: 'session', purpose: i18n.t('legal.storage.examPaper.purpose'), kept: i18n.t('legal.storage.examPaper.kept') },
       { name: ADMIN_DRAFTS_KEY, kind: 'session', purpose: i18n.t('legal.storage.wordDrafts.purpose'), kept: i18n.t('legal.storage.untilTabClosed') },
     ],
-    // "To be named" until the owner names the hosting company.
-    processors: [{ preset: 'hosting' }, { preset: 'cloudflare' }],
+    // The hosting company, named by the owner on 2026-10-18: the servers, the database and the mail.
+    processors: [{ preset: 'hosting', name: 'WebSupport s.r.o.', url: 'https://www.websupport.sk' }, { preset: 'cloudflare' }],
   };
 }

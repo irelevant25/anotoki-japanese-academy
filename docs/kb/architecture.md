@@ -1109,8 +1109,8 @@ brief for every anotoki site) are the anotoki family's pages
   theme, the language, the visitor's key and the last one moved, What's new
   read, an exam paper kept through an update, the admin pages' unsaved
   words), Umami (the family's, already in `index.html`), and who else
-  handles data: the hosting company ("to be named" until the owner names
-  it) and Cloudflare. The operator is the family's (Code Hero s.r.o.,
+  handles data: the hosting company (WebSupport s.r.o., named by the owner
+  on 2026-10-18) and Cloudflare. The operator is the family's (Code Hero s.r.o.,
   support@anotoki.eu, Slovakia: the library's default). Each must stay true
   of the code: the comment above `academyLegalFacts()` maps every fact to
   the code it describes; a change to what the app keeps, or for how long,
@@ -1415,8 +1415,8 @@ there and empty, every other string is as it was (its text, who wrote it,
 when), every reworded string came under the library's key as it was, the
 library's key has no language the app's had not, every such key has English,
 and the three keys are gone (`tests/api/people-migration.test.php` breaks it
-five ways). **011** (`011_legal_pages_and_questions.sql`) is a draft since
-2026-10-18, its last line the owner's to write: the legal pages' 40 words of
+five ways). **011** (`011_legal_pages_and_questions.sql`) was written as a
+draft and is final since 2026-10-18 (the owner's go): the legal pages' 40 words of
 the app's own, the titles and buttons of the kit's questions and the app's
 notices that took the browser's boxes' place, the listen button's name and
 what the number on Kanji counts (54 keys in English and Slovak); the

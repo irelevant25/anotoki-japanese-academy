@@ -1,16 +1,17 @@
 -- 011 — Terms, Privacy and Contact, and the kit's questions in place of the browser's (2026-10-18)
 --
--- THIS FILE IS A DRAFT until its last line is "-- end of 011": the app waits
--- for that line before it applies a migration - and, after it, the anotoki
--- library's own files (db_migration_ready() in backend/src/db.php) -, so the
--- owner's own server never applies it half written. The tests alone apply the
--- draft, by name, on their throwaway databases. Its last line is the owner's
--- to write once they accept the change; applied once, it is never edited
--- again - a change is the next migration. An administrator applies it on the
--- admin panel's Migrations page (or backend/manage.php, or the setup page),
--- never a request. The anotoki library's words of 0.6 (anotoki_translations
--- 005 to 011: the legal pages', the top bar's, the kit's newer pieces', the
--- Privacy page's rewordings) run right after it, in the same Apply.
+-- It was written as a draft, without its last line ("-- end of 011"), which
+-- the app waits for before it applies a migration - and, while one of this
+-- site's own files is a draft, every one of the anotoki library's files with
+-- it (db_migration_ready() in backend/src/db.php); the tests alone applied the
+-- draft, on their throwaway databases. It is final now (2026-10-18, the
+-- owner's go: "you can finalize japanese's migration 011"), reviewed, with
+-- that line written last: applied once, it is never edited again - a change
+-- is the next migration. An administrator applies it on the admin panel's
+-- Migrations page (or backend/manage.php, or the setup page), never a
+-- request. The anotoki library's words of 0.6 (anotoki_translations 005 to
+-- 011: the legal pages', the top bar's, the kit's newer pieces', the Privacy
+-- page's rewordings) run right after it, in the same Apply.
 --
 -- From anotoki-lib 0.6.0 every anotoki site shows Terms, Privacy and Contact -
 -- the family's pages (@anotoki/lib/legal/pages), their structure and shared
@@ -389,3 +390,5 @@ BEGIN
         RAISE EXCEPTION '011_legal_pages_and_questions: strings still as 004, 005 and 007 wrote them: %', missing;
     END IF;
 END $$;
+
+-- end of 011

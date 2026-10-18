@@ -301,7 +301,7 @@ zone's Transform Rule, then `backend/config/cloudflare.local.php` on the
 site by FTP; without the file the site works as before.
 
 **The update that brings anotoki-lib 0.6.2** (both halves; 2026-10-18)
-brings, once its draft is final, migration **011** of this app's (the legal
+brings migration **011** of this app's (final since 2026-10-18; the legal
 pages' words, the questions' and notices' titles and buttons; rewordings
 only of strings nobody changed) and the library's
 `anotoki_translations/005_…` to `011_…` (its legal pages', top bar's and

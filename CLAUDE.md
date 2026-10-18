@@ -591,8 +591,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
   button's name, what the number on Kanji counts; the questions' sentences
   reworded without the question their title now asks, and the descriptions
   that still said "chips" told again - each rewording only of a string
-  nobody changed) is a draft: its last line is the owner's to write once they
-  accept the change. The library's own sets run around this
+  nobody changed) was written as a draft too, and is final since 2026-10-18
+  (the owner's go, "you can finalize japanese's migration 011": its last line
+  written last; it goes up with the library's files of 0.6 below). The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
   `anotoki_translations/001_…` to `011_…` (its words, written only where a

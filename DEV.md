@@ -175,8 +175,8 @@ insert leaves it alone. To add one:
    2026-10-11; 010, the people's `anonymized_at` and the words of a failed
    sign-in moved under the library's keys, likewise, on the owner's go the
    same day. 011, the legal pages' words and the questions' and notices'
-   titles that took the browser's boxes' place, is a draft since
-   2026-10-18: its last line is the owner's to write.)
+   titles that took the browser's boxes' place, likewise, final since
+   2026-10-18 on the owner's go.)
    `backend/tools/build-dist.php` refuses to build the upload while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in
