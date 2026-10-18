@@ -48,7 +48,7 @@ the admin panel stays English) - and for the legal pages `sk-light`,
 | what's new (the changelog) | `changelog` |
 | Your data's question before a file replaces the data | `your-data-question` |
 | the bar's menu open over the kanji dashboard (the person's; on a phone the one menu) | `bar-menu` |
-| the feedback form, opened by Send feedback at the foot (the anotoki library's form) | `feedback-form` |
+| the feedback form, opened by the footer's Feedback (the anotoki library's form) | `feedback-form` |
 | a refused sign-in: the anotoki library's screen, Try again and Back | `sign-in-failed` |
 | a visitor's home (sign-in not required, nobody signed in): the notice and its Sign in | `home-visitor` |
 | the admin panel's Translations page (English) | `admin-translations` |
@@ -94,8 +94,9 @@ lang="sk">`, or leaves an English string of the app outside `[lang=en]` /
 `[lang=ja]`; on a kanji tab strip whose page's tab is out of view (the
 kit's link tabs scroll sideways in their strip on a phone, by design); on what the reviews found by
 eye (`looks()`): a Delete their data of the People page (the library's) off
-the screen, at 390 px too, the What's new dot not beside its words or touching the
-'·' before Send feedback, Your data's question
+the screen, at 390 px too, the status page with anything of the frame around it (a bar, a
+footer, a header, nav or footer landmark), a screen without the footer or its top border, or
+with a part of it off the screen, Your data's question
 with the focus anywhere but Keep mine (or without the accent's ring), in
 dark the anotoki mark without its light halo, and a segmented choice of the
 kit's (it never wraps) running past its card or the page's frame; on a top bar that is not one
@@ -121,11 +122,11 @@ variants. Always include the phone shots. Go through this list:
 - **Phone (390 px).** No sideways scroll. Buttons are at least ~34 px tall
   (the kit's small ones; the rest 44), a segment 30, a chip 32 with a mouse (44 to a finger) and the kit's small
   link buttons 24 with a mouse, 44 to a finger (the exam's all / none, the
-  result's ▶ listen, What's new, Send feedback). Long
+  result's ▶ listen, the footer's What's new and Feedback). Long
   English meanings, long Japanese words and a long answer the learner
   added (an item's page: up to 80 characters) wrap instead of clipping. The nav still fits. (A full-page
   shot switches Edge's touch emulation off, so the phone shots of taller
-  pages show the foot's What's new and Send feedback at their mouse size:
+  pages show the footer's What's new and Feedback at their mouse size:
   they grow to 44 px only for a finger. Measure those with
   `locator.boundingBox()` in a fresh phone context;
   `docs/kb/environment.md`. The visitor notes' buttons are the kit's, 44 px
@@ -160,8 +161,8 @@ variants. Always include the phone shots. Go through this list:
   in the reader's language, light and dark, whole at 390 px); the Sign in
   card shows only after a session that ended: plain — the
   name, one short sentence, one button, no empty error line — with **Sign in**
-  in the top bar too (in its menu on a phone). **Send feedback** at the foot
-  opens the library's form in a dialog: the kinds, the place (Kanji, Exam),
+  in the top bar too (in its menu on a phone). **Feedback** in the footer
+  opens the library's form in a dialog named by it: the kinds, the place (Kanji, Exam),
   the message, the address written in for a person and "Send it without my
   name", whole at 390 px, in Slovak too. Where sign-in is not required,
   a visitor's page instead: the notice at the top (the days, one Sign in), the
@@ -169,15 +170,18 @@ variants. Always include the phone shots. Go through this list:
   stays open with "Saving…" while the saves on their way are waited for), no
   person's menu, no Your data; a refused sign-in said above the page, with
   room of its own under it (16 px above a kanji page's tab strip).
-- **The foot.** The version and **What's new** at the foot of every page, its
-  dot while the news is unread; the dialog is readable in both themes and at
-  390 px, in both languages (its entries stay English). Under them Terms ·
-  Privacy · Contact, the open one marked.
+- **The footer.** The family's footer under every page and in the admin panel
+  (the build analyzer's: a line above, centred, muted): "Version X · What's new
+  · Feedback" (no Feedback signed out on a legal page, on the Sign in card or
+  the problem page), Terms · Privacy · Contact under it, the open one marked,
+  wrapping at 390 px; What's new's dialog readable in both themes and at 390
+  px, in both languages (its entries stay English). The status page (an update
+  waiting, not set up, out of reach) stands alone: no bar, no footer.
 - **The legal pages.** Terms, Privacy and Contact in the app's column, under
   the bar (signed out: Sign in in it, no card), readable in both themes and
   both languages at 1280 and 390 px; Privacy's parts are the app's (no key),
-  its stored items by name in code, the hosting company "(to be named)" and
-  Cloudflare; Contact's Send feedback first.
+  its stored items by name in code, the hosting company (WebSupport s.r.o.)
+  and Cloudflare; Contact's feedback form first.
 - **Questions and notices.** The kit's question (the title asks, the sentence
   under it, the app's two buttons - the yes red where it loses something) and
   the app's notice (one OK) in the kit's dialog, whole at 390 px, in both

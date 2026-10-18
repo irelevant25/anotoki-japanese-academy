@@ -242,6 +242,23 @@ cleanly counts as a secret nobody carries (every request from Cloudflare its
 edge) until mended; PHP's error log names the file once a day, never its
 text (`docs/kb/hosting.md`).
 
+**The update that brings anotoki-lib 0.6.3** (both halves; the app's
+0.5.1): not before the owner has accepted migration 012 (its last line
+written: the build refuses a draft). Upload `backend/vendor/` first, then
+the rest; one Apply on the Migrations page right after it - 012 (the three
+words only the app's old foot read go) and the library's
+`anotoki_translations/012_…` (the footer's four words; until it is applied
+the footer says the library's built-in words, the same English and Slovak).
+Tell the owner: the foot of every page and of the admin panel is the
+family's footer now ("Version 0.5.1 · What's new · Feedback", Terms ·
+Privacy · Contact, a line above) - the dot beside What's new is gone; the
+page shown while an update waits (so right after the upload, until the
+Apply) stands alone, without the bar or the footer; and a
+`cloudflare.local.php` that names no usable secret (blank, a misspelt key)
+now fails closed like a broken one - only deleting the file switches the
+secret off; PHP's error log says "holds no origin_secret" once a day if the
+site's file does not name its secret.
+
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing
 at start), after a raw copy of every table — or `manage.php --sync`, or the

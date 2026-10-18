@@ -16,7 +16,7 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.6.2, both halves), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.6.3, both halves), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
@@ -26,7 +26,8 @@ Cloudflare's header believed from Cloudflare alone - since PHP 0.5.2, given
 the owner's zone's origin secret, only on a request that carries it), and
 since 0.6 the family's legal pages - Terms, Privacy and Contact, with this
 app's facts - and the kit's newer pieces (choice chips, labelled groups,
-disclosures, link tabs). It runs two ways:
+disclosures, link tabs), and since 0.6.3 the family's footer, under every
+page and in the admin panel. It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -49,8 +50,12 @@ Back). The top bar is the anotoki family's
 one bar, the library's (`<anotoki-top-bar>`, worded and wired in
 `frontend/src/app/top-bar/`; `docs/kb/architecture.md`, *The top bar*): the
 brand, Kanji and Exam, the language, the light/dark/system switch and the
-person's menu; the version, "What's new" and "Send feedback" are at the foot
-of the page, and under them the family's Terms · Privacy · Contact. Those
+person's menu; at the foot of every page, the admin panel's too, the
+family's footer (the library's `<anotoki-site-footer>`, anotoki-lib 0.6.3,
+the build analyzer's: a line above, "Version 0.5.1 · What's new ·
+Feedback", then Terms · Privacy · Contact). While the site is not ready - an
+update waiting, the database out of reach, not set up - the library's page
+stands alone, with no bar and no footer (the owner's rule of 2026-10-18). Those
 three pages (`/terms`, `/privacy`, `/contact`: the library's, with this app's
 facts, `frontend/src/app/legal/`) are anybody's - signed in or not, a visitor
 or not: no guard, no trip to the IAM (`docs/kb/architecture.md`, *The legal
@@ -134,9 +139,9 @@ count wrong, fix it in the same piece of work.
   API, sign-in (`auth/`: the library's `@anotoki/lib/auth` wired in
   `auth.config.ts`, seen through this app's `AuthService`), the admin tools
   and the People page (`admin.config.ts`, the library's), the feedback form
-  (`feedback.config.ts`, `feedback/`: the library's form behind Send
-  feedback at the foot), the pages' own errors (`error-report.config.ts`: the
-  library's reporter, every error to the error log, scrubbed), the changelog (the foot), `i18n/` (the app's words:
+  (`feedback.config.ts`: the library's form, which the family's footer opens
+  behind its Feedback), the pages' own errors (`error-report.config.ts`: the
+  library's reporter, every error to the error log, scrubbed), the changelog (`changelog/`: the version the footer shows, and the What's new dialog it opens), `i18n/` (the app's words:
   `translations.config.ts` - the anotoki library's translation service,
   pipes and admin pages wired to this app -, `time-wording.ts`, failures
   worded from their codes, the title strategy),
@@ -220,19 +225,21 @@ cd backend && composer start                 php -S localhost:8200 router.php: t
                                              build (academy-run skill; the owner's server: start or stop it only when
                                              they ask - no change needs a restart)
 cd frontend && npm start                     ng serve on localhost:4400, proxying the backend's addresses to :8200
-node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (271): after every change - on PHP 8.2
+node backend/tools/php.js backend/tests/run.php   the PHP unit + API tests (273): after every change - on PHP 8.2
                                              too (ACADEMY_PHP, and PHPRC for its php.ini: the library's floor)
-cd frontend && npm test                      the Angular unit tests (452 in 44 files): after every frontend change
+cd frontend && npm test                      the Angular unit tests (454 in 43 files): after every frontend change
 node frontend/scripts/ensure-build.mjs       the Angular build, when its sources changed (npm ci first when needed)
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/run.js
-                                             Edge end to end (215 checks), signed in through the library's stand-in
+                                             Edge end to end (217 checks), signed in through the library's stand-in
                                              IAM: a deep link signed out, a refused sign-in's screen, the legal pages
                                              signed out (no trip to the IAM), lessons →
-                                             reviews → practice → exam, the bar's keys and menus, Your data,
-                                             sign-out, the admin panel by role, People, feedback from the foot to the
+                                             reviews → practice → exam, the bar's keys and menus, the family's
+                                             footer (the admin panel's too), Your data,
+                                             sign-out, the admin panel by role, People, feedback from the footer to the
                                              Feedback page and its badge, a page's own error reported to the error
                                              log and listed there, the audit log, a backup made,
-                                             a migration waiting (the library's page for a visitor, a learner and an
+                                             a migration waiting (the library's page alone - no bar, no footer - for a
+                                             visitor, a learner and an
                                              editor, no page made behind it; an open exam paper kept and back after
                                              the library's reload; a signed-out ADMIN signs in from it), failing and applied, two time
                                              zones, a Slovak pass; then visitors (sign-in not required): study,
@@ -473,14 +480,17 @@ Tests enforce most of these. Never weaken a test to make it pass.
   setup page, never shown or logged: `config_origin_secret()`) and believes
   `CF-Connecting-IP` only on a request that carries it - any other from
   Cloudflare counts as its edge, coarser, never looser; without the file, as
-  before. **A file there that cannot be read cleanly fails closed**, as the
-  IAM's does, case for case (`config_read_cloudflare()`): it does not start
-  with `<?php` (never compiled), it prints anything, or PHP cannot parse,
-  run or open it - it stands for a secret no request
+  before - only deleting the file switches the secret off. **A file there
+  that yields no usable secret fails closed** (`config_read_cloudflare()`):
+  one that cannot be read cleanly - it does not start with `<?php` (never
+  compiled), it prints anything, or PHP cannot parse, run or open it, a
+  folder in its place - and, since 2026-10-18 (the owner's "do as you think
+  is the best", every anotoki site), one read cleanly that names no secret -
+  blank, no list, a misspelt or another key, a value that is not a string -
+  stands for a secret no request
   carries (a random one, `config_origin_secret_nobody_carries()`), so every
   request from Cloudflare's ranges counts as its edge until it is mended;
-  the site keeps running. One read cleanly that names no secret (none, or
-  blank) is no secret: as without the file. Every
+  the site keeps running. Every
   per-address limit counts the address's bucket (`ClientAddress::bucket()`:
   an IPv6 address by its /64). The visitors' limits (`src/client_address.php`)
   and the library's admin tools (the feedback's limits, the error log's
@@ -593,14 +603,23 @@ Tests enforce most of these. Never weaken a test to make it pass.
   that still said "chips" told again - each rewording only of a string
   nobody changed) was written as a draft too, and is final since 2026-10-18
   (the owner's go, "you can finalize japanese's migration 011": its last line
-  written last; it goes up with the library's files of 0.6 below). The library's own sets run around this
+  written last; it goes up with the library's files of 0.6 below). **012**
+  (`012_family_footer.sql`: the three keys only the app's own foot read -
+  `whatsNew.unseen`, the dot beside What's new, and the Privacy page's
+  `legal.storage.whatsNew.purpose` and `.kept`, the stored item the dot
+  needed - deleted, the family's footer having taken the foot's place, dot
+  and all; `whatsNew.title` described as the What's new dialog's heading
+  alone) is a **draft** since 2026-10-18: its last line waits for the
+  owner's word - the library's files wait with it meanwhile, its
+  `anotoki_translations/012` (the footer's words) among them, and
+  `build-dist.php` refuses to build the upload. The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
-  `anotoki_translations/001_…` to `011_…` (its words, written only where a
+  `anotoki_translations/001_…` to `012_…` (its words, written only where a
   key has none: 003 the sign-in screens', 004 the feedback form's, 005 the
   legal pages', 006 to 009 the top bar's and the kit's newer pieces', 010 and
   011 rewording five of the Privacy page's sentences - two, then three -
-  where nobody changed them) and
+  where nobody changed them, 012 the footer's four) and
   `anotoki_people/001_…` (the scrub's bookkeeping); they too end with
   `-- end of NNN`. **While one of the app's own files is a draft, every
   library file waits with it** - the `anotoki_admin` ones before it too -
@@ -647,15 +666,17 @@ Tests enforce most of these. Never weaken a test to make it pass.
   library's `personOrVisitorGuard` (the admin panel `staffGuard`, its
   ADMIN pages `adminGuard`, which a visitor does not
   pass) - which sends nobody to the IAM while the site is not ready
-  (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>` around the
-  pages, `core/site-status.config.ts`) shows its page then, with its own
-  Sign in. The pages are the gate's marked template
+  (SiteStatus): the anotoki library's gate (`<anotoki-site-gate>`, the
+  outermost of what the app draws, `core/site-status.config.ts`) shows its
+  page then, alone - in a `<main>` of the gate's own, with no bar and no
+  footer (anotoki-lib 0.6.3) - with its own Sign in. The pages, and the bar
+  and the footer with them, are the gate's marked template
   (`<ng-template anotokiSitePages>` inside it, anotoki-lib 0.2.0): made only
   while the site is open, so no page runs, asks for data or hears a key
   behind the library's page, and one open when the site stops is taken down
   (the exam keeps an open paper for the tab as it goes, and puts it back,
   once, when the page is loaded afresh). A save in the background tells `SavesInFlight`, which a
-  sign-out - and a visitor's sign-in - waits for. The top bar and the foot (What's new, its dialog, Send feedback and its form)
+  sign-out - and a visitor's sign-in - waits for. The top bar and the footer (What's new, its dialog, Feedback and its form)
   - and the kit's question and the app's notice - keep every key pressed in
   them from `document` (where the quiz, the reviews and the exam listen), the bar's menus
   close on Tab with the focus on their button, and it reads in English in the
@@ -682,8 +703,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
   exam's "Narrow it down" is the kit's disclosure, the kanji tabs the kit's
   link tabs (a nav named Kanji of ordinary links; on a phone they scroll
   sideways in the kit's strip, never the page, the page's tab brought into
-  view), a quiet word-button (all and none, What's new, Send feedback, the
-  review's listen) the kit's small link button, 44 px to a finger. **No
+  view), a quiet word-button (all and none, the review's listen) the kit's
+  small link button, 44 px to a finger, as the footer's What's new and
+  Feedback are (the library's). **No
   browser box at all**: the kit's question (`ConfirmService`,
   `<anotoki-confirm-host>` in the root - a title that asks, the sentence
   under it, the two buttons in the app's words) asks where `confirm()`
@@ -693,8 +715,9 @@ Tests enforce most of these. Never weaken a test to make it pass.
   stand beside a kit button, never in it: its words stay on one line. The
   study components (tiles, readings, the session
   and its answer box, the lesson batch, the exam's paper, the dashboard's
-  section cards, stages and forecast), the foot and the
-  changelog's entries are the app's, drawn with the tokens. The kit's class
+  section cards, stages and forecast) and the
+  changelog's entries are the app's, drawn with the tokens; the footer is
+  the family's (`<anotoki-site-footer>`), never restyled by the app. The kit's class
   names are its own (`anotoki-<piece>__<part>`, since 0.3.0), and the specs
   and browser suites read them so. The kit's words are the anotoki library's keys
   (`anotoki.topbar.*`, `anotoki.theme.*` …) in this app's database, which

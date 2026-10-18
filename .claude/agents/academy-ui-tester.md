@@ -15,10 +15,11 @@ app. It has a kanji trainer (`/kanji`, with `/kanji/lessons`, `/reviews`,
 the admin panel (`/admin/…`, English), the anotoki family's top bar
 (the anotoki library's, worded in `frontend/src/app/top-bar/`: brand, Kanji
 and Exam, the language, a theme switch, the person's menu; one menu button up
-to 760 px), buttons, dialogs, chips, tabs and fields of the library's kit, a
-foot with the version, "What's new" and the family's Terms · Privacy · Contact
-(`/terms`, `/privacy`, `/contact`: the family's pages, anybody's), and the
-setup page (`/setup.php`, plain PHP).
+to 760 px), buttons, dialogs, chips, tabs and fields of the library's kit, the
+family's footer (the version, "What's new" and Feedback, then Terms · Privacy ·
+Contact: `/terms`, `/privacy`, `/contact`, the family's pages, anybody's) under
+every page and in the admin panel - never around the library's status page,
+which stands alone -, and the setup page (`/setup.php`, plain PHP).
 Everybody signs in through the anotoki IAM, on a computer as on the website;
 a signed-out page goes straight to the IAM; a sign-in that came back without
 one shows the anotoki library's screen (Try again, Back), and the Sign in
@@ -44,7 +45,7 @@ The caller tells you what changed. Then:
    chooser by keys and Enter and Space on the bar's controls over a review
    card and a paper's last question (the bar's work, nothing to the card or
    the paper), Sign out over an open paper asking first; moving between the
-   sections without a page load, the foot's What's new; the bar's menus by
+   sections without a page load, the family's footer and its What's new; the bar's menus by
    keys with real Tab presses (desktop and phone); Your data (download,
    bring back, a file that is not one); Sign out waiting for an answer on its
    way; reports and the token going only to this site, with the time zone;

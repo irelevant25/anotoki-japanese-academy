@@ -58,9 +58,9 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   one language (`lang`, where a stage's own name stands alone). Words that
   may be long (an answer the learner added: 80 characters)
   stand beside a kit button, never in it - its words stay on one line. A
-  quiet word-button (all and none, What's new, Send feedback, the review's
-  listen) is the kit's `variant="link" size="sm"` button, 44 px to a finger
-  by itself. **The browser's own boxes are never raised**: a question is the
+  quiet word-button (all and none, the review's listen) is the kit's
+  `variant="link" size="sm"` button, 44 px to a finger by itself (the
+  footer's What's new and Feedback are the library's own). **The browser's own boxes are never raised**: a question is the
   kit's (`ConfirmService.ask()` - a title that asks, the sentence under it
   saying what goes, the yes in the words of the button that asked, a danger
   one `tone: 'danger'`), something to tell is the app's notice
@@ -122,9 +122,13 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   until 2026-10-11; `backend/tests/api/auth.test.php` holds that it stays
   gone): the library's `@anotoki/lib/auth` is the sign-in. Never edit the
   library's code here: a change goes to the library and comes back as a
-  release. **Send feedback** at the foot is the library's form
-  (`core/feedback.config.ts`, `core/feedback/`: its places the app's two
-  sections; it keeps its keys from `document`). wanakana comes from npm.
+  release. The foot of every page and of the admin panel is the family's
+  footer (`<anotoki-site-footer>`, anotoki-lib 0.6.3, in `app.component.html`
+  inside the gate's marked template with the bar - the library's status page
+  stands alone, with neither): its **Feedback** opens the library's form
+  (`core/feedback.config.ts`: its places the app's two sections), its What's
+  new the app's own dialog (`core/changelog/`); no key pressed in it reaches
+  `document`. The app never restyles it. wanakana comes from npm.
 - The kanji section: lesson batches, sessions and summaries are drawn over the
   screen they started from (`KanjiScreenService`), and the address stays; the
   shell redraws the screen for a click on a link to the address already shown.
@@ -225,7 +229,8 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   must stay true of the code: a change to what the app keeps, or for how
   long, changes their `legal.*` strings (a migration) and
   `ACADEMY_LEGAL_UPDATED`; every address they link to is the code's, never a
-  string. The foot has the family's links to them (`<anotoki-legal-links>`).
+  string. The footer has the family's links to them (`<anotoki-legal-links>`,
+  inside `<anotoki-site-footer>`).
 - Switching the language changes words only: a session or a paper goes on
   where it was. The five kanji tabs are the kit's link tabs: where they do
   not fit (a phone) they scroll sideways in the kit's strip, never the page,
