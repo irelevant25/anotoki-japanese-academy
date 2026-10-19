@@ -285,7 +285,8 @@ recording again, **Enter** on the last question finishes.
 
 The foot of every page, the admin panel's too, is the anotoki family's
 footer - the same on every anotoki site (anotoki-lib 0.6.3), under a thin
-line: "Version 0.5.1 · What's new · Feedback". **What's new** opens the list
+line: "v0.5.1 · What's new · Feedback" (a screen reader hears "Version
+0.5.1"). **What's new** opens the list
 of what changed, release by release (`frontend/public/changelog.json`). The
 version has three numbers: the first changes with big changes, the second
 with new features, the third with bug fixes (0.4.0, then 0.4.1 or 0.5.0).

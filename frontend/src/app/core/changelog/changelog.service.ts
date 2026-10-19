@@ -43,7 +43,8 @@ export function compareVersions(a: string, b: string): number {
  * The app's version and what changed in it (public/changelog.json, asked for
  * once a page load: AppComponent). The version is the newest entry's - the one
  * source of it, which frontend/package.json's is held to (the spec) - and the
- * family's footer shows it ("Version 0.5.1"), with What's new beside it, which
+ * family's footer shows it ("v0.5.1", "Version 0.5.1" to a screen reader),
+ * with What's new beside it, which
  * opens the changelog (changelog-dialog.component.ts). Nothing of it is kept
  * in the browser: the footer marks no news unread (the owner's footer, the
  * build analyzer's, has no dot).

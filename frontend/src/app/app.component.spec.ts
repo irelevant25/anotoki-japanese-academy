@@ -212,16 +212,17 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     expect(links(el)).toEqual(['Kanji', 'Exam']);
     expect(el.querySelector('app-top-bar a[href="/exam"]'), 'the link the browser suites click').not.toBeNull();
     expect(Array.from(el.querySelectorAll('anotoki-brand .anotoki-brand__wordmark > span')).map((span) => span.textContent)).toEqual(['anotoki', 'Japanese']);
-    expect(footerRow(el)).toEqual(['Version 0.2.0', '·', "What's new", '·', 'Feedback']);
+    expect(footerRow(el)).toEqual(['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback']);
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('the foot: the family’s footer, the build analyzer’s - “Version 0.2.0 · What’s new · Feedback”, then Terms · Privacy · Contact to the legal pages’ own paths, in a footer of its own; no fan clause', async () => {
+  it('the foot: the family’s footer, the build analyzer’s - “v0.2.0 · What’s new · Feedback”, then Terms · Privacy · Contact to the legal pages’ own paths, in a footer of its own; no fan clause', async () => {
     const el = await draw();
     const footer = el.querySelector('anotoki-site-footer > footer.anotoki-site-footer__footer');
     expect(footer, 'its own <footer> landmark').not.toBeNull();
-    // The version is the changelog's newest entry (public/changelog.json); the dots are drawn, never read.
-    expect(footerRow(el)).toEqual(['Version 0.2.0', '·', "What's new", '·', 'Feedback']);
+    // The version is the changelog's newest entry (public/changelog.json); the dots are drawn, never read. It reads
+    // "v0.2.0" on screen and "Version 0.2.0" to a screen reader (anotoki-lib 0.7.1): its text holds both.
+    expect(footerRow(el)).toEqual(['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback']);
     expect(Array.from(el.querySelectorAll('anotoki-site-footer .anotoki-site-footer__dot'), (dot) => dot.getAttribute('aria-hidden'))).toEqual(['true', 'true']);
     const legal = footer?.querySelector('anotoki-legal-links');
     expect(legal?.querySelector('nav')?.getAttribute('aria-label')).toBe('Legal');
@@ -240,7 +241,7 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
 
   it('the footer in the language on the page: the library’s words, Slovak that addresses nobody - and the database’s string of a key first', async () => {
     const el = await draw([provideTestTranslations({ ...SLOVAK, 'anotoki.footer.feedback': 'Napíš nám' }, { language: 'sk', english: ENGLISH })]);
-    expect(footerRow(el)).toEqual(['Verzia 0.2.0', '·', 'Čo je nové', '·', 'Napíš nám']);
+    expect(footerRow(el)).toEqual(['v0.2.0Verzia 0.2.0', '·', 'Čo je nové', '·', 'Napíš nám']);
     expect(el.querySelector('anotoki-site-footer [lang]'), 'every part in the page’s language').toBeNull();
   });
 
@@ -275,7 +276,7 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
   it('a visitor’s form: no “without my name” - there is no name to leave out', async () => {
     const el = await draw([], 0, false, { loginRequired: false });
     expect(TestBed.inject(AuthService).state()).toBe('visiting');
-    expect(footerRow(el)).toEqual(['Version 0.2.0', '·', "What's new", '·', 'Feedback']);
+    expect(footerRow(el)).toEqual(['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback']);
     const dialog = await openFeedback(el);
     expect(dialog.querySelector('anotoki-feedback-form form')).not.toBeNull();
     expect(dialog.querySelector('anotoki-feedback-form [data-anonymous]')).toBeNull();
@@ -305,26 +306,26 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
   it('Feedback only while the app itself is shown: not on the way to the IAM, on a legal page signed out, on the Sign in card or the problem page - the version and What’s new all the same', async () => {
     const out = await draw([], 0, false);
     expect(TestBed.inject(AuthService).state()).toBe('signed-out');
-    expect(footerRow(out), 'on the way to the IAM').toEqual(['Version 0.2.0', '·', "What's new"]);
+    expect(footerRow(out), 'on the way to the IAM').toEqual(['v0.2.0Version 0.2.0', '·', "What's new"]);
     await TestBed.inject(Router).navigateByUrl('/privacy');
     await settle();
-    expect(footerRow(out), 'a legal page, signed out').toEqual(['Version 0.2.0', '·', "What's new"]);
+    expect(footerRow(out), 'a legal page, signed out').toEqual(['v0.2.0Version 0.2.0', '·', "What's new"]);
     TestBed.resetTestingModule();
 
     const ended = await draw();
-    expect(footerRow(ended)).toEqual(['Version 0.2.0', '·', "What's new", '·', 'Feedback']);
+    expect(footerRow(ended)).toEqual(['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback']);
     localStorage.removeItem(KEY);
     window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
     await settle();
     expect(ended.querySelector('#signin'), 'the Sign in card').not.toBeNull();
-    expect(footerRow(ended), 'the Sign in card').toEqual(['Version 0.2.0', '·', "What's new"]);
+    expect(footerRow(ended), 'the Sign in card').toEqual(['v0.2.0Version 0.2.0', '·', "What's new"]);
     TestBed.resetTestingModule();
 
     const problem = await draw();
     TestBed.inject(AuthService).cannotStart({ kind: 'offline' });
     await settle();
     expect(problem.querySelector('app-problem'), 'the problem page').not.toBeNull();
-    expect(footerRow(problem), 'the problem page').toEqual(['Version 0.2.0', '·', "What's new"]);
+    expect(footerRow(problem), 'the problem page').toEqual(['v0.2.0Version 0.2.0', '·', "What's new"]);
   });
 
   it('no key pressed in the footer reaches the page - What’s new, the news it opens (its Close, its lines), Feedback and its form: Enter there answers no card and hands no paper in', async () => {
@@ -444,7 +445,7 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     expect(frameOf(el)).toEqual(expect.objectContaining({ bar: true, footer: true }));
     expect([links(el), footerRow(el)]).toEqual([
       ['Kanji', 'Exam'],
-      ['Version 0.2.0', '·', "What's new", '·', 'Feedback'],
+      ['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback'],
     ]);
     expect(el.querySelector('#a-page')).not.toBeNull();
   });
@@ -529,7 +530,7 @@ describe('AppComponent: while a database update waits', () => {
     // left out while the update waits (a message would be refused).
     expect(frameOf(el)).toEqual(expect.objectContaining({ bar: true, footer: true }));
     expect(links(el)).toEqual(['Migrations']);
-    expect(footerRow(el)).toEqual(['Version 0.2.0', '·', "What's new"]);
+    expect(footerRow(el)).toEqual(['v0.2.0Version 0.2.0', '·', "What's new"]);
 
     // Anywhere else, the page again - bare.
     await TestBed.inject(Router).navigateByUrl('/exam');
@@ -566,7 +567,7 @@ describe('AppComponent: while a database update waits', () => {
     expect(el.querySelector('.anotoki-site-gate__status, anotoki-site-status')).toBeNull();
     expect([links(el), footerRow(el)]).toEqual([
       ['Kanji', 'Exam'],
-      ['Version 0.2.0', '·', "What's new", '·', 'Feedback'],
+      ['v0.2.0Version 0.2.0', '·', "What's new", '·', 'Feedback'],
     ]);
   });
 });

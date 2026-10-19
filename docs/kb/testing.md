@@ -771,8 +771,9 @@ Angular (`frontend/src/**/*.spec.ts`, Vitest):
   words, its `{days}` filled in.
 - `app.component.spec.ts` — the gate outermost, the bar above and the
   family's footer below inside it (with no strings, the English the app
-  keeps and the footer's library words); the footer: "Version 0.2.0 · What's
-  new · Feedback" - the version the changelog's newest -, Terms · Privacy ·
+  keeps and the footer's library words); the footer: "v0.2.0 · What's new ·
+  Feedback" - the version the changelog's newest, its text "v0.2.0Version
+  0.2.0" with the words a screen reader hears -, Terms · Privacy ·
   Contact in a nav of their own, its own `<footer>`, no fan clause, with no
   changelog Feedback alone, in Slovak the library's words and the
   database's string of a key first; What's new opening the app's news;

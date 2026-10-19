@@ -1057,8 +1057,10 @@ pages still open in it.
 footer (`<anotoki-site-footer>`, `@anotoki/lib/footer`, since anotoki-lib
 0.6.3 - the build analyzer's, the owner's choice of 2026-10-18: its order,
 its words and its top border): a thin line across the top, then, centred in
-the muted ink, the row "Version 0.5.1 · What's new · Feedback" (a dot drawn
-between two parts and never read; a part left out takes its dot with it),
+the muted ink, the row "v0.5.1 · What's new · Feedback" (the version written
+short since anotoki-lib 0.7.1, "Version 0.5.1" in words a screen reader hears;
+a dot drawn between two parts and never read; a part left out takes its dot
+with it),
 and under it **Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav
 named "Legal", the page that is open marked `aria-current`), in a
 `<footer>` landmark of its own; it wraps at 390 px and is not printed. Its

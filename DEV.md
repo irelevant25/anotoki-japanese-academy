@@ -132,7 +132,8 @@ The data of each person is their own (`docs/kb/sign-in.md`).
 `frontend/public/changelog.json` lists the releases, newest first, each with
 `added`, `updated` and `fixed` lines in plain words, for the person using the
 app (they stay English in every language). The version in the family's
-footer of every page ("Version 0.5.1") is the newest entry's, and **What's
+footer of every page ("v0.5.1", which a screen reader hears as "Version
+0.5.1") is the newest entry's, and **What's
 new** beside it opens the list. Add an entry with every release the owner will
 notice, and keep `version` in `frontend/package.json` in step.
 

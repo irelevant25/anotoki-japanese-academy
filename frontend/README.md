@@ -11,7 +11,8 @@ setting it up and running it in [`../DEV.md`](../DEV.md).
 ```
 src/app/            app.component (the anotoki library's <anotoki-site-gate> outermost: its marked template,
                     made only while the site is open, holds the bar, the page and the family's footer
-                    - <anotoki-site-footer>: "Version X · What's new · Feedback", then Terms · Privacy ·
+                    - <anotoki-site-footer>: "vX · What's new · Feedback" ("Version X" to a screen
+                    reader), then Terms · Privacy ·
                     Contact -, so while the site is not ready the library's page stands alone, with no
                     bar and no footer; the library's screen of a sign-in that came back without one; the
                     kit's question and the app's notice; a legal page drawn whatever the sign-in says), app.routes.ts (the library's guards, its

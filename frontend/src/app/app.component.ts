@@ -32,8 +32,8 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * Under it, the anotoki family's footer (<anotoki-site-footer>,
  * @anotoki/lib/footer, anotoki-lib 0.6.3 - the build analyzer's, the owner's
  * choice of 2026-10-18), on every page and in the admin panel alike: its top
- * border; "Version 0.5.1 · What's new · Feedback" - the version the
- * changelog's newest entry (core/changelog/changelog.service.ts), What's new
+ * border; "v0.5.1 · What's new · Feedback" ("Version 0.5.1" to a screen
+ * reader) - the version the changelog's newest entry (core/changelog/changelog.service.ts), What's new
  * the app's own news (core/changelog/changelog-dialog.component.ts), both
  * once the changelog has come, and Feedback the library's form in the kit's
  * dialog (core/feedback.config.ts), offered only while the app itself is shown
