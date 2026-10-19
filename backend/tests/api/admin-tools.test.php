@@ -269,8 +269,12 @@ test(
             'newest first, the person\'s under their name: ' . $list['raw'],
         );
         $id = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id = ? ORDER BY id LIMIT 1', [A_LEARNER]);
+        // Opening one only reads it (anotoki-lib 0.8.1); the page marks a new one read by a PUT of its own.
         assert_same(200, tools_call('GET', "/api/admin/feedback/$id")['status']);
-        assert_same(['unread' => 3], tools_call('GET', '/api/admin/feedback/unread')['body'], 'opened: read');
+        assert_same(['unread' => 4], tools_call('GET', '/api/admin/feedback/unread')['body'], 'opened: still new - a GET marks nothing read');
+        $marked = tools_call('PUT', "/api/admin/feedback/$id/read", new stdClass());
+        assert_same([200, 'read'], [$marked['status'], $marked['body']['message']['status'] ?? null], 'marked read by its own write: ' . $marked['raw']);
+        assert_same(['unread' => 3], tools_call('GET', '/api/admin/feedback/unread')['body'], 'one fewer to read');
         $resolved = tools_call('PUT', "/api/admin/feedback/$id/status", ['status' => 'resolved']);
         assert_same([200, 'resolved'], [$resolved['status'], $resolved['body']['message']['status'] ?? null], $resolved['raw']);
         $other = (int) db_value('SELECT id FROM anotoki_feedback WHERE user_id IS NULL ORDER BY id LIMIT 1');

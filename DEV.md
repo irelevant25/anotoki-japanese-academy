@@ -219,7 +219,7 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both
-halves are 0.8.0 (0.3.0 the translations and the kit a
+halves are 0.8.1 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for

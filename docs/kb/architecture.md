@@ -13,7 +13,7 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   restore's hooks, the pages' own errors and where a request comes from
   (0.5.1 a fix of a restore with visitors, 0.5.2 the origin secret), and
   since 0.6 the family's legal pages, since 0.6.3 its footer, since 0.8.0
-  its About and Support (the app is on 0.8.0, both halves);
+  its About and Support (the app is on 0.8.1, both halves);
   Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
