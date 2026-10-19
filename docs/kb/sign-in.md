@@ -6,7 +6,7 @@ signs people in through one identity provider, the **anotoki IAM**
 (iam.anotoki.eu; its repository is `anotoki-iam`, next to this one, and its
 `docs/integrating-an-app.md` is the contract this page follows).
 
-Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.7.2, both halves) the site's half of
+Since anotoki-lib 0.4.0 (2026-10-11; the app is on 0.8.0, both halves) the site's half of
 it is the **anotoki library**'s, every anotoki site's: on the server
 `Anotoki\Lib\Auth` checks the IAM's tokens and decides who a request is
 (set up for this site in `backend/src/auth.php`), and `Anotoki\Lib\People`
@@ -544,6 +544,7 @@ is signed out here, or until the IAM refuses its refresh.
   refresh tokens rotate). Only then does the router's first navigation run
   (`AppComponent`), so no screen asks for data before the sign-in is settled.
 - **Every page is for somebody signed in** — but Terms, Privacy and Contact,
+  and About and Support,
   anybody's, with no guard ([architecture.md](architecture.md), *The legal
   pages*) — the library's guards
   (`app.routes.ts`): `personOrVisitorGuard` as `canActivateChild` on the

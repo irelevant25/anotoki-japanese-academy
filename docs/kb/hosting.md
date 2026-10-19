@@ -340,6 +340,15 @@ cannot be read cleanly (*The origin secret*, below): if the site's file
 does not name its secret, PHP's error log says so once a day ("holds no
 origin_secret").
 
+**The update that brings anotoki-lib 0.8.0** (both halves; 2026-10-19)
+brings no migration of the app's: the library's
+`anotoki_translations/013_…` (the About and Support pages' words, the
+footer's two links and the feedback form's Clear) goes up in one Apply on
+the Migrations page after the upload - `backend/vendor/` first, as ever.
+Until it is applied they say the library's built-in words (the same English
+and Slovak). With it: the family's About and Support at `/about` and
+`/support`, anybody's, and About · Support first among the footer's links.
+
 ### The one-time move of `data/` and `backups/` (the update of 2026-10)
 
 A site set up before 2026-10-04 has `data/` and `backups/` beside `public/`

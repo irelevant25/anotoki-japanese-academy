@@ -2,10 +2,13 @@ import { inject } from '@angular/core';
 import { AnotokiLegalConfig, DEFAULT_LEGAL_PATHS } from '@anotoki/lib/legal';
 import { TranslationService } from '@anotoki/lib/translations';
 
-/** The legal pages' addresses: the library's own paths (app.routes.ts puts each page there, the footer's links go there). */
-export const LEGAL_PAGE_PATHS: readonly string[] = [DEFAULT_LEGAL_PATHS.terms, DEFAULT_LEGAL_PATHS.privacy, DEFAULT_LEGAL_PATHS.contact];
+/**
+ * The legal pages' addresses, and since anotoki-lib 0.8.0 the About and Support pages' in the same frame: the
+ * library's own paths (app.routes.ts puts each page there, the footer's links go there).
+ */
+export const LEGAL_PAGE_PATHS: readonly string[] = [DEFAULT_LEGAL_PATHS.terms, DEFAULT_LEGAL_PATHS.privacy, DEFAULT_LEGAL_PATHS.contact, DEFAULT_LEGAL_PATHS.about, DEFAULT_LEGAL_PATHS.support];
 
-/** Whether an address (its path, without a query or fragment) is one of the legal pages - anybody's, signed in or not. */
+/** Whether an address (its path, without a query or fragment) is one of the legal pages, About or Support - anybody's, signed in or not. */
 export function isLegalPage(path: string): boolean {
   return LEGAL_PAGE_PATHS.includes(path.split(/[?#]/)[0] || '/');
 }
@@ -13,7 +16,8 @@ export function isLegalPage(path: string): boolean {
 /**
  * How Japanese Academy plugs into the anotoki family's legal pages
  * (@anotoki/lib/legal, anotoki-lib 0.6: Terms, Privacy and Contact on the
- * lazy routes /terms, /privacy and /contact - app.routes.ts - and the links
+ * lazy routes /terms, /privacy and /contact, and since 0.8.0 About and
+ * Support on /about and /support - app.routes.ts - and the links
  * to them in the family's footer, app.component.html). provideAnotokiLegal() runs it in an
  * injection context.
  *

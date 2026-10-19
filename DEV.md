@@ -219,7 +219,7 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both
-halves are 0.7.2 (0.3.0 the translations and the kit a
+halves are 0.8.0 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
@@ -241,7 +241,10 @@ and its status page drawn alone, with no bar and no footer around it;
 half's files now in `backend/vendor/anotoki/lib/backend/`; 0.7.1 the
 footer's version written short, "v0.5.1"; 0.7.2 the feedback form saying
 itself whom its message is for, and the library's words in the reader's
-language while no words are in memory):
+language while no words are in memory; 0.8.0 the About and Support pages -
+About · Support first among the footer's links, their words written by the
+library's `anotoki_translations/013` - and the feedback form's kept draft
+and Clear, its buttons in the dialog's own footer):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
@@ -281,8 +284,8 @@ language while no words are in memory):
   (`@anotoki/lib/feedback/form`) - wired in `core/feedback.config.ts` - and
   the reporter of the pages' own errors (`@anotoki/lib/error-report`) - wired
   in `core/error-report.config.ts`. The family's footer
-  (`@anotoki/lib/footer`: the version, What's new and Feedback, Terms ·
-  Privacy · Contact; it opens the feedback form itself, What's new is the
+  (`@anotoki/lib/footer`: the version, What's new and Feedback, About ·
+  Support · Terms · Privacy · Contact; it opens the feedback form itself, What's new is the
   app's own dialog) - in `app.component.html`. The pages, and the frame
   around them - the bar and the footer -, are the gate's marked template
   (`<anotoki-site-gate><ng-template anotokiSitePages>…</ng-template></anotoki-site-gate>`
@@ -308,7 +311,7 @@ To update it, both halves together, or the one a release changes (while its
 version is 0.x a new minor version may need changes here: read its
 `CHANGELOG.md` first):
 
-1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.7.0"`)
+1. in `backend/`: the version in `composer.json` (`"anotoki/lib": "^0.8.0"`)
    if the new one needs it, then `composer update anotoki/lib
    --prefer-dist` with a PHP 8.2+ first on PATH, and commit `composer.json`,
    `composer.lock` and `vendor/` with it (a website has no shell);

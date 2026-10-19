@@ -6,10 +6,11 @@ import { academyLegalPagesConfig } from './legal-facts';
 /**
  * The legal pages' frame - Terms, Privacy and Contact, the anotoki family's
  * pages (@anotoki/lib/legal/pages, each a lazy route of its own in
- * app.routes.ts): the page's own column (`.wrap`), under the app's top bar and
- * above its foot (app.component, whose foot links to them), and the pages'
- * facts, which only they read (legal-facts.ts) - loaded with the first of
- * them that is opened, out of the first load.
+ * app.routes.ts), and About and Support (@anotoki/lib/legal/about, /support,
+ * the same on every anotoki site): the page's own column (`.wrap`), under the
+ * app's top bar and above its foot (app.component, whose foot links to them),
+ * and the legal pages' facts, which only they read (legal-facts.ts) - loaded
+ * with the first of them that is opened, out of the first load.
  *
  * Anybody may read them, signed in or not, a visitor or not: what an app keeps
  * is said before anybody signs in to it. So no guard stands in front of them,

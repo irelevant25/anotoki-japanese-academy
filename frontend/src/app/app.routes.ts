@@ -37,6 +37,8 @@ const legalFrame = () => import('./legal/legal-frame.component').then((m) => m.L
  *                           which AppComponent draws in its place while the failure stands)
  *   /terms, /privacy,       the legal pages: the anotoki family's (@anotoki/lib/legal/pages) with Japanese
  *   /contact                Academy's facts, which their frame gives them (legal/) - anybody's
+ *   /about, /support        the anotoki family's About and Support (@anotoki/lib/legal/about, /support:
+ *                           anotoki-lib 0.8.0, the same on every anotoki site) - anybody's, in the same frame
  *
  * The legal pages are anybody's: no guard, nothing of a person's study on
  * them, and AppComponent draws them whatever the sign-in says. Each is a path
@@ -46,7 +48,8 @@ const legalFrame = () => import('./legal/legal-frame.component').then((m) => m.L
  * empty frame at "/" with no guard (the survey's lesson, 2026-10-17;
  * app.routes.spec.ts). They come before the learner's pages, whose "**" would
  * take them. Their paths are the library's (DEFAULT_LEGAL_PATHS, the footer's
- * links go there), their titles the library's own headings.
+ * links go there), their titles the library's own headings. About and Support
+ * are routes the same way, in the same frame.
  *
  * Every page but those is for somebody signed in: the anotoki library's
  * guards send anybody else to the IAM, and back to the address they asked for
@@ -146,6 +149,17 @@ export const routes: Routes = [
     path: 'contact',
     loadComponent: legalFrame,
     children: [{ path: '', title: 'anotoki.legal.contactTitle', loadComponent: () => import('@anotoki/lib/legal/pages').then((m) => m.ContactPageComponent) }],
+  },
+  // About and Support, the family's: anybody's, in the legal pages' frame, the same way.
+  {
+    path: 'about',
+    loadComponent: legalFrame,
+    children: [{ path: '', title: 'anotoki.about.title', loadComponent: () => import('@anotoki/lib/legal/about').then((m) => m.AboutPageComponent) }],
+  },
+  {
+    path: 'support',
+    loadComponent: legalFrame,
+    children: [{ path: '', title: 'anotoki.support.title', loadComponent: () => import('@anotoki/lib/legal/support').then((m) => m.SupportPageComponent) }],
   },
   {
     path: '',

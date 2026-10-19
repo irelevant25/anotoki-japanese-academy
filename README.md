@@ -298,7 +298,10 @@ clear it and no address is kept ("Only if you would like an answer"); tick
 **Send it without my name** and neither your name nor an address is kept.
 No mail is sent: the messages wait on the admin panel's **Feedback** page.
 
-Under them, **Terms · Privacy · Contact**: the anotoki family's pages, with
+Under them, **About · Support**: the anotoki family's About and Support
+pages, the same on every anotoki site - where the name anotoki comes from,
+who makes the projects, and how to support them -, then **Terms · Privacy ·
+Contact**: the anotoki family's pages, with
 what Japanese Academy keeps, why and for how long, and how to reach us
 (Contact opens the same feedback form). Anybody may read them, signed in or
 not.
@@ -488,7 +491,7 @@ backend/                   the server: PHP 8.2+, Slim 4, PostgreSQL (backend/REA
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
   src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, feedback, i18n, the
                            site's status, the admin tools, the legal pages' settings, the app's notice), legal/
-                           (Terms, Privacy, Contact: the frame and the app's facts), admin/ (Translations,
+                           (Terms, Privacy, Contact - and About, Support -: the frame and the app's facts), admin/ (Translations,
                            Languages, People, Feedback, Errors, Audit log, Backups, Migrations), standin/ (sign in, a
                            problem)
   public/                  favicon, changelog.json
@@ -516,7 +519,8 @@ pages, the command line), the family's UI kit the pages are drawn with
 choices and chips, tabs; the study's
 own pieces - tiles, the sessions, the exam's paper - are the app's), its
 styles and font (Manrope) and the top bar, in this app's own colours, the
-legal pages (Terms, Privacy, Contact, with this app's facts), the
+legal pages (Terms, Privacy, Contact, with this app's facts) and About and
+Support, the
 sign-in (the site's half of it), the
 people (the People page, and blanking who somebody was once the IAM deleted
 their account) and the admin tools (the error log - with the pages' own

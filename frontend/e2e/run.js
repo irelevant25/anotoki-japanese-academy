@@ -7,8 +7,9 @@
  *             refused sign-in shows the anotoki library's screen (why, Try
  *             again, Back), and Try again signs in
  *   legal     Terms, Privacy and Contact signed out: the family's pages with
- *             the app's facts, the footer's links between them, no trip to the
- *             IAM - which any other page still makes first
+ *             the app's facts, About and Support beside them, the footer's
+ *             links between them, no trip to the IAM - which any other page
+ *             still makes first
  *   kanji     lessons → quiz (romaji typed, one miss on purpose) → reviews
  *             (clock moved) → practice (+ "My answer was right") → item page →
  *             browse; on a review card the language chooser by keys, and Enter
@@ -19,8 +20,8 @@
  *             and Sign out asks first - the kit's question: no browser box is
  *             ever raised
  *   the app   moving between its sections loads no page; the family's footer
- *             (its top border, "Version X · What's new · Feedback", Terms ·
- *             Privacy · Contact) and What's new from it; the bar's menus by
+ *             (its top border, "Version X · What's new · Feedback", About ·
+ *             Support · Terms · Privacy · Contact) and What's new from it; the bar's menus by
  *             keys, a real Tab landing on their button, on a desktop and on a
  *             phone
  *   your data download, bring back (asked first; "keep mine" changes
@@ -244,7 +245,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
       !toTheIam() &&
       (await legal.isVisible(BAR.signInButton)) &&
       legalFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new` &&
-      legalFoot.links.join('|') === 'Terms|Privacy|Contact',
+      legalFoot.links.join('|') === 'About|Support|Terms|Privacy|Contact',
     JSON.stringify(legalFoot),
   );
   const storedNames = await legal.$$eval('[data-stored] code', (els) => els.map((el) => el.textContent.trim()));
@@ -253,13 +254,28 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     storedNames.includes('academy-exam-kept-paper') && storedNames.includes('japanese-academy-visitor') && (await legal.getAttribute('[data-account-privacy]', 'href')) === `${IAM.issuer}/privacy`,
     storedNames.join(', '),
   );
+  // About and Support (anotoki-lib 0.8.0): the family's pages in the same frame, anybody's too.
+  await legal.click('anotoki-site-footer anotoki-legal-links a[href="/about"]');
+  const aboutShown = await legal.waitForSelector('anotoki-about-page h1').then(
+    () => true,
+    () => false,
+  );
+  await legal.click('anotoki-site-footer anotoki-legal-links a[href="/support"]');
+  const supportShown = await legal.waitForSelector('anotoki-support-page h1').then(
+    () => true,
+    () => false,
+  );
   await legal.click('anotoki-site-footer anotoki-legal-links a[href="/terms"]');
   await legal.waitForSelector('anotoki-terms-page h1');
   await legal.click('anotoki-site-footer anotoki-legal-links a[href="/contact"]');
   await legal.waitForSelector('anotoki-contact-page [data-open-feedback]');
   ck(
-    'the footer’s links: Terms, then Contact - the feedback form first - and still no trip to the IAM',
-    new URL(legal.url()).pathname === '/contact' && (await legal.getAttribute('anotoki-site-footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' && !toTheIam(),
+    'the footer’s links: About, Support, Terms, then Contact - the feedback form first - and still no trip to the IAM',
+    aboutShown &&
+      supportShown &&
+      new URL(legal.url()).pathname === '/contact' &&
+      (await legal.getAttribute('anotoki-site-footer anotoki-legal-links a[href="/contact"]', 'aria-current')) === 'page' &&
+      !toTheIam(),
     legal.url(),
   );
   await legal.click(BAR.brand);
@@ -651,8 +667,8 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const latest = LATEST;
   const foot = await footerOf(page);
   ck(
-    'the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, Terms · Privacy · Contact under them',
-    foot.border === 'solid' && foot.row.join('|') === `v${latest.version}Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact',
+    'the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, About · Support · Terms · Privacy · Contact under them',
+    foot.border === 'solid' && foot.row.join('|') === `v${latest.version}Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'About|Support|Terms|Privacy|Contact',
     JSON.stringify(foot),
   );
   await page.click('anotoki-site-footer [data-whats-new]');
@@ -1010,8 +1026,10 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   );
   const adminFoot = await footerOf(admin);
   ck(
-    'the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, Terms · Privacy · Contact',
-    adminFoot.border === 'solid' && adminFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new|Feedback` && adminFoot.links.join('|') === 'Terms|Privacy|Contact',
+    'the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, About · Support · Terms · Privacy · Contact',
+    adminFoot.border === 'solid' &&
+      adminFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new|Feedback` &&
+      adminFoot.links.join('|') === 'About|Support|Terms|Privacy|Contact',
     JSON.stringify(adminFoot),
   );
   await admin.click(BAR.userButton);
@@ -1144,7 +1162,8 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     (await fb.inputValue('anotoki-feedback-form [data-email] input')) === 'noa@example.test' && (await fb.$('anotoki-feedback-form [data-anonymous]')) !== null,
   );
   await fb.fill('anotoki-feedback-form [data-message] textarea', 'The stroke order of 学 would help me a lot.');
-  await fb.click('anotoki-feedback-form button[type="submit"]');
+  // The form's buttons are the dialog's own footer since anotoki-lib 0.8.0 - always in view, outside the form.
+  await fb.click('[data-feedback-dialog] [data-send]');
   const thanked = await fb.waitForSelector('anotoki-feedback-form [data-thanks]', { timeout: 10000 }).then(
     () => true,
     () => false,
@@ -1155,7 +1174,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     thanked && Number(sentRow.user_id) === NOA.sub && sentRow.contact_email === 'noa@example.test' && sentRow.page === '/kanji',
     JSON.stringify(sentRow),
   );
-  await fb.click('anotoki-feedback-form [data-close]');
+  await fb.click('[data-feedback-dialog] [data-close]');
   ck(
     'Close puts the form away',
     await fb.waitForSelector('anotoki-feedback-form', { state: 'detached', timeout: 3000 }).then(

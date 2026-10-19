@@ -69,7 +69,7 @@ export const appConfig: ApplicationConfig = {
     // (core/feedback.config.ts; the footer opens it itself, app.component.html).
     provideAdminTools(),
     provideFeedback(),
-    // The anotoki family's legal pages - Terms, Privacy, Contact, on lazy routes open to anybody - and the footer's
+    // The anotoki family's legal pages - Terms, Privacy, Contact, and About and Support, on lazy routes open to anybody - and the footer's
     // links to them: the library's words around Japanese Academy's facts, every address the pages link to in the
     // code (core/legal.config.ts; the facts, which only the pages read, come with their frame: legal/legal-facts.ts).
     provideAnotokiLegal(academyLegalConfig),

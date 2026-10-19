@@ -85,19 +85,21 @@ describe('the routes: what the router makes of an address', () => {
 
   it('an unknown address goes home - and so does one that only begins like a legal page’s', async () => {
     const harness = await RouterTestingHarness.create();
-    for (const address of ['/no-such-page', '/terms-of-use', '/privacy2', '/contact/me', '/terms/x']) {
+    for (const address of ['/no-such-page', '/terms-of-use', '/privacy2', '/contact/me', '/terms/x', '/about-us', '/support/me']) {
       await harness.navigateByUrl(address);
       const [frame, page] = taken();
       expect([address, TestBed.inject(Router).url, frame.canActivateChild, page.component]).toEqual([address, '/', [personOrVisitorGuard], HomeComponent]);
     }
   });
 
-  it('/terms, /privacy and /contact: the legal pages, each its own path in the legal frame - no guard on the way, the frame and the page loaded when opened', async () => {
+  it('/terms, /privacy and /contact, /about and /support: the family’s pages, each its own path in the legal frame - no guard on the way, the frame and the page loaded when opened', async () => {
     const harness = await RouterTestingHarness.create();
     for (const [address, title, page] of [
       ['/terms', 'anotoki.legal.termsTitle', 'TermsPageComponent'],
       ['/privacy', 'anotoki.legal.privacyTitle', 'PrivacyPageComponent'],
       ['/contact', 'anotoki.legal.contactTitle', 'ContactPageComponent'],
+      ['/about', 'anotoki.about.title', 'AboutPageComponent'],
+      ['/support', 'anotoki.support.title', 'SupportPageComponent'],
     ]) {
       await harness.navigateByUrl(address);
       expect(TestBed.inject(Router).url).toBe(address);
@@ -109,9 +111,9 @@ describe('the routes: what the router makes of an address', () => {
     }
   });
 
-  it('puts the legal pages where the foot’s links go - the library’s paths - and before the learner’s pages, whose "**" would take them', () => {
+  it('puts the legal pages, About and Support where the foot’s links go - the library’s paths - and before the learner’s pages, whose "**" would take them', () => {
     const top = routes.map((one) => one.path);
-    expect(LEGAL_PAGE_PATHS).toEqual(['/terms', '/privacy', '/contact']);
+    expect(LEGAL_PAGE_PATHS).toEqual(['/terms', '/privacy', '/contact', '/about', '/support']);
     for (const path of LEGAL_PAGE_PATHS) {
       expect(top.indexOf(path.slice(1)), path).toBeGreaterThan(-1);
       expect(top.indexOf(path.slice(1)), path).toBeLessThan(top.indexOf(''));
@@ -119,8 +121,8 @@ describe('the routes: what the router makes of an address', () => {
   });
 
   it('a legal page is known by its path alone (AppComponent draws it whatever the sign-in says): a query or a fragment after it, nothing else', () => {
-    expect(['/terms', '/privacy?lang=sk', '/contact#form'].map(isLegalPage)).toEqual([true, true, true]);
-    expect(['/', '/terms-of-use', '/privacy/x', '/kanji', '/exam?terms'].map(isLegalPage)).toEqual([false, false, false, false, false]);
+    expect(['/terms', '/privacy?lang=sk', '/contact#form', '/about', '/support?lang=sk'].map(isLegalPage)).toEqual([true, true, true, true, true]);
+    expect(['/', '/terms-of-use', '/privacy/x', '/kanji', '/exam?terms', '/about-us'].map(isLegalPage)).toEqual([false, false, false, false, false, false]);
   });
 });
 

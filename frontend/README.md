@@ -32,7 +32,8 @@ src/app/            app.component (the anotoki library's <anotoki-site-gate> out
   legal/            the legal pages' frame (legal-frame: the page's column, and the facts the family's
                     Terms, Privacy and Contact read, legal-facts.ts - what the app keeps, why and for how
                     long, its stored items by name, who else handles data -, loaded with the first of them
-                    opened, out of the first load)
+                    opened, out of the first load); the family's About and Support (/about, /support,
+                    @anotoki/lib/legal/about, /support) are drawn in it too
   core/             api/ (ApiService; not-set-up.interceptor.ts, which leaves a report's answer alone), auth/ (the sign-in, the anotoki library's @anotoki/lib/auth:
                     auth.config.ts wires it - the boot configuration, the token or a visitor's key and
                     X-Time-Zone to this site's API, who may make a visitor, the words, the checks before

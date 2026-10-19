@@ -216,7 +216,7 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('the foot: the family’s footer, the build analyzer’s - “v0.2.0 · What’s new · Feedback”, then Terms · Privacy · Contact to the legal pages’ own paths, in a footer of its own; no fan clause', async () => {
+  it('the foot: the family’s footer, the build analyzer’s - “v0.2.0 · What’s new · Feedback”, then About · Support · Terms · Privacy · Contact to the pages’ own paths, in a footer of its own; no fan clause', async () => {
     const el = await draw();
     const footer = el.querySelector('anotoki-site-footer > footer.anotoki-site-footer__footer');
     expect(footer, 'its own <footer> landmark').not.toBeNull();
@@ -227,6 +227,8 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     const legal = footer?.querySelector('anotoki-legal-links');
     expect(legal?.querySelector('nav')?.getAttribute('aria-label')).toBe('Legal');
     expect(Array.from(legal?.querySelectorAll('a') ?? [], (a) => [words(a), a.getAttribute('href')])).toEqual([
+      ['About', '/about'],
+      ['Support', '/support'],
       ['Terms', '/terms'],
       ['Privacy', '/privacy'],
       ['Contact', '/contact'],
@@ -268,7 +270,8 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
     expect(Array.from(form?.querySelectorAll('anotoki-select option') ?? [], (option) => words(option))).toEqual(expect.arrayContaining(['Kanji', 'Skúška']));
     expect(form?.querySelector('[data-anonymous]'), 'a person may send it without their name').not.toBeNull();
     expect(form?.querySelector<HTMLInputElement>('[data-email] input')?.value).toBe('hana@example.test');
-    form!.querySelector<HTMLButtonElement>('[data-cancel]')!.click();
+    // Cancel is the dialog's own footer's since anotoki-lib 0.8.0 - always in view, outside the form.
+    dialog.querySelector<HTMLButtonElement>('[data-cancel]')!.click();
     await settle();
     expect(el.querySelector('[data-feedback-dialog]')).toBeNull();
   });
@@ -354,7 +357,7 @@ describe('AppComponent: the bar above, the family’s footer below — inside th
       press(el.querySelector('anotoki-site-footer anotoki-legal-links a'));
       const dialog = await openFeedback(el);
       press(dialog.querySelector('anotoki-feedback-form textarea'));
-      press(dialog.querySelector('anotoki-feedback-form [data-cancel]'));
+      press(dialog.querySelector('[data-cancel]'));
       expect(reached, 'no key reached the page').toEqual([]);
 
       // The same keys anywhere else are the page's.
@@ -634,10 +637,10 @@ describe('AppComponent: nobody signed in', () => {
     expect(el.querySelector('router-outlet'), 'and the page, for a visitor').not.toBeNull();
   });
 
-  it('a legal page (Terms, Privacy, Contact) is anybody’s: signed out, it is drawn in the page’s place - Sign in in the bar, no card -, and any other page is not (on the way to the IAM)', async () => {
+  it('a legal page (Terms, Privacy, Contact - and About and Support in their frame) is anybody’s: signed out, it is drawn in the page’s place - Sign in in the bar, no card -, and any other page is not (on the way to the IAM)', async () => {
     const el = await draw([], 0, false);
     const router = TestBed.inject(Router);
-    for (const path of ['/terms', '/privacy', '/contact']) {
+    for (const path of ['/terms', '/privacy', '/contact', '/about', '/support']) {
       await router.navigateByUrl(path);
       await settle();
       expect(el.querySelector('#a-page'), path).not.toBeNull();

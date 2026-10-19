@@ -37,11 +37,13 @@ import { TopBarComponent } from './top-bar/top-bar.component';
  * the app's own news (core/changelog/changelog-dialog.component.ts), both
  * once the changelog has come, and Feedback the library's form in the kit's
  * dialog (core/feedback.config.ts), offered only while the app itself is shown
- * (feedbackOffered); then the family's Terms · Privacy · Contact. Its words
+ * (feedbackOffered); then the family's About · Support · Terms · Privacy ·
+ * Contact. Its words
  * are the library's (`anotoki.footer.*`, `anotoki.legalLinks.*`: the
  * database's strings, else the library's own English and Slovak).
  *
- * The legal pages themselves (Terms, Privacy, Contact: legal/) are anybody's:
+ * The legal pages themselves (Terms, Privacy, Contact: legal/), and About and
+ * Support in their frame, are anybody's:
  * drawn in the page's place to somebody signed in, a visitor, and anybody
  * signed out alike - also over a failed sign-in's screen, whose Back is
  * theirs to press later. Only a start that could not reach its server at all
@@ -116,7 +118,7 @@ export class AppComponent {
     ),
     { initialValue: this.router.url },
   );
-  /** The page is one of the legal pages (Terms, Privacy, Contact): anybody's, drawn whatever the sign-in says. */
+  /** The page is one of the legal pages (Terms, Privacy, Contact) or About or Support: anybody's, drawn whatever the sign-in says. */
   readonly legalPage = computed(() => isLegalPage(this.path()));
 
   constructor() {

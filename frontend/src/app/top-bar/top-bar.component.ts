@@ -216,7 +216,7 @@ export class TopBarComponent {
   /**
    * Sign in is offered: signed out with the Sign in card on the page, or the
    * anotoki library's screen of a sign-in that came back without one, or a
-   * legal page (Terms, Privacy, Contact: anybody's) - any other time the
+   * legal page (Terms, Privacy, Contact, About, Support: anybody's) - any other time the
    * browser is on its way to the IAM -, or visiting.
    */
   private readonly signedOut = computed(() => this.auth.showSignIn() || this.auth.visiting() || (this.auth.state() === 'signed-out' && (this.auth.signInError() !== null || isLegalPage(this.here()))));

@@ -12,8 +12,8 @@ IAM). Two halves since 2026-09-29, in the layout of the other anotoki sites:
   feedback, the backups of the whole database -, since 0.5.0 a
   restore's hooks, the pages' own errors and where a request comes from
   (0.5.1 a fix of a restore with visitors, 0.5.2 the origin secret), and
-  since 0.6 the family's legal pages, since 0.6.3 its footer (the app is on
-  0.7.2, both halves);
+  since 0.6 the family's legal pages, since 0.6.3 its footer, since 0.8.0
+  its About and Support (the app is on 0.8.0, both halves);
   Composer's packages committed in `backend/vendor/`),
   everything kept in **PostgreSQL**.
   On this computer PHP's built-in web server runs it, on a hosted site Apache.
@@ -695,12 +695,14 @@ tests run in Vitest with jsdom (`ng test`).
   after a sign-in that came back without one, for a person or a visitor -
   drawn by its `<anotoki-sign-in-failure-route>`, which loads the screen's
   code as it is shown, never in the first load (anotoki-lib 0.5.0); on
-  the way to the IAM, nothing; a legal page - Terms, Privacy, Contact - is
+  the way to the IAM, nothing; a legal page - Terms, Privacy, Contact, and
+  About and Support - is
   drawn in every one of those states, *The legal pages* below), then the
   family's footer (`<anotoki-site-footer>`, *The foot* below): the version,
   **What's new** (which opens the app's changelog dialog,
   `core/changelog/changelog-dialog.component`) and **Feedback** (the
-  library's form), and under them Terms · Privacy · Contact. The bar and
+  library's form), and under them About · Support · Terms · Privacy ·
+  Contact. The bar and
   the footer are drawn in every state of the app's own - the Sign in card,
   a failed sign-in's screen and the problem page too -, never around the
   library's page; after the gate, the kit's question
@@ -767,7 +769,8 @@ tests run in Vitest with jsdom (`ng test`).
   the panel's frame, Translations and Languages with the library's question before leaving unsaved
   changes); `/auth/callback` (the library's `AuthCallbackComponent`) and `/sign-in-failed` (its
   `SignInFailureComponent`, which `AppComponent` draws in the page's place while a failure stands), unguarded;
-  `/terms`, `/privacy` and `/contact` (*The legal pages* below), each a route of its own whose
+  `/terms`, `/privacy` and `/contact` (*The legal pages* below), and `/about` and `/support`,
+  each a route of its own whose
   parent is their frame (lazy), unguarded, before the learner's parent and its `**`.
   The old `/translations` and `/languages` lead to their new addresses.
   `/kanji`, `/exam` and the admin panel open only while the app can be used
@@ -1061,7 +1064,7 @@ the muted ink, the row "v0.5.1 · What's new · Feedback" (the version written
 short since anotoki-lib 0.7.1, "Version 0.5.1" in words a screen reader hears;
 a dot drawn between two parts and never read; a part left out takes its dot
 with it),
-and under it **Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav
+and under it **About · Support · Terms · Privacy · Contact** (`<anotoki-legal-links>`, a nav
 named "Legal", the page that is open marked `aria-current`), in a
 `<footer>` landmark of its own; it wraps at 390 px and is not printed. Its
 words are the library's (`anotoki.footer.*`, written into this app's
@@ -1130,6 +1133,12 @@ brief for every anotoki site) are the anotoki family's pages
   the home page under the learner's guard, and each legal page to its frame
   with no guard. Their titles are the library's headings
   (`anotoki.legal.termsTitle` …).
+- **About and Support** (since 2026-10-19, anotoki-lib 0.8.0): the family's
+  `@anotoki/lib/legal/about` and `/support`, the same on every anotoki site,
+  at `/about` and `/support` - routes the same way, in the same frame,
+  anybody's (`LEGAL_PAGE_PATHS` names them too); their titles the library's
+  headings (`anotoki.about.title`, `anotoki.support.title`), their words the
+  library's (its translations `013`), none of the app's facts.
 - **The facts** (`legal/legal-facts.ts`, given by the frame, so they - and
   their strings' keys - load with the pages, never in the first load; the
   root configuration, `academyLegalConfig()`, says only the page's language
