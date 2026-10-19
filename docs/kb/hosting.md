@@ -34,7 +34,7 @@ Where the site stands is the anotoki library's, as on every anotoki site
 up answers 503 `{"code": "not_set_up"}` to every other address (the pages
 show the library's "This site is not set up yet", pointing at `/setup.php`)
 instead of being set up by a passing request; once its setup page has
-finished (`backend/storage/installed.lock`) nobody is pointed there again —
+finished (`storage/installed.lock`) nobody is pointed there again —
 settings lost after that read "The site is not available right now". With
 its settings but its database missing or out of reach, the site is
 `unavailable`: the pages say it is not available right now and ask again
@@ -66,7 +66,7 @@ The raw copy of every table is taken once per upload, before the first
 Apply (or the setup page's Save, or `manage.php --sync`): a migration that
 fails rolls back whole, the Apply stops there and tells its `ADMIN` why, and
 the next Apply tries it again without another full copy.
-`backend/storage/backups/.before-migration-raw.json` notes the stamp and the
+`storage/backups/.before-migration-raw.json` notes the stamp and the
 pending migrations the last copy was taken with (`.before-migration.json`
 until 2026-10-11: that name is the library's note now, for its own backup
 before an update, taken right after the raw copy; on a site that has the
@@ -77,7 +77,7 @@ migration waits), and the copy is still what the tables hold. Another upload
 — the fixed file, or the failing one taken out and put back after the site
 was used — changes the stamp and gets a copy of its own.
 
-`public/.htaccess` (its source is `backend/public/.htaccess`):
+`frontend/.htaccess` (anotoki-deploy writes it, from `backend/composer.json`'s `extra["anotoki-deploy"]`):
 
 - `CGIPassAuth On` (Apache 2.4.13+, inside `<IfModule mod_version.c>`) and
   `SetEnvIf Authorization …`: PHP under CGI or FastCGI does not see the
@@ -101,71 +101,83 @@ in `.htaccess` would answer 500 for the whole site.
 On a hosted site, errors reach the browser as a sentence only (the error log
 has the details: a database error names the user and the host; the
 admin panel's **Errors** page shows the library's own, redacted log of what
-went wrong, in `backend/storage/logs/` - *Logs and backups on the site*,
+went wrong, in `storage/logs/` - *Logs and backups on the site*,
 below) - except why
 the Migrations page's Apply stopped, which its ADMIN reads in PostgreSQL's
 own words, as on the IAM's page (and the log has it too) - and
 `/api/health` leaves out the database's name, the backup folder and the owner.
 
-## The build — `backend/tools/build-dist.php`
+## The release — anotoki-deploy
 
-`php backend/tools/build-dist.php` (on this computer, from the top folder:
-`node backend/tools/php.js backend/tools/build-dist.php`) assembles exactly what to upload, in
-`dist/japanese-academy/` (gitignored). It builds the frontend first when its
-sources changed (`frontend/scripts/ensure-build.mjs`; `--frontend=DIR` takes
-an app built elsewhere instead). It refuses to build (or list) while any
-migration but 001 lacks its last line `-- end of NNN`, and names it: such a
-draft would wait on the site, and the study content with it.
-`--allow-draft=NAMES` is for the tests alone (`test_build()` in
-`backend/tests/lib.php` passes the drafts the tests apply).
+A release is built and put up by **anotoki-deploy**, the anotoki library's deploy
+tool - the same for every site; this site's facts are in `backend/composer.json`,
+`extra["anotoki-deploy"]` (anotoki-lib's `deploy/README.md` has every setting).
+From `frontend/`: `npx anotoki-deploy build` (until `@anotoki/deploy` is a dev
+dependency of `frontend/` - from anotoki-lib 0.9.0's release -
+`node ../../anotoki-lib/deploy/cli.mjs` stands for `npx anotoki-deploy`). It runs
+`backend/tools/check-drafts.php` first - it refuses while any migration but 001
+lacks its last line `-- end of NNN`, and names it: such a draft would wait on the
+site, and the study content with it (`ACADEMY_ALLOW_DRAFT=NAMES` is for the tests
+alone: `test_build()` in `backend/tests/lib.php`) -, then the frontend
+(`frontend/scripts/ensure-build.mjs`: built when its sources changed;
+`--frontend DIR` takes an app built elsewhere instead), and assembles the release
+in `dist/` (gitignored):
 
 | Folder | What | On the host |
 |---|---|---|
-| `public/` | the built Angular app, `index.php` (the front controller) and `.htaccess` | **the document root**: point the (sub)domain here |
-| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`; `data/`: what the study content is built from (the `backend/data/` files of `CONTENT_FILES`) and the clips `data/audio/*.mp3`; and an empty `storage/` (writable by PHP) for the daily copies and the library's backups (`storage/backups/`), the error log (`storage/logs/`), the IAM's keys and the library's stamps (`storage/cache/`), the library's key (`storage/anotoki-lib.key`) and the setup page's lock | beside `public/` |
+| `frontend/` | the built Angular app, `index.php` (the front controller: it requires `backend/api/release.php`, which hands the request to `api/front.php`) and `.htaccess` | a release: replaced whole |
+| `backend/` | `api/`, `src/`, `migrations/`, `vendor/`, `config/config.php` (no `*.local.php`), `setup.php`, `composer.json`/`.lock`, `data/`: what the study content is built from (the `backend/data/` files of `CONTENT_FILES`), and `release.json` | a release: replaced whole |
 
-Nothing else goes up beside `public/` (until 2026-10-04 the upload had
-`data/` and `backups/` there too; see *Updates* for the one-time move on a
-site that has them). `backend/` and `backend/storage/` each get a `.htaccess`
-that refuses every request, in case the document root ends up above `public/`
-after all. Left out: the tests and tools, `backend/router.php`,
-`backend/manage.php` and `backend/translations.php` (they need a shell or a
-computer; a site's words are reworded on its Translations page),
-`backend/public/` (it became `public/`), the frontend's sources, `docs/`,
-`books/`, backups, `.env`, every `*.local.php`, `node_modules/`, `.claude/`,
-`backend/data/source/`, `grammar-index.json`. The build checks the result
-against that list again (anything outside `public/` and `backend/` is
-refused), checks that what a site needs is there, and parses every PHP file.
+Beside them on the host, never in a release and never written by one: `config/`
+(the `*.local.php` the setup page writes), `storage/` (writable by PHP: the daily
+copies and the library's backups in `storage/backups/`, the error log in
+`storage/logs/`, the IAM's keys and the library's stamps in `storage/cache/`, the
+library's key `storage/anotoki-lib.key`, the setup page's lock) and
+`content/audio/` (the clips). The PHP finds them with one rule (`STATE`,
+`backend/src/bootstrap.php`): with `release.json` in `backend/`, the state is the
+folder above it; in a checkout, `backend/` itself. Never in a release: the tests
+and tools, `backend/router.php`, `backend/manage.php` and `backend/translations.php`
+(they need a shell or a computer; a site's words are reworded on its Translations
+page), the frontend's sources, `docs/`, `books/`, backups, `.env`, every
+`*.local.php`, `backend/data/source/`, `grammar-index.json`, the clips.
 
-- `--no-audio` leaves out `backend/data/audio/`: for an update when no clip changed
-  (an upload never deletes the clips already on the host).
-- `--list` prints what would go in, copying nothing.
-- `--out=DIR` builds elsewhere; DIR is emptied only if it is empty or an
-  earlier build.
+- `npx anotoki-deploy deploy --backups <folder> [--go]`: the live `frontend/` and
+  `backend/` copied into `<folder>`, the release up beside them, checked file by
+  file, swapped in by renames (the one before kept as `.old`:
+  `npx anotoki-deploy rollback --go`), and the site checked. Without `--go` it only
+  says what it would do.
+- `npx anotoki-deploy content audio [--go]`: the clips that are missing or differ go
+  up into `content/audio/`; nothing there is ever deleted. Before the release whose
+  `audio.json` names them.
+- `npx anotoki-deploy status`: what is on the host.
+
+The SFTP login is never in a repository: `ANOTOKI_DEPLOY_SECRETS` names a
+`secrets.json`, with the host's pinned key in `hostkey.txt` beside it.
 
 ## The first install
 
 1. In the hosting panel, make a PostgreSQL database and a user that owns it.
-2. Build (above), then upload `dist/japanese-academy/` into the site's
-   folder, and set the site's document root to its `public/`. Where the panel
-   cannot do that - the owner's hosting serves each subdomain from its own
-   folder, `sub/<name>/`, as it is - put this `.htaccess` at the top of the
-   upload instead, beside `public/`:
+2. Build (above); `npx anotoki-deploy deploy --backups <folder> --go` and
+   `npx anotoki-deploy content audio --go` (the clips); then, once,
+   `npx anotoki-deploy switch --go`: the site's folder gets its `.htaccess` - the
+   switch, written once and never part of a release:
 
    ```apache
    RewriteEngine On
-   RewriteCond %{REQUEST_URI} !^/public/
-   RewriteRule ^(.*)$ public/$1 [L]
+   RewriteCond %{REQUEST_URI} !^/frontend/
+   RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+   RewriteRule ^(.*)$ frontend/$1 [L]
    ```
 
-   Every request is then served from `public/`, whose own `.htaccess` routes
-   it, and the backend's addresses stay `/api/...`: `front.php` reads the
-   address the browser asked for, which a rewrite leaves alone. `backend/`
-   refuses requests by itself as well. The build
-   leaves this file out and an update never deletes it, so it is written once,
-   by hand; japanese.anotoki.eu runs this way.
+   Every request is then served from `frontend/`, whose own `.htaccess` routes
+   it, and the backend's addresses stay `/api/...`: `front.php` reads the address
+   the browser asked for, which a rewrite leaves alone. `backend/`, `config/`,
+   `storage/` and `content/` are never reached. (The owner's hosting serves each
+   subdomain from its own folder, `sub/<name>/`, as it is; japanese.anotoki.eu ran
+   the same switch into `public/` from 2026-10-04 to 2026-10-19.)
 3. Open `https://japanese.anotoki.eu/setup.php`. It writes a random token into
-   `backend/config/setup-token.local.php`; download that file by FTP and paste
+   `config/setup-token.local.php` (it makes `config/` and `storage/` if they are
+   missing); download that file by SFTP and paste
    the token into the form. (Nobody without FTP access to the server can read
    it: that is how the setup page knows it is the owner. The page never shows
    it.) Pasted, the token is checked at once (its **Check** button, pressed by
@@ -187,15 +199,15 @@ refused), checks that what a site needs is there, and parses every PHP file.
    role at the IAM), no time zone, no backup (each person brings their own
    data in the app).
 5. **Save**. It connects (and makes the database only if it is missing and
-   the user may), writes `backend/config/database.local.php` and
+   the user may), writes `config/database.local.php` and
    `auth.local.php` (the issuer, the client id; readable by their owner
    only), applies the migrations, builds the study content (a few seconds),
    checks that the server can fetch the IAM's keys, writes
-   `backend/storage/installed.lock`, and deletes the token file and itself.
+   `storage/installed.lock`, and deletes the token file and itself.
 
 With the lock there, the setup page refuses to run again (and removes itself
 if it was uploaded again). To run it on purpose, delete
-`backend/storage/installed.lock` and upload `backend/setup.php` again; fill in
+`storage/installed.lock` and deploy again (each release brings `backend/setup.php`); fill in
 the settings again (it shows none of the saved ones; the password stays as
 saved when left empty). Run again on a site in use, it
 takes the same raw copy of every table as the Migrations page's Apply does
@@ -206,15 +218,16 @@ always gets this way, even under PHP's built-in server.
 
 ## Updates
 
-Build (or with `--no-audio`) and upload over the old files. The
-upload never touches `backend/config/*.local.php` or `backend/storage/` on
-the host, which the build doesn't contain (but its `.htaccess`). An update
+Build and `npx anotoki-deploy deploy --backups <folder> --go` (new clips first:
+`content audio --go`). A release never touches `config/`, `storage/` or
+`content/` on the host, and nothing of the release before stays (`rollback --go`
+brings it back, clean until an Apply). An update
 with a new migration: once it is all there, the site says it is being
 updated (503 `update_pending`; the anotoki library's page, with a quiet
 **Sign in**, and for an `ADMIN` "A database update is waiting" and the way
 on) until an `ADMIN` signs in, opens the admin panel's **Migrations** page and presses
 **Apply pending** — after a raw copy of every table in
-`backend/storage/backups/`, each file rolled back whole if it fails, which
+`storage/backups/`, each file rolled back whole if it fails, which
 stops the run there and names it. The first request after that (or after an
 update without one) rebuilds the study content if `backend/data/` or its
 builders changed. `backend/setup.php` may be left out of an update;
@@ -261,7 +274,7 @@ upload:
   you like;
 - the browser keeps everybody signed in across it (the library reads the
   sessions where the IAM's SDK kept them);
-- the old raw copy's note, `backend/storage/backups/.before-migration.json`,
+- the old raw copy's note, `storage/backups/.before-migration.json`,
   becomes the library's note at the first Apply (*How the same app runs
   under Apache*, above); every backup and log already there stays where it
   is.
@@ -297,7 +310,7 @@ after the upload:
 **The update that brings anotoki-lib PHP 0.5.2** (Angular still 0.5.0; the
 owner's decision of 2026-10-13) brings no migration: the origin secret
 (*Visitors on the site*, *The origin secret*, below). First the Cloudflare
-zone's Transform Rule, then `backend/config/cloudflare.local.php` on the
+zone's Transform Rule, then `config/cloudflare.local.php` on the
 site by FTP; without the file the site works as before.
 
 **The update that brings anotoki-lib 0.6.2** (both halves; 2026-10-18)
@@ -389,7 +402,7 @@ learner, so the two may go live in either order. The site reads the switch
 from the IAM (`GET {issuer}/api/public/applications/japanese-academy`, an
 outbound HTTPS request like the one for the keys, at most once a minute,
 waiting at most 2 s; [sign-in.md](sign-in.md), *Is sign-in required here?*)
-and keeps the answer in `backend/storage/cache/`, which must stay writable by
+and keeps the answer in `storage/cache/`, which must stay writable by
 PHP (otherwise it asks on every request and says so in the error log). Before
 IAM 010 that address is a 404, which means "required": nothing changes. And
 while the database cannot keep visitors (migration 007 not applied yet: it
@@ -434,7 +447,7 @@ which means required).
 Once migration 007 is applied and the owner turns "Sign-in required" off for
 Japanese Academy in the IAM, people may study without signing in
 ([sign-in.md](sign-in.md), *Visitors*). Nothing to set up for it: every
-number has a default. To change one, put a `backend/config/app.local.php` on
+number has a default. To change one, put a `config/app.local.php` on
 the site by FTP (optional, gitignored, never written by the setup page; a
 copy from before 2026-10-04 may still hold an old `'timezone'`, which is
 ignored):
@@ -503,7 +516,7 @@ characters or more:
 - **Cloudflare**: Rules → Transform Rules → Modify Request Header → "Set
   static" `X-Anotoki-Origin` to the secret, for every request of the zone
   (one rule serves every anotoki site).
-- **The site**: `backend/config/cloudflare.local.php`, put there by FTP
+- **The site**: `config/cloudflare.local.php`, put there by FTP
   (optional, gitignored, never asked for, written or shown by the setup page, never in
   the build) - the same file in every anotoki site:
 
@@ -531,14 +544,14 @@ secret, and "no secret" would believe every Cloudflare customer's Worker)
 - stands for a secret no request carries, so every request from
 Cloudflare's ranges counts as the edge it came from until it is mended; the
 site keeps running, and it is never a reason for "not set up". PHP's error
-log says so at most once a day (`[config] backend/config/cloudflare.local.php
+log says so at most once a day (`[config] config/cloudflare.local.php
 does not start with <?php (…): no request carries its secret …`, `prints N
 bytes of its own (…)`, `cannot be read (…)` or `holds no origin_secret (…)`:
 its fault, its byte count or its error's kind and line, never its contents). The
 secret is never shown or logged; keep a copy off the server, with the other
 settings.
 
-`backend/storage/cache/` holds the visitors' address secret
+`storage/cache/` holds the visitors' address secret
 (`visitor-address.key`, made the first time; losing it only restarts the
 hour's counts) and the sweep's stamp: it must stay writable by PHP, as for
 the IAM's keys. Under Apache an `X-Visitor-Key` header reaches PHP as it is
@@ -602,7 +615,7 @@ are no longer read: every backup there is is version 2.
 
 ## Backups on the site
 
-The same files as on this computer, in the site's `backend/storage/backups/`: the day's copy
+The same files as on this computer, in the site's `storage/backups/`: the day's copy
 (of everybody's data, taken at the first page load of a UTC day; the last 14
 kept; every date and time in a backup's name is UTC), one of a person's data
 alone before their reset, before they bring a file back and before an
@@ -630,7 +643,7 @@ Since anotoki-lib 0.4.0 (2026-10-11) the site also keeps the library's admin
 tools, the same on every anotoki site and the site's `ADMIN`'s alone
 ([architecture.md](architecture.md), *The admin tools*):
 
-- **The error log**: `backend/storage/logs/errors-<UTC day>.jsonl`, one line
+- **The error log**: `storage/logs/errors-<UTC day>.jsonl`, one line
   for each thing that went wrong (a 5xx - but a 503 that only says a state:
   being updated, not set up -, a 404, 405, 413, 415 or 429 answered, PHP's
   warnings and fatal errors), redacted - never a header, a body, a query
@@ -651,7 +664,7 @@ tools, the same on every anotoki site and the site's `ADMIN`'s alone
   **Feedback** in the footer of every page; read on **Feedback**. No mail is
   sent: the admin panel's bar counts the new ones beside the link.
 - **The library's backups of the whole database**:
-  `backend/storage/backups/<id>.anotoki-backup` with its `.json` beside, beside
+  `storage/backups/<id>.anotoki-backup` with its `.json` beside, beside
   the app's own copies above: one a day (asked for by the day's first page
   load, made after its answer), one before every update (the Apply's, right
   after the app's raw copy), one before a restore, and the `ADMIN`'s own
@@ -674,7 +687,7 @@ tools, the same on every anotoki site and the site's `ADMIN`'s alone
   reached, the page says so, and the next request tries again).
   **Only a backup made by this site is restored on its page** (anotoki-lib
   0.5.0): each carries the installation's seal - an HMAC of its id and its
-  SHA-256 under a key derived from `backend/storage/anotoki-lib.key` - and a
+  SHA-256 under a key derived from `storage/anotoki-lib.key` - and a
   restore reads the very bytes it checks. One without the seal - **every
   plain backup made before 0.5.0**, a file copied in from elsewhere or
   changed since - is listed "not made here" and refused (`archive_invalid`);
@@ -719,7 +732,7 @@ library's `anotoki_translations/003_sign_in_words.sql` and
 `004_feedback_words.sql`, and `anotoki_people/001_people.sql` - with the raw
 copy and the library's backup before it - on the owner's own computer as on
 the site, once 010 is final (since 2026-10-11, the owner's go). While a
-migration of this site's own is a draft, `build-dist.php` refuses to build
+migration of this site's own is a draft, the build refuses (`backend/tools/check-drafts.php`) to build
 the upload, and a server of anybody's waits with it for every one of the
 library's files too, the `anotoki_admin` ones that run before it included
 (`db_migration_ready()`: while one of this site's own files is a draft, the
@@ -733,9 +746,9 @@ accepts it, and the study pages keep working meanwhile.
 |---|---|
 | 500 for every address right after the upload | the host does not allow `CGIPassAuth` in `.htaccess`: delete that `<IfModule mod_version.c>` block (the `SetEnvIf` line is the fallback) |
 | every API request is 401 while signed in | the `Authorization` header does not reach PHP: the host dropped both `.htaccess` lines |
-| "Sign in again" right after signing in | the server cannot fetch the IAM's keys (outbound HTTPS blocked?), or the issuer or client id in `backend/config/auth.local.php` is not the IAM's |
-| the page says "This site is not set up yet" | the setup page has not run: `backend/config/*.local.php` are missing |
-| the page says "The site is not available right now", and asks again by itself | the settings are there, but the database they name is missing or does not answer (made again in the panel, say: run the setup page again — delete `backend/storage/installed.lock` and upload `backend/setup.php` first); or the site was installed and a settings file is gone since |
+| "Sign in again" right after signing in | the server cannot fetch the IAM's keys (outbound HTTPS blocked?), or the issuer or client id in `config/auth.local.php` is not the IAM's |
+| the page says "This site is not set up yet" | the setup page has not run: `config/*.local.php` are missing |
+| the page says "The site is not available right now", and asks again by itself | the settings are there, but the database they name is missing or does not answer (made again in the panel, say: run the setup page again — delete `storage/installed.lock` and upload `backend/setup.php` first); or the site was installed and a settings file is gone since |
 | the page says "The site is being updated" | a migration waits for an `ADMIN` (a database without tables counts too): sign in as one (the page's quiet **Sign in**), follow **Open Migrations**, and **Apply pending** |
 | Apply says "Stopped at NNN_….sql" | that migration failed and was rolled back whole (the ones before it stay applied); the box under it says why, in PostgreSQL's own words, and the error log has it too (`[upkeep] a migration failed: backend/migrations/NNN_….sql: …`). Upload the fixed file and Apply again; the raw copy is taken again only when the files changed |
 | Apply says another database update is running (409) | another Apply, the setup page, `manage.php` or the content's rebuild after an upload holds the lock (Apply does not wait for it): let that one finish, then Apply again |
@@ -745,7 +758,7 @@ accepts it, and the study pages keep working meanwhile.
 | the People page says not everything it needs is in the database yet | migration 010 or the library's `anotoki_people/001` has not been applied: **Apply pending** on the Migrations page (while a migration of this site's own is a draft, they wait with it) |
 | the People page says the last check of the IAM's deleted accounts stopped | the server could not ask the IAM (outbound HTTPS blocked, the IAM away): it asks again within the hour; **Check now** tries at once |
 | the page shows a key (`home.intro`) instead of words | a key the frontend asks for has no string in this database: `php backend/translations.php --status` on a computer lists them; a migration adds the string |
-| the page says "This site is not set up yet" on a copy that was set up long ago | `backend/config/auth.local.php` was written for the sign-in mode `none`, which is gone (`php backend/manage.php --check` says "sign-in without the IAM is gone"): run the setup page and save |
+| the page says "This site is not set up yet" on a copy that was set up long ago | `config/auth.local.php` was written for the sign-in mode `none`, which is gone (`php backend/manage.php --check` says "sign-in without the IAM is gone"): run the setup page and save |
 | the app shows, `/api/...` answers 404 | `mod_rewrite` is off, or the document root is not `public/` |
 | right after the update of 2026-10 the listening questions are silent and `/audio/...` answers 404 | the clips are still in the old `data/audio/`: move them to `backend/data/audio/` (*Updates*, the one-time move) |
 | a page's address (`/kanji/reviews`) answers 404 on reload | `mod_rewrite` is off: the app's own addresses need the `index.html` rewrite |

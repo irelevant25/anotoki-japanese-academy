@@ -143,13 +143,13 @@ const CLIENT_ADDRESS_DEFAULTS = [
  * says it is not available right now, not that it is not set up (the
  * SiteGate's `installed`, backend/api/app.php).
  */
-const INSTALLED_LOCK = BACKEND . '/storage/installed.lock';
+const INSTALLED_LOCK = STATE . '/storage/installed.lock';
 
 /** The folder the settings are read from. */
 function config_dir(): string
 {
     $dir = getenv('ACADEMY_CONFIG_DIR');
-    return is_string($dir) && $dir !== '' ? rtrim(str_replace('\\', '/', $dir), '/') : str_replace('\\', '/', __DIR__);
+    return is_string($dir) && $dir !== '' ? rtrim(str_replace('\\', '/', $dir), '/') : str_replace('\\', '/', STATE) . '/config';
 }
 
 /** Is this a throwaway database of the tests (academy_test_…, never the template)? */
@@ -169,7 +169,7 @@ function config_is_test_db(string $name): bool
  */
 function storage_dir(): string
 {
-    return getenv('ACADEMY_CONFIG_DIR') ? config_dir() : str_replace('\\', '/', BACKEND) . '/storage';
+    return getenv('ACADEMY_CONFIG_DIR') ? config_dir() : str_replace('\\', '/', STATE) . '/storage';
 }
 
 /**
@@ -268,7 +268,7 @@ function config_read_file(string $which, ?string &$problem = null): ?array
     if ($read['problem'] !== null) {
         $problem = $read['problem'];
         config_said(
-            'backend/config/' .
+            STATE_SHOWN . 'config/' .
                 CONFIG_FILES[$which] .
                 " $problem: " .
                 (in_array($which, CONFIG_REQUIRED, true) ? 'this copy is not set up until it is mended.' : 'its defaults hold until it is mended.'),
@@ -330,7 +330,7 @@ function config_read_cloudflare(): ?array
     $secret = is_array($values) ? $values['origin_secret'] ?? null : null;
     if (!is_string($secret) || trim($secret) === '') {
         config_said(
-            'backend/config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.',
+            STATE_SHOWN . 'config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.',
         );
         return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
@@ -533,10 +533,10 @@ function config_problem(): ?string
     $problems = config_file_problems();
     foreach (CONFIG_REQUIRED as $which) {
         if (isset($problems[$which])) {
-            return 'backend/config/' . CONFIG_FILES[$which] . ' ' . $problems[$which];
+            return STATE_SHOWN . 'config/' . CONFIG_FILES[$which] . ' ' . $problems[$which];
         }
         if (!is_file(config_dir() . '/' . CONFIG_FILES[$which])) {
-            return 'backend/config/' . CONFIG_FILES[$which] . ' is missing';
+            return STATE_SHOWN . 'config/' . CONFIG_FILES[$which] . ' is missing';
         }
     }
     $db = $all['db'];
@@ -581,6 +581,26 @@ function config_write(string $which, array $values, string $by = 'the setup page
 }
 
 /**
+ * A folder of the state (config/, storage/ and its folders), made if it is
+ * missing - the first setup of a site, whose release never brings them. On the
+ * host it gets a deny-all .htaccess of its own, though the site's switch never
+ * sends a request into it (in a checkout nothing is served from backend/).
+ */
+function config_state_folder(string $dir): void
+{
+    if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        throw new RuntimeException('Cannot make the folder ' . $dir . ': the web server may not write there.');
+    }
+    if (STATE !== BACKEND && !is_file($dir . '/.htaccess')) {
+        @file_put_contents(
+            $dir . '/.htaccess',
+            "# Not for the web: only PHP reads these files.\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n" .
+                "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n",
+        );
+    }
+}
+
+/**
  * Writes a PHP file of this folder: the settings, or the setup page's token.
  * Only its owner may read it: it may hold the database password, and a hosted
  * site shares its server with other people's sites. (Both are no-ops on
@@ -589,6 +609,7 @@ function config_write(string $which, array $values, string $by = 'the setup page
  */
 function config_put(string $file, string $php): void
 {
+    config_state_folder(dirname($file));
     $umask = umask(0077);
     try {
         $tmp = $file . '.' . bin2hex(random_bytes(6)) . '.tmp';

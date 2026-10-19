@@ -15,7 +15,7 @@
 declare(strict_types=1);
 
 const AUDIO_INDEX = BACKEND . '/data/audio.json';
-const AUDIO_CLIPS = BACKEND . '/data/audio';
+const AUDIO_CLIPS = STATE === BACKEND ? BACKEND . '/data/audio' : STATE . '/content/audio';
 const CLIP_NAME = '/^[0-9a-f]{16}\.mp3$/D';
 
 /** The first spelling: a phrase put in order, optional parts, notes and punctuation dropped. */

@@ -13,6 +13,35 @@
     "optimize-autoloader": true,
     "sort-packages": true
   },
+  "extra": {
+    "anotoki-deploy": {
+      "site": "japanese-academy",
+      "remote": "/anotoki.eu/sub/japanese",
+      "url": "https://japanese.anotoki.eu",
+      "include": [
+        "api",
+        "src",
+        "migrations",
+        "vendor",
+        "config/config.php",
+        "setup.php",
+        "composer.json",
+        "composer.lock",
+        "data/vocab.json",
+        "data/kanji.json",
+        "data/audio.json",
+        "data/authored-items-part1.php",
+        "data/authored-items-part2.php"
+      ],
+      "routes": ["api", "audio", "report"],
+      "entry": "api/release.php",
+      "before": ["node backend/tools/php.js backend/tools/check-drafts.php"],
+      "frontendBuild": "node scripts/ensure-build.mjs",
+      "headers": { "Referrer-Policy": "no-referrer" },
+      "smoke": ["/api/health"],
+      "content": { "audio": { "from": "backend/data/audio", "to": "content/audio" } }
+    }
+  },
   "scripts": {
     "start": [
       "Composer\\Config::disableProcessTimeout",

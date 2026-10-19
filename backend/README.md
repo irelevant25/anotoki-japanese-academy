@@ -88,7 +88,7 @@ vendor/              Slim and its pieces, and the anotoki library (anotoki/lib) 
 tests/               run.php, lib.php; unit/, api/; tools/ (testdb.php, test-config.php, iam.php - the
                      library's test IAM for the browser suites -, front-controller.php, catalog.php); the
                      stand-in IAM is the library's (vendor/anotoki/lib/backend/testing/)
-tools/               build-data.php, build-audio.php, build-dist.php (the upload), translation_keys.php
+tools/               build-data.php, build-audio.php, check-drafts.php (no release while a migration is a draft), translation_keys.php
                      (the library's key scan of the frontend, and a backup as a file of strings), php.js
                      (finds a PHP 8.2+), pdf/ (the scanned books' page
                      images; its own package.json for sharp)
@@ -105,8 +105,7 @@ php manage.php --check                  # what is waiting (migrations, a content
                                         # offers only what comes before it (exit 1)
 php translations.php --status           # every key the frontend uses has its strings
 php tools/build-data.php                # data/source/*.tsv -> data/*.json
-php tools/build-dist.php [--no-audio]   # the upload -> ../dist/japanese-academy/ (builds the frontend too);
-                                        # refuses while a migration is a draft (--allow-draft=NAMES: tests only)
+# the release: cd ../frontend && npx anotoki-deploy build / deploy (../docs/kb/hosting.md, academy-deploy)
 ```
 
 From the repository's top folder, where an older `php` comes first on PATH

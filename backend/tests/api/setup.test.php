@@ -94,7 +94,7 @@ test('from this computer: no token; the database and the IAM, and nothing else',
     assert_same(200, $page['status']);
     assert_match('/Set up Japanese Academy/', $page['raw']);
     assert_no_match('/name="token"/', $page['raw'], 'no token on this computer');
-    assert_false(is_file(site()['dir'] . '/backend/config/setup-token.local.php'), 'nor a token file');
+    assert_false(is_file(site()['dir'] . '/config/setup-token.local.php'), 'nor a token file');
     assert_match('/HttpOnly/i', implode(' ', $page['headers']['set-cookie'] ?? []), 'the nonce, in a cookie scripts cannot read');
     assert_match('/SameSite=Strict/i', implode(' ', $page['headers']['set-cookie'] ?? []), 'which no other site’s page sends');
     preg_match_all('/<input[^>]* name="([a-z_]+)"/', $page['raw'], $m);
@@ -129,12 +129,12 @@ test('a form that did not come from the page itself is refused', function (): vo
     $r = test_form(site()['base'], '/setup.php', $listed + ['nonce[]' => $GLOBALS['nonce']], [], jar());
     assert_same(200, $r['status'], 'a nonce sent as a list: no 500');
     assert_match('/This form did not come from this page/', $r['raw'], 'and refused');
-    assert_same([], glob(site()['dir'] . '/backend/config/*.local.php') ?: [], 'nothing written');
+    assert_same([], glob(site()['dir'] . '/config/*.local.php') ?: [], 'nothing written');
     // A request that names another host is a website's: the token again.
     $page = test_page(site()['base'], '/setup.php', ['Host: academy.example.test']);
     assert_match('/name="token"/', $page['raw']);
-    assert_true(is_file(site()['dir'] . '/backend/config/setup-token.local.php'));
-    unlink(site()['dir'] . '/backend/config/setup-token.local.php');
+    assert_true(is_file(site()['dir'] . '/config/setup-token.local.php'));
+    unlink(site()['dir'] . '/config/setup-token.local.php');
 });
 
 test('Test connection, in the words every anotoki setup page uses: empty, updates to apply, a missing database, a wrong password, nothing there', function (): void {
@@ -203,7 +203,7 @@ test('Test connection for the IAM, against a stand-in', function (): void {
 test('Save: the database and the IAM in the settings, a raw copy, the migrations, the content, and the owner’s rows as they were, user 1’s', function (): void {
     $r = test_form(site()['base'], '/setup.php', local_form($GLOBALS['nonce']), [], jar());
     assert_match('/<h1>Saved<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_match('/Backup before the update: backend\/storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
+    assert_match('/Backup before the update: storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw'], 'a raw copy of every table first');
     $after001 = array_values(array_diff(array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []), ['001_init.sql']));
     sort($after001);
     assert_same('002_users.sql', $after001[0]);
@@ -214,9 +214,9 @@ test('Save: the database and the IAM in the settings, a raw copy, the migrations
     assert_match('/sign in with your anotoki account/', $r['raw']);
     assert_match('/This page stays/', $r['raw']);
     assert_true(is_file(site()['dir'] . '/backend/setup.php'), 'on this computer the setup page stays');
-    assert_false(is_file(site()['dir'] . '/backend/storage/installed.lock'), 'and locks nothing');
+    assert_false(is_file(site()['dir'] . '/storage/installed.lock'), 'and locks nothing');
 
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], require "$config/auth.local.php", 'the IAM alone');
     assert_same(site()['password'], (require "$config/database.local.php")['password']);
     assert_same(['auth.local.php', 'database.local.php'], array_map('basename', glob("$config/*.local.php") ?: []), 'nothing else: no app.local.php');
@@ -236,7 +236,7 @@ test('Save: the database and the IAM in the settings, a raw copy, the migrations
 });
 
 test('an earlier version’s settings: the sign-in mode, the owner id and the time zone are ignored; saving again writes the IAM alone', function (): void {
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     $old = "<?php\n// Written by the setup page.\n\nreturn " . var_export(['mode' => 'iam', 'issuer' => 'https://iam.test', 'client_id' => 'japanese-academy', 'local_user_id' => 1], true) . ";\n";
     file_put_contents("$config/auth.local.php", $old);
     file_put_contents("$config/app.local.php", "<?php\n// Written by the setup page.\n\nreturn ['timezone' => 'Europe/Bratislava'];\n");
@@ -281,11 +281,11 @@ test('run again, asked as a website is: the token, and nothing of what is saved'
     foreach ([db_name(), site()['role'], 'iam.test', '(saved', 'placeholder="unchanged"'] as $set) {
         assert_false(str_contains($website['raw'], $set), "$set: not to whoever opens the page");
     }
-    unlink(site()['dir'] . '/backend/config/setup-token.local.php');
+    unlink(site()['dir'] . '/config/setup-token.local.php');
 });
 
 test('a database.local.php saved by hand with a byte-order mark and without its <?php line - its password in it - prints nothing to anybody: not where the site stands, not an address of the API, not the pages, not the setup page; nor one with a byte-order mark or a blank line before <?php declare(strict_types=1), which PHP cannot even compile: the copy is not set up until it is mended, said by the file\'s fault alone', function (): void {
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     $file = "$config/database.local.php";
     $kept = (string) file_get_contents($file);
     $password = site()['password'];
@@ -321,7 +321,7 @@ test('a database.local.php saved by hand with a byte-order mark and without its 
             $api = call(site()['base'], 'GET', '/api/kanji/summary');
             assert_same([503, 'not_set_up', '/setup.php'], [$api['status'], $api['body']['code'] ?? null, $api['body']['setup'] ?? null], "$case: the anotoki library's answer, with the way to the setup page");
             $page = test_page(site()['base'], '/setup.php', [], jar());
-            assert_match('/backend\/config\/database\.local\.php does not start with &lt;\?php .*Save writes it again/', $page['raw'], "$case: this computer's setup page names the file and its fault, never its text");
+            assert_match('/config\/database\.local\.php does not start with &lt;\?php .*Save writes it again/', $page['raw'], "$case: this computer's setup page names the file and its fault, never its text");
             assert_no_match('/This copy is set up already|\(saved: leave empty/', $page['raw'], "$case: and offers nothing of it as saved: its password neither");
         } finally {
             file_put_contents($file, $kept);
@@ -329,7 +329,7 @@ test('a database.local.php saved by hand with a byte-order mark and without its 
         assert_same(200, call(site()['base'], 'GET', '/api/kanji/summary')['status'], "$case: mended, set up again");
     }
     $log = (string) file_get_contents(site()['log']);
-    assert_match('/\[config\] backend\/config\/database\.local\.php does not start with <\?php .*: this copy is not set up until it is mended\./', $log, 'said in PHP\'s log');
+    assert_match('/\[config\] config\/database\.local\.php does not start with <\?php .*: this copy is not set up until it is mended\./', $log, 'said in PHP\'s log');
     assert_same(1, substr_count($log, "database.local.php $said"), 'once, for all those requests (once a day)');
     assert_false(str_contains($log, $password), 'never the password');
     assert_false(str_contains($log, 'strict_types'), 'never compiled: no fatal error in the log either');
@@ -341,7 +341,7 @@ test('a database.local.php saved by hand with a byte-order mark and without its 
     try {
         $r = call(site()['base'], 'GET', '/api/kanji/summary');
         assert_same([503, 'not_set_up'], [$r['status'], $r['body']['code'] ?? null], 'auth.local.php PHP cannot parse: not set up');
-        assert_match('/\[config\] backend\/config\/auth\.local\.php cannot be read \(ParseError on line 2\): this copy is not set up until it is mended\./', (string) file_get_contents(site()['log']));
+        assert_match('/\[config\] config\/auth\.local\.php cannot be read \(ParseError on line 2\): this copy is not set up until it is mended\./', (string) file_get_contents(site()['log']));
     } finally {
         file_put_contents("$config/auth.local.php", $original);
     }
@@ -351,7 +351,7 @@ test('a database.local.php saved by hand with a byte-order mark and without its 
         $r = call(site()['base'], 'GET', '/api/auth/config', null, no_token());
         assert_same([200, 30], [$r['status'], $r['body']['visitor_keep_days'] ?? null], 'app.local.php that does not start with <?php: its defaults hold, the copy set up (30 days, not its 7)');
         assert_false(str_starts_with($r['raw'], "\xEF\xBB\xBF"), 'and nothing of it printed');
-        assert_match('/\[config\] backend\/config\/app\.local\.php does not start with <\?php .*: its defaults hold until it is mended\./', (string) file_get_contents(site()['log']));
+        assert_match('/\[config\] config\/app\.local\.php does not start with <\?php .*: its defaults hold until it is mended\./', (string) file_get_contents(site()['log']));
     } finally {
         if ($appKept === null) {
             unlink("$config/app.local.php");

@@ -1,13 +1,24 @@
 ---
 name: academy-deploy
-description: Build and ship Japanese Academy as a website on the owner's FTP-only hosting (Apache, PHP 8, PostgreSQL, no shell or cron). Use for "build the upload", "deploy", "put it online", "update the website", "run the setup page on the site", "bring my data to the site", or anything about backend/public/ (index.php, .htaccess), backend/setup.php or backend/tools/build-dist.php.
+description: Build and ship Japanese Academy as a website on the owner's FTP-only hosting (Apache, PHP 8, PostgreSQL, no shell or cron). Use for "build the upload", "deploy", "put it online", "update the website", "run the setup page on the site", "bring my data to the site", roll a release back, upload the audio clips, or anything about the release (anotoki-deploy, composer.json's extra["anotoki-deploy"]), backend/api/release.php, backend/setup.php or backend/tools/check-drafts.php.
 ---
 
 # Shipping the website
 
 The whole map is in `docs/kb/hosting.md`; sign-in in `docs/kb/sign-in.md`.
-You can't upload anything yourself: the owner uploads by FTP/SFTP. Your part
-is the build, the checks, and telling the owner exactly what to do.
+A release is built and put up by **anotoki-deploy** (the anotoki library's
+deploy tool, the same for every site; this site's facts are in
+`backend/composer.json`, `extra["anotoki-deploy"]`). Upload only with the
+owner's go-ahead and their SFTP login for the session (`ANOTOKI_DEPLOY_SECRETS`
+names the `secrets.json` that holds it, outside every repository, with the
+pinned `hostkey.txt` beside it) - or tell the owner exactly what to run.
+
+The site's folder on the host (`sub/japanese/`): `frontend/` (the built app,
+`index.php`, `.htaccess`) and `backend/` (the code, the study content's
+`data/`, `release.json`) - a release, each replaced whole - beside `config/`
+(the `*.local.php` settings), `storage/` (backups, logs, the library's key, the
+lock) and `content/audio/` (the clips), which no release writes, under the
+switch: the folder's `.htaccess`, which sends every request into `frontend/`.
 
 ## 1. Build and check
 
@@ -16,36 +27,33 @@ finds a PHP 8.2+ - the host needs 8.2 too, since the anotoki library came in
 on 2026-10-07):
 
 ```bash
-node backend/tools/php.js backend/tests/run.php     # the site test builds and sets up a copy of the upload
+node backend/tools/php.js backend/tests/run.php     # the site test builds a release and sets a copy of it up
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js   # the setup page in a browser, as a website's too
-node backend/tools/php.js backend/tools/build-dist.php              # → dist/japanese-academy/ (builds the frontend first when needed)
-node backend/tools/php.js backend/tools/build-dist.php --no-audio   # an update when no clip changed
-node backend/tools/php.js backend/tools/build-dist.php --list       # only what would go in, as JSON
-# (all three refuse, naming the file, while a migration is a draft: no "-- end of NNN" line yet;
-#  --allow-draft=NAMES is for the tests alone - test_build() in backend/tests/lib.php)
+cd frontend && npx anotoki-deploy build              # backend/tools/check-drafts.php, the frontend (ensure-build),
+                                                     # then the release -> ../dist/frontend/ and ../dist/backend/
 ```
 
-The build refuses to empty a folder that isn't an earlier build, leaves out
-everything in `DIST_NEVER` (anything beside `public/` and `backend/`, tests,
-tools, `backend/data/source/`, backups, `.env`, every `*.local.php`,
-`router.php`, `manage.php` and `translations.php`), checks that what a site
-needs is there, and parses every PHP file. Look at its last lines: the size
-and the upload map.
+(Until `@anotoki/deploy` is a dev dependency of `frontend/` - from anotoki-lib
+0.9.0's release - `node ../../anotoki-lib/deploy/cli.mjs` stands for
+`npx anotoki-deploy`.) The build refuses, naming the file, while a migration is a
+draft (no "-- end of NNN" line yet; `ACADEMY_ALLOW_DRAFT=NAMES` is for the tests
+alone - test_build() in backend/tests/lib.php). A release holds `backend/`'s
+`include` list (composer.json) and never a `*.local.php`, tests, tools,
+`backend/data/source/`, the clips, `router.php`, `manage.php` or
+`translations.php`. The clips are content beside the release:
+`npx anotoki-deploy content audio [--go]` adds what is missing, and never deletes.
 
 ## 2. What the owner does, the first time
 
 Tell them, in these words or plainer:
 
 1. In the hosting panel: make a PostgreSQL database and a user that owns it,
-   and point the site (e.g. `japanese.anotoki.eu`) at a folder, with the
-   document root at that folder's `public/`. Where the panel cannot (their
-   hosting serves a subdomain from `sub/<name>/` itself), the top-level
-   `.htaccess` in docs/kb/hosting.md, *The first install*, does the same.
-2. Upload everything in `dist/japanese-academy/` into that folder
-   (`public/` and `backend/`, which holds the study content in `data/` and an
-   empty `storage/` for the backups).
+   and the site (e.g. `japanese.anotoki.eu`), served from its own folder.
+2. `npx anotoki-deploy deploy --backups <folder> --go`, `npx anotoki-deploy
+   content audio --go` (the clips), then `npx anotoki-deploy switch --go` once:
+   the folder's `.htaccess` becomes the switch into `frontend/`.
 3. Open `https://japanese.anotoki.eu/setup.php`. Download
-   `backend/config/setup-token.local.php` by FTP and paste the token from it:
+   `config/setup-token.local.php` by SFTP and paste the token from it:
    the page checks it at once. It never shows what is saved, before the token
    or after.
 4. Fill in the database (`anotoki_japanese` and 5432 are filled in) and press
@@ -82,19 +90,31 @@ backups on the site*).
 
 ## 4. Updates
 
-Build (or with `--no-audio`), and the owner uploads it over the old
-files. Nothing on the host is lost: the build has no `backend/config/*.local.php`,
-and `backend/storage/` holds only its `.htaccess`. A new migration then
-waits for the owner (an `ADMIN`): until they press **Apply pending** on the
-admin panel's Migrations page (`/admin/migrations`; a raw copy in
-`backend/storage/backups/` first), the pages show the anotoki library's
-"The site is being updated" (with a quiet **Sign in**, which is how a
-signed-out `ADMIN` gets in), and an `ADMIN` reads "A database update is
-waiting" with the way to the Migrations page. Tell them so. The first
-request after it rebuilds the study content if it changed.
-`backend/setup.php` can be left out;
-uploaded, it only removes itself. Mention that a paper started just before
-can't be submitted after a content change.
+`npx anotoki-deploy deploy --backups <folder> --go`: the live `frontend/` and
+`backend/` copied home, the release up beside them, checked, swapped in, the
+site checked; `npx anotoki-deploy rollback --go` brings the release before back
+(clean only until an Apply). New clips first: `npx anotoki-deploy content audio
+--go` before the release whose `audio.json` names them. Nothing on the host is
+lost: `config/`, `storage/` and `content/` are never in a release. A new
+migration then waits for the owner (an `ADMIN`): until they press **Apply
+pending** on the admin panel's Migrations page (`/admin/migrations`; a raw copy
+in `storage/backups/` first), the pages show the anotoki library's "The site is
+being updated" (with a quiet **Sign in**, which is how a signed-out `ADMIN` gets
+in), and an `ADMIN` reads "A database update is waiting" with the way to the
+Migrations page. Tell them so. The first request after it rebuilds the study
+content if it changed. Each release brings `backend/setup.php`; opened on an
+installed site it only removes itself. Mention that a paper started just
+before can't be submitted after a content change.
+
+**The move to the release layout (2026-10-19), once.** Until then the site
+ran `public/` and `backend/` with the state inside `backend/`. Under a short
+maintenance switch, rename on the host: `backend/storage` → `storage` (it
+carries `anotoki-lib.key`, the backups' seal: move it, never recreate it),
+`backend/config/*.local.php` → `config/`, `backend/data/audio` →
+`content/audio`; then `deploy --go` (the old `backend/` becomes
+`backend.old/`) and `switch --go` (the switch into `frontend/` instead of
+`public/`, the one before kept as `.htaccess.flat`). The old `public/` is
+deleted once the site runs well.
 
 **The first update after 2026-10-04 (the folders move).** A site set up
 before has `data/` and `backups/` beside `public/` and `backend/`; this
@@ -137,7 +157,7 @@ newest migration is a draft (008, 009 and 010 are final since 2026-10-11:
 008 and 009 go up together, 010 with the library's files of anotoki-lib
 0.4; 011 is final since 2026-10-18 and goes up with the library's files of
 0.6): the site would wait on it, and its study content with it —
-`build-dist.php` refuses to build then, and names it. One that fails on Apply is rolled back
+the build refuses then, and names it (`backend/tools/check-drafts.php`). One that fails on Apply is rolled back
 whole and named ("Stopped at …", and why in PostgreSQL's own words under it;
 the host's error log has it too), the ones
 before it stay applied, and the site keeps waiting until a fixed file is

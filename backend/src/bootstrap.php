@@ -22,8 +22,18 @@ if (PHP_VERSION_ID < 80200) {
 /** The repository — on a hosted site, the site's folder, which holds public/ and backend/. */
 define('ROOT', dirname(__DIR__, 2));
 
-/** The backend: its code, settings, migrations, the study content (data/) and storage (the backups among it). */
+/** The backend: its code, migrations and the study content (data/) - and, in a checkout, its settings and storage. */
 define('BACKEND', dirname(__DIR__));
+
+/**
+ * The folder the site's state is in - config/ (the settings) and storage/ (the backups among it). On the host a
+ * release's backend/ carries release.json (anotoki-deploy) and the state is beside it, in the site's folder, never
+ * part of an upload - and the audio clips are there too (content/audio/); in a checkout it is backend/ itself.
+ */
+define('STATE', is_file(BACKEND . '/release.json') ? dirname(BACKEND) : BACKEND);
+
+/** How the state's folders are named to the owner: backend/config/ in a checkout, config/ on the host. */
+define('STATE_SHOWN', STATE === BACKEND ? 'backend/' : '');
 
 /** How many daily copies are kept, and how many of each person's before-reset copies. */
 const BACKUPS_KEEP = 14;

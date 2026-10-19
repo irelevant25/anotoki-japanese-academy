@@ -166,7 +166,7 @@ function auth_iam_config(): array
 function auth_cache_dir(): string
 {
     $cache = config('auth.cache_dir');
-    return config_is_test_db(db_name()) && is_string($cache) && $cache !== '' ? app_path($cache) : BACKEND . '/storage/cache';
+    return config_is_test_db(db_name()) && is_string($cache) && $cache !== '' ? app_path($cache) : STATE . '/storage/cache';
 }
 
 /**

@@ -529,7 +529,7 @@ function stand_in_iam(array $state = []): array
 
 /**
  * A built app of the tests' own, in the shape the Angular build gives
- * (index.html, files named with a hash of their content, what public/ holds):
+ * (index.html, files named with a hash of their content, what frontend/ holds):
  * the PHP tests never need the real build, nor wait for one.
  */
 function test_frontend(): string
@@ -624,11 +624,12 @@ function start_app(array $how = []): array
 /* ------------------------------------------------------------ a built site */
 
 /**
- * A hosted site on this computer: the upload built by backend/tools/build-dist.php
- * (without the clips, with test_frontend() as its app) in a temp folder, and
+ * A hosted site on this computer: the release anotoki-deploy builds (with
+ * test_frontend() as its app; the clips are content beside a release, never in
+ * it) in a temp folder that plays the site's folder on the host, and
  * this file's database with a PostgreSQL user of its own that owns it, as a
  * hosting panel makes them. Served as Apache serves it
- * (tests/tools/front-controller.php does what public/.htaccess does), with
+ * (tests/tools/front-controller.php does what frontend/.htaccess does), with
  * the site's own settings — none until its setup page writes them — and the
  * test IAM's keys. Removed when the file's tests end.
  *
@@ -637,7 +638,7 @@ function start_app(array $how = []): array
 function test_site(): array
 {
     $dir = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
-    test_build('--no-audio --frontend=' . escapeshellarg(test_frontend()) . ' --out=' . escapeshellarg($dir));
+    test_build('--frontend ' . escapeshellarg(test_frontend()) . ' --out ' . escapeshellarg($dir));
 
     $role = TEST_DB_PREFIX . getmypid() . '_site';
     $password = bin2hex(random_bytes(16));
@@ -647,14 +648,14 @@ function test_site(): array
     $GLOBALS['TEST_DB_MADE'] = true;
 
     $env = getenv();
-    unset($env['ACADEMY_CONFIG_DIR']); // the site's own settings, in its backend/config/
+    unset($env['ACADEMY_CONFIG_DIR']); // the site's own settings, in its config/ beside backend/
     $env['ACADEMY_JWKS_FILE'] = test_iam()['jwks_file'];
     $env['ACADEMY_APPLICATION_FILE'] = $GLOBALS['TEST_CONFIG']['application']; // never the issuer its setup page names
     $port = test_free_port();
     $log = (string) tempnam(sys_get_temp_dir(), 'academy-site-');
     $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
     $proc = proc_open(
-        [PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", '-t', "$dir/public", BACKEND . '/tests/tools/front-controller.php'],
+        [PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'opcache.enable=0', '-S', "127.0.0.1:$port", '-t', "$dir/frontend", BACKEND . '/tests/tools/front-controller.php'],
         [0 => ['file', $null, 'r'], 1 => ['file', $null, 'w'], 2 => ['file', $log, 'a']],
         $pipes,
         $dir,
@@ -705,10 +706,11 @@ function test_site_backups(): string
 }
 
 /**
- * backend/tools/build-dist.php with these options; its output. The build
- * refuses while a migration is a draft: the drafts the tests apply
- * (test_config_migration_drafts()) are allowed, so a site of the tests gets
- * what their databases get.
+ * anotoki-deploy's build (the anotoki library's deploy tool: test_deploy_tool())
+ * with these options; its output. The build refuses while a migration is a
+ * draft (backend/tools/check-drafts.php, its "before"): the drafts the tests
+ * apply (test_config_migration_drafts()) are allowed - ACADEMY_ALLOW_DRAFT -,
+ * so a site of the tests gets what their databases get.
  */
 function test_build(string $options): string
 {
@@ -722,8 +724,19 @@ function test_build(string $options): string
 /** The command line of test_build(); $allowDrafts false: the build as the owner runs it. */
 function test_build_command(string $options, bool $allowDrafts = true): string
 {
-    $drafts = $allowDrafts ? test_config_migration_drafts() : [];
-    return escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/tools/build-dist.php') . " $options" . ($drafts ? ' --allow-draft=' . escapeshellarg(implode(',', $drafts)) : '');
+    putenv('ACADEMY_ALLOW_DRAFT=' . implode(',', $allowDrafts ? test_config_migration_drafts() : []));
+    return 'node ' . escapeshellarg(test_deploy_tool()) . ' build --root ' . escapeshellarg(ROOT) . " $options";
+}
+
+/** anotoki-deploy: the site's dev dependency, or the library's checkout beside this repository. */
+function test_deploy_tool(): string
+{
+    foreach ([ROOT . '/frontend/node_modules/@anotoki/deploy/cli.mjs', dirname(ROOT) . '/anotoki-lib/deploy/cli.mjs'] as $cli) {
+        if (is_file($cli)) {
+            return $cli;
+        }
+    }
+    throw new RuntimeException('No anotoki-deploy: neither frontend/node_modules/@anotoki/deploy nor ../anotoki-lib/deploy.');
 }
 
 /**

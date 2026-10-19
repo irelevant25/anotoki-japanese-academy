@@ -43,8 +43,8 @@ How the isolation works:
   `start_app()` then starts the real server (`backend/router.php` under PHP's
   built-in server, as `composer start` runs it) with settings of its own, and checks, through
   `/api/health`, that it uses that database and folder.
-  `test_site()` builds the website's upload into a temp folder instead
-  (`backend/tools/build-dist.php`), with a database user of its own that owns
+  `test_site()` builds a release into a temp folder instead
+  (anotoki-deploy, `test_deploy_tool()`), with a database user of its own that owns
   the database, as a hosting panel makes them, and serves it as Apache would
   (`backend/tests/tools/front-controller.php` does what `.htaccess` does).
 - Node (the browser suites): `frontend/e2e/helpers.js` `isolate()` picks the
@@ -538,8 +538,8 @@ PHP (`backend/tests/lib.php`: `test()`, `before()`, `after()`,
   words (`translations`) and a copy of some people none, a restore passing
   them over (and a file without them restoring as before), and the copy of a
   language's strings before it is deleted.
-- `api/deploy.test.php` — a hosted site end to end: `build-dist.php` refuses
-  to build while a migration is a draft unless `--allow-draft` names it (and,
+- `api/deploy.test.php` — a hosted site end to end: the build refuses
+  while a migration is a draft unless `ACADEMY_ALLOW_DRAFT` names it (and,
   with no draft, builds), then builds
   the upload (what it holds and leaves out: nothing beside `public/` and
   `backend/`, the study content in `backend/data/`, no `router.php`; `--list`
@@ -1283,7 +1283,7 @@ after `node frontend/scripts/ensure-build.mjs`.
 | `backend/src/conjugate.php`, `backend/src/generate.php`, authored items | the PHP tests + the `academy-japanese-reviewer` agent |
 | `backend/migrations/` | the PHP tests (the template picks new migrations up; after an edit of one not committed yet, `node backend/tools/php.js backend/tests/tools/testdb.php template --fresh` first) and `node backend/tools/php.js backend/manage.php --check` |
 | the app's words: a key used or dropped in `frontend/src/`, a migration with strings, `backend/src/translations.php` | the PHP tests (`translations.test.php`, unit and API), `node frontend/e2e/run.js`, `node frontend/e2e/screens.js` (the Slovak pass); `node backend/tools/php.js backend/translations.php --status` on a set-up copy |
-| sign-in, the routes or middleware, Apache's files, `build-dist.php`, `router.php` | the PHP tests (auth, deploy, exam-api) and `node frontend/e2e/run.js` |
+| sign-in, the routes or middleware, Apache's files, the release (`extra["anotoki-deploy"]`), `router.php` | the PHP tests (auth, deploy, exam-api) and `node frontend/e2e/run.js` |
 
 ## Reading results — expected noise
 

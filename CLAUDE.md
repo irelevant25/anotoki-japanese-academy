@@ -131,9 +131,8 @@ count wrong, fix it in the same piece of work.
   goes, a save holding its person's row as an answer does, `users_hold()`), `config/` (`config.php`, with the
   committed default of the trusted proxies, `CLIENT_ADDRESS_DEFAULTS`; this copy's settings in `*.local.php`),
   `migrations/`, `vendor/` (Composer's packages - Slim, the anotoki library -
-  committed: a website has no shell), `public/` (Apache's `index.php` and `.htaccess`, for the upload),
-  `tests/`, `tools/` (data and audio builders, `build-dist.php` for the
-  upload, `php.js` which finds a PHP 8.2+ for the command line and the browser
+  committed: a website has no shell), `tests/`, `tools/` (data and audio builders, `check-drafts.php` for a
+  release, `php.js` which finds a PHP 8.2+ for the command line and the browser
   suites, `pdf/` — `pages.js` with its own `package.json` for `sharp`),
   `data/` (the study content's sources and the clips, below), `storage/`
   (gitignored contents: `backups/`, `logs/` - the library's error log -, the
@@ -265,7 +264,7 @@ node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
                                              (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
 node backend/tools/php.js backend/tools/build-audio.php   missing clips → backend/data/audio/ (Google TTS; --dry-run needs no key)
-node backend/tools/php.js backend/tools/build-dist.php    the upload for the website → dist/japanese-academy/ (academy-deploy)
+cd frontend && npx anotoki-deploy build                  the release for the website → dist/ (academy-deploy)
 node backend/tools/php.js backend/manage.php --check      also --sync, --backup, --restore=F; --check says when a
                                              migration is a draft ("Waiting: …") and offers only what comes before it
 node backend/tools/php.js backend/translations.php --status   the keys the frontend uses against the database's (exit 1: a
@@ -579,7 +578,7 @@ Tests enforce most of these. Never weaken a test to make it pass.
   meanwhile), or `manage.php` or the setup page applies it. The tests alone apply a
   draft, by name, on `academy_test_…` databases (`ACADEMY_MIGRATION_DRAFTS`,
   set by `backend/tests/lib.php` and `testdb.php`); the last line is written
-  last. `backend/tools/build-dist.php` refuses to build the upload while one
+  last. the release's build (`backend/tools/check-drafts.php`) refuses while one
   is a draft. 005 and 006 were written so and are final since 2026-10-04;
   007 (`007_visitors.sql`, visitors) likewise, final since 2026-10-05 (its
   last line written after the browser suites passed;

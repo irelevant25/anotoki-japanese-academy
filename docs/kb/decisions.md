@@ -2355,3 +2355,25 @@ failing closed** (round 3c, the owner's words after the deploy; the app's
   limit and the pages' reports count the proxy), and the file deleted.
 - **Tests**: PHP 273 (271), Angular 454 in 43 files (452 in 44), the browser
   suite 217 checks (215).
+
+**2026-10-19 — A release is `frontend/` and `backend/`, each replaced whole; the
+state is beside them (the owner's decision).** Since 2026-10-04 the site ran
+`public/` and `backend/` under a switch into `public/` - but the state lived
+inside `backend/` (`config/*.local.php`, `storage/`), so `backend/` could never
+be replaced whole, and every upload went over the old files (FTP never deletes).
+Now the anotoki library's anotoki-deploy builds the release from
+`backend/composer.json`'s `extra["anotoki-deploy"]` (the same tool for every
+site: its `include`, the routes `api`, `audio`, `report`, the entry
+`api/release.php`, the draft check `tools/check-drafts.php` as its `before`, the
+clips as `content`), puts it up beside the live one, checks it and swaps it in by
+renames (the one before kept for a rollback); the switch sends every request into
+`frontend/`. On the host `config/`, `storage/` and `content/audio/` sit beside the
+release and are never written by one; the PHP finds them through `STATE`
+(`src/bootstrap.php`): with `release.json` in `backend/`, the folder above it - in
+a checkout `backend/` itself, as before. `tools/build-dist.php` and
+`backend/public/` went (`frontend/index.php` and `.htaccess` are anotoki-deploy's);
+the tests build their site with anotoki-deploy, and `ACADEMY_ALLOW_DRAFT` stands
+for `--allow-draft`. The clips are content: `content audio` adds what is missing
+and never deletes. The setup page names the state's files where they are
+(`STATE_SHOWN`: `config/…` on the host, `backend/config/…` in a checkout) and
+makes `config/` and `storage/` when they are missing.

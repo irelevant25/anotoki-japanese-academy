@@ -176,7 +176,7 @@ looked at, so a key there is nobody (until 2026-10-11 the person middleware
 read a token alone the same way). In this order:
 
 1. The `Authorization: Bearer …` header (`CGIPassAuth` and a `SetEnvIf` in
-   `public/.htaccess` get it to PHP under CGI and FastCGI): a **person**. The
+   `frontend/.htaccess` get it to PHP under CGI and FastCGI): a **person**. The
    token is verified **without asking the IAM** by the library's
    `AccessTokens` (`academy_access_tokens()`; the IAM's PHP SDK's rules, which
    this app carried as `src/anotoki_iam.php` 1.1.0 until 2026-10-11): RS256

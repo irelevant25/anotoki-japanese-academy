@@ -202,12 +202,12 @@ settings, Apache or the setup page; `architecture.md` for the map).
    `Origin` (its `Referrer-Policy` stays `same-origin`); anywhere else the
    token first, mode `iam` only, the lock before its self-delete, refusing to
    run with the lock; settings written owner-only; Test connection changing
-   nothing. `backend/public/.htaccess` still passes the Authorization header
+   nothing. `frontend/.htaccess` (anotoki-deploy writes it) still passes the Authorization header
    (`CGIPassAuth`, `SetEnvIf`), sets nothing a host may refuse
    (`DirectoryIndex`, `Options`), and its rewrites match
    `backend/api/front.php` and `backend/tests/tools/front-controller.php`. The
    front controller never serves a dotfile, a `.php` or a file outside the
-   build. The build (`backend/tools/build-dist.php`) puts in only what a site
+   build. A release (anotoki-deploy: `backend/composer.json`'s `include`) holds only what a site
    runs, never a settings file, a token, a backup or the owner's history.
    Errors on a website say no more than a sentence - except why the
    Migrations page's Apply stopped, PostgreSQL's own words to its ADMIN

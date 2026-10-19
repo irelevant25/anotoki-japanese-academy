@@ -347,10 +347,10 @@ if (!SETUP_LOCAL && is_file(SETUP_LOCK)) {
     $gone = setup_cleanup();
     setup_page(
         'Already set up',
-        '<p>This site is set up. <code>backend/storage/installed.lock</code> stops the setup page from running again.</p>' .
+        '<p>This site is set up. <code>' . STATE_SHOWN . 'storage/installed.lock</code> stops the setup page from running again.</p>' .
             ($gone
                 ? '<p class="ok">The setup files have been removed.</p>'
-                : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand: they could not be removed.</p>') .
+                : '<p class="err">Delete <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code> by hand: they could not be removed.</p>') .
             '<p>To run it again on purpose, delete the lock first, and upload <code>backend/setup.php</code> again.</p>',
         'good',
     );
@@ -372,9 +372,9 @@ if (!SETUP_LOCAL) {
     $token = setup_token() ?? (setup_token_write() ? setup_token() : null);
     if ($token === null) {
         setup_page(
-            'Cannot write to backend/config/',
-            '<p>The setup page could not write <code>backend/config/setup-token.local.php</code>:' .
-                ' the web server may not write in <code>backend/config/</code>.</p><p>Give it write permission there, and reload this page.</p>',
+            'Cannot write to ' . STATE_SHOWN . 'config/',
+            '<p>The setup page could not write <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>:' .
+                ' the web server may not write in <code>' . STATE_SHOWN . 'config/</code>.</p><p>Give it write permission there, and reload this page.</p>',
             'bad',
         );
     }
@@ -393,7 +393,7 @@ function setup_proven(?string $token, string $nonce): ?string
     if (!SETUP_LOCAL) {
         // never a token that is not there: '' would equal a form that sends none
         // (and a space pasted along with the token is not part of it)
-        return $token !== null && $token !== '' && hash_equals($token, trim((string) ($_POST['token'] ?? ''))) ? null : 'That is not the token from backend/config/setup-token.local.php.';
+        return $token !== null && $token !== '' && hash_equals($token, trim((string) ($_POST['token'] ?? ''))) ? null : 'That is not the token from ' . STATE_SHOWN . 'config/setup-token.local.php.';
     }
     $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
     $here = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
@@ -536,10 +536,10 @@ if ($method === 'POST') {
                 $result .
                     ($locked
                         ? ''
-                        : '<p class="err"><code>backend/storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>backend/storage/</code> is writable.</p>') .
+                        : '<p class="err"><code>' . STATE_SHOWN . 'storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>' . STATE_SHOWN . 'storage/</code> is writable.</p>') .
                     ($gone
-                        ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code>.</p>'
-                        : '<p class="err">Delete <code>backend/setup.php</code> and <code>backend/config/setup-token.local.php</code> by hand:' .
+                        ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>.</p>'
+                        : '<p class="err">Delete <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code> by hand:' .
                             ' they could not be removed.' .
                             ($locked ? ' (The lock stops the setup page meanwhile.)' : '') .
                             '</p>') .
@@ -568,19 +568,17 @@ function setup_run(array $in, array $db): array
     $issuer = rtrim($in['issuer'], '/');
     config_write('database', $db);
     config_write('auth', ['issuer' => $issuer, 'client_id' => $in['client_id']]);
-    $log[] = "Saved the settings in backend/config/: the database, and sign-in through the IAM at $issuer.";
+    $log[] = 'Saved the settings in ' . STATE_SHOWN . "config/: the database, and sign-in through the IAM at $issuer.";
 
-    foreach ([BACKEND . '/storage', BACKEND . '/storage/cache', backup_dir()] as $dir) {
-        if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
-            throw new RuntimeException("Cannot make the folder $dir: PHP may not write there.");
-        }
+    foreach ([STATE . '/storage', STATE . '/storage/cache', backup_dir()] as $dir) {
+        config_state_folder($dir);
     }
 
     // On a database that holds study data, a raw copy of every table first,
     // taken without this version's queries (they may expect the new tables).
     $migrated = upkeep_migrate();
     if ($migrated['backup']) {
-        $log[] = 'Backup before the update: backend/storage/backups/' . basename($migrated['backup']) . '.';
+        $log[] = 'Backup before the update: ' . STATE_SHOWN . 'storage/backups/' . basename($migrated['backup']) . '.';
     }
     $log[] = $migrated['applied'] ? 'Applied the migrations: ' . implode(', ', $migrated['applied']) . '.' : 'The tables were up to date already.';
     if ($waiting = db_first_pending_migration()) {
@@ -636,7 +634,7 @@ $intro = SETUP_LOCAL
             '',
             array_map(
                 static function (string $file, string $problem): string {
-                    return '<p class="err">' . setup_h("backend/config/$file $problem") . ': Save writes it again, with what this form says.</p>';
+                    return '<p class="err">' . setup_h(STATE_SHOWN . "config/$file $problem") . ': Save writes it again, with what this form says.</p>';
                 },
                 array_keys($savedProblems),
                 $savedProblems,
@@ -644,7 +642,7 @@ $intro = SETUP_LOCAL
         )
     : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.' .
         ' Make the database in your hosting panel first.</p>' .
-        '<p class="note">A token was written to <code>backend/config/setup-token.local.php</code>. Open that file by FTP or SFTP,' .
+        '<p class="note">A token was written to <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>. Open that file by FTP or SFTP,' .
         ' copy the token, and paste it below: that is how the setup page knows it is you.</p>';
 
 setup_page(

@@ -1,9 +1,9 @@
 /**
  * The setup page (/setup.php) in a real browser, on a built site served the
- * way a host serves it: the upload of backend/tools/build-dist.php (a
- * migration still being written allowed in, for this test alone), with the
- * real app, in a temp folder (backend/tests/tools/front-controller.php does
- * what its .htaccess does), an empty throwaway database owned by a database
+ * way a host serves it: a release anotoki-deploy builds (a migration still
+ * being written allowed in, for this test alone: ACADEMY_ALLOW_DRAFT), with the
+ * real app, in a temp folder that plays the site's folder
+ * (backend/tests/tools/front-controller.php does what frontend/.htaccess does), an empty throwaway database owned by a database
  * user of its own, as a hosting panel makes them, and the anotoki library's
  * stand-in IAM (backend/vendor/anotoki/lib/backend/testing/stand-in-iam.php)
  * that signs people in.
@@ -18,7 +18,7 @@
  *                  signed in; opened again, what is saved, never the password
  *   a website      (http://academy.example.test:…, a name of another host that
  *                  the browser is told is this computer) the token from
- *                  backend/config/setup-token.local.php; nothing of what is
+ *                  config/setup-token.local.php; nothing of what is
  *                  saved, before the token or after it; Save → the lock, the
  *                  setup page gone, the app signing in through the IAM; its
  *                  settings gone after that, the app says it is not
@@ -31,7 +31,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const { BACKEND, BUILD, php, findPhp, freePort, startStandIn, drafts } = require('./helpers');
 const { launch, newContext, watch, reporter, BAR, barLink, SHOTS } = require('./browser');
 
@@ -104,14 +104,15 @@ async function cleanup() {
   // tests' own databases alone may apply it); the database and its user; the
   // stand-in IAM, signing with keys of this run.
   const waiting = drafts();
-  php([path.join(BACKEND, 'tools', 'build-dist.php'), '--no-audio', `--frontend=${BUILD}`, `--out=${DIR.replace(/\\/g, '/')}`, ...(waiting ? [`--allow-draft=${waiting}`] : [])]);
+  const tool = [path.join(BACKEND, '..', 'frontend', 'node_modules', '@anotoki', 'deploy', 'cli.mjs'), path.join(BACKEND, '..', '..', 'anotoki-lib', 'deploy', 'cli.mjs')].find((cli) => fs.existsSync(cli));
+  execFileSync('node', [tool, 'build', '--root', path.join(BACKEND, '..'), '--frontend', BUILD, '--out', DIR], { stdio: 'inherit', env: { ...process.env, ACADEMY_ALLOW_DRAFT: waiting || '' } });
   const db = JSON.parse(php([TESTDB, 'site', NAME]));
   fs.mkdirSync(KEYS, { recursive: true });
   php([path.join(BACKEND, 'tests', 'tools', 'iam.php'), 'keys', KEYS]);
   iam = await startStandIn(KEYS);
   const issuer = iam.base;
   await iam.state({ user: { id: 1, username: 'owner', roles: ['MEMBER', 'ADMIN'] } });
-  const port = await serve(['-t', path.join(DIR, 'public'), path.join(BACKEND, 'tests', 'tools', 'front-controller.php')], DIR, { ACADEMY_MIGRATION_DRAFTS: waiting });
+  const port = await serve(['-t', path.join(DIR, 'frontend'), path.join(BACKEND, 'tests', 'tools', 'front-controller.php')], DIR, { ACADEMY_MIGRATION_DRAFTS: waiting });
   const local = `http://127.0.0.1:${port}`;
   const website = `http://${WEBSITE}:${port}`;
   // What the setup page applies, as it names it, in the order the sets run (backend/src/db.php): the anotoki
@@ -158,7 +159,7 @@ async function cleanup() {
     await context.close();
   }
   // the website's first view wrote its token; it stays until that setup is done
-  const tokenFile = path.join(DIR, 'backend', 'config', 'setup-token.local.php');
+  const tokenFile = path.join(DIR, 'config', 'setup-token.local.php');
   const token = (/'token' => '([0-9a-f]+)'/.exec(fs.readFileSync(tokenFile, 'utf8')) || [])[1];
   ck('a website’s first view writes a token for its owner', !!token);
 
@@ -234,17 +235,17 @@ async function cleanup() {
   await page.waitForSelector('h1');
   const done = await page.textContent('main');
   ck('Save: saved, and the page stays', (await page.textContent('h1')) === 'Saved' && /This page stays/.test(done), done.replace(/\s+/g, ' ').slice(0, 400));
-  ck('the settings: the database and the IAM', done.includes(`Saved the settings in backend/config/: the database, and sign-in through the IAM at ${issuer}.`));
+  ck('the settings: the database and the IAM', done.includes(`Saved the settings in config/: the database, and sign-in through the IAM at ${issuer}.`));
   ck('the tables made: every migration', done.includes(`Applied the migrations: ${migrations.join(', ')}.`), migrations.join(', '));
   ck('the study content built', /Built the study content: [\d,]+ kanji items and [\d,]+ exam questions/.test(done));
   ck('people sign in with their anotoki account, each with their own data', done.includes(`Open the app and sign in with your anotoki account at ${issuer}.`));
   ck('the setup page is still there', fs.existsSync(path.join(DIR, 'backend', 'setup.php')));
   ck(
     'the settings written: database and auth only, auth naming the IAM alone',
-    fs.existsSync(path.join(DIR, 'backend', 'config', 'database.local.php')) &&
-      !fs.existsSync(path.join(DIR, 'backend', 'config', 'app.local.php')) &&
+    fs.existsSync(path.join(DIR, 'config', 'database.local.php')) &&
+      !fs.existsSync(path.join(DIR, 'config', 'app.local.php')) &&
       (() => {
-        const auth = fs.readFileSync(path.join(DIR, 'backend', 'config', 'auth.local.php'), 'utf8');
+        const auth = fs.readFileSync(path.join(DIR, 'config', 'auth.local.php'), 'utf8');
         return auth.includes(issuer) && auth.includes('japanese-academy') && !/mode|local_user_id|jwks_file|time_?zone/i.test(auth);
       })(),
   );
@@ -342,10 +343,10 @@ async function cleanup() {
   ck('it reached the IAM’s keys', /Reached the IAM: its keys are there/.test(siteDone));
   ck(
     'the lock written, the setup page and its token gone',
-    fs.existsSync(path.join(DIR, 'backend', 'storage', 'installed.lock')) &&
+    fs.existsSync(path.join(DIR, 'storage', 'installed.lock')) &&
       !fs.existsSync(path.join(DIR, 'backend', 'setup.php')) &&
       !fs.existsSync(tokenFile) &&
-      /Removed backend\/setup\.php and backend\/config\/setup-token\.local\.php/.test(siteDone),
+      /Removed backend\/setup\.php and config\/setup-token\.local\.php/.test(siteDone),
   );
   ck('/setup.php is no more', (await fetch(`${local}/setup.php`)).status === 404);
   await iam.state({ user: { id: 7, username: 'reader', roles: ['MEMBER'] } });
@@ -362,7 +363,7 @@ async function cleanup() {
 
   // Installed (the lock), and then its settings gone: the site is not available - and never offers the setup
   // page again, which is gone besides.
-  const authFile = path.join(DIR, 'backend', 'config', 'auth.local.php');
+  const authFile = path.join(DIR, 'config', 'auth.local.php');
   const authSaved = fs.readFileSync(authFile);
   fs.unlinkSync(authFile);
   try {

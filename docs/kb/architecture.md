@@ -46,7 +46,7 @@ launcher at the top (`backend/README.md`, `frontend/README.md`).
         │
         └─▶ src/srs/catalog.php ── kanji SRS items (1,373) ──▶ table srs_items
 
-   a request ── backend/router.php (here) or public/index.php (Apache) ── backend/api/front.php
+   a request ── backend/router.php (here) or frontend/index.php (Apache) ── backend/api/front.php
         ├─ /setup.php ───────────── backend/setup.php (while it is there)
         ├─ /api/… /audio/… /report/… ── backend/api/app.php: the Slim app
         │      ├─ middleware: the library's error log around everything, errors → JSON, security
@@ -100,8 +100,9 @@ launcher at the top (`backend/README.md`, `frontend/README.md`).
   when a migration is a draft ("Waiting: backend/migrations/NNN_… does not
   end with its last line"), offering to apply only what comes before it (exit
   1). The tests start it with OPcache off (see [environment.md](environment.md)).
-- **`public/index.php`** (a hosted site; its source is `backend/public/`):
-  Apache's front controller. `public/.htaccess` sends it `/api`, `/audio`,
+- **`frontend/index.php`** (a hosted site; anotoki-deploy writes it, and it
+  requires `backend/api/release.php`): Apache's front controller.
+  `frontend/.htaccess` sends it `/api`, `/audio`,
   `/report` and `/setup.php`, and serves the app's files itself. See
   [hosting.md](hosting.md).
 
@@ -113,7 +114,7 @@ anything outside the build), and an address without a file extension its
 `index.html`, so `/kanji/reviews` loads the app, whose router draws the page.
 Any other address with an extension is a 404. The scripts and styles the
 build names with a hash of their content (`main-4GHK3Z7Q.js`) are cached for a
-year, as `public/.htaccess` has them; `index.html` and the changelog are asked
+year, as `frontend/.htaccess` has them; `index.html` and the changelog are asked
 for again each time. Without a build, pages answer 503 with a page saying how
 to build it; the API works all the same.
 
@@ -1516,8 +1517,8 @@ past a waiting migration).
 "Waiting: backend/migrations/NNN_… does not end with its last line" and
 offers to apply only what comes before it (exit 1); `--sync` and
 `--restore` stop with the sentence that the migration does not end with its
-last line, before they change anything; `backend/tools/build-dist.php`
-refuses to build (or list) the upload while any migration but 001 lacks its
+last line, before they change anything; the release's build
+(`backend/tools/check-drafts.php`) refuses while any migration but 001 lacks its
 last line, and names it (`--allow-draft=NAMES` is for the tests alone:
 `test_build()` in `backend/tests/lib.php` passes the drafts they apply); the setup page's **Save** saves the
 settings and applies the migrations before it, then stops with that sentence
@@ -1651,7 +1652,7 @@ a rebuild needs the API key, from `GOOGLE_TTS_API_KEY` or the gitignored
 | `backend/storage/` | what the backend writes for itself: `backups/` (copies of the study data, above, with the app's words in a copy of everybody; a deleted language's strings; the library's backups of the whole database), `logs/` (the library's error log, 30 days), `cache/` (the IAM's keys and its answer, cached; the visitors' secret; the library's stamps and limits), `anotoki-lib.key` (the library's key for the hashes it keeps), a website's setup lock (`installed.lock`: the setup page is never offered again). Never deleted by hand but by the owner |
 | `frontend/dist/`, `frontend/node_modules/` | the built app and its packages |
 | `backend/tools/pdf/node_modules/` | the PDF page tool's package (`sharp`) |
-| `dist/` | the upload for a hosted site (`backend/tools/build-dist.php`) |
+| `dist/` | a release for a hosted site (anotoki-deploy: `frontend/` and `backend/`) |
 | `books/` | the five scanned course books (`textbook-1.pdf` …), read by `backend/tools/pdf/pages.js`, plus the owner's notes |
 | `backend/.env` | `GOOGLE_TTS_API_KEY=…`, for the audio builder |
 | `temp/` | the owner's scratch folder (e.g. `voices.html`: a sample of every Japanese voice) |

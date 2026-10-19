@@ -38,7 +38,7 @@ use the `academy-pdf` skill.
   it changed (on this computer as on a website); never edit those tables.
   `CONTENT_FILES` in `backend/src/content.php` lists what triggers a rebuild:
   add a file there if the builders start reading it. Its `backend/data/` files are also
-  what `backend/tools/build-dist.php` uploads, so a data file the site needs
+  what a release carries (the `include` of `backend/composer.json`'s `extra["anotoki-deploy"]`), so a data file the site needs
   must be on it.
 - Changing a spelling renames an SRS id, which orphans everybody's progress
   for that item. See the id-rename procedure in the `academy-data` skill.

@@ -10,11 +10,12 @@ paths:
   - "backend/api/**"
   - "backend/config/**"
   - "backend/migrations/**"
-  - "backend/public/**"
+  - "backend/api/release.php"
   - "backend/setup.php"
   - "backend/manage.php"
   - "backend/router.php"
-  - "backend/tools/build-dist.php"
+  - "backend/tools/check-drafts.php"
+  - "backend/composer.json"
   - "frontend/src/app/core/auth/**"
 ---
 
@@ -183,14 +184,15 @@ For building and uploading, use the `academy-deploy` skill.
 - The interceptor sends the token to this site's `/api` and `/report` only, and
   a report opened from memory gets its no-script policy before anything of its
   own (`lockDown()`): keep both.
-- `backend/public/.htaccess` (the upload's `public/.htaccess`): keep
+- `frontend/.htaccess` (anotoki-deploy writes it, from `backend/composer.json`'s `extra["anotoki-deploy"]`): keep
   `CGIPassAuth` (inside the `mod_version` guard) and the `SetEnvIf` fallback,
   or the token never reaches PHP under CGI/FastCGI. Don't add `DirectoryIndex`
   or `Options`: hosts that refuse them in `.htaccess` answer 500 for the whole
   site. `backend/tests/tools/front-controller.php` mirrors its rewrites for
   the tests: change both together.
-- `backend/tools/build-dist.php` puts in only what a site runs; `DIST_NEVER`
-  lists what must never be uploaded. A new runtime folder or data file must be
+- A release (anotoki-deploy) holds only what `backend/composer.json`'s `include`
+  names - never a `*.local.php` or a dot-file - and the state (`config/`, `storage/`,
+  `content/audio/`) is beside it on the host, reached through `STATE` alone. A new runtime folder or data file must be
   added there on purpose. `backend/vendor/` is committed and uploaded (no
   shell on the host).
 - All of this PHP stays parseable by PHP 7.4

@@ -1,7 +1,7 @@
 <?php
-// What public/.htaccess does on Apache, for PHP's built-in web server: the
+// What frontend/.htaccess does on Apache, for PHP's built-in web server: the
 // router of backend/tests/api/deploy.test.php and setup.test.php, which serve a
-// built site (the upload, backend/tools/build-dist.php) the way a host would.
+// built site (a release anotoki-deploy builds) the way a host would.
 // The backend's addresses go to index.php, the front controller; a file of the
 // document root is sent as it is, with the headers .htaccess gives it (a PHP
 // file runs; Apache's own .ht* files are refused, as its configuration

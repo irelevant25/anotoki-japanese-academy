@@ -70,7 +70,7 @@ use the `academy-test` skill.
   - `backend/tests/tools/`: `testdb.php` (the throwaway databases, their
     settings and site users; only `academy_test_…` names), `test-config.php`,
     `catalog.php`, `iam.php` (the test IAM's keys and tokens, for Node: the
-    library's `TestIam`) and `front-controller.php` (what `public/.htaccess`
+    library's `TestIam`) and `front-controller.php` (what `frontend/.htaccess`
     does, for PHP's built-in server). The stand-in IAM is the library's.
   - A test server's storage is its settings folder (`storage_dir()`: the
     error log, the library's cache and key), and the scrub's and the

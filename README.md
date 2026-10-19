@@ -396,19 +396,20 @@ in).
 
 The owner's hosting has no shell, so everything goes up by FTP or SFTP:
 
-1. `node backend/tools/php.js backend/tools/build-dist.php` →
-   `dist/japanese-academy/`: exactly what to upload — the built app in
-   `public/`, and `backend/` beside it (with the study content and the clips in
-   `backend/data/`, and an empty `backend/storage/` for the backups).
-2. Upload it into the site's folder, and point the site's document root at
-   its `public/`. (`backend/` stays off the web.)
+1. `cd frontend && npx anotoki-deploy build` → `dist/`: the release — the built
+   app in `frontend/`, and `backend/` beside it (with the study content in
+   `backend/data/`). anotoki-deploy is the anotoki library's deploy tool.
+2. `npx anotoki-deploy deploy --backups <folder> --go` puts it into the site's
+   folder, `npx anotoki-deploy content audio --go` the clips, and
+   `npx anotoki-deploy switch --go`, once, the folder's `.htaccess` that sends
+   every request into `frontend/` (`backend/` stays off the web).
 3. Open `https://<the site>/setup.php`: it writes a token into
-   `backend/config/setup-token.local.php` — get that file by FTP and paste the
+   `config/setup-token.local.php` — get that file by SFTP and paste the
    token in — then asks for the database (made in the hosting panel) and the
    IAM's address, each with a **Test connection** button, and nothing else;
    **Save** sets everything up, and the page deletes itself.
 
-Later updates: build again, and upload over the old files. The first request
+Later updates: build again, and `deploy --go`: the release replaces `frontend/` and `backend/` whole. The first request
 afterwards rebuilds the study content. A new database change (a migration)
 waits until an `ADMIN` presses **Apply pending** on the admin panel's
 Migrations page, which takes a copy of every table first; until then the site
@@ -486,7 +487,7 @@ backend/                   the server: PHP 8.2+, Slim 4, PostgreSQL (backend/REA
   storage/                 the copies of your study data and the database's backups (backups/), the error log
                            (logs/), the IAM's keys (not in git)
   tests/                   PHP unit and API tests
-  tools/                   data and audio builders, the website's upload (build-dist.php),
+  tools/                   data and audio builders, check-drafts.php (a release's),
                            php.js (finds a PHP 8.2+), the PDF page tool (pdf/, with its own package.json)
 frontend/                  the app in the browser: Angular 21 (standalone, zoneless, signals) (frontend/README.md)
   src/app/                 home (and Your data), kanji/, exam/, core/ (API, sign-in, changelog, feedback, i18n, the

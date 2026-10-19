@@ -1,6 +1,7 @@
 <?php
-// A hosted site, end to end, on this computer: the upload built by
-// backend/tools/build-dist.php into a temp folder; served the way Apache
+// A hosted site, end to end, on this computer: the release anotoki-deploy
+// builds into a temp folder that plays the site's folder on the host (its
+// config/ and storage/ beside frontend/ and backend/); served the way Apache
 // serves it; set up by its setup page over HTTP as a website sees it (every
 // request with the Host of a website: the token, the lock, the self-delete),
 // with a database and a PostgreSQL user of its own, as a hosting panel makes
@@ -74,7 +75,7 @@ before(function (): void {
 function setup_form(array $change = []): array
 {
     if (!array_key_exists('token', $change)) {
-        $change['token'] = (string) ((require site()['dir'] . '/backend/config/setup-token.local.php')['token'] ?? '');
+        $change['token'] = (string) ((require site()['dir'] . '/config/setup-token.local.php')['token'] ?? '');
     }
     return array_filter($change + [
         'db_host' => (string) config('db.host'),
@@ -129,8 +130,8 @@ after(function (): void {
 
 test('the build: what a site needs, and nothing else', function (): void {
     $dir = site()['dir'];
-    $needed = ['public/index.html', 'public/main-TESTAPP1.js', 'public/changelog.json', 'public/index.php', 'public/.htaccess',
-        'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php',
+    $needed = ['frontend/index.html', 'frontend/main-TESTAPP1.js', 'frontend/changelog.json', 'frontend/index.php', 'frontend/.htaccess',
+        'backend/setup.php', 'backend/api/app.php', 'backend/api/front.php', 'backend/api/release.php', 'backend/src/bootstrap.php', 'backend/src/auth.php', 'backend/src/admin.php',
         'backend/config/config.php', 'backend/migrations/002_users.sql', 'backend/vendor/autoload.php', 'backend/vendor/slim/slim/Slim/App.php',
         // the anotoki library: the migrations' engine, the SiteGate and the Migrations page's addresses
         'backend/vendor/anotoki/lib/backend/src/Migrations/Migrator.php', 'backend/vendor/anotoki/lib/backend/src/Migrations/Http/SiteGate.php',
@@ -144,8 +145,8 @@ test('the build: what a site needs, and nothing else', function (): void {
         'backend/vendor/anotoki/lib/backend/migrations/admin/001_audit_log.sql', 'backend/vendor/anotoki/lib/backend/migrations/people/001_people.sql',
         // the app's own words: the code that serves them, and the migration that holds them
         'backend/src/translations.php', 'backend/api/routes/translations.php', 'backend/api/middleware/staff.php', 'backend/migrations/004_languages_and_translations.sql',
-        'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
-        'backend/.htaccess', 'backend/storage/.htaccess'];
+        'backend/composer.lock', 'backend/data/vocab.json', 'backend/data/kanji.json', 'backend/data/audio.json', 'backend/data/authored-items-part1.php',
+        'backend/data/authored-items-part2.php', 'backend/.htaccess', 'backend/release.json'];
     foreach ($needed as $file) {
         assert_true(is_file("$dir/$file"), $file);
     }
@@ -153,38 +154,29 @@ test('the build: what a site needs, and nothing else', function (): void {
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $item) {
         $all[] = str_replace('\\', '/', substr($item->getPathname(), strlen($dir) + 1));
     }
-    assert_same([], glob("$dir/backend/data/audio/*") ?: [], 'no clips with --no-audio');
-    assert_same(['backend', 'public'], array_values(array_diff(scandir($dir) ?: [], ['.', '..', '.academy-dist'])), 'nothing beside public/ and backend/');
+    $all = array_values(array_diff($all, ['.anotoki-deploy']));
+    assert_same(['backend', 'frontend'], array_values(array_diff(scandir($dir) ?: [], ['.', '..', '.anotoki-deploy'])),
+        'a release: frontend/ and backend/ - config/, storage/ and the clips (content/audio/) are the host\'s, beside them');
+    assert_same([], glob("$dir/backend/data/audio/*") ?: [], 'no clips: they are content kept beside a release, never in one');
+    $settings = json_decode((string) file_get_contents(BACKEND . '/composer.json'), true)['extra']['anotoki-deploy'];
+    assert_same(['from' => 'backend/data/audio', 'to' => 'content/audio'], $settings['content']['audio'], 'the clips go up as content (anotoki-deploy content audio), only ever added to');
 
-    // The whole build, listed: the same, and every clip.
-    $full = json_decode(test_build('--list --frontend=' . escapeshellarg(test_frontend())), true);
-    $clips = array_values(array_filter($full, static fn (string $f): bool => str_starts_with($f, 'backend/data/audio/')));
-    assert_same(count(glob(AUDIO_CLIPS . '/*.mp3') ?: []), count($clips), 'every clip');
-    $rest = array_values(array_diff($full, $clips));
-    sort($rest);
-    $built = array_values(array_diff($all, ['.academy-dist']));
-    sort($built);
-    assert_same($rest, $built, 'the list is what gets built');
-
-    $never = '~^(?!(public|backend)/)|^backend/(tests|tools|public|data/source)/|^backend/(router|manage|translations)\.php$'
-        . '|\.local\.php$|(^|/)\.env$|^backend/storage/(?!\.htaccess$)~';
-    assert_same([], array_values(array_filter($full, static fn (string $f): bool => (bool) preg_match($never, $f))), 'none of these');
+    $never = '~^(?!(frontend|backend)/)|^backend/(tests|tools|public|storage|data/source|data/audio)/|^backend/(router|manage|translations)\.php$'
+        . '|\.local\.php$|(^|/)\.env$~';
+    assert_same([], array_values(array_filter($all, static fn (string $f): bool => (bool) preg_match($never, $f))), 'none of these');
     // The command line's tools need a shell and the whole repository: the strings' (backend/translations.php,
     // with the key scan in backend/tools/) stay on the developer's computer, as router.php and manage.php do.
     assert_true(is_file(BACKEND . '/translations.php') && is_file(BACKEND . '/tools/translation_keys.php'), 'they are there to leave out');
-    assert_true((bool) preg_match($never, 'backend/translations.php'));
-    assert_true(str_contains((string) file_get_contents(BACKEND . '/tools/build-dist.php'), '|^backend/(router|manage|translations)\.php$'), 'the build\'s own list (DIST_NEVER) names it too');
-    foreach (['backend/router.php', 'backend/manage.php', 'backend/data/source/vocab-part1.tsv', 'backend/storage/backups/academy-2026-10-01.json', 'data/vocab.json', 'backups/.htaccess'] as $path) {
-        assert_true((bool) preg_match($never, $path), "$path: never uploaded");
+    foreach (['backend/router.php', 'backend/manage.php', 'backend/data/source/vocab-part1.tsv', 'backend/storage/backups/academy-2026-10-01.json', 'config/database.local.php',
+        'storage/installed.lock', 'content/audio/0123456789abcdef.mp3'] as $path) {
+        assert_true((bool) preg_match($never, $path), "$path: never in a release");
     }
     foreach (['backend/translations.php', 'backend/tools/translation_keys.php'] as $tool) {
-        assert_false(in_array($tool, $full, true) || in_array($tool, $all, true) || is_file("$dir/$tool"), "$tool is never uploaded");
+        assert_false(in_array($tool, $all, true) || is_file("$dir/$tool"), "$tool is never in a release");
     }
-    assert_true(in_array('backend/src/translations.php', $full, true) && in_array('backend/api/routes/translations.php', $full, true), 'what serves the words is');
-    foreach (['backend', 'backend/storage'] as $folder) {
-        assert_match('/Require all denied/', (string) file_get_contents("$dir/$folder/.htaccess"), "$folder/ is never served");
-    }
-    $htaccess = (string) file_get_contents("$dir/public/.htaccess");
+    assert_true(in_array('backend/src/translations.php', $all, true) && in_array('backend/api/routes/translations.php', $all, true), 'what serves the words is');
+    assert_match('/Require all denied/', (string) file_get_contents("$dir/backend/.htaccess"), 'backend/ is never served');
+    $htaccess = (string) file_get_contents("$dir/frontend/.htaccess");
     assert_match('/CGIPassAuth On/', $htaccess, 'the token reaches PHP under CGI');
     assert_match('/SetEnvIf Authorization/', $htaccess, 'and under an older Apache');
     assert_match('/RewriteRule \^\(api\|audio\|report\)\(\/\|\$\) index\.php/', $htaccess, 'the backend\'s addresses go to the front controller');
@@ -192,11 +184,17 @@ test('the build: what a site needs, and nothing else', function (): void {
     assert_no_match('/DirectoryIndex|^\s*Options/m', $htaccess, 'nothing a host may refuse in .htaccess');
 });
 
-test('no upload while a migration is a draft: the build refuses, naming it (the tests allow the drafts they apply)', function (): void {
+test('no release while a migration is a draft: the build refuses, naming it (the tests allow the drafts they apply)', function (): void {
     $drafts = test_config_migration_drafts();
-    $list = '--list --frontend=' . escapeshellarg(test_frontend());
-    exec(test_build_command($list, false) . ' 2>&1', $out, $code);
-    $said = implode("\n", $out);
+    $build = static function (string $allow): array {
+        $out = str_replace('\\', '/', sys_get_temp_dir()) . '/academy-test-release-' . getmypid() . '-' . bin2hex(random_bytes(3));
+        putenv('ACADEMY_ALLOW_DRAFT=' . $allow);
+        exec('node ' . escapeshellarg(test_deploy_tool()) . ' build --root ' . escapeshellarg(ROOT) . ' --frontend ' . escapeshellarg(test_frontend())
+            . ' --out ' . escapeshellarg($out) . ' 2>&1', $lines, $code);
+        test_remove_folder($out, '/academy-test-release-');
+        return [$code, implode("\n", $lines)];
+    };
+    [$code, $said] = $build('');
     if (!$drafts) {
         assert_same(0, $code, 'no draft now: it builds. ' . $said);
         echo "    (no migration is a draft now: nothing to refuse)\n";
@@ -204,10 +202,10 @@ test('no upload while a migration is a draft: the build refuses, naming it (the 
     }
     assert_same(1, $code, $said);
     assert_true(str_contains($said, 'backend/migrations/' . implode(', ', $drafts)) && str_contains($said, '-- end of NNN'), $said);
-    $out = [];
-    exec(test_build_command($list, false) . ' --allow-draft=999_none.sql 2>&1', $out, $code);
-    assert_same(1, $code, 'allowing another file allows nothing: ' . implode("\n", $out));
-    assert_true(is_array(json_decode(test_build($list), true)), 'allowed by name: it builds');
+    [$code, $said] = $build('999_none.sql');
+    assert_same(1, $code, 'allowing another file allows nothing: ' . $said);
+    [$code, $said] = $build(implode(',', $drafts));
+    assert_same(0, $code, 'allowed by name: it builds. ' . $said);
 });
 
 test('before the setup page has run, the site is closed, and says so: never installed, so with the way to the setup page', function (): void {
@@ -226,15 +224,16 @@ test('before the setup page has run, the site is closed, and says so: never inst
 });
 
 test('the token: written whole, and no form passes without it, whatever the file holds', function (): void {
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     $file = "$config/setup-token.local.php";
     $settings = static fn (): array => array_values(array_filter(['database', 'auth', 'app'], static fn (string $w): bool => is_file("$config/$w.local.php")));
     // The start of a token file, and no token in it: what a cut-off write, or
     // an upload stopped half-way, leaves behind.
+    @mkdir($config, 0700, true); // the setup page makes config/ beside the release; this test writes into it first
     file_put_contents($file, "<?php\n// The setup page's token (backend/setup.php). It deletes this file when it is done.\n\nreturn array (\n  'token' => '3f9a");
     foreach (['no token' => null, 'an empty token' => ''] as $what => $sent) {
         $r = test_form(site()['base'], '/setup.php', setup_form(['token' => $sent]), WEBSITE);
-        assert_match('/That is not the token from backend\/config\/setup-token\.local\.php/', $r['raw'], "$what: refused");
+        assert_match('/That is not the token from config\/setup-token\.local\.php/', $r['raw'], "$what: refused");
         $r = test_form(site()['base'], '/setup.php', setup_form(['token' => $sent, 'action' => 'test-db']), WEBSITE);
         assert_same(false, $r['body']['ok'] ?? null, "$what: the buttons too");
     }
@@ -245,9 +244,9 @@ test('the token: written whole, and no form passes without it, whatever the file
     // Fields and cookies sent as lists are dropped, not a 500 for anybody who tries.
     $r = test_form(site()['base'], '/setup.php', setup_form(['token' => null, 'token[]' => 'x']), WEBSITE);
     assert_same(200, $r['status'], 'token[]=x');
-    assert_match('/That is not the token from backend\/config\/setup-token\.local\.php/', $r['raw'], 'token[]=x: refused as ever');
+    assert_match('/That is not the token from config\/setup-token\.local\.php/', $r['raw'], 'token[]=x: refused as ever');
     $r = test_form(site()['base'], '/setup.php', setup_form(['token' => null, 'token[]' => 'x', 'action' => 'test-token']), WEBSITE);
-    assert_same(['ok' => false, 'message' => 'That is not the token from backend/config/setup-token.local.php.'], $r['body'], 'and its button');
+    assert_same(['ok' => false, 'message' => 'That is not the token from config/setup-token.local.php.'], $r['body'], 'and its button');
     assert_same(200, site_call('GET', '/setup.php', null, ['Cookie: academy_setup[]=x'])['status'], 'a cookie sent as a list');
     assert_same([], $settings(), 'still nothing written');
 
@@ -255,9 +254,9 @@ test('the token: written whole, and no form passes without it, whatever the file
     unlink($file);
     mkdir($file);
     try {
-        assert_match('/Cannot write to backend\/config\//', site_call('GET', '/setup.php')['raw']);
+        assert_match('/Cannot write to config\//', site_call('GET', '/setup.php')['raw']);
         $r = test_form(site()['base'], '/setup.php', setup_form(['token' => '']), WEBSITE);
-        assert_match('/Cannot write to backend\/config\//', $r['raw'], 'a form without a token: refused before anything else');
+        assert_match('/Cannot write to config\//', $r['raw'], 'a form without a token: refused before anything else');
         assert_same([], $settings(), 'and still nothing written');
     } finally {
         rmdir($file);
@@ -265,9 +264,9 @@ test('the token: written whole, and no form passes without it, whatever the file
 });
 
 test('the setup page: proof of owning the server first; then the database and the IAM, and nothing else', function (): void {
-    // a backup put in the site's backend/storage/backups/ by FTP, as the setup page of an earlier version took them: nothing here reads it now
-    @mkdir(site()['dir'] . '/backend/storage/backups', 0777, true);
-    copy(owner_backup(), site()['dir'] . '/backend/storage/backups/academy-2026-09-25.json');
+    // a backup put in the site's storage/backups/ by FTP, as the setup page of an earlier version took them: nothing here reads it now
+    @mkdir(site()['dir'] . '/storage/backups', 0777, true);
+    copy(owner_backup(), site()['dir'] . '/storage/backups/academy-2026-09-25.json');
     $page = site_call('GET', '/setup.php');
     assert_same(200, $page['status']);
     assert_match('/Set up Japanese Academy/', $page['raw']);
@@ -278,7 +277,7 @@ test('the setup page: proof of owning the server first; then the database and th
     foreach (['db_host' => 'localhost', 'db_port' => '5432', 'db_name' => 'anotoki_japanese', 'db_user' => '', 'issuer' => '', 'client_id' => 'japanese-academy'] as $name => $value) {
         assert_match('/name="' . $name . '" type="text" value="' . preg_quote($value, '/') . '"/', $page['raw'], "the default of $name on a website");
     }
-    $file = site()['dir'] . '/backend/config/setup-token.local.php';
+    $file = site()['dir'] . '/config/setup-token.local.php';
     assert_true(is_file($file), 'a token, in a file only FTP reaches');
     $token = (string) (require $file)['token'];
     assert_same(48, strlen($token));
@@ -287,15 +286,15 @@ test('the setup page: proof of owning the server first; then the database and th
     assert_same($token, (string) (require $file)['token'], 'the same token until the end');
 
     $r = test_form(site()['base'], '/setup.php', setup_form(['token' => 'a guess']), WEBSITE);
-    assert_match('/That is not the token from backend\/config\/setup-token\.local\.php/', $r['raw']);
-    assert_same([$file], glob(site()['dir'] . '/backend/config/*.local.php') ?: [], 'nothing written but the token');
+    assert_match('/That is not the token from config\/setup-token\.local\.php/', $r['raw']);
+    assert_same([$file], glob(site()['dir'] . '/config/*.local.php') ?: [], 'nothing written but the token');
     $r = test_form(site()['base'], '/setup.php', setup_form(['issuer' => 'http://iam.example.com']), WEBSITE);
     assert_match('/must be an https:\/\/ address/', $r['raw']);
-    assert_false(is_file(site()['dir'] . '/backend/config/auth.local.php'), 'and still nothing written');
+    assert_false(is_file(site()['dir'] . '/config/auth.local.php'), 'and still nothing written');
 
     // The buttons: with the token only, or the page would be a way into the host's network.
     $r = test_form(site()['base'], '/setup.php', setup_form(['token' => 'a guess', 'action' => 'test-db']), WEBSITE);
-    assert_same(['ok' => false, 'message' => 'That is not the token from backend/config/setup-token.local.php.'], $r['body']);
+    assert_same(['ok' => false, 'message' => 'That is not the token from config/setup-token.local.php.'], $r['body']);
     $r = test_form(site()['base'], '/setup.php', setup_form(['action' => 'test-db']), WEBSITE);
     assert_same(['ok' => true, 'message' => 'Connected to the database "' . db_name() . '": it is empty - Save makes the tables.'], $r['body'], $r['raw']);
     $r = test_form(site()['base'], '/setup.php', setup_form(['action' => 'test-db', 'db_password' => 'wrong']), WEBSITE);
@@ -305,7 +304,7 @@ test('the setup page: proof of owning the server first; then the database and th
 
     // The token's own button: it says so, and hands over nothing (what is saved is shown on the owner's computer only).
     $r = test_form(site()['base'], '/setup.php', setup_form(['token' => 'a guess', 'action' => 'test-token']), WEBSITE);
-    assert_same(['ok' => false, 'message' => 'That is not the token from backend/config/setup-token.local.php.'], $r['body']);
+    assert_same(['ok' => false, 'message' => 'That is not the token from config/setup-token.local.php.'], $r['body']);
     $r = test_form(site()['base'], '/setup.php', setup_form(['action' => 'test-token']), WEBSITE);
     assert_same(['ok' => true, 'message' => 'That is the token.'], $r['body'], $r['raw']);
 });
@@ -326,7 +325,7 @@ test('the setup page sets the site up: the settings, the tables and the study co
     assert_match('/Built the study content: 1,373 kanji items and \d{1,3}(,\d{3})+ exam questions/', $r['raw'], 'counts as the app writes them');
     assert_match('/come from a file/', $r['raw'], 'the keys of the test IAM');
 
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     assert_same(['issuer' => 'https://iam.test', 'client_id' => 'japanese-academy'], require "$config/auth.local.php", 'the IAM alone');
     $db = require "$config/database.local.php";
     assert_same([site()['role'], db_name(), site()['password']], [$db['user'], $db['name'], $db['password']]);
@@ -334,7 +333,7 @@ test('the setup page sets the site up: the settings, the tables and the study co
     if (PHP_OS_FAMILY !== 'Windows') {
         assert_same('600', decoct(fileperms("$config/database.local.php") & 0777), 'the password: for the owner only');
     }
-    assert_true(is_file(site()['dir'] . '/backend/storage/installed.lock'));
+    assert_true(is_file(site()['dir'] . '/storage/installed.lock'));
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'the setup page is gone');
     assert_false(is_file("$config/setup-token.local.php"), 'and its token');
 
@@ -374,9 +373,9 @@ test('the installed site: sign-in first, and each person their own data', functi
     assert_match('/<title>Japanese Academy<\/title>/', site_call('GET', '/')['raw'], 'the app');
     assert_same(200, site_call('GET', '/kanji/reviews')['status'], 'a page of it');
     assert_same(404, site_call('GET', '/setup.php')['status'], 'no setup page any more');
-    foreach (['/backend/config/database.local.php', '/backend/setup.php', '/backend/src/bootstrap.php', '/backend/data/vocab.json',
-        '/backend/storage/backups/academy-2026-09-25.json'] as $url) {
-        assert_same(404, site_call('GET', $url)['status'], "$url: outside the document root");
+    foreach (['/backend/config/config.php', '/backend/setup.php', '/backend/src/bootstrap.php', '/backend/data/vocab.json', '/backend/release.json',
+        '/config/database.local.php', '/storage/installed.lock', '/storage/backups/academy-2026-09-25.json'] as $url) {
+        assert_same(404, site_call('GET', $url)['status'], "$url: outside frontend/, never served");
     }
     assert_same(403, site_call('GET', '/.htaccess')['status'], 'Apache never sends its own files');
     assert_same(404, site_call('GET', '/api/nothing')['status']);
@@ -529,7 +528,7 @@ test('a migration that fails on Apply: rolled back whole and named, the ones bef
 });
 
 test('the setup page, run again on purpose after a newer upload: a raw copy of every table before it migrates', function (): void {
-    unlink(site()['dir'] . '/backend/storage/installed.lock');
+    unlink(site()['dir'] . '/storage/installed.lock');
     copy(BACKEND . '/setup.php', site()['dir'] . '/backend/setup.php');
     $page = site_call('GET', '/setup.php');
     assert_match('/Set up Japanese Academy/', $page['raw'], 'a new token');
@@ -547,12 +546,12 @@ test('the setup page, run again on purpose after a newer upload: a raw copy of e
     file_put_contents(site()['dir'] . '/backend/migrations/904_test_reinstall.sql', "CREATE TABLE academy_test_reinstall (id int);\n-- end of 904\n");
     $r = test_form(site()['base'], '/setup.php', setup_form(['db_password' => '']), WEBSITE);
     assert_match('/<h1>Set up<\/h1>/', $r['raw'], strip_tags($r['raw']));
-    assert_same(site()['password'], (require site()['dir'] . '/backend/config/database.local.php')['password'], 'an empty password keeps the saved one');
-    assert_match('/Backup before the update: backend\/storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw']);
+    assert_same(site()['password'], (require site()['dir'] . '/config/database.local.php')['password'], 'an empty password keeps the saved one');
+    assert_match('/Backup before the update: storage\/backups\/academy-before-migration-\d{8}-\d{6}-\d{3}\.raw\.json\./', $r['raw']);
     assert_match('/Applied the migrations: 904_test_reinstall\.sql\./', $r['raw']);
     assert_same(5, count(raw_copies()));
     assert_true(applied('904_test_reinstall.sql'));
-    assert_true(is_file(site()['dir'] . '/backend/storage/installed.lock'), 'locked again');
+    assert_true(is_file(site()['dir'] . '/storage/installed.lock'), 'locked again');
     assert_false(is_file(site()['dir'] . '/backend/setup.php'), 'and gone again');
     $owner = test_bearer(test_token(OWNER_AT_IAM, ['ADMIN']));
     assert_same(4, site_call('GET', '/api/kanji/progress', null, $owner)['body']['items']['k:大']['stage'] ?? null, 'the owner’s data as it was');
@@ -633,12 +632,12 @@ test('the update that brings the app’s own words, while migration 004 has not 
 });
 
 test('installed, and its settings gone: every address says the site is not available - never the setup page, which is gone too', function (): void {
-    $config = site()['dir'] . '/backend/config';
+    $config = site()['dir'] . '/config';
     $saved = [];
     foreach (['database', 'auth'] as $which) {
         $saved[$which] = (string) file_get_contents("$config/$which.local.php");
     }
-    assert_true(is_file(site()['dir'] . '/backend/storage/installed.lock') && !is_file(site()['dir'] . '/backend/setup.php'), 'installed: the lock there, the setup page gone');
+    assert_true(is_file(site()['dir'] . '/storage/installed.lock') && !is_file(site()['dir'] . '/backend/setup.php'), 'installed: the lock there, the setup page gone');
     unlink("$config/auth.local.php");
     try {
         $notAvailable = ['code' => 'not_set_up', 'installed' => true, 'message' => 'The site is not available right now. Try again in a few minutes.'];

@@ -1,6 +1,6 @@
 /**
  * The production build of the app, made only when its sources changed since
- * the last one: what the browser suites and backend/tools/build-dist.php run
+ * the last one: what the browser suites and anotoki-deploy's build (backend/composer.json's frontendBuild) run
  * before they need the build.
  *
  *   node frontend/scripts/ensure-build.mjs            build when needed (npm ci first, when

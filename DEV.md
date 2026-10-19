@@ -9,7 +9,7 @@ and using it); `backend/README.md` and `frontend/README.md` map each half;
 
 | Part | Folder | What |
 |---|---|---|
-| Backend | `backend/` | PHP 8.2+, Slim 4, PostgreSQL, the anotoki library (`anotoki/lib`: the migrations, the words, the sign-in's checks, the people, the admin tools). `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs `public/index.php`. Both go through `api/front.php` |
+| Backend | `backend/` | PHP 8.2+, Slim 4, PostgreSQL, the anotoki library (`anotoki/lib`: the migrations, the words, the sign-in's checks, the people, the admin tools). `router.php` runs it on this computer (PHP's built-in web server, `composer start`); on a website Apache runs the release's `frontend/index.php` (anotoki-deploy's, via `api/release.php`). Both go through `api/front.php` |
 | Frontend | `frontend/` | Angular 21: standalone components, zoneless, signals. Built into `frontend/dist/japanese-academy/browser/`, which the backend serves |
 | Data | `backend/data/` | what the study content is built from, and the audio clips |
 
@@ -181,7 +181,7 @@ insert leaves it alone. To add one:
    same day. 011, the legal pages' words and the questions' and notices'
    titles that took the browser's boxes' place, likewise, final since
    2026-10-18 on the owner's go.)
-   `backend/tools/build-dist.php` refuses to build the upload while
+   the release's build (`backend/tools/check-drafts.php`) refuses while
    any migration but 001 lacks its last line, and names it;
    `--allow-draft=NAMES` is for the tests alone (`test_build()` in
    `backend/tests/lib.php` passes the drafts the tests apply).
@@ -356,8 +356,9 @@ text-to-speech key; never commit it).
 ## Building the website's upload
 
 ```bash
-node backend/tools/php.js backend/tools/build-dist.php              # → dist/japanese-academy/ (the frontend is built first when needed)
-node backend/tools/php.js backend/tools/build-dist.php --no-audio   # an update without the 4,000 clips
+cd frontend && npx anotoki-deploy build                            # → dist/frontend/ and dist/backend/ (the frontend built first when needed)
+npx anotoki-deploy deploy --backups <folder> [--go]                 # the release up and swapped in (docs/kb/hosting.md)
+npx anotoki-deploy content audio [--go]                             # the clips: only what is missing goes up
 ```
 
 It refuses (exit 1, naming the file) while a migration is a draft — one

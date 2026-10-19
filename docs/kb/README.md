@@ -12,7 +12,7 @@ Read the page for an area before changing it.
 | [kanji-srs.md](kanji-srs.md) | You change the kanji trainer: catalog, schedule, answer checking, storage, screens; or anything about days and hours (each learner's own time zone) |
 | [exam.md](exam.md) | You change the exam: question generation, papers, scoring, reports, its screen |
 | [sign-in.md](sign-in.md) | You touch sign-in (the anotoki IAM through the anotoki library, the roles, whether it is required, a failed sign-in's screen), the accounts the IAM deleted (the scrub) and the People page, the account's preferences (the theme, the date order and the clock every anotoki site follows), visitors (studying without signing in), the users, or anything that reads or writes somebody's data |
-| [hosting.md](hosting.md) | You build or upload the website, touch Apache's files (`backend/public/`), the setup page on a website, the start-time work, the visitors' settings on a site, or the logs and backups there |
+| [hosting.md](hosting.md) | You build or upload the website, touch the release (anotoki-deploy, `extra["anotoki-deploy"]`), the setup page on a website, the start-time work, the visitors' settings on a site, or the logs and backups there |
 | [testing.md](testing.md) | You run or add tests, or need to know what to test for a change |
 | [environment.md](environment.md) | Something on these Windows machines behaves oddly — tooling pitfalls and fixes |
 | [decisions.md](decisions.md) | You wonder *why* something is the way it is — and before you undo it |
