@@ -258,6 +258,16 @@ now fails closed like a broken one - only deleting the file switches the
 secret off; PHP's error log says "holds no origin_secret" once a day if the
 site's file does not name its secret.
 
+**The update that brings anotoki-lib 0.8.0** (both halves; no migration of
+the app's). Upload `backend/vendor/` first, then the rest; one Apply on the
+Migrations page right after it - the library's
+`anotoki_translations/013_…` (the About and Support pages' words, the
+footer's two links and the feedback form's Clear; until it is applied they
+say the library's built-in words, the same English and Slovak). Tell the
+owner: About · Support stand first among the footer's links, the family's
+pages at `/about` and `/support`, anybody's; the feedback form keeps what
+was typed until it is sent, with Clear.
+
 On their own computer the same migration waits for their Apply on the
 Migrations page after they pull it (no restart: `composer start` does nothing
 at start), after a raw copy of every table — or `manage.php --sync`, or the

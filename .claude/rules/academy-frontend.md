@@ -225,7 +225,12 @@ Reference: `docs/kb/architecture.md` (the frontend's map), `DEV.md`.
   no guard, drawn by `AppComponent` whatever the sign-in says. Each is a route
   of its own whose parent is the frame, before the learner's `**` - never one
   parent with an empty path holding the three, which would take `/` with no
-  guard (`app.routes.spec.ts` holds `/` and an unknown address). The facts
+  guard (`app.routes.spec.ts` holds `/` and an unknown address). About and
+  Support (`/about`, `/support`: the family's `@anotoki/lib/legal/about`,
+  `/support`, anotoki-lib 0.8.0, the same on every anotoki site) are routes the
+  same way, in the same frame, and `LEGAL_PAGE_PATHS` names them too; their
+  titles the library's headings (`anotoki.about.title`,
+  `anotoki.support.title`). The facts
   must stay true of the code: a change to what the app keeps, or for how
   long, changes their `legal.*` strings (a migration) and
   `ACADEMY_LEGAL_UPDATED`; every address they link to is the code's, never a

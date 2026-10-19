@@ -173,7 +173,8 @@ variants. Always include the phone shots. Go through this list:
 - **The footer.** The family's footer under every page and in the admin panel
   (the build analyzer's: a line above, centred, muted): "vX · What's new ·
   Feedback" (no Feedback signed out on a legal page, on the Sign in card or
-  the problem page), Terms · Privacy · Contact under it, the open one marked,
+  the problem page), About · Support · Terms · Privacy · Contact under it
+  (on a phone in two lines), the open one marked,
   wrapping at 390 px; What's new's dialog readable in both themes and at 390
   px, in both languages (its entries stay English). The status page (an update
   waiting, not set up, out of reach) stands alone: no bar, no footer.

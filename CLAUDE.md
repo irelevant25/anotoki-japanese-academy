@@ -16,7 +16,7 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.7.2, both halves), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.8.0, both halves), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
@@ -26,8 +26,9 @@ Cloudflare's header believed from Cloudflare alone - since PHP 0.5.2, given
 the owner's zone's origin secret, only on a request that carries it), and
 since 0.6 the family's legal pages - Terms, Privacy and Contact, with this
 app's facts - and the kit's newer pieces (choice chips, labelled groups,
-disclosures, link tabs), and since 0.6.3 the family's footer, under every
-page and in the admin panel. It runs two ways:
+disclosures, link tabs), since 0.6.3 the family's footer, under every
+page and in the admin panel, and since 0.8.0 the family's About and Support
+pages. It runs two ways:
 
 - **on the owner's computer**, as every anotoki site does: `composer start` in
   `backend/` (`php -S localhost:8200 router.php`, PHP's built-in web server)
@@ -53,14 +54,16 @@ brand, Kanji and Exam, the language, the light/dark/system switch and the
 person's menu; at the foot of every page, the admin panel's too, the
 family's footer (the library's `<anotoki-site-footer>`, anotoki-lib 0.6.3,
 the build analyzer's: a line above, "v0.5.1 · What's new · Feedback" - a
-screen reader hears "Version 0.5.1" -, then Terms · Privacy · Contact). While
+screen reader hears "Version 0.5.1" -, then About · Support · Terms · Privacy ·
+Contact). While
 the site is not ready - an
 update waiting, the database out of reach, not set up - the library's page
 stands alone, with no bar and no footer (the owner's rule of 2026-10-18). Those
 three pages (`/terms`, `/privacy`, `/contact`: the library's, with this app's
-facts, `frontend/src/app/legal/`) are anybody's - signed in or not, a visitor
-or not: no guard, no trip to the IAM (`docs/kb/architecture.md`, *The legal
-pages*).
+facts, `frontend/src/app/legal/`) - and About and Support (`/about`,
+`/support`: the library's own, in the same frame) - are anybody's - signed in
+or not, a visitor or not: no guard, no trip to the IAM
+(`docs/kb/architecture.md`, *The legal pages*).
 
 It replaced the earlier N4 Coach app on 2026-09-23, because the owner found
 N4 Coach's sentences and learning path wrong. N4 Coach lives on only in the git
@@ -622,11 +625,12 @@ Tests enforce most of these. Never weaken a test to make it pass.
   `anotoki_translations/012` - the footer's words - right after it). The library's own sets run around this
   app's (`db_migration_sets()`): `anotoki_admin/001_…`, `002_…` (the audit
   log's and the feedback's tables) BEFORE it, then after it
-  `anotoki_translations/001_…` to `012_…` (its words, written only where a
+  `anotoki_translations/001_…` to `013_…` (its words, written only where a
   key has none: 003 the sign-in screens', 004 the feedback form's, 005 the
   legal pages', 006 to 009 the top bar's and the kit's newer pieces', 010 and
   011 rewording five of the Privacy page's sentences - two, then three -
-  where nobody changed them, 012 the footer's four) and
+  where nobody changed them, 012 the footer's four, 013 the About and Support
+  pages', the footer's two links to them and the feedback form's Clear) and
   `anotoki_people/001_…` (the scrub's bookkeeping); they too end with
   `-- end of NNN`. **While one of the app's own files is a draft, every
   library file waits with it** - the `anotoki_admin` ones before it too -
@@ -667,7 +671,7 @@ Tests enforce most of these. Never weaken a test to make it pass.
   the same HttpClient, so the same interceptors add the same headers; this
   app's own interceptor leaves its answers alone (`ANOTOKI_ERROR_REPORT`). The pages never count days themselves: a
   learner's days come in the server's answers. Every page but Terms,
-  Privacy and Contact (anybody's: each a route of its own whose parent is
+  Privacy and Contact - and About and Support - (anybody's: each a route of its own whose parent is
   their frame, before the learner's catch-all - `app.routes.spec.ts` holds
   `/` and an unknown address to the home page) is behind the
   library's `personOrVisitorGuard` (the admin panel `staffGuard`, its

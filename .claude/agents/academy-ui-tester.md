@@ -16,8 +16,9 @@ the admin panel (`/admin/…`, English), the anotoki family's top bar
 (the anotoki library's, worded in `frontend/src/app/top-bar/`: brand, Kanji
 and Exam, the language, a theme switch, the person's menu; one menu button up
 to 760 px), buttons, dialogs, chips, tabs and fields of the library's kit, the
-family's footer (the version, "What's new" and Feedback, then Terms · Privacy ·
-Contact: `/terms`, `/privacy`, `/contact`, the family's pages, anybody's) under
+family's footer (the version, "What's new" and Feedback, then About · Support ·
+Terms · Privacy · Contact: `/about`, `/support`, `/terms`, `/privacy`,
+`/contact`, the family's pages, anybody's) under
 every page and in the admin panel - never around the library's status page,
 which stands alone -, and the setup page (`/setup.php`, plain PHP).
 Everybody signs in through the anotoki IAM, on a computer as on the website;
