@@ -243,7 +243,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
     (await legal.textContent('anotoki-privacy-page h1')).trim() === 'Privacy policy' &&
       !toTheIam() &&
       (await legal.isVisible(BAR.signInButton)) &&
-      legalFoot.row.join('|') === `Version ${LATEST.version}|What's new` &&
+      legalFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new` &&
       legalFoot.links.join('|') === 'Terms|Privacy|Contact',
     JSON.stringify(legalFoot),
   );
@@ -652,7 +652,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const foot = await footerOf(page);
   ck(
     'the family’s footer: its top border, “Version X · What’s new · Feedback” - the version the changelog’s newest -, Terms · Privacy · Contact under them',
-    foot.border === 'solid' && foot.row.join('|') === `Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact',
+    foot.border === 'solid' && foot.row.join('|') === `v${latest.version}Version ${latest.version}|What's new|Feedback` && foot.links.join('|') === 'Terms|Privacy|Contact',
     JSON.stringify(foot),
   );
   await page.click('anotoki-site-footer [data-whats-new]');
@@ -1011,7 +1011,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
   const adminFoot = await footerOf(admin);
   ck(
     'the admin panel has the family’s footer too, in English with Slovak chosen: its top border, the version, What’s new, Feedback, Terms · Privacy · Contact',
-    adminFoot.border === 'solid' && adminFoot.row.join('|') === `Version ${LATEST.version}|What's new|Feedback` && adminFoot.links.join('|') === 'Terms|Privacy|Contact',
+    adminFoot.border === 'solid' && adminFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new|Feedback` && adminFoot.links.join('|') === 'Terms|Privacy|Contact',
     JSON.stringify(adminFoot),
   );
   await admin.click(BAR.userButton);
@@ -1506,7 +1506,7 @@ const bare = async (pg) => (await pg.$('main.anotoki-site-gate__status > anotoki
       (await migrations.title()) === 'Migrations · Admin panel · Japanese Academy' &&
       (await migrations.$$eval(`${BAR.nav} a`, (els) => els.map((e) => e.textContent.trim()))).join(',') === 'Migrations' &&
       (await migrations.$(BAR.userButton)) !== null &&
-      waitingFoot.row.join('|') === `Version ${LATEST.version}|What's new`,
+      waitingFoot.row.join('|') === `v${LATEST.version}Version ${LATEST.version}|What's new`,
     `${pendingFiles.join(',')} ${await migrations.title()} ${JSON.stringify(waitingFoot)}`,
   );
   await migrations.screenshot({ path: path.join(SHOTS, 'admin-migrations-waiting.png'), fullPage: true });
