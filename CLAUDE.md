@@ -16,7 +16,7 @@ base, utilities and tables with them - and the top bar (since anotoki-lib
 0.2.0), in this app's own palette, the app's words -
 serving them, the admin panel's Translations and Languages pages, the
 command line's work - on this app's tables and behind its checks (since
-anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.7.0, both halves), the
+anotoki-lib 0.3.0), and, since anotoki-lib 0.4.0 (the app is on 0.7.2, both halves), the
 site's half of signing in, the people (each person's row, the scrub of the
 accounts the IAM deleted, the People page) and the admin tools Japanese takes
 (the error log - the pages' own errors too, since 0.5.0 -, the audit log, the
