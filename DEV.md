@@ -356,9 +356,9 @@ text-to-speech key; never commit it).
 ## Building the website's upload
 
 ```bash
-cd frontend && npx anotoki-deploy build                            # → dist/frontend/ and dist/backend/ (the frontend built first when needed)
-npx anotoki-deploy deploy --backups <folder> [--go]                 # the release up and swapped in (docs/kb/hosting.md)
-npx anotoki-deploy content audio [--go]                             # the clips: only what is missing goes up
+cd frontend && bun run anotoki-deploy build                        # → dist/frontend/ and dist/backend/ (the frontend built first when needed)
+bun run anotoki-deploy deploy --backups <folder> [--go]             # the release up and swapped in (docs/kb/hosting.md)
+bun run anotoki-deploy content audio [--go]                         # the clips: only what is missing goes up
 ```
 
 It refuses (exit 1, naming the file) while a migration is a draft — one

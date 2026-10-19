@@ -264,7 +264,7 @@ node frontend/scripts/ensure-build.mjs && node frontend/e2e/screens.js [name]
                                              (room alone: room) - look at the shots
 node backend/tools/php.js backend/tools/build-data.php    backend/data/source/*.tsv → backend/data/*.json
 node backend/tools/php.js backend/tools/build-audio.php   missing clips → backend/data/audio/ (Google TTS; --dry-run needs no key)
-cd frontend && npx anotoki-deploy build                  the release for the website → dist/ (academy-deploy)
+cd frontend && bun run anotoki-deploy build              the release for the website → dist/ (academy-deploy)
 node backend/tools/php.js backend/manage.php --check      also --sync, --backup, --restore=F; --check says when a
                                              migration is a draft ("Waiting: …") and offers only what comes before it
 node backend/tools/php.js backend/translations.php --status   the keys the frontend uses against the database's (exit 1: a

@@ -105,7 +105,7 @@ php manage.php --check                  # what is waiting (migrations, a content
                                         # offers only what comes before it (exit 1)
 php translations.php --status           # every key the frontend uses has its strings
 php tools/build-data.php                # data/source/*.tsv -> data/*.json
-# the release: cd ../frontend && npx anotoki-deploy build / deploy (../docs/kb/hosting.md, academy-deploy)
+# the release: cd ../frontend && bun run anotoki-deploy build / deploy (../docs/kb/hosting.md, academy-deploy)
 ```
 
 From the repository's top folder, where an older `php` comes first on PATH

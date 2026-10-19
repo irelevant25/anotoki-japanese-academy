@@ -112,14 +112,14 @@ own words, as on the IAM's page (and the log has it too) - and
 A release is built and put up by **anotoki-deploy**, the anotoki library's deploy
 tool - the same for every site; this site's facts are in `backend/composer.json`,
 `extra["anotoki-deploy"]` (anotoki-lib's `deploy/README.md` has every setting).
-From `frontend/`: `npx anotoki-deploy build` (until `@anotoki/deploy` is a dev
-dependency of `frontend/` - from anotoki-lib 0.9.0's release -
-`node ../../anotoki-lib/deploy/cli.mjs` stands for `npx anotoki-deploy`). It runs
-`backend/tools/check-drafts.php` first - it refuses while any migration but 001
-lacks its last line `-- end of NNN`, and names it: such a draft would wait on the
-site, and the study content with it (`ACADEMY_ALLOW_DRAFT=NAMES` is for the tests
-alone: `test_build()` in `backend/tests/lib.php`) -, then the frontend
-(`frontend/scripts/ensure-build.mjs`: built when its sources changed;
+From `frontend/`: `bun run anotoki-deploy build` (`@anotoki/deploy`, a dev
+dependency of `frontend/` from anotoki-lib's release: `bun run` finds it
+whichever tool installed `node_modules/`; on Windows, `npx` misses bun's links).
+It runs `backend/tools/check-drafts.php` first - it refuses while any migration
+but 001 lacks its last line `-- end of NNN`, and names it: such a draft would
+wait on the site, and the study content with it (`ACADEMY_ALLOW_DRAFT=NAMES` is
+for the tests alone: `test_build()` in `backend/tests/lib.php`) -, then the
+frontend (`frontend/scripts/ensure-build.mjs`: built when its sources changed;
 `--frontend DIR` takes an app built elsewhere instead), and assembles the release
 in `dist/` (gitignored):
 
@@ -141,15 +141,15 @@ and tools, `backend/router.php`, `backend/manage.php` and `backend/translations.
 page), the frontend's sources, `docs/`, `books/`, backups, `.env`, every
 `*.local.php`, `backend/data/source/`, `grammar-index.json`, the clips.
 
-- `npx anotoki-deploy deploy --backups <folder> [--go]`: the live `frontend/` and
-  `backend/` copied into `<folder>`, the release up beside them, checked file by
-  file, swapped in by renames (the one before kept as `.old`:
-  `npx anotoki-deploy rollback --go`), and the site checked. Without `--go` it only
-  says what it would do.
-- `npx anotoki-deploy content audio [--go]`: the clips that are missing or differ go
-  up into `content/audio/`; nothing there is ever deleted. Before the release whose
-  `audio.json` names them.
-- `npx anotoki-deploy status`: what is on the host.
+- `bun run anotoki-deploy deploy --backups <folder> [--go]`: the live `frontend/`
+  and `backend/` copied into `<folder>`, the release up beside them, checked file
+  by file, swapped in by renames (the one before kept as `.old`:
+  `bun run anotoki-deploy rollback --go`), and the site checked. Without `--go`
+  it only says what it would do.
+- `bun run anotoki-deploy content audio [--go]`: the clips that are missing or
+  differ go up into `content/audio/`; nothing there is ever deleted. Before the
+  release whose `audio.json` names them.
+- `bun run anotoki-deploy status`: what is on the host.
 
 The SFTP login is never in a repository: `ANOTOKI_DEPLOY_SECRETS` names a
 `secrets.json`, with the host's pinned key in `hostkey.txt` beside it.
@@ -157,10 +157,10 @@ The SFTP login is never in a repository: `ANOTOKI_DEPLOY_SECRETS` names a
 ## The first install
 
 1. In the hosting panel, make a PostgreSQL database and a user that owns it.
-2. Build (above); `npx anotoki-deploy deploy --backups <folder> --go` and
-   `npx anotoki-deploy content audio --go` (the clips); then, once,
-   `npx anotoki-deploy switch --go`: the site's folder gets its `.htaccess` - the
-   switch, written once and never part of a release:
+2. Build (above); `bun run anotoki-deploy deploy --backups <folder> --go` and
+   `bun run anotoki-deploy content audio --go` (the clips); then, once,
+   `bun run anotoki-deploy switch --go`: the site's folder gets its `.htaccess` -
+   the switch, written once and never part of a release:
 
    ```apache
    RewriteEngine On
@@ -218,8 +218,8 @@ always gets this way, even under PHP's built-in server.
 
 ## Updates
 
-Build and `npx anotoki-deploy deploy --backups <folder> --go` (new clips first:
-`content audio --go`). A release never touches `config/`, `storage/` or
+Build and `bun run anotoki-deploy deploy --backups <folder> --go` (new clips
+first: `content audio --go`). A release never touches `config/`, `storage/` or
 `content/` on the host, and nothing of the release before stays (`rollback --go`
 brings it back, clean until an Apply). An update
 with a new migration: once it is all there, the site says it is being

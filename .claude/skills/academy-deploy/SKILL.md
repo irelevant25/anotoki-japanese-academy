@@ -29,19 +29,20 @@ on 2026-10-07):
 ```bash
 node backend/tools/php.js backend/tests/run.php     # the site test builds a release and sets a copy of it up
 node frontend/scripts/ensure-build.mjs && node frontend/e2e/setup.js   # the setup page in a browser, as a website's too
-cd frontend && npx anotoki-deploy build              # backend/tools/check-drafts.php, the frontend (ensure-build),
+cd frontend && bun run anotoki-deploy build          # backend/tools/check-drafts.php, the frontend (ensure-build),
                                                      # then the release -> ../dist/frontend/ and ../dist/backend/
 ```
 
-(Until `@anotoki/deploy` is a dev dependency of `frontend/` - from anotoki-lib
-0.9.0's release - `node ../../anotoki-lib/deploy/cli.mjs` stands for
-`npx anotoki-deploy`.) The build refuses, naming the file, while a migration is a
+(`@anotoki/deploy`: a dev dependency of `frontend/`, from anotoki-lib's release.
+`bun run` finds it whichever tool installed `node_modules/`; on Windows, `npx`
+misses bun's links.) The build refuses, naming the file, while a migration is a
 draft (no "-- end of NNN" line yet; `ACADEMY_ALLOW_DRAFT=NAMES` is for the tests
 alone - test_build() in backend/tests/lib.php). A release holds `backend/`'s
 `include` list (composer.json) and never a `*.local.php`, tests, tools,
 `backend/data/source/`, the clips, `router.php`, `manage.php` or
 `translations.php`. The clips are content beside the release:
-`npx anotoki-deploy content audio [--go]` adds what is missing, and never deletes.
+`bun run anotoki-deploy content audio [--go]` adds what is missing, and never
+deletes.
 
 ## 2. What the owner does, the first time
 
@@ -49,9 +50,10 @@ Tell them, in these words or plainer:
 
 1. In the hosting panel: make a PostgreSQL database and a user that owns it,
    and the site (e.g. `japanese.anotoki.eu`), served from its own folder.
-2. `npx anotoki-deploy deploy --backups <folder> --go`, `npx anotoki-deploy
-   content audio --go` (the clips), then `npx anotoki-deploy switch --go` once:
-   the folder's `.htaccess` becomes the switch into `frontend/`.
+2. `bun run anotoki-deploy deploy --backups <folder> --go`,
+   `bun run anotoki-deploy content audio --go` (the clips), then
+   `bun run anotoki-deploy switch --go` once: the folder's `.htaccess` becomes
+   the switch into `frontend/`.
 3. Open `https://japanese.anotoki.eu/setup.php`. Download
    `config/setup-token.local.php` by SFTP and paste the token from it:
    the page checks it at once. It never shows what is saved, before the token
@@ -90,13 +92,13 @@ backups on the site*).
 
 ## 4. Updates
 
-`npx anotoki-deploy deploy --backups <folder> --go`: the live `frontend/` and
-`backend/` copied home, the release up beside them, checked, swapped in, the
-site checked; `npx anotoki-deploy rollback --go` brings the release before back
-(clean only until an Apply). New clips first: `npx anotoki-deploy content audio
---go` before the release whose `audio.json` names them. Nothing on the host is
-lost: `config/`, `storage/` and `content/` are never in a release. A new
-migration then waits for the owner (an `ADMIN`): until they press **Apply
+`bun run anotoki-deploy deploy --backups <folder> --go`: the live `frontend/`
+and `backend/` copied home, the release up beside them, checked, swapped in, the
+site checked; `bun run anotoki-deploy rollback --go` brings the release before
+back (clean only until an Apply). New clips first: `bun run anotoki-deploy
+content audio --go` before the release whose `audio.json` names them. Nothing on
+the host is lost: `config/`, `storage/` and `content/` are never in a release. A
+new migration then waits for the owner (an `ADMIN`): until they press **Apply
 pending** on the admin panel's Migrations page (`/admin/migrations`; a raw copy
 in `storage/backups/` first), the pages show the anotoki library's "The site is
 being updated" (with a quiet **Sign in**, which is how a signed-out `ADMIN` gets

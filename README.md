@@ -396,13 +396,13 @@ in).
 
 The owner's hosting has no shell, so everything goes up by FTP or SFTP:
 
-1. `cd frontend && npx anotoki-deploy build` → `dist/`: the release — the built
-   app in `frontend/`, and `backend/` beside it (with the study content in
+1. `cd frontend && bun run anotoki-deploy build` → `dist/`: the release — the
+   built app in `frontend/`, and `backend/` beside it (with the study content in
    `backend/data/`). anotoki-deploy is the anotoki library's deploy tool.
-2. `npx anotoki-deploy deploy --backups <folder> --go` puts it into the site's
-   folder, `npx anotoki-deploy content audio --go` the clips, and
-   `npx anotoki-deploy switch --go`, once, the folder's `.htaccess` that sends
-   every request into `frontend/` (`backend/` stays off the web).
+2. `bun run anotoki-deploy deploy --backups <folder> --go` puts it into the
+   site's folder, `bun run anotoki-deploy content audio --go` the clips, and
+   `bun run anotoki-deploy switch --go`, once, the folder's `.htaccess` that
+   sends every request into `frontend/` (`backend/` stays off the web).
 3. Open `https://<the site>/setup.php`: it writes a token into
    `config/setup-token.local.php` — get that file by SFTP and paste the
    token in — then asks for the database (made in the hosting panel) and the
