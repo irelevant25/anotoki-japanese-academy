@@ -218,7 +218,7 @@ admin tools are the anotoki library's (`anotoki-lib`, shared by every anotoki
 site: https://github.com/irelevant25/anotoki-lib, a clone of it beside this
 repository in `../anotoki-lib`), in two halves with one version - though a
 release may change one half alone, and then only that half moves: both
-halves are 0.7.0 (0.3.0 the translations and the kit a
+halves are 0.7.2 (0.3.0 the translations and the kit a
 piece at a time; 0.4.0 the sign-in, the people and the admin tools; 0.4.1 a
 fix; 0.5.0 a restore that does again what was deleted since its backup,
 sealed backups, the pages' own errors in the error log, and one rule for
@@ -237,7 +237,10 @@ each rewording only a string nobody changed; 0.6.3 the family's footer -
 admin panel, its words written by the library's `anotoki_translations/012` -
 and its status page drawn alone, with no bar and no footer around it;
 0.7.0 nothing the site does - the library's own folders renamed, its PHP
-half's files now in `backend/vendor/anotoki/lib/backend/`):
+half's files now in `backend/vendor/anotoki/lib/backend/`; 0.7.1 the
+footer's version written short, "v0.5.1"; 0.7.2 the feedback form saying
+itself whom its message is for, and the library's words in the reader's
+language while no words are in memory):
 
 - `anotoki/lib` (Composer, in `backend/vendor/anotoki/lib`): the engine that
   applies the migrations - `db_migrator()` in `backend/src/db.php` sets it up
