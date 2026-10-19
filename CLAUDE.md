@@ -52,8 +52,9 @@ one bar, the library's (`<anotoki-top-bar>`, worded and wired in
 brand, Kanji and Exam, the language, the light/dark/system switch and the
 person's menu; at the foot of every page, the admin panel's too, the
 family's footer (the library's `<anotoki-site-footer>`, anotoki-lib 0.6.3,
-the build analyzer's: a line above, "Version 0.5.1 · What's new ·
-Feedback", then Terms · Privacy · Contact). While the site is not ready - an
+the build analyzer's: a line above, "v0.5.1 · What's new · Feedback" - a
+screen reader hears "Version 0.5.1" -, then Terms · Privacy · Contact). While
+the site is not ready - an
 update waiting, the database out of reach, not set up - the library's page
 stands alone, with no bar and no footer (the owner's rule of 2026-10-18). Those
 three pages (`/terms`, `/privacy`, `/contact`: the library's, with this app's

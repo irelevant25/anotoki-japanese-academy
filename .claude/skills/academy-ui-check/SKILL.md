@@ -171,8 +171,8 @@ variants. Always include the phone shots. Go through this list:
   person's menu, no Your data; a refused sign-in said above the page, with
   room of its own under it (16 px above a kanji page's tab strip).
 - **The footer.** The family's footer under every page and in the admin panel
-  (the build analyzer's: a line above, centred, muted): "Version X · What's new
-  · Feedback" (no Feedback signed out on a legal page, on the Sign in card or
+  (the build analyzer's: a line above, centred, muted): "vX · What's new ·
+  Feedback" (no Feedback signed out on a legal page, on the Sign in card or
   the problem page), Terms · Privacy · Contact under it, the open one marked,
   wrapping at 390 px; What's new's dialog readable in both themes and at 390
   px, in both languages (its entries stay English). The status page (an update
