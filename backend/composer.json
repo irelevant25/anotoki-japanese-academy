@@ -33,13 +33,28 @@
         "data/authored-items-part1.php",
         "data/authored-items-part2.php"
       ],
-      "routes": ["api", "audio", "report"],
+      "routes": [
+        "api",
+        "audio",
+        "report"
+      ],
       "entry": "api/release.php",
-      "before": ["node backend/tools/php.js backend/tools/check-drafts.php"],
+      "before": [
+        "node backend/tools/php.js backend/tools/check-drafts.php"
+      ],
       "frontendBuild": "node scripts/ensure-build.mjs",
-      "headers": { "Referrer-Policy": "no-referrer" },
-      "smoke": ["/api/health"],
-      "content": { "audio": { "from": "backend/data/audio", "to": "content/audio" } }
+      "headers": {
+        "Referrer-Policy": "no-referrer"
+      },
+      "smoke": [
+        "/api/health"
+      ],
+      "content": {
+        "audio": {
+          "from": "backend/data/audio",
+          "to": "content/audio"
+        }
+      }
     }
   },
   "scripts": {

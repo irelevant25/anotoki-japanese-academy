@@ -347,7 +347,9 @@ if (!SETUP_LOCAL && is_file(SETUP_LOCK)) {
     $gone = setup_cleanup();
     setup_page(
         'Already set up',
-        '<p>This site is set up. <code>' . STATE_SHOWN . 'storage/installed.lock</code> stops the setup page from running again.</p>' .
+        '<p>This site is set up. <code>' .
+            STATE_SHOWN .
+            'storage/installed.lock</code> stops the setup page from running again.</p>' .
             ($gone
                 ? '<p class="ok">The setup files have been removed.</p>'
                 : '<p class="err">Delete <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code> by hand: they could not be removed.</p>') .
@@ -373,8 +375,12 @@ if (!SETUP_LOCAL) {
     if ($token === null) {
         setup_page(
             'Cannot write to ' . STATE_SHOWN . 'config/',
-            '<p>The setup page could not write <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>:' .
-                ' the web server may not write in <code>' . STATE_SHOWN . 'config/</code>.</p><p>Give it write permission there, and reload this page.</p>',
+            '<p>The setup page could not write <code>' .
+                STATE_SHOWN .
+                'config/setup-token.local.php</code>:' .
+                ' the web server may not write in <code>' .
+                STATE_SHOWN .
+                'config/</code>.</p><p>Give it write permission there, and reload this page.</p>',
             'bad',
         );
     }
@@ -536,10 +542,16 @@ if ($method === 'POST') {
                 $result .
                     ($locked
                         ? ''
-                        : '<p class="err"><code>' . STATE_SHOWN . 'storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>' . STATE_SHOWN . 'storage/</code> is writable.</p>') .
+                        : '<p class="err"><code>' .
+                            STATE_SHOWN .
+                            'storage/installed.lock</code> could not be written, so nothing but deleting the setup page stops it running again. Check that <code>' .
+                            STATE_SHOWN .
+                            'storage/</code> is writable.</p>') .
                     ($gone
                         ? '<p class="ok">Removed <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>.</p>'
-                        : '<p class="err">Delete <code>backend/setup.php</code> and <code>' . STATE_SHOWN . 'config/setup-token.local.php</code> by hand:' .
+                        : '<p class="err">Delete <code>backend/setup.php</code> and <code>' .
+                            STATE_SHOWN .
+                            'config/setup-token.local.php</code> by hand:' .
                             ' they could not be removed.' .
                             ($locked ? ' (The lock stops the setup page meanwhile.)' : '') .
                             '</p>') .
@@ -642,7 +654,9 @@ $intro = SETUP_LOCAL
         )
     : '<p>This sets up the site: the database with its tables and the study content, and the anotoki IAM people sign in through.' .
         ' Make the database in your hosting panel first.</p>' .
-        '<p class="note">A token was written to <code>' . STATE_SHOWN . 'config/setup-token.local.php</code>. Open that file by FTP or SFTP,' .
+        '<p class="note">A token was written to <code>' .
+        STATE_SHOWN .
+        'config/setup-token.local.php</code>. Open that file by FTP or SFTP,' .
         ' copy the token, and paste it below: that is how the setup page knows it is you.</p>';
 
 setup_page(

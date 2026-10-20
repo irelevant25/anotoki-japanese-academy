@@ -104,7 +104,9 @@ async function cleanup() {
   // tests' own databases alone may apply it); the database and its user; the
   // stand-in IAM, signing with keys of this run.
   const waiting = drafts();
-  const tool = [path.join(BACKEND, '..', 'frontend', 'node_modules', '@anotoki', 'deploy', 'cli.mjs'), path.join(BACKEND, '..', '..', 'anotoki-lib', 'deploy', 'cli.mjs')].find((cli) => fs.existsSync(cli));
+  const tool = [path.join(BACKEND, '..', 'frontend', 'node_modules', '@anotoki', 'deploy', 'cli.mjs'), path.join(BACKEND, '..', '..', 'anotoki-lib', 'deploy', 'cli.mjs')].find((cli) =>
+    fs.existsSync(cli),
+  );
   execFileSync('node', [tool, 'build', '--root', path.join(BACKEND, '..'), '--frontend', BUILD, '--out', DIR], { stdio: 'inherit', env: { ...process.env, ACADEMY_ALLOW_DRAFT: waiting || '' } });
   const db = JSON.parse(php([TESTDB, 'site', NAME]));
   fs.mkdirSync(KEYS, { recursive: true });

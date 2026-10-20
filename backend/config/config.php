@@ -268,7 +268,8 @@ function config_read_file(string $which, ?string &$problem = null): ?array
     if ($read['problem'] !== null) {
         $problem = $read['problem'];
         config_said(
-            STATE_SHOWN . 'config/' .
+            STATE_SHOWN .
+                'config/' .
                 CONFIG_FILES[$which] .
                 " $problem: " .
                 (in_array($which, CONFIG_REQUIRED, true) ? 'this copy is not set up until it is mended.' : 'its defaults hold until it is mended.'),
@@ -330,7 +331,8 @@ function config_read_cloudflare(): ?array
     $secret = is_array($values) ? $values['origin_secret'] ?? null : null;
     if (!is_string($secret) || trim($secret) === '') {
         config_said(
-            STATE_SHOWN . 'config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.',
+            STATE_SHOWN .
+                'config/cloudflare.local.php holds no origin_secret (a string with something in it): no request carries its secret, so every request from Cloudflare\'s ranges counts as the edge it came from until the file names one - deleting the file switches the secret off.',
         );
         return ['origin_secret' => config_origin_secret_nobody_carries()];
     }
